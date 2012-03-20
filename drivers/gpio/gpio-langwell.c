@@ -35,6 +35,7 @@
 #include <linux/io.h>
 #include <linux/gpio.h>
 #include <linux/slab.h>
+#include <linux/lnw_gpio.h>
 #include <linux/pm_runtime.h>
 #include <linux/irqdomain.h>
 
@@ -84,6 +85,43 @@ static void __iomem *gpio_reg(struct gpio_chip *chip, unsigned offset,
 	ptr = (void __iomem *)(lnw->reg_base + reg_type * nreg * 4 + reg * 4);
 	return ptr;
 }
+
+void lnw_gpio_set_alt(int gpio, int alt)
+{
+	struct lnw_gpio *lnw;
+	u32 __iomem *mem;
+	int reg;
+	int bit;
+	u32 value;
+
+	/* use this trick to get memio */
+	lnw = irq_get_chip_data(gpio_to_irq(gpio));
+	if (!lnw) {
+		dev_err(lnw->chip.dev, "langwell_gpio: can not find pin %d\n", gpio);
+		return;
+	}
+	if (gpio < lnw->chip.base || gpio >= lnw->chip.base + lnw->chip.ngpio) {
+		dev_err(lnw->chip.dev, "langwell_gpio: wrong pin %d to config alt\n", gpio);
+		return;
+	}
+#if 0
+	if (lnw->irq_base + gpio - lnw->chip.base != gpio_to_irq(gpio)) {
+		dev_err(lnw->chip.dev, "langwell_gpio: wrong chip data for pin %d\n", gpio);
+		return;
+	}
+#endif
+	gpio -= lnw->chip.base;
+	reg = gpio / 16;
+	bit = gpio % 16;
+
+	mem = gpio_reg(&lnw->chip, 0, GAFR);
+	value = readl(mem + reg);
+	value &= ~(3 << (bit * 2));
+	value |= (alt & 3) << (bit * 2);
+	dev_dbg(lnw->chip.dev, "ALT: writing 0x%x to %p\n", value, mem + reg);
+	writel(value, mem + reg);
+}
+EXPORT_SYMBOL_GPL(lnw_gpio_set_alt);
 
 static void __iomem *gpio_reg_2bit(struct gpio_chip *chip, unsigned offset,
 				   enum GPIO_REG reg_type)
@@ -506,4 +544,4 @@ static int __init lnw_gpio_init(void)
 	return ret;
 }
 
-device_initcall(lnw_gpio_init);
+fs_initcall(lnw_gpio_init);
