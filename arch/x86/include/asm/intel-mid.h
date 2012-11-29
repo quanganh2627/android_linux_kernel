@@ -222,4 +222,7 @@ static inline enum intel_mid_sim_type intel_mid_identify_sim(void)
 }
 
 #define INTEL_MID_IRQ_OFFSET 0x100
+
+extern void pstore_ram_reserve_memory(void);
+
 #endif /* _ASM_X86_INTEL_MID_H */

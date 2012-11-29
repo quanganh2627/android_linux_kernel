@@ -1,6 +1,7 @@
 obj-$(CONFIG_X86_INTEL_MID) += intel-mid.o
 obj-$(CONFIG_X86_INTEL_MID)	+= intel_mid_vrtc.o
 obj-$(CONFIG_EARLY_PRINTK_INTEL_MID)	+= early_printk_intel_mid.o
+obj-$(CONFIG_INTEL_MID_PSTORE_RAM) += intel_mid_pstore_ram.o
 
 # SPID code
 obj-y += spid.o
