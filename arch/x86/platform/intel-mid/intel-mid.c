@@ -57,6 +57,10 @@
  */
 __cpuinitdata enum intel_mid_timer_options intel_mid_timer_options;
 
+/* intel_mid_ops to store sub arch ops */
+struct intel_mid_ops *intel_mid_ops;
+/* getter function for sub arch ops*/
+static void *(*get_intel_mid_ops[])(void) = INTEL_MID_OPS_INIT;
 enum intel_mid_cpu_type __intel_mid_cpu_chip;
 EXPORT_SYMBOL_GPL(__intel_mid_cpu_chip);
 
@@ -66,12 +70,21 @@ MODULE_PARM_DESC(force_cold_boot,
 		 "Set to Y to force a COLD BOOT instead of a COLD RESET "
 		 "on the next reboot system call.");
 
+static void intel_mid_power_off(void)
+{
+};
+
 static void intel_mid_reboot(void)
 {
 	if (force_cold_boot)
 		intel_scu_ipc_simple_command(IPCMSG_COLD_BOOT, 0);
 	else
 		intel_scu_ipc_simple_command(IPCMSG_COLD_RESET, 0);
+}
+
+static unsigned long __init intel_mid_calibrate_tsc(void)
+{
+	return 0;
 }
 
 static void __init intel_mid_time_init(void)
@@ -111,11 +124,28 @@ static void __cpuinit intel_mid_arch_setup(void)
 	case 0x35:
 		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_CLOVERVIEW;
 		break;
+	case 0x3C:
+	case 0x4A:
+		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_TANGIER;
+		break;
+	case 0x5A:
+		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_ANNIEDALE;
+		break;
 	case 0x27:
 	default:
 		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_PENWELL;
 		break;
 	}
+
+	if (__intel_mid_cpu_chip < MAX_CPU_OPS(get_intel_mid_ops))
+		intel_mid_ops = get_intel_mid_ops[__intel_mid_cpu_chip]();
+	else {
+		intel_mid_ops = get_intel_mid_ops[INTEL_MID_CPU_CHIP_PENWELL]();
+		pr_info("ARCH: Uknown SoC, assuming PENWELL!\n");
+	}
+
+	if (intel_mid_ops->arch_setup)
+		intel_mid_ops->arch_setup();
 }
 
 /* MID systems don't have i8042 controller */

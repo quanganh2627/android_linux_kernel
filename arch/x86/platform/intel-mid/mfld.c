@@ -36,11 +36,17 @@
 #include <asm/apb_timer.h>
 #include <asm/reboot.h>
 
-void intel_mid_power_off(void)
+static void penwell_arch_setup(void);
+/* penwell arch ops */
+static struct intel_mid_ops penwell_ops = {
+	.arch_setup = penwell_arch_setup,
+};
+
+static void mfld_power_off(void)
 {
 }
 
-unsigned long __init intel_mid_calibrate_tsc(void)
+static unsigned long __init mfld_calibrate_tsc(void)
 {
 	unsigned long fast_calibrate;
 	u32 lo, hi, ratio, fsb;
@@ -56,9 +62,9 @@ unsigned long __init intel_mid_calibrate_tsc(void)
 	}
 	rdmsr(MSR_FSB_FREQ, lo, hi);
 	if ((lo & 0x7) == 0x7)
-		fsb = PENWELL_FSB_FREQ_83SKU;
+		fsb = FSB_FREQ_83SKU;
 	else
-		fsb = PENWELL_FSB_FREQ_100SKU;
+		fsb = FSB_FREQ_100SKU;
 	fast_calibrate = ratio * fsb;
 	pr_debug("read penwell tsc %lu khz\n", fast_calibrate);
 	lapic_timer_frequency = fsb * 1000 / HZ;
@@ -69,4 +75,20 @@ unsigned long __init intel_mid_calibrate_tsc(void)
 		return fast_calibrate;
 
 	return 0;
+}
+
+static void penwell_arch_setup()
+{
+	x86_platform.calibrate_tsc = mfld_calibrate_tsc;
+	pm_power_off = mfld_power_off;
+}
+
+void *get_penwell_ops()
+{
+	return &penwell_ops;
+}
+
+void *get_cloverview_ops()
+{
+	return &penwell_ops;
 }

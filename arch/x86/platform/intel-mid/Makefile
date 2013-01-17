@@ -7,8 +7,10 @@ obj-$(CONFIG_SFI) += intel_mid_sfi.o
 
 # platform configuration for board devices
 obj-y += device_libs/
-# MFLD specific files
-obj-$(CONFIG_X86_INTEL_MID) += mfld.o
+
+# SoC specific files
+obj-$(CONFIG_X86_INTEL_MID) += mfld.o mrfl.o
 obj-$(CONFIG_X86_WANT_INTEL_MID) += vlv2.o
+
 # BOARD files
 obj-$(CONFIG_X86_INTEL_MID) += board.o
