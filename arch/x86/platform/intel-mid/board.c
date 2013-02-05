@@ -109,6 +109,7 @@
 #include "device_libs/platform_ov2722.h"
 #include "device_libs/platform_lm3559.h"
 #include "device_libs/platform_ov8830.h"
+#include "device_libs/platform_wm5102.h"
 
 /*
  * SPI devices
@@ -273,6 +274,7 @@ struct devs_id __initconst device_ids[] = {
 	{"soc_thrm", SFI_DEV_TYPE_IPC, 1, &no_platform_data,
 						&soc_thrm_device_handler},
 	{"wm8958", SFI_DEV_TYPE_I2C, 0, &wm8994_platform_data, NULL},
+	{"wm5102", SFI_DEV_TYPE_I2C, 0, &wm5102_platform_data, NULL},
 	{"lm49453_codec", SFI_DEV_TYPE_I2C, 1, &no_platform_data, NULL},
 	{"cs42l73", SFI_DEV_TYPE_I2C, 1, &cs42l73_platform_data, NULL},
 #ifndef CONFIG_HSI_NO_MODEM
