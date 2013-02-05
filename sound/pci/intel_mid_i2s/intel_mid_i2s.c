@@ -133,8 +133,11 @@ static struct platform_driver i2s_acpi_driver = {
 /*
  * Local functions declaration
  */
-static inline void i2s_enable(struct intel_mid_i2s_hdl *drv_data);
-static inline void i2s_disable(struct intel_mid_i2s_hdl *drv_data);
+static inline void i2s_enable(struct intel_mid_i2s_hdl *drv_data, bool enable);
+static inline void i2s_enable_dma_rx_intr(struct intel_mid_i2s_hdl *drv_data,
+								bool enable);
+static inline void i2s_enable_dma_tx_intr(struct intel_mid_i2s_hdl *drv_data,
+								bool enable);
 
 static void i2s_finalize_read(struct intel_mid_i2s_hdl *drv_data);
 static void i2s_finalize_write(struct intel_mid_i2s_hdl *drv_data);
@@ -504,12 +507,15 @@ int intel_mid_i2s_lli_rd_req(struct intel_mid_i2s_hdl *drv_data,
 	}
 	dev_dbg(drv_data->ssp_dev, "kzalloc rd done\n");
 
+	/* initialise scatterlist array */
+	sg_init_table(temp_sg, lli_length);
+
 	/*
 	 * Fill the Link list with Destination addresses
 	 * mutex_lock(&drv_data->mutex); between sg_set_buf not required ?
 	 */
 	drv_data->rxsgl = temp_sg;
-	for (i = 0; i <= lli_length; i++)
+	for (i = 0; i < lli_length; i++)
 		sg_set_buf(temp_sg++, lli_array[i].addr, lli_array[i].leng);
 
 	flag = DMA_PREP_INTERRUPT | DMA_CTRL_ACK;
@@ -594,6 +600,9 @@ int intel_mid_i2s_lli_wr_req(struct intel_mid_i2s_hdl *drv_data,
 		return -ENOMEM;
 	}
 	dev_dbg(drv_data->ssp_dev, "kzalloc wr done\n");
+
+	/* initialise scatterlist array */
+	sg_init_table(temp_sg, lli_length);
 
 	/*
 	 * Fill the Link list with Source addresses
@@ -1096,9 +1105,9 @@ void intel_mid_i2s_close(struct intel_mid_i2s_hdl *drv_data)
 	}
 
 	reg = drv_data->ioaddr;
-	dev_dbg(drv_data->ssp_dev, "Stopping the SSP\n");
-	i2s_disable(drv_data);
-	put_device(drv_data->ssp_dev);
+	dev_dbg(&drv_data->pdev->dev, "Stopping the SSP\n");
+	i2s_enable(drv_data, false);
+	put_device(&drv_data->pdev->dev);
 	write_SSCR0(0, reg);
 	/*
 	 * Set the SSP in SLAVE Mode and Enable TX tristate
@@ -1127,25 +1136,57 @@ EXPORT_SYMBOL_GPL(intel_mid_i2s_close);
  */
 
 /**
- * i2s_enable -  enable SSP device
+ * i2s_enable -  Enable/disable SSP device
  * @drv_data : pointer to driver data
- *
+ * @enable : boolean to either enable or disable device
  * Writes SSP register to enable the device
  */
-static inline void i2s_enable(struct intel_mid_i2s_hdl *drv_data)
+static inline void i2s_enable(struct intel_mid_i2s_hdl *drv_data, bool enable)
 {
-	set_SSCR0_reg(drv_data->ioaddr, SSE);
+	if (enable)
+		set_SSCR0_reg(drv_data->ioaddr, SSE)
+	else
+		clear_SSCR0_reg(drv_data->ioaddr, SSE)
 }
 
 /**
- * i2s_disable -  disable SSP device
+ * i2s_enable_dma_rx_intr -  Enables/disables the Receive FIFO DMA Service Request
  * @drv_data : pointer to driver data
- *
- * Writes SSP register to disable the device
+ * @enable : boolean to either enable or disable service request
+ * Writes SSP register to enable Service Request
  */
-static inline void i2s_disable(struct intel_mid_i2s_hdl *drv_data)
+static inline void i2s_enable_dma_rx_intr(struct intel_mid_i2s_hdl *drv_data,
+							bool enable)
 {
-	clear_SSCR0_reg(drv_data->ioaddr, SSE);
+	if (enable) {
+		set_SSCR1_reg(drv_data->ioaddr, RSRE)
+		change_SSCR0_reg((drv_data->ioaddr), RIM,
+			((drv_data->current_settings).rx_fifo_interrupt));
+	} else {
+		change_SSCR0_reg(drv_data->ioaddr, RIM,
+						 SSP_RX_FIFO_OVER_INT_DISABLE);
+		clear_SSCR1_reg(drv_data->ioaddr, RSRE)
+	}
+}
+
+/**
+ * i2s_enable_dma_tx_intr -  Enables/disables the Transmit FIFO DMA Service Request
+ * @drv_data : pointer to driver data
+ * @enable : boolean to either enable or disable service request
+ * Writes SSP register to enable Service Request
+ */
+static inline void i2s_enable_dma_tx_intr(struct intel_mid_i2s_hdl *drv_data,
+							bool enable)
+{
+	if (enable) {
+		set_SSCR1_reg(drv_data->ioaddr, TSRE)
+		change_SSCR0_reg((drv_data->ioaddr), TIM,
+			((drv_data->current_settings).tx_fifo_interrupt));
+	} else {
+		change_SSCR0_reg(drv_data->ioaddr, TIM,
+						 SSP_TX_FIFO_UNDER_INT_DISABLE);
+		clear_SSCR1_reg(drv_data->ioaddr, TSRE)
+	}
 }
 
 /**
@@ -1327,14 +1368,7 @@ static void i2s_lli_read_done(void *arg)
 		dev_warn(drv_data->ssp_dev, "spurious read dma complete");
 
 	reg = drv_data->ioaddr;
-	/* Rx fifo overrun Interrupt */
-	change_SSCR0_reg(reg, RIM, SSP_RX_FIFO_OVER_INT_DISABLE);
 	param_complete = drv_data->read_param;
-	/* Do not change order sequence:
-	 * READ_BUSY clear, then test PORT_CLOSING
-	 * wakeup for close() function
-	 */
-	clear_bit(I2S_PORT_READ_BUSY, &drv_data->flags);
 
 	if (test_bit(I2S_PORT_CLOSING, &drv_data->flags))
 		return;
@@ -1405,20 +1439,12 @@ static void i2s_lli_write_done(void *arg)
 	if (!drv_data)
 		return;
 	if (!test_bit(I2S_PORT_WRITE_BUSY, &drv_data->flags))
-		dev_warn(drv_data->ssp_dev, "spurious write dma complete");
+		dev_warn(&drv_data->pdev->dev, "spurious write dma complete");
 
-	dev_dbg(drv_data->ssp_dev, "lli wr Done!\n");
+	dev_dbg(&drv_data->pdev->dev, "lli wr Done!\n");
 
 	reg = drv_data->ioaddr;
-	change_SSCR0_reg(reg, TIM, SSP_TX_FIFO_UNDER_INT_DISABLE);
-	dev_dbg(drv_data->ssp_dev, "DMA channel disable..\n");
 	param_complete = drv_data->write_param;
-
-	/* Do not change order sequence:
-	 * WRITE_BUSY clear, then test PORT_CLOSING
-	 * wakeup for close() function
-	 */
-	clear_bit(I2S_PORT_WRITE_BUSY, &drv_data->flags);
 
 	if (test_bit(I2S_PORT_CLOSING, &drv_data->flags))
 		return;
@@ -1532,7 +1558,7 @@ int intel_mid_i2s_command(struct intel_mid_i2s_hdl *drv_data,
 			i2s_finalize_read(drv_data);
 		}
 
-		i2s_disable(drv_data);
+		i2s_enable(drv_data, false);
 		break;
 
 	case SSP_CMD_SET_HW_CONFIG:
@@ -1561,11 +1587,27 @@ int intel_mid_i2s_command(struct intel_mid_i2s_hdl *drv_data,
 		}
 
 	}
-		i2s_enable(drv_data);
+		i2s_enable(drv_data, true);
 		break;
 
 	case SSP_CMD_DISABLE_SSP:
-		i2s_disable(drv_data);
+		i2s_enable(drv_data, false);
+		break;
+
+	case SSP_CMD_ENABLE_DMA_RX_INTR:
+		i2s_enable_dma_rx_intr(drv_data, true);
+		break;
+
+	case SSP_CMD_ENABLE_DMA_TX_INTR:
+		i2s_enable_dma_tx_intr(drv_data, true);
+		break;
+
+	case SSP_CMD_DISABLE_DMA_RX_INTR:
+		i2s_enable_dma_rx_intr(drv_data, false);
+		break;
+
+	case SSP_CMD_DISABLE_DMA_TX_INTR:
+		i2s_enable_dma_tx_intr(drv_data, false);
 		break;
 
 	case SSP_CMD_ALLOC_TX:
@@ -1599,6 +1641,7 @@ int intel_mid_i2s_command(struct intel_mid_i2s_hdl *drv_data,
 		txs->hs_mode = LNW_DMA_HW_HS;
 		txs->cfg_mode = LNW_DMA_MEM_TO_PER;
 		txs->dma_slave.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+		txs->dma_slave.dst_addr = (drv_data->paddr + OFFSET_SSDR);
 
 		temp = i2s_compute_dma_width(ssp_settings->data_size,
 						&txs->dma_slave.dst_addr_width);
@@ -1736,6 +1779,7 @@ int intel_mid_i2s_command(struct intel_mid_i2s_hdl *drv_data,
 
 		}
 		rxs->dma_slave.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+		rxs->dma_slave.src_addr = (drv_data->paddr + OFFSET_SSDR);
 
 		temp = i2s_compute_dma_msize(
 			ssp_settings->ssp_rx_fifo_threshold
@@ -2666,7 +2710,7 @@ static void set_ssp_i2s_hw(struct intel_mid_i2s_hdl *drv_data,
 #endif /* __MRFL_SPECIFIC__ */
 
 	/* disable SSP */
-	i2s_disable(drv_data);
+	i2s_enable(drv_data, false);
 	dev_dbg(ddbg, "WRITE SSCR0 DISABLE\n");
 
 	/* Clear status */
