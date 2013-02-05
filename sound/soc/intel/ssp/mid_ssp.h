@@ -79,7 +79,6 @@
 struct intel_ssp_config {
 	struct intel_mid_i2s_hdl *i2s_handle;
 	struct intel_mid_i2s_settings i2s_settings;
-	bool intel_mid_dma_alloc;
 	bool ssp_dai_tx_allocated;
 	bool ssp_dai_rx_allocated;
 };
