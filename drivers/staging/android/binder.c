@@ -671,9 +671,8 @@ static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
 
 	if (is_async &&
 	    proc->free_async_space < size + sizeof(struct binder_buffer)) {
-		binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
-			     "%d: binder_alloc_buf size %zd failed, no async space left\n",
-			      proc->pid, size);
+		pr_err("%d: binder_alloc_buf size %zd failed, no async space left\n",
+		       proc->pid, size);
 		return NULL;
 	}
 
