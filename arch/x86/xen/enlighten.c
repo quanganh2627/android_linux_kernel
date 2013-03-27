@@ -314,14 +314,6 @@ static void xen_cpuid(unsigned int *ax, unsigned int *bx,
 		maskedx = cpuid_leaf1_edx_mask;
 		break;
 
-	case CPUID_MWAIT_LEAF:
-		/* Synthesize the values.. */
-		*ax = 0;
-		*bx = 0;
-		*cx = cpuid_leaf5_ecx_val;
-		*dx = cpuid_leaf5_edx_val;
-		return;
-
 	case CPUID_THERM_POWER_LEAF:
 		/* Disabling APERFMPERF for kernel usage */
 		maskecx = ~(1 << APERFMPERF_PRESENT);
