@@ -98,10 +98,18 @@ static bool mfld_pmu_enter(int s0ix_state)
 
 static void mfld_pmu_wakeup(void)
 {
-
+#ifdef CONFIG_XEN
+	int cpu;
+	int self = smp_processor_id();
 	/* Wakeup allother CPU's */
 	if (mid_pmu_cxt->s0ix_entered)
+		for (cpu = 0; cpu < nr_cpu_ids; cpu++)
+			if (cpu != self)
+				smp_send_reschedule(cpu);
+#else
+	if (mid_pmu_cxt->s0ix_entered)
 		apic->send_IPI_allbutself(RESCHEDULE_VECTOR);
+#endif
 
 	clear_c6offload_bit();
 }
