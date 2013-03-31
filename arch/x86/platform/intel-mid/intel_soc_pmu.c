@@ -261,7 +261,8 @@ void log_wakeup_irq(void)
 
 	for (offset = (FIRST_EXTERNAL_VECTOR/32);
 	offset < (NR_VECTORS/32); offset++) {
-		irr = apic_read(APIC_IRR + (offset * 0x10));
+		irr = apic->read(APIC_IRR + (offset * 0x10));
+
 		while (irr) {
 			vector = __ffs(irr);
 			irr &= ~(1 << vector);
