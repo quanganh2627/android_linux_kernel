@@ -1231,6 +1231,7 @@ void xen_send_IPI_one(unsigned int cpu, enum ipi_vector vector)
 	int irq = per_cpu(ipi_to_irq, cpu)[vector];
 	BUG_ON(irq < 0);
 	notify_remote_via_irq(irq);
+	HYPERVISOR_ipi_op(cpu);
 }
 
 irqreturn_t xen_debug_interrupt(int irq, void *dev_id)

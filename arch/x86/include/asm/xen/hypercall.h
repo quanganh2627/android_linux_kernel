@@ -462,6 +462,12 @@ HYPERVISOR_mwait_op(unsigned long eax, unsigned long ecx,
 }
 
 static inline int
+HYPERVISOR_ipi_op(unsigned long cpu)
+{
+	return _hypercall1(int, ipi_op, cpu);
+}
+
+static inline int
 HYPERVISOR_nmi_op(unsigned long op, unsigned long arg)
 {
 	return _hypercall2(int, nmi_op, op, arg);
