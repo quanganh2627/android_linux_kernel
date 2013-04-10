@@ -1807,6 +1807,11 @@ void xen_irq_resume(void)
 	restore_pirqs();
 }
 
+static int pirq_set_wake(struct irq_data data, unsigned int on)
+{
+	return 0;
+}
+
 static struct irq_chip xen_dynamic_chip __read_mostly = {
 	.name			= "xen-dyn",
 
@@ -1831,6 +1836,8 @@ static struct irq_chip xen_pirq_chip __read_mostly = {
 
 	.irq_mask		= disable_dynirq,
 	.irq_unmask		= enable_dynirq,
+
+	.irq_set_wake           = pirq_set_wake,
 
 	.irq_ack		= eoi_pirq,
 	.irq_eoi		= eoi_pirq,
