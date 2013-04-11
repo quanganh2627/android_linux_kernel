@@ -31,6 +31,8 @@
 /*#include <linux/export.h>*/
 #include "dx_driver.h"
 #include "dx_sepapp_kapi.h"
+#include "sep_applets.h"
+#include "sep_power.h"
 
 /* Global drvdata to be used by kernel clients via dx_sepapp_ API */
 static struct sep_drvdata *kapps_drvdata;
@@ -878,3 +880,63 @@ void dx_sepapp_init(struct sep_drvdata *drvdata)
 {
 	kapps_drvdata = drvdata;	/* Save for dx_sepapp_ API */
 }
+
+int sepapp_image_verify(u8 *addr, ssize_t size, u32 key_index, u32 magic_num)
+{
+	int sess_id = 0;
+	enum dxdi_sep_module ret_origin;
+	struct sep_client_ctx *sctx = NULL;
+	u8 uuid[16] = DEFAULT_APP_UUID;
+	struct dxdi_sepapp_kparams cmd_params;
+	int rc = 0;
+
+	printk(KERN_INFO "image verify: addr %08p size: %d key_index: %08X magic_num: %08X\n",
+		addr, size, key_index, magic_num);
+
+	cmd_params.params_types[0] = DXDI_SEPAPP_PARAM_VAL;
+	cmd_params.params[0].val.data[0] = (u32)addr;
+	cmd_params.params[0].val.data[1] = 0;
+	cmd_params.params[0].val.copy_dir = DXDI_DATA_TO_DEVICE;
+
+	cmd_params.params_types[1] = DXDI_SEPAPP_PARAM_VAL;
+	cmd_params.params[1].val.data[0] = (u32)size;
+	cmd_params.params[1].val.data[1] = 0;
+	cmd_params.params[1].val.copy_dir = DXDI_DATA_TO_DEVICE;
+
+	cmd_params.params_types[2] = DXDI_SEPAPP_PARAM_VAL;
+	cmd_params.params[2].val.data[0] = key_index;
+	cmd_params.params[2].val.data[1] = 0;
+	cmd_params.params[2].val.copy_dir = DXDI_DATA_TO_DEVICE;
+
+	cmd_params.params_types[3] = DXDI_SEPAPP_PARAM_VAL;
+	cmd_params.params[3].val.data[0] = magic_num;
+	cmd_params.params[3].val.data[1] = 0;
+	cmd_params.params[3].val.copy_dir = DXDI_DATA_TO_DEVICE;
+
+	sctx = dx_sepapp_context_alloc();
+	if (unlikely(!sctx))
+		return -ENOMEM;
+
+#ifdef SEP_RUNTIME_PM
+	dx_sep_pm_runtime_get();
+#endif
+
+	rc = dx_sepapp_session_open(sctx, uuid, 0, NULL, NULL, &sess_id,
+					&ret_origin);
+	if (unlikely(rc != 0))
+		goto failed;
+
+	rc = dx_sepapp_command_invoke(sctx, sess_id, CMD_IMAGE_VERIFY,
+					&cmd_params, &ret_origin);
+
+	dx_sepapp_session_close(sctx, sess_id);
+
+failed:
+#ifdef SEP_RUNTIME_PM
+	dx_sep_pm_runtime_put();
+#endif
+
+	dx_sepapp_context_free(sctx);
+	return rc;
+}
+EXPORT_SYMBOL(sepapp_image_verify);

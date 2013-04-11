@@ -27,5 +27,6 @@
 	0xFA, 0x03, 0xDE, 0xFA, 0x04, 0xDE, 0xFA, 0xFF }
 
 #define CMD_RPMB_ENABLE          1
+#define CMD_IMAGE_VERIFY         3
 
 #endif /* _SEP_APPLETS_H_ */
