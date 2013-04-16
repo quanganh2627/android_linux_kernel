@@ -26,6 +26,7 @@
 #include <sound/compress_driver.h>
 #include <sound/control.h>
 #include <sound/ac97_codec.h>
+#include <sound/effect_driver.h>
 
 /*
  * Convenience kcontrol builders
@@ -426,6 +427,21 @@ struct snd_pcm_substream *snd_soc_get_dai_substream(struct snd_soc_card *card,
 		const char *dai_link, int stream);
 struct snd_soc_pcm_runtime *snd_soc_get_pcm_runtime(struct snd_soc_card *card,
 		const char *dai_link);
+#if IS_ENABLED(CONFIG_SND_EFFECTS_OFFLOAD)
+int snd_soc_register_effect(struct snd_soc_card *card,
+				struct snd_effect_ops *ops);
+int snd_soc_unregister_effect(struct snd_soc_card *card);
+#else
+static inline int snd_soc_register_effect(struct snd_soc_card *card,
+					struct snd_effect_ops *ops)
+{
+	return -ENODEV;
+}
+static inline int snd_soc_unregister_effect(struct snd_soc_card *card)
+{
+	return -ENODEV;
+}
+#endif
 
 /* Utility functions to get clock rates from various things */
 int snd_soc_calc_frame_size(int sample_size, int channels, int tdm_slots);

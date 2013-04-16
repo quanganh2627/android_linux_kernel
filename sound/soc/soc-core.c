@@ -4282,6 +4282,23 @@ found:
 }
 EXPORT_SYMBOL_GPL(snd_soc_unregister_component);
 
+#if IS_ENABLED(CONFIG_SND_EFFECTS_OFFLOAD)
+int snd_soc_register_effect(struct snd_soc_card *card,
+				struct snd_effect_ops *ops)
+{
+	return snd_effect_register(card->snd_card, ops);
+
+}
+EXPORT_SYMBOL_GPL(snd_soc_register_effect);
+
+int snd_soc_unregister_effect(struct snd_soc_card *card)
+{
+	return snd_effect_deregister(card->snd_card);
+
+}
+EXPORT_SYMBOL_GPL(snd_soc_unregister_effect);
+#endif
+
 /* Retrieve a card's name from device tree */
 int snd_soc_of_parse_card_name(struct snd_soc_card *card,
 			       const char *propname)
