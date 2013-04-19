@@ -493,6 +493,20 @@ struct intel_unpin_work {
 #define INTEL_FLIP_COMPLETE	2
 	bool enable_stall_check;
 };
+/*VLV clock bending*/
+#define VLV_ACCUMULATOR_SIZE	249
+#define ACCURACY_MULTIPLIER	1000000
+#define BENDADJUST_MULT		10000000
+#define PPM_MULTIPLIER		1000000
+#define NANOSEC_MULTIPLIER	1000000000
+#define INVERSE_BEND_RESOLUTION	(VLV_ACCUMULATOR_SIZE*48*128)
+
+struct intel_program_clock_bending {
+	u32 dotclock;
+	u32 referenceclk;
+	u32 targetclk;
+	bool is_enable;
+};
 
 int intel_pch_rawclk(struct drm_device *dev);
 
@@ -792,5 +806,9 @@ extern void hsw_pc8_disable_interrupts(struct drm_device *dev);
 extern void hsw_pc8_restore_interrupts(struct drm_device *dev);
 extern void intel_aux_display_runtime_get(struct drm_i915_private *dev_priv);
 extern void intel_aux_display_runtime_put(struct drm_i915_private *dev_priv);
+
+/* VLV LP clock bending */
+extern void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
+		struct intel_program_clock_bending *clockbendargs);
 
 #endif /* __INTEL_DRV_H__ */
