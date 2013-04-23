@@ -424,6 +424,7 @@ struct intel_hdmi {
 	bool has_hdmi_sink;
 	bool has_audio;
 	enum hdmi_force_audio force_audio;
+	enum hdmi_panel_fitter pfit;
 	bool rgb_quant_range_selectable;
 	void (*write_infoframe)(struct drm_encoder *encoder,
 				enum hdmi_infoframe_type type,
@@ -537,6 +538,7 @@ extern void intel_attach_force_audio_property(struct drm_connector *connector);
 extern void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
 
 extern bool intel_pipe_has_type(struct drm_crtc *crtc, int type);
+extern void intel_attach_force_pfit_property(struct drm_connector *connector);
 extern void intel_crt_init(struct drm_device *dev);
 extern void intel_hdmi_init(struct drm_device *dev,
 			    int hdmi_reg, enum port port);
