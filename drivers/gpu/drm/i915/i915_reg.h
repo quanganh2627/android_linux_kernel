@@ -3458,6 +3458,7 @@ EDP_PSR_SW_TIMER
 #define _DSPATILEOFF		(dev_priv->info->display_mmio_offset + 0x701A4) /* 965+ only */
 #define _DSPAOFFSET		(dev_priv->info->display_mmio_offset + 0x701A4) /* HSW */
 #define _DSPASURFLIVE		(dev_priv->info->display_mmio_offset + 0x701AC)
+#define _VLV_DSPAADDR		(dev_priv->info->display_mmio_offset + 0x7017C)
 
 #define DSPCNTR(plane) _PIPE(plane, _DSPACNTR, _DSPBCNTR)
 #define DSPADDR(plane) _PIPE(plane, _DSPAADDR, _DSPBADDR)
@@ -3469,6 +3470,7 @@ EDP_PSR_SW_TIMER
 #define DSPLINOFF(plane) DSPADDR(plane)
 #define DSPOFFSET(plane) _PIPE(plane, _DSPAOFFSET, _DSPBOFFSET)
 #define DSPSURFLIVE(plane) _PIPE(plane, _DSPASURFLIVE, _DSPBSURFLIVE)
+#define VLV_DSPADDR(plane) _PIPE(plane, _VLV_DSPAADDR, _VLV_DSPBADDR)
 
 /* Display/Sprite base address macros */
 #define DISP_BASEADDR_MASK	(0xfffff000)
@@ -3516,6 +3518,7 @@ EDP_PSR_SW_TIMER
 #define _DSPBTILEOFF		(dev_priv->info->display_mmio_offset + 0x711A4)
 #define _DSPBOFFSET		(dev_priv->info->display_mmio_offset + 0x711A4)
 #define _DSPBSURFLIVE		(dev_priv->info->display_mmio_offset + 0x711AC)
+#define _VLV_DSPBADDR		(dev_priv->info->display_mmio_offset + 0x7117C)
 
 /* Sprite A control */
 #define _DVSACNTR		0x72180
@@ -3717,6 +3720,9 @@ EDP_PSR_SW_TIMER
 #define SPTILEOFF(pipe, plane) _PIPE(pipe * 2 + plane, _SPATILEOFF, _SPBTILEOFF)
 #define SPCONSTALPHA(pipe, plane) _PIPE(pipe * 2 + plane, _SPACONSTALPHA, _SPBCONSTALPHA)
 #define SPGAMC(pipe, plane) _PIPE(pipe * 2 + plane, _SPAGAMC, _SPBGAMC)
+
+#define	  PLANE_RESERVED_REG_BIT_2_ENABLE	(1 << 2)
+#define          CURSOR_DECRYPTION_ENABLE      (1<<4)
 
 /* VBIOS regs */
 #define VGACNTRL		0x71400
