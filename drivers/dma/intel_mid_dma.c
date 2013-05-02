@@ -453,7 +453,8 @@ static void midc_descriptor_complete(struct intel_mid_dma_chan *midc,
 	struct intel_mid_dma_lli	*llitem;
 	void *param_txd = NULL;
 
-	dma_cookie_complete(txd);
+	pr_debug("tx cookie after complete = %d\n", txd->cookie);
+
 	callback_txd = txd->callback;
 	param_txd = txd->callback_param;
 
@@ -467,6 +468,7 @@ static void midc_descriptor_complete(struct intel_mid_dma_chan *midc,
 			desc->current_lli = 0;
 	}
 	if (midc->raw_tfr) {
+		dma_cookie_complete(txd);
 		list_del(&desc->desc_node);
 		desc->status = DMA_SUCCESS;
 		if (desc->lli != NULL && desc->lli->llp != 0)
@@ -637,6 +639,7 @@ static dma_cookie_t intel_mid_dma_tx_submit(struct dma_async_tx_descriptor *tx)
 	}
 
 	cookie = dma_cookie_assign(tx);
+	pr_debug("Allocated cookie = %d\n", cookie);
 
 	if (list_empty(&midc->active_list))
 		list_add_tail(&desc->desc_node, &midc->active_list);
@@ -787,6 +790,7 @@ static int intel_mid_dma_device_control(struct dma_chan *chan,
 	struct intel_mid_dma_chan	*midc = to_intel_mid_dma_chan(chan);
 	struct middma_device	*mid = to_middma_device(chan->device);
 	struct intel_mid_dma_desc	*desc, *_desc;
+	struct dma_async_tx_descriptor	*txd;
 
 	pr_debug("%s:CMD:%d for channel:%d\n", __func__, cmd, midc->ch_id);
 	if (cmd == DMA_SLAVE_CONFIG)
@@ -800,6 +804,7 @@ static int intel_mid_dma_device_control(struct dma_chan *chan,
 		spin_unlock_bh(&midc->lock);
 		return 0;
 	}
+
 	/* Disable CH interrupts */
 	disable_dma_interrupt(midc);
 	/* clear channel interrupts */
@@ -808,6 +813,10 @@ static int intel_mid_dma_device_control(struct dma_chan *chan,
 	midc->busy = false;
 	midc->descs_allocated = 0;
 	list_for_each_entry_safe(desc, _desc, &midc->active_list, desc_node) {
+		if (desc->status == DMA_IN_PROGRESS) {
+			txd = &desc->txd;
+			dma_cookie_complete(txd);
+		}
 		list_del(&desc->desc_node);
 		if (desc->lli != NULL)
 			dma_pool_free(desc->lli_pool, desc->lli,
