@@ -164,6 +164,12 @@ static struct mmc_blk_data *mmc_blk_get(struct gendisk *disk)
 	return md;
 }
 
+int mmc_access_rpmb(struct mmc_queue *mq)
+{
+	struct mmc_blk_data *md = mq->data;
+	return md && md->part_type == EXT_CSD_PART_CONFIG_ACC_RPMB;
+}
+
 static inline int mmc_get_devidx(struct gendisk *disk)
 {
 	int devidx = disk->first_minor / perdev_minors;
