@@ -52,6 +52,13 @@ static bool is_edp(struct intel_dp *intel_dp)
 	return intel_dig_port->base.type == INTEL_OUTPUT_EDP;
 }
 
+static struct intel_dp *intel_dev_to_dp(struct drm_device *device)
+{
+	struct drm_encoder *drm_encoder = container_of(device, struct drm_encoder, dev);  
+
+	return enc_to_intel_dp(drm_encoder);
+}
+
 static struct drm_device *intel_dp_to_dev(struct intel_dp *intel_dp)
 {
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
@@ -3937,5 +3944,43 @@ intel_dp_init(struct drm_device *dev, int output_reg, enum port port)
 		drm_encoder_cleanup(encoder);
 		kfree(intel_dig_port);
 		kfree(intel_connector);
+	}
+}
+
+void intel_edp_psr_ctl_ioctl(struct drm_device *device, void *data,
+					struct drm_file *file)
+{
+	struct intel_dp *intel_dp = intel_dev_to_dp(device);
+	struct drm_i915_edp_psr_ctl *edp_psr_ctl =
+				(struct drm_i915_edp_psr_ctl *)data;
+
+	if (intel_dp == NULL) {
+		DRM_ERROR("Intel Dp  = NULL");
+	} else {
+		if (edp_psr_ctl->state == 1) {
+			intel_edp_enable_psr(intel_dp, EDP_PSR_MODE,
+					edp_psr_ctl->idle_frames);
+		} else {
+			intel_edp_disable_psr(intel_dp, EDP_PSR_MODE);
+		}
+	}
+}
+
+void intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
+						struct drm_file *file)
+{
+	struct intel_dp *intel_dp = intel_dev_to_dp(device);
+
+	if (intel_dp == NULL) {
+		DRM_ERROR("Intel Dp  = NULL");
+	} else {
+		/*
+		For SW Timer mode, exit and disable have the exact
+		implementation, hence reusing
+		*/
+		if (EDP_PSR_MODE == EDP_PSR_HW_TIMER)
+			intel_edp_exit_psr(intel_dp);
+		else
+			intel_edp_disable_psr(intel_dp, EDP_PSR_MODE);
 	}
 }
