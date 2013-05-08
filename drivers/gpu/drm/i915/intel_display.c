@@ -41,6 +41,8 @@
 #include <drm/drm_crtc_helper.h>
 #include <linux/dma_remapping.h>
 
+#define MAX_BRIGHTNESS	255
+
 bool intel_pipe_has_type(struct drm_crtc *crtc, int type);
 static void intel_increase_pllclock(struct drm_crtc *crtc);
 static void intel_crtc_update_cursor(struct drm_crtc *crtc, bool on);
@@ -10955,4 +10957,58 @@ intel_display_print_error_state(struct drm_i915_error_state_buf *m,
 		err_printf(m, "  POS: %08x\n", error->cursor[i].position);
 		err_printf(m, "  BASE: %08x\n", error->cursor[i].base);
 	}
+}
+
+int i915_disp_screen_control(struct drm_device *dev, void *data,
+			struct drm_file *file)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_disp_screen_control *screen_cntrl = data;
+	struct drm_mode_object *obj;
+	struct drm_crtc *crtc;
+	struct intel_crtc *intel_crtc;
+	int pipe;
+	u32 val;
+	static u32 previous_bck_level;
+
+	obj = drm_mode_object_find(dev, screen_cntrl->crtc_id,
+			DRM_MODE_OBJECT_CRTC);
+
+	if (!obj) {
+		DRM_DEBUG_DRIVER("Unknown CRTC ID %d\n", screen_cntrl->crtc_id);
+		return -EINVAL;
+	}
+
+	 crtc = obj_to_crtc(obj);
+	DRM_DEBUG_DRIVER("[CRTC:%d]\n", crtc->base.id);
+	intel_crtc = to_intel_crtc(crtc);
+	pipe = intel_crtc->pipe;
+
+	DRM_DEBUG_DRIVER("pipe = %d, on_off_cntrl = %d", \
+			pipe, screen_cntrl->on_off_cntrl);
+
+	if (intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP)) {
+		if (screen_cntrl->on_off_cntrl == DISP_SCREEN_OFF) {
+			previous_bck_level = dev_priv->backlight.level;
+			intel_panel_set_backlight(dev, 0, MAX_BRIGHTNESS);
+		} else if (screen_cntrl->on_off_cntrl == DISP_SCREEN_ON)
+			intel_panel_set_backlight(dev, previous_bck_level, MAX_BRIGHTNESS);
+
+	} else if (intel_pipe_has_type(crtc, INTEL_OUTPUT_HDMI)) {
+		val = I915_READ(PIPECONF(pipe));
+		if (screen_cntrl->on_off_cntrl == DISP_SCREEN_OFF) {
+			if (!(val & PIPECONF_DISP_OVERLAY_OFF))
+				val |= PIPECONF_DISP_OVERLAY_OFF;
+			if (!(val & PIPECONF_CURSOR_OFF))
+				val |= PIPECONF_CURSOR_OFF;
+		} else if (screen_cntrl->on_off_cntrl == DISP_SCREEN_ON) {
+			if (val & PIPECONF_DISP_OVERLAY_OFF)
+				val &= ~PIPECONF_DISP_OVERLAY_OFF;
+			if (val & PIPECONF_CURSOR_OFF)
+				val &= ~PIPECONF_CURSOR_OFF;
+		}
+		I915_WRITE(PIPECONF(pipe), val);
+	}
+
+	return 0;
 }

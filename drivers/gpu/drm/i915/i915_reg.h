@@ -2981,6 +2981,8 @@
 #define   PIPECONF_FORCE_BORDER	(1<<25)
 #define   PIPECONF_INTERLACE_MASK	(7 << 21)
 #define   PIPECONF_INTERLACE_MASK_HSW	(3 << 21)
+#define   PIPECONF_DISP_OVERLAY_OFF     (1 << 19)
+#define   PIPECONF_CURSOR_OFF           (1 << 18)
 /* Note that pre-gen3 does not support interlaced display directly. Panel
  * fitting must be disabled on pre-ilk for interlaced. */
 #define   PIPECONF_PROGRESSIVE			(0 << 21)
@@ -4434,6 +4436,9 @@
 
 #define PCH_LVDS	0xe1180
 #define  LVDS_DETECTED	(1 << 1)
+
+#define DISP_SCREEN_OFF		0
+#define DISP_SCREEN_ON		1
 
 /* vlv has 2 sets of panel control regs. */
 #define PIPEA_PP_STATUS         (VLV_DISPLAY_BASE + 0x61200)
