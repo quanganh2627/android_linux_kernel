@@ -417,6 +417,7 @@ struct intel_hdmi {
 
 #define DP_MAX_DOWNSTREAM_PORTS		0x10
 #define DP_LINK_CONFIGURATION_SIZE	9
+#define EDP_PSR_RECEIVER_CAP_SIZE	2
 
 struct intel_dp {
 	uint32_t output_reg;
@@ -450,6 +451,7 @@ struct intel_digital_port {
 	struct intel_encoder base;
 	enum port port;
 	u32 saved_port_bits;
+	uint8_t psr_setup;
 	struct intel_dp dp;
 	struct intel_hdmi hdmi;
 };
@@ -807,6 +809,11 @@ extern void hsw_pc8_restore_interrupts(struct drm_device *dev);
 extern void intel_aux_display_runtime_get(struct drm_i915_private *dev_priv);
 extern void intel_aux_display_runtime_put(struct drm_i915_private *dev_priv);
 
+/* intel_dp.c */
+extern void intel_edp_psr_ctl_ioctl(struct drm_device *device, void *data,
+					struct drm_file *file_priv);
+extern void intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
+					struct drm_file *file_priv);
 /* VLV LP clock bending */
 extern void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
 		struct intel_program_clock_bending *clockbendargs);
