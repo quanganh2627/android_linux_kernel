@@ -1149,7 +1149,7 @@ static void assert_planes_disabled(struct drm_i915_private *dev_priv,
 	int cur_pipe;
 
 	/* Primary planes are fixed to pipes on gen4+ */
-	if (INTEL_INFO(dev)->gen >= 4) {
+	if ((INTEL_INFO(dev)->gen >= 4  || IS_VALLEYVIEW(dev_priv->dev))) {
 		reg = DSPCNTR(pipe);
 		val = I915_READ(reg);
 		WARN((val & DISPLAY_PLANE_ENABLE),
