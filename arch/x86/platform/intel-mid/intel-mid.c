@@ -100,14 +100,23 @@ static void __init intel_mid_time_init(void)
 
 static void __cpuinit intel_mid_arch_setup(void)
 {
-	if (boot_cpu_data.x86 == 6 && boot_cpu_data.x86_model == 0x27)
-		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_PENWELL;
-	else if (boot_cpu_data.x86 == 6 && boot_cpu_data.x86_model == 0x35)
-		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_CLOVERVIEW;
-	else {
+	if (boot_cpu_data.x86 != 6) {
 		pr_err("Unknown Intel MID CPU (%d:%d), default to Penwell\n",
 			boot_cpu_data.x86, boot_cpu_data.x86_model);
 		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_PENWELL;
+		return;
+	}
+	switch (boot_cpu_data.x86_model) {
+	case 0x35:
+		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_CLOVERVIEW;
+		break;
+	case 0x37:
+		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_VALLEYVIEW2;
+		valleyview2_arch_setup();
+	case 0x27:
+	default:
+		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_PENWELL;
+		break;
 	}
 }
 

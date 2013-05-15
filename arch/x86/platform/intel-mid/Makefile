@@ -9,5 +9,6 @@ obj-$(CONFIG_SFI) += intel_mid_sfi.o
 obj-y += device_libs/
 # MFLD specific files
 obj-$(CONFIG_X86_INTEL_MID) += mfld.o
+obj-$(CONFIG_X86_WANT_INTEL_MID) += vlv2.o
 # BOARD files
 obj-$(CONFIG_X86_INTEL_MID) += board.o
