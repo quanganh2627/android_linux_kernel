@@ -710,15 +710,27 @@ bool intel_dsi_init(struct drm_device *dev)
 
 	intel_connector->get_hw_state = intel_connector_get_hw_state;
 
-	/* XXX: Will be fixed when we go with generic MIPI design, soon */
-	dev_priv->mipi_panel_id = MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID;
+	/* Initialize panel id based on kernel param.
+	 * If no kernel param use panel id from VBT
+	 * If no  param and no VBT initialize with
+	 * default ASUS panel ID for now */
+	if (i915_mipi_panel_id <= 0) {
+		/* check if panel id available from VBT */
+		if (!dev_priv->mipi_panel_id) {
+			/* default Panasonic panel */
+			dev_priv->mipi_panel_id = MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID;
+		}
+	} else
+		dev_priv->mipi_panel_id = i915_mipi_panel_id;
 
 	for (i = 0; i < ARRAY_SIZE(intel_dsi_devices); i++) {
 		dsi = &intel_dsi_devices[i];
-		intel_dsi->dev = *dsi;
+		if (dsi->panel_id == dev_priv->mipi_panel_id) {
+			intel_dsi->dev = *dsi;
 
-		if (dsi->dev_ops->init(&intel_dsi->dev))
-			break;
+			if (dsi->dev_ops->init(&intel_dsi->dev))
+				break;
+		}
 	}
 
 	if (i == ARRAY_SIZE(intel_dsi_devices)) {
