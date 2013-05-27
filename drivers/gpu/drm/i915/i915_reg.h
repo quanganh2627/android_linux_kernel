@@ -907,6 +907,9 @@
 #define   ECO_FLIP_DONE		(1<<0)
 
 #define CACHE_MODE_1		0x7004 /* IVB+ */
+/* CACHE_MODE_0 offset is different for per-IVB and IVB+ systems */
+#define CACHE_MODE_0_OFFSET(d) ((INTEL_INFO(d)->gen >= 7) ? \
+					CACHE_MODE_1 : CACHE_MODE_0)
 #define   PIXEL_SUBSPAN_COLLECT_OPT_DISABLE (1<<6)
 
 #define GEN6_BLITTER_ECOSKPD	0x221d0
