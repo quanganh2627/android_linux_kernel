@@ -21,6 +21,7 @@ enum hsu_core {
 	hsu_pnw,
 	hsu_clv,
 	hsu_tgr,
+	hsu_vlv2,
 };
 
 struct hsu_port_pin_cfg {
