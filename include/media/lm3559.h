@@ -112,7 +112,7 @@
 #define LM3559_TORCH_DEFAULT_BRIGHTNESS \
 	LM3559_VALUE_TO_PERCENT(LM3559_TORCH_DEFAULT, LM3559_TORCH_STEP)
 
-/* Indicator brightness, input is percentage, output is [0..3] */
+/* Indicator brightness, input is percentage, output is [0..7] */
 #define LM3559_INDICATOR_STEP                1250
 #define LM3559_INDICATOR_DEFAULT          1
 #define LM3559_INDICATOR_DEFAULT_BRIGHTNESS \
