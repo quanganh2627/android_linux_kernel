@@ -39,9 +39,11 @@
 #include <linux/sched.h>
 #include <linux/workqueue.h>
 #include <linux/wait.h>
+#include <linux/input.h>
 #include <linux/acpi.h>
 #include <linux/acpi_gpio.h>
 #include <asm/intel_byt_ec.h>
+#include <asm/intel_byt_buttons.h>
 
 #define EC_SPACE_SIZE 256
 
@@ -373,29 +375,63 @@ static void byt_disable_acpi_mode(struct ec_chip_info *chip)
 	return;
 }
 
-static void byt_ec_add_devices()
+/* EC buttons platform data */
+static struct byt_keys_button byt_m_nrpt_buttons[] = {
+	{ KEY_POWER,		EV_KEY,	"Power_btn", 1 },
+	{ },
+};
+
+static struct byt_keys_button byt_m_rpt_buttons[] = {
+	{ KEY_VOLUMEUP,		EV_KEY,	"Volume_up", 1 },
+	{ KEY_VOLUMEDOWN,	EV_KEY,	"Volume_down", 1 },
+	{ KEY_HOME,		EV_KEY,	"Home_btn", 1 },
+};
+
+static struct byt_keys_platform_data byt_key_pdata[2] = {
+	{
+		.buttons = byt_m_nrpt_buttons,
+		.nbuttons = 1,
+		.rep = 0,
+	}, {
+		.buttons = byt_m_rpt_buttons,
+		.nbuttons = 3,
+		.rep = 1,
+	},
+};
+
+static int byt_ec_create_device(const char *name, void *pdata)
 {
-	struct platform_device *pdev = NULL;
-	void *pdata = NULL;
 	int ret = 0;
+	struct platform_device *pdev = NULL;
 
-
-	/* Add battery device */
-	pdev = platform_device_alloc("ec_battery", -1);
+	pdev = platform_device_alloc(name, -1);
 	if (!pdev) {
-		pr_err("out of memory for platform dev %s\n",
-						"ec_battery");
+		pr_err("out of memory for platform dev %s\n", name);
 		goto dev_add_error;
 	}
 
 	pdev->dev.platform_data = pdata;
 	ret = platform_device_add(pdev);
 	if (ret) {
-		pr_err("failed to add battery platform device\n");
+		pr_err("failed to add %s platform device\n", name);
 		platform_device_put(pdev);
 	}
-	/* Add thermal and button devices bellow */
+
 dev_add_error:
+
+	return ret;
+}
+
+static void byt_ec_add_devices()
+{
+	/* Add battery device */
+	byt_ec_create_device("ec_battery", NULL);
+
+	/* Add button devices */
+	byt_ec_create_device("byt_m_nrpt_btns", &byt_key_pdata[0]);
+	byt_ec_create_device("byt_m_rpt_btns", &byt_key_pdata[1]);
+
+	/* Add thermal device bellow */
 
 	return;
 }
