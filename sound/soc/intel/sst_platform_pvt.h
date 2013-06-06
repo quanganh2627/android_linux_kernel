@@ -181,5 +181,6 @@ struct sst_data {
 	struct mutex lock;
 	/* Pipe_id for probe_stream to be saved in stream map */
 	u8 pipe_id;
+	bool vtsv_enroll;
 };
 #endif

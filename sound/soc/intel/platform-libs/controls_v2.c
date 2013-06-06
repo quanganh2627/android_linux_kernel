@@ -1638,9 +1638,36 @@ static int sst_compr_vol_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int sst_vtsv_enroll_set(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	int ret = 0;
+
+	sst->vtsv_enroll = ucontrol->value.integer.value[0];
+	mutex_lock(&sst->lock);
+	if (sst->vtsv_enroll)
+		ret = sst_dsp->ops->set_generic_params(SST_SET_VTSV_INFO,
+					(void *)&sst->vtsv_enroll);
+	mutex_unlock(&sst->lock);
+	return ret;
+}
+
+static int sst_vtsv_enroll_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+
+	ucontrol->value.integer.value[0] = sst->vtsv_enroll;
+	return 0;
+}
+
 /* This value corresponds to two's complement value of -10 or -1dB */
 #define SST_COMPR_VOL_MAX_INTEG_GAIN 0xFFF6
 #define SST_COMPR_VOL_MUTE 0xFA60 /* 2's complement of -1440 or -144dB*/
+
 
 static const struct snd_kcontrol_new sst_mrfld_controls[] = {
 	SND_SOC_BYTES_EXT("SST Byte control", SST_MAX_BIN_BYTES,
@@ -1652,6 +1679,8 @@ static const struct snd_kcontrol_new sst_mrfld_controls[] = {
 		sst_compr_vol_get, sst_compr_vol_set,
 		SST_CODEC_VOLUME_CONTROL, PIPE_MEDIA0_IN, 0,
 		SST_COMPR_VOL_MUTE),
+	SOC_SINGLE_BOOL_EXT("SST VTSV Enroll", 0, sst_vtsv_enroll_get,
+		       sst_vtsv_enroll_set),
 };
 
 int sst_dsp_init(struct snd_soc_platform *platform)
@@ -1664,6 +1693,8 @@ int sst_dsp_init(struct snd_soc_platform *platform)
 		pr_err("kzalloc failed\n");
 		return -ENOMEM;
 	}
+
+	sst->vtsv_enroll = false;
 
 	snd_soc_dapm_new_controls(&platform->dapm, sst_dapm_widgets,
 			ARRAY_SIZE(sst_dapm_widgets));
