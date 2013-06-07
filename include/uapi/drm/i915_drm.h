@@ -28,6 +28,7 @@
 #define _UAPI_I915_DRM_H_
 
 #include <drm/drm.h>
+#include "drm/i915_perfmon.h"
 
 /* Please note that modifications to all structs defined here are
  * subject to backwards-compatibility constraints.
@@ -259,6 +260,7 @@ typedef struct _drm_i915_sarea {
 #define DRM_I915_GEM_USERPTR		0x38
 #define DRM_I915_SET_CSC                0x39
 #define DRM_I915_GET_PSR_SUPPORT	0X3a
+#define DRM_I915_PERFMON		0x3b
 #define DRM_I915_SET_PLANE_ALPHA	0x3d
 #define DRM_I915_DPST_CONTEXT		0x3c
 #define DRM_I915_GEM_ACCESS_DATATYPE	0x3e
@@ -331,6 +333,8 @@ typedef struct _drm_i915_sarea {
 		struct csc_coeff)
 #define DRM_IOCTL_I915_GET_PSR_SUPPORT	DRM_IOR(DRM_COMMAND_BASE + \
 						DRM_I915_GET_PSR_SUPPORT, bool)
+#define DRM_IOCTL_I915_PERFMON	DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_PERFMON, \
+		struct drm_i915_perfmon)
 #define DRM_IOCTL_I915_SET_PLANE_ALPHA		\
 			DRM_IOW(DRM_COMMAND_BASE + DRM_I915_SET_PLANE_ALPHA, \
 			struct drm_i915_set_plane_alpha)

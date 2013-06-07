@@ -2,7 +2,7 @@
 # Makefile for the drm device driver.  This driver provides support for the
 # Direct Rendering Infrastructure (DRI) in XFree86 4.1.0 and higher.
 
-ccflags-y := -Iinclude/drm -I../modules/intel_media/common -Werror
+ccflags-y := -Iinclude/drm -Iinclude/uapi/drm -I../modules/intel_media/common -Werror
 i915-y := i915_drv.o i915_dma.o i915_irq.o \
 	  i915_debugfs.o \
 	  i915_gpu_error.o \
@@ -20,6 +20,7 @@ i915-y := i915_drv.o i915_dma.o i915_irq.o \
 	  i915_trace_points.o \
 	  i915_ums.o \
 	  i915_rpm.o \
+	  i915_perfmon.o \
 	  intel_display.o \
 	  intel_crt.o \
 	  intel_lvds.o \

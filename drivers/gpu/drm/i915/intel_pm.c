@@ -3592,6 +3592,8 @@ void valleyview_disable_rps(struct drm_device *dev)
 
 int intel_enable_rc6(const struct drm_device *dev)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
 	/* No RC6 before Ironlake */
 	if (INTEL_INFO(dev)->gen < 5)
 		return 0;
@@ -3602,6 +3604,9 @@ int intel_enable_rc6(const struct drm_device *dev)
 
 	/* Disable RC6 on Ironlake */
 	if (INTEL_INFO(dev)->gen == 5)
+		return 0;
+
+	if (dev_priv->perfmon.rc6_user_disable_count > 0)
 		return 0;
 
 	if (IS_HASWELL(dev)) {

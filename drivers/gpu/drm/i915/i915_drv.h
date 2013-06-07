@@ -1200,6 +1200,10 @@ struct intel_wm_level {
 	uint32_t fbc_val;
 };
 
+struct i915_perfmon {
+	unsigned int rc6_user_disable_count;
+};
+
 /*
  * This struct tracks the state needed for the Package C8+ feature.
  *
@@ -1535,6 +1539,8 @@ typedef struct drm_i915_private {
 #endif
 
 	uint32_t watchdog_threshold[I915_NUM_RINGS];
+
+	struct i915_perfmon perfmon;
 } drm_i915_private_t;
 
 static inline struct drm_i915_private *to_i915(const struct drm_device *dev)
@@ -2074,6 +2080,8 @@ int i915_gem_entervt_ioctl(struct drm_device *dev, void *data,
 int i915_gem_leavevt_ioctl(struct drm_device *dev, void *data,
 			   struct drm_file *file_priv);
 int i915_gem_userptr_ioctl(struct drm_device *dev,
+				void *data, struct drm_file *file);
+int i915_perfmon_ioctl(struct drm_device *dev,
 				void *data, struct drm_file *file);
 int i915_gem_set_tiling(struct drm_device *dev, void *data,
 			struct drm_file *file_priv);
