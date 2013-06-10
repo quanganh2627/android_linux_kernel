@@ -52,7 +52,7 @@ extern struct sst_device *sst_dsp;
 #define SST_SPEAKER_DAI		"Speaker-cpu-dai"
 #define SST_VOICE_DAI		"Voice-cpu-dai"
 #define SST_VIRTUAL_DAI		"Virtual-cpu-dai"
-#define SST_AWARE_DAI		"Aware-cpu-dai"
+#define SST_LOOPBACK_DAI	"Loopback-cpu-dai"
 #define SST_POWER_DAI		"Power-cpu-dai"
 #define SST_COMPRESS_DAI	"Compress-cpu-dai"
 #define SST_PROBE_DAI		"Probe-cpu-dai"

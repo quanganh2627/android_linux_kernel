@@ -472,7 +472,7 @@ static struct snd_soc_dai_ops sst_media_dai_ops = {
 	.set_tdm_slot = sst_platform_ihf_set_tdm_slot,
 };
 
-static struct snd_soc_dai_ops sst_aware_dai_ops = {
+static struct snd_soc_dai_ops sst_loopback_dai_ops = {
 	.startup = sst_media_open,
 	.shutdown = sst_media_close,
 	.prepare = sst_media_prepare,
@@ -583,8 +583,8 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 	},
 },
 {
-	.name = SST_AWARE_DAI,
-	.ops = &sst_aware_dai_ops,
+	.name = SST_LOOPBACK_DAI,
+	.ops = &sst_loopback_dai_ops,
 	.capture = {
 		.channels_min = SST_MONO,
 		.channels_max = SST_MONO,
