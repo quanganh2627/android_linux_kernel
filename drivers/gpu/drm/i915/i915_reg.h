@@ -346,6 +346,13 @@
 #define  DEBUG_RESET_FULL		(1<<7)
 #define  DEBUG_RESET_RENDER		(1<<8)
 #define  DEBUG_RESET_DISPLAY		(1<<9)
+/*
+ * PMC HW WA Reg
+ */
+#define PMC_WA_FORICLK5_REG		0xB4
+#define PMC_WA_HNDSHK			(1<<0)
+#define PMC_WA_ICLK5_BIT16_BND		(1<<1)
+#define PMC_WA_ICLK5_BIT17_SPRD		(1<<2)
 
 /*
  * IOSF sideband
@@ -361,6 +368,7 @@
 #define   IOSF_PORT_NC				0x11
 #define   IOSF_PORT_DPIO			0x12
 #define   IOSF_PORT_CCU				0xA9
+#define IOSF_PORT_PMC				0x52
 #define VLV_IOSF_DATA				(VLV_DISPLAY_BASE + 0x2104)
 #define VLV_IOSF_ADDR				(VLV_DISPLAY_BASE + 0x2108)
 

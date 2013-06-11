@@ -33,6 +33,12 @@ static int vlv_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
 	bool is_read = (opcode == PUNIT_OPCODE_REG_READ ||
 			opcode == DPIO_OPCODE_REG_READ);
 
+	if (port == IOSF_PORT_PMC)
+		if (is_read)
+			opcode = 0x0;
+		else
+			opcode = 0x1;
+
 	cmd = (devfn << IOSF_DEVFN_SHIFT) | (opcode << IOSF_OPCODE_SHIFT) |
 		(port << IOSF_PORT_SHIFT) | (be << IOSF_BYTE_ENABLES_SHIFT) |
 		(bar << IOSF_BAR_SHIFT);
@@ -61,6 +67,25 @@ static int vlv_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
 	I915_WRITE(VLV_IOSF_DATA, 0);
 
 	return 0;
+}
+
+static int vlv_sideband_rw32_bits(struct drm_i915_private *dev_priv, u32 devfn,
+			   u32 port, u32 opcode, u32 addr, u32 *val, u32 mask)
+{
+	u32 tmp;
+	int status;
+
+	status = vlv_sideband_rw(dev_priv, DPIO_DEVFN, port,
+					DPIO_OPCODE_REG_READ, addr, &tmp);
+	if (status != 0)
+		return status;
+	tmp = tmp & ~mask;
+	*val = *val & mask;
+	tmp = *val | tmp;
+
+	return vlv_sideband_rw(dev_priv, DPIO_DEVFN, IOSF_PORT_PMC,
+				DPIO_OPCODE_REG_WRITE, addr, &tmp);
+
 }
 
 u32 vlv_punit_read(struct drm_i915_private *dev_priv, u8 addr)
@@ -174,4 +199,24 @@ void intel_sbi_write(struct drm_i915_private *dev_priv, u16 reg, u32 value,
 		DRM_ERROR("timeout waiting for SBI to complete write transaction\n");
 		return;
 	}
+}
+
+int intel_pmc_read32(struct drm_i915_private *dev_priv, u32 reg, u32 *val)
+{
+
+	return vlv_sideband_rw(dev_priv, DPIO_DEVFN, IOSF_PORT_PMC,
+				DPIO_OPCODE_REG_READ, reg, val);
+}
+
+int intel_pmc_write32(struct drm_i915_private *dev_priv, u32 reg, u32 val)
+{
+	return vlv_sideband_rw(dev_priv, DPIO_DEVFN, IOSF_PORT_PMC,
+				DPIO_OPCODE_REG_WRITE, reg, &val);
+}
+
+int intel_pmc_write32_bits(struct drm_i915_private *dev_priv, u32 reg,
+				u32 val, u32 mask)
+{
+	return vlv_sideband_rw32_bits(dev_priv, DPIO_DEVFN, IOSF_PORT_PMC,
+				DPIO_OPCODE_REG_WRITE, reg, &val, mask);
 }
