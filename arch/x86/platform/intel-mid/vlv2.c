@@ -63,6 +63,23 @@ static int vlv2_pci_enable_irq(struct pci_dev *pdev)
 	return 0;
 }
 
+#define VALLEYVIEW2_FAMILY	0x30670
+#define CPUID_MASK		0xffff0
+enum cpuid_regs {
+	CR_EAX = 0,
+	CR_ECX,
+	CR_EDX,
+	CR_EBX
+};
+
+static int is_valleyview()
+{
+	u32 regs[4];
+	cpuid(1, &regs[CR_EAX], &regs[CR_EBX], &regs[CR_ECX], &regs[CR_EDX]);
+
+	return ((regs[CR_EAX] & CPUID_MASK) == VALLEYVIEW2_FAMILY);
+}
+
 /*
  * ACPI DSDT table doesn't have correct PCI interrupt routing information
  * for some devices, so here we have a kernel workaround to fix this issue.
@@ -72,7 +89,11 @@ static int vlv2_pci_enable_irq(struct pci_dev *pdev)
 static int __init vlv2_pci_irq_fixup(void)
 {
 	/* HACK: intel_mid_identify_cpu() is not set yet */
-	if (1 || intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_VALLEYVIEW2) {
+
+	/* More hack: do cpuid instruction. This will be done here (helper is_valleyview) for now
+	 * as temp w/a until reworked function is provided from Bin Gao.
+	 */
+	if (is_valleyview()) {
 		pr_info("VLV2: fix up PCI interrupt routing\n");
 		pcibios_enable_irq = vlv2_pci_enable_irq;
 	}
