@@ -975,6 +975,15 @@ static void cmos_wake_setup(struct device *dev)
 	device_init_wakeup(dev, 1);
 }
 
+#elif defined(CONFIG_X86_INTEL_MID)
+
+static void cmos_wake_setup(struct device *dev)
+{
+	/* RTC always wakes from S1/S2/S3, and often S4/STD */
+	/* on all Intel MID platforms using legacy RTC */
+	device_init_wakeup(dev, 1);
+}
+
 #else
 
 static void cmos_wake_setup(struct device *dev)
