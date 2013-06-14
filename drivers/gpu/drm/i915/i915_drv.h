@@ -1386,6 +1386,8 @@ typedef struct drm_i915_private {
 	struct i915_dri1_state dri1;
 	/* Old ums support infrastructure, same warning applies. */
 	struct i915_ums_state ums;
+
+	u16 is_mipi;
 } drm_i915_private_t;
 
 static inline struct drm_i915_private *to_i915(const struct drm_device *dev)

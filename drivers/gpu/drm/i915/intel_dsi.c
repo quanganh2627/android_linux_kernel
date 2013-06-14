@@ -147,6 +147,7 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	struct drm_device *dev = encoder->base.dev;
 	int pipe = intel_crtc->pipe;
 	u32 temp;
 
@@ -189,6 +190,8 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 
 	if (intel_dsi->dev.dev_ops->enable)
 		intel_dsi->dev.dev_ops->enable(&intel_dsi->dev);
+
+	intel_panel_enable_backlight(dev, pipe);
 }
 
 static void intel_dsi_disable(struct intel_encoder *encoder)
@@ -196,11 +199,13 @@ static void intel_dsi_disable(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	struct drm_device *dev = encoder->base.dev;
 	int pipe = intel_crtc->pipe;
 	u32 temp;
 
 	DRM_DEBUG_KMS("\n");
 
+	intel_panel_disable_backlight(dev);
 	intel_dsi->dev.dev_ops->disable(&intel_dsi->dev);
 
 	if (is_vid_mode(intel_dsi)) {
@@ -386,6 +391,8 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 	I915_WRITE(MIPI_INTR_STAT(pipe), 0xffffffff);
 	I915_WRITE(MIPI_INTR_EN(pipe), 0xffffffff);
 
+	intel_panel_enable_backlight(dev, pipe);
+
 	I915_WRITE(MIPI_DPHY_PARAM(pipe),
 		   0x3c << EXIT_ZERO_COUNT_SHIFT |
 		   0x1f << TRAIL_COUNT_SHIFT |
@@ -485,6 +492,7 @@ intel_dsi_detect(struct drm_connector *connector, bool force)
 {
 	struct intel_dsi *intel_dsi = intel_attached_dsi(connector);
 	DRM_DEBUG_KMS("\n");
+
 	return intel_dsi->dev.dev_ops->detect(&intel_dsi->dev);
 }
 
@@ -517,6 +525,7 @@ static void intel_dsi_destroy(struct drm_connector *connector)
 
 	DRM_DEBUG_KMS("\n");
 	intel_panel_fini(&intel_connector->panel);
+	intel_panel_destroy_backlight(connector->dev);
 	drm_sysfs_connector_remove(connector);
 	drm_connector_cleanup(connector);
 	kfree(connector);
@@ -541,6 +550,7 @@ static const struct drm_connector_funcs intel_dsi_connector_funcs = {
 
 bool intel_dsi_init(struct drm_device *dev)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_dsi *intel_dsi;
 	struct intel_encoder *intel_encoder;
 	struct drm_encoder *encoder;
@@ -620,11 +630,12 @@ bool intel_dsi_init(struct drm_device *dev)
 		goto err;
 	}
 
+	dev_priv->is_mipi = true;
 	fixed_mode->type |= DRM_MODE_TYPE_PREFERRED;
 	intel_panel_init(&intel_connector->panel, fixed_mode);
+	intel_panel_setup_backlight(connector);
 
 	return true;
-
 err:
 	drm_encoder_cleanup(&intel_encoder->base);
 	kfree(intel_dsi);
