@@ -631,6 +631,9 @@ static int init_render_ring(struct intel_ring_buffer *ring)
 	if (HAS_L3_GPU_CACHE(dev))
 		imr &= ~GT_RENDER_L3_PARITY_ERROR_INTERRUPT;
 
+	if (IS_VALLEYVIEW(dev))
+		imr &= ~GT_RENDER_PERFMON_BUFFER_INTERRUPT;
+
 	I915_WRITE_IMR(ring, imr);
 
 	return ret;
@@ -1066,7 +1069,6 @@ gen6_ring_get_irq(struct intel_ring_buffer *ring)
 		imr = I915_READ_IMR(ring);
 		imr &= ~ring->irq_enable_mask;
 		I915_WRITE_IMR(ring, imr);
-
 		ilk_enable_gt_irq(dev_priv, ring->irq_enable_mask);
 	}
 	spin_unlock_irqrestore(&dev_priv->irq_lock, flags);
@@ -1087,7 +1089,6 @@ gen6_ring_put_irq(struct intel_ring_buffer *ring)
 		imr = I915_READ_IMR(ring);
 		imr |= ring->irq_enable_mask;
 		I915_WRITE_IMR(ring, imr);
-
 		ilk_disable_gt_irq(dev_priv, ring->irq_enable_mask);
 	}
 	spin_unlock_irqrestore(&dev_priv->irq_lock, flags);

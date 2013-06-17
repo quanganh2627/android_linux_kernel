@@ -1341,6 +1341,11 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 
 		snb_gt_irq_handler(dev, dev_priv, gt_iir);
 
+		if (gt_iir & GT_RENDER_PERFMON_BUFFER_INTERRUPT) {
+			atomic_inc(&dev_priv->perfmon.buffer_interrupts);
+			wake_up_all(&dev_priv->perfmon.buffer_queue);
+		}
+
 		spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 		for_each_pipe(pipe) {
 			int reg = PIPESTAT(pipe);
@@ -2611,6 +2616,13 @@ static void gen5_gt_irq_postinstall(struct drm_device *dev)
 
 	gt_irqs |= (GEN6_RENDER_TIMEOUT_COUNTER_EXPIRED |
 		GEN6_BSD_TIMEOUT_COUNTER_EXPIRED);
+
+	if (IS_VALLEYVIEW(dev)) {
+		if (dev_priv->perfmon.interrupt_enabled)
+			dev_priv->gt_irq_mask &=
+				~GT_RENDER_PERFMON_BUFFER_INTERRUPT;
+		gt_irqs |= GT_RENDER_PERFMON_BUFFER_INTERRUPT;
+	}
 
 	I915_WRITE(GTIIR, I915_READ(GTIIR));
 	I915_WRITE(GTIMR, dev_priv->gt_irq_mask);

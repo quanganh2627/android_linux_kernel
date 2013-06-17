@@ -31,6 +31,7 @@
 #include "i915_drm.h"
 #include "i915_drv.h"
 #include "i915_trace.h"
+#include "linux/wait.h"
 #include "i915_perfmon.h"
 
 /**
@@ -100,6 +101,62 @@ int intel_set_max_freq(struct drm_device *dev, int enable)
 	return 0;
 }
 
+/**
+ * valleyview_enable_perfmon_interrupt - enable perfmon interrupt
+ *
+ */
+static int valleyview_enable_perfmon_interrupt(struct drm_device *dev,
+						int enable)
+{
+	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
+	unsigned long irqflags;
+	u32 imr;
+
+	spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
+	imr = I915_READ(GTIMR);
+	if (enable) {
+		dev_priv->perfmon.interrupt_enabled = true;
+		dev_priv->gt_irq_mask &= ~GT_RENDER_PERFMON_BUFFER_INTERRUPT;
+		imr &= ~GT_RENDER_PERFMON_BUFFER_INTERRUPT;
+	} else {
+		dev_priv->perfmon.interrupt_enabled = false;
+		dev_priv->gt_irq_mask |= GT_RENDER_PERFMON_BUFFER_INTERRUPT;
+		imr |= GT_RENDER_PERFMON_BUFFER_INTERRUPT;
+	}
+	I915_WRITE(GTIMR, imr);
+	spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
+
+	return 0;
+}
+
+/**
+ * valleyview_wait_perfmon_interrupt - wait for perfmon buffer interrupt
+ *
+ * Blocks until perfmon buffer half full interrupt occurs or the wait
+ * times out.
+ */
+static int valleyview_wait_perfmon_interrupt(struct drm_device *dev,
+						int timeout_ms)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int counter = atomic_read(&dev_priv->perfmon.buffer_interrupts);
+	int retcode = I915_PERFMON_IRQ_WAIT_OK;
+	int time_left = 0;
+
+	time_left = wait_event_interruptible_timeout(
+		dev_priv->perfmon.buffer_queue,
+		atomic_read(&dev_priv->perfmon.buffer_interrupts) != counter,
+		timeout_ms * HZ / 1000);
+
+	if (time_left == 0)
+		retcode = I915_PERFMON_IRQ_WAIT_TIMEOUT;
+	else if (time_left == -ERESTARTSYS)
+		retcode = I915_PERFMON_IRQ_WAIT_INTERRUPTED;
+	else if (time_left < 0)
+		retcode = I915_PERFMON_IRQ_WAIT_FAILED;
+
+	return retcode;
+}
 
 /**
  * i915_perfmon_ioctl - performance monitoring support
@@ -123,9 +180,19 @@ int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 			perfmon->data.set_max_freq.enable);
 		break;
 	case I915_PERFMON_SET_BUFFER_IRQS:
+		retcode = valleyview_enable_perfmon_interrupt(
+				dev,
+				perfmon->data.set_irqs.enable);
+		break;
 	case I915_PERFMON_WAIT_BUFFER_IRQS:
-		/* not supported yet */
-		retcode = -EINVAL;
+		if (perfmon->data.wait_irqs.timeout >
+				I915_PERFMON_WAIT_IRQ_MAX_TIMEOUT_MS)
+			retcode =  -EINVAL;
+		else
+			perfmon->data.wait_irqs.ret_code =
+				valleyview_wait_perfmon_interrupt(
+					dev,
+					perfmon->data.wait_irqs.timeout);
 		break;
 	case I915_PERFMON_GET_FREQ_INFO:
 		/* obsolete - sysfs used instead */

@@ -1203,6 +1203,9 @@ struct intel_wm_level {
 struct i915_perfmon {
 	unsigned int rc6_user_disable_count;
 	int max_frequency_mode;
+	bool interrupt_enabled;
+	wait_queue_head_t buffer_queue;
+	atomic_t buffer_interrupts;
 };
 
 /*
