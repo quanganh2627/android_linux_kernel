@@ -94,22 +94,6 @@ static struct sdhci_pci_data clv_sdhci_pci_data[] = {
 	},
 };
 
-/* BYT platform data */
-static struct sdhci_pci_data byt_sdhci_pci_data[] = {
-	[EMMC0_INDEX] = {
-		.rst_n_gpio = -EINVAL,
-		.cd_gpio = -EINVAL,
-	},
-	[SD_INDEX] = {
-		.rst_n_gpio = -EINVAL,
-		.cd_gpio = -EINVAL,
-	},
-	[SDIO_INDEX] = {
-		.rst_n_gpio = -EINVAL,
-		.cd_gpio = -EINVAL,
-	},
-};
-
 static struct sdhci_pci_data *get_sdhci_platform_data(struct pci_dev *pdev)
 {
 	struct sdhci_pci_data *pdata = NULL;
@@ -141,16 +125,6 @@ static struct sdhci_pci_data *get_sdhci_platform_data(struct pci_dev *pdev)
 	case PCI_DEVICE_ID_INTEL_CLV_SDIO1:
 		pdata = &clv_sdhci_pci_data[SDIO_INDEX];
 		break;
-	case PCI_DEVICE_ID_INTEL_BYT_MMC:
-	case PCI_DEVICE_ID_INTEL_BYT_MMC45:
-		pdata = &byt_sdhci_pci_data[EMMC0_INDEX];
-		break;
-	case PCI_DEVICE_ID_INTEL_BYT_SD:
-		pdata = &byt_sdhci_pci_data[SD_INDEX];
-		break;
-	case PCI_DEVICE_ID_INTEL_BYT_SDIO:
-		pdata = &byt_sdhci_pci_data[SDIO_INDEX];
-		break;
 	default:
 		break;
 	}
@@ -165,8 +139,6 @@ struct sdhci_pci_data *mmc_sdhci_pci_get_data(struct pci_dev *pci_dev, int slotn
 static int __init init_sdhci_get_data(void)
 {
 	sdhci_pci_get_data = mmc_sdhci_pci_get_data;
-
-	return 0;
 }
 
 arch_initcall(init_sdhci_get_data);
