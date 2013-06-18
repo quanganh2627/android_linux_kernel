@@ -397,14 +397,12 @@ int intel_mid_hsu_init(int port)
 	case INTEL_MID_CPU_CHIP_CLOVERVIEW:
 		hsu_port_gpio_mux = &hsu_port_pin_cfgs[hsu_clv][0];
 		break;
-
-	case INTEL_MID_CPU_CHIP_VALLEYVIEW2:
-		hsu_port_gpio_mux = &hsu_port_pin_cfgs[hsu_vlv2][0];
-		break;
-
 	case INTEL_MID_CPU_CHIP_PENWELL:
-	default:
 		hsu_port_gpio_mux = &hsu_port_pin_cfgs[hsu_pnw][0];
+		break;
+	default:
+		/* FIXME: VALLEYVIEW2? */
+		hsu_port_gpio_mux = &hsu_port_pin_cfgs[hsu_vlv2][0];
 		break;
 	}
 
@@ -435,14 +433,12 @@ int hsu_dev_platform_data(void)
 	case INTEL_MID_CPU_CHIP_CLOVERVIEW:
 		hsu_register_board_info(&hsu_port_cfgs[hsu_clv][0]);
 		break;
-	
-	case INTEL_MID_CPU_CHIP_VALLEYVIEW2:
-		hsu_register_board_info(&hsu_port_cfgs[hsu_vlv2][0]);
-		break;
-
 	case INTEL_MID_CPU_CHIP_PENWELL:
-	default:
 		hsu_register_board_info(&hsu_port_cfgs[hsu_pnw][0]);
+		break;
+	default:
+		/* FIXME: VALLEYVIEW2? */
+		hsu_register_board_info(&hsu_port_cfgs[hsu_vlv2][0]);
 		break;
 	}
 
