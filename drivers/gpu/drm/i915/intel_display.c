@@ -4078,7 +4078,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	if (!intel_crtc->active)
 		return;
 
-	if ((pipe == 0) && (dev_priv->is_mipi)) {
+	if ((pipe == 0) && (dev_priv->is_mipi || dev_priv->is_hdmi)) {
 		/* XXX: Disable PPS */
 		/* temporary fix for the IA firwware issue */
 		I915_WRITE_BITS(VLV_PIPE_PP_CONTROL(pipe), 0xabcd0000, 0xffff0000);
@@ -4120,7 +4120,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	intel_update_fbc(dev);
 	intel_update_watermarks(dev);
 
-	if ((pipe == 0) && (dev_priv->is_mipi)) {
+	if ((pipe == 0) && (dev_priv->is_mipi || dev_priv->is_hdmi)) {
 		/* Ensure that port, plane, pipe, pf, pll are all disabled
 		 * XXX Fis the register constants
 		 */

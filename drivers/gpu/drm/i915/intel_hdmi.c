@@ -916,6 +916,7 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	struct edid *edid;
 	enum drm_connector_status status = connector_status_disconnected;
 
+	dev_priv->is_hdmi = false;
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s]\n",
 		      connector->base.id, drm_get_connector_name(connector));
 
@@ -929,6 +930,7 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	if (edid) {
 		if (edid->input & DRM_EDID_INPUT_DIGITAL) {
 			status = connector_status_connected;
+			dev_priv->is_hdmi = true;
 			if (intel_hdmi->force_audio != HDMI_AUDIO_OFF_DVI)
 				intel_hdmi->has_hdmi_sink =
 						drm_detect_hdmi_monitor(edid);
