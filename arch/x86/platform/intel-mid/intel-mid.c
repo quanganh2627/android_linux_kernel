@@ -110,9 +110,6 @@ static void __cpuinit intel_mid_arch_setup(void)
 	case 0x35:
 		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_CLOVERVIEW;
 		break;
-	case 0x37:
-		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_VALLEYVIEW2;
-		valleyview2_arch_setup();
 	case 0x27:
 	default:
 		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_PENWELL;
