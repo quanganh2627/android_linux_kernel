@@ -1718,6 +1718,8 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 		acpi_video_register_with_quirks();
 	}
 
+	i915_init_watchdog(dev);
+
 	if (IS_GEN5(dev))
 		intel_gpu_ips_init(dev_priv);
 

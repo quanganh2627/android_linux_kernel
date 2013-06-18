@@ -180,6 +180,11 @@ MODULE_PARM_DESC(i915_gpu_reset_min_alive_period,
 		"prevent further resets. "
 		"default=0 seconds (disabled)");
 
+int i915_enable_watchdog __read_mostly = 1;
+module_param_named(i915_enable_watchdog, i915_enable_watchdog, int, 0644);
+MODULE_PARM_DESC(i915_enable_watchdog,
+		"Enable watchdog timers (default: true)");
+
 int i915_enable_ppgtt __read_mostly = -1;
 module_param_named(i915_enable_ppgtt, i915_enable_ppgtt, int, 0600);
 MODULE_PARM_DESC(i915_enable_ppgtt,
@@ -1215,3 +1220,35 @@ module_exit(i915_exit);
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL and additional rights");
+
+void i915_init_watchdog(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	/* Based on pre-defined time out value (60ms or 30ms) calculate
+	* timer count thresholds needed based on core frequency.
+	*
+	* For RCS.
+	* The timestamp resolution changed in Gen7 and beyond to 80ns
+	* for all pipes. Before that it was 640ns.*/
+
+	int freq;
+
+	if (INTEL_INFO(dev)->gen >= 7)
+		freq = KM_TIMESTAMP_CNTS_PER_SEC_80NS;
+	else
+		freq = KM_TIMESTAMP_CNTS_PER_SEC_640NS;
+
+	dev_priv->watchdog_threshold[RCS] =
+		((KM_MEDIA_ENGINE_TIMEOUT_VALUE_IN_MS) *
+		(freq / KM_TIMER_MILLISECOND));
+
+	dev_priv->watchdog_threshold[VCS] =
+		((KM_BSD_ENGINE_TIMEOUT_VALUE_IN_MS) *
+		(freq / KM_TIMER_MILLISECOND));
+
+	DRM_DEBUG_TDR("RCS Thresh 0x%08x  VCS Thresh 0x%08x\n",
+		dev_priv->watchdog_threshold[RCS],
+		dev_priv->watchdog_threshold[VCS]);
+}
+
