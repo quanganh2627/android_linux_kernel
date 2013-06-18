@@ -429,7 +429,7 @@ int intel_mid_hsu_init(int port)
 	return 1;
 }
 
-void *hsu_dev_platform_data(void *data)
+int hsu_dev_platform_data(void)
 {
 	switch (intel_mid_identify_cpu()) {
 	case INTEL_MID_CPU_CHIP_CLOVERVIEW:
@@ -445,5 +445,7 @@ void *hsu_dev_platform_data(void *data)
 		hsu_register_board_info(&hsu_port_cfgs[hsu_pnw][0]);
 		break;
 	}
+
+	return 0;
 }
 arch_initcall(hsu_dev_platform_data);
