@@ -960,12 +960,11 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 		break;
 	}
 	case SST_SET_BYTE_STREAM: {
-		struct snd_sst_bytes *sst_bytes = (struct snd_sst_bytes *)arg;
 		ret_val = intel_sst_check_device();
 		if (ret_val)
 			return ret_val;
 
-		ret_val = sst_send_byte_stream_mrfld(sst_bytes);
+		ret_val = sst_send_byte_stream_mrfld(arg);
 		sst_pm_runtime_put(sst_drv_ctx);
 		break;
 	}

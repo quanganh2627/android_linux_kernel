@@ -69,6 +69,9 @@
 #define IPC_IA_SET_PARAMS 0x1
 #define IPC_IA_GET_PARAMS 0x2
 
+#define IPC_EFFECTS_CREATE 0xE
+#define IPC_EFFECTS_DESTROY 0xF
+
 /* I2L Stream config/control msgs */
 #define IPC_IA_ALLOC_STREAM_MRFLD 0x2
 #define IPC_IA_ALLOC_STREAM 0x20 /* Allocate a stream ID */
@@ -306,6 +309,27 @@ struct ipc_dsp_hdr {
 	u16 cmd_id;		/*!< Module ID = lpe_algo_types_t */
 	u16 length;		/*!< Length of the payload only */
 } __packed;
+
+struct ipc_dsp_effects_info {
+	u16	cmd_id;
+	u16	length;
+	u16	sel_pos;
+	u16	sel_algo_id;
+	u16	cpu_load;       /* CPU load indication */
+	u16	memory_usage;   /* Data Memory usage */
+	u32	flags;         /* effect engine caps/requirements flags */
+} __packed;
+
+struct ipc_effect_dsp_hdr {
+	u16 mod_index_id:8;             /*!< DSP Command ID specific to tasks */
+	u16 pipe_id:8;  /*!< instance of the module in the pipeline */
+	u16 mod_id;             /*!< Pipe_id */
+} __packed;
+
+struct ipc_effect_payload {
+	struct ipc_effect_dsp_hdr dsp_hdr;
+	char *data;
+};
 
 union ipc_header_high {
 	struct {

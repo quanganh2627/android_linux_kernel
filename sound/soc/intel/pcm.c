@@ -41,8 +41,10 @@
 #include "sst_platform.h"
 #include "sst_platform_pvt.h"
 
+struct device *sst_pdev;
 struct sst_device *sst_dsp;
 extern struct snd_compr_ops sst_platform_compr_ops;
+extern struct snd_effect_ops effects_ops;
 
 static DEFINE_MUTEX(sst_dsp_lock);
 
@@ -469,7 +471,6 @@ static int sst_media_prepare(struct snd_pcm_substream *substream,
 	return ret_val;
 }
 
-
 static int sst_media_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params,
 				struct snd_soc_dai *dai)
@@ -744,6 +745,7 @@ static int sst_soc_probe(struct snd_soc_platform *platform)
 {
 	struct sst_data *ctx = snd_soc_platform_get_drvdata(platform);
 	struct soft_platform_id spid;
+	int ret = 0;
 
 	memcpy(&spid, ctx->pdata->spid, sizeof(spid));
 	pr_debug("Enter:%s\n", __func__);
@@ -752,8 +754,13 @@ static int sst_soc_probe(struct snd_soc_platform *platform)
 	    INTEL_MID_BOARD(1, TABLET, BYT))
 		return sst_platform_clv_init(platform);
 	if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
-	    INTEL_MID_BOARD(1, TABLET, MRFL))
-		return sst_dsp_init(platform);
+			INTEL_MID_BOARD(1, TABLET, MRFL)) {
+		ret = sst_dsp_init(platform);
+		if (ret)
+			return ret;
+		ret = snd_soc_register_effect(platform->card, &effects_ops);
+		return ret;
+	}
 	return 0;
 }
 
@@ -825,7 +832,9 @@ static int sst_platform_probe(struct platform_device *pdev)
 	if (sst == NULL) {
 		pr_err("kzalloc failed\n");
 		return -ENOMEM;
-	};
+	}
+
+	sst_pdev = &pdev->dev;
 	sst->pdata = pdata;
 	mutex_init(&sst->lock);
 	dev_set_drvdata(&pdev->dev, sst);
