@@ -1330,7 +1330,7 @@ free_block:
  * Writing the DDR physical base to DCCM offset
  * so that FW can use it to setup TLB
  */
-static void mrfld_dccm_config_write(void __iomem *dram_base, unsigned int ddr_base)
+static void sst_dccm_config_write(void __iomem *dram_base, unsigned int ddr_base)
 {
 	void __iomem *addr;
 	u32 bss_reset = 0;
@@ -1340,7 +1340,30 @@ static void mrfld_dccm_config_write(void __iomem *dram_base, unsigned int ddr_ba
 	bss_reset |= (1 << MRFLD_FW_BSS_RESET_BIT);
 	addr = (void __iomem *)(dram_base + MRFLD_FW_FEATURE_BASE_OFFSET);
 	memcpy_toio(addr, &bss_reset, sizeof(u32));
-	pr_debug("mrfld config written to DCCM\n");
+	pr_debug("%s: config written to DCCM\n", __func__);
+}
+
+void sst_post_download_mrfld(struct intel_sst_drv *ctx)
+{
+	sst_dccm_config_write(ctx->dram, ctx->ddr_base);
+	/* For mrfld, download all libraries the first time fw is
+	 * downloaded */
+	pr_debug("%s: lib_dwnld = %u\n", __func__, ctx->lib_dwnld_reqd);
+	if (ctx->lib_dwnld_reqd) {
+		sst_load_all_modules_elf(ctx);
+		ctx->lib_dwnld_reqd = false;
+	}
+}
+
+void sst_post_download_ctp(struct intel_sst_drv *ctx)
+{
+	sst_fill_config(ctx, 0);
+}
+
+void sst_post_download_byt(struct intel_sst_drv *ctx)
+{
+	sst_dccm_config_write(ctx->dram, ctx->ddr_base);
+	sst_fill_config(ctx, 2 * sizeof(u32));
 }
 
 /**
@@ -1353,7 +1376,6 @@ int sst_load_fw(void)
 {
 	int ret_val = 0;
 	struct sst_block *block;
-	static int lib_dwnld;
 
 	pr_debug("sst_load_fw\n");
 
@@ -1366,7 +1388,7 @@ int sst_load_fw(void)
 		if (ret_val)
 			return ret_val;
 		if (!sst_drv_ctx->use_32bit_ops)
-			lib_dwnld = 1;
+			sst_drv_ctx->lib_dwnld_reqd = true;
 	}
 
 	BUG_ON(!sst_drv_ctx->fw_in_mem);
@@ -1390,26 +1412,12 @@ int sst_load_fw(void)
 	} else {
 		sst_do_memcpy(&sst_drv_ctx->memcpy_list);
 	}
-	/* Write the DRAM config before enabling FW
-	 */
-	if (!sst_drv_ctx->use_32bit_ops) {
-		mrfld_dccm_config_write(sst_drv_ctx->dram,
-						sst_drv_ctx->ddr_base);
-		/* For mrfld, download all libraries the first time fw is
-		 * downloaded */
-		pr_debug("lib_dwnld = %d\n", lib_dwnld);
-		if (lib_dwnld) {
-			sst_load_all_modules_elf(sst_drv_ctx);
-			lib_dwnld = 0;
-		}
-	}
+
+	/* Write the DRAM/DCCM config before enabling FW */
+	if (sst_drv_ctx->ops->post_download)
+		sst_drv_ctx->ops->post_download(sst_drv_ctx);
 
 	sst_drv_ctx->sst_state = SST_FW_LOADED;
-	/* offsets different for BYT & CTP */
-	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
-		sst_fill_config(sst_drv_ctx, 0);
-	else if (sst_drv_ctx->pci_id == SST_BYT_PCI_ID)
-		sst_fill_config(sst_drv_ctx, 2 * sizeof(u32));
 
 	/* bring sst out of reset */
 	ret_val = sst_drv_ctx->ops->start();

@@ -412,6 +412,7 @@ static struct intel_sst_ops mrfld_ops = {
 	.process_reply = sst_process_reply_mrfld,
 	.save_dsp_context =  sst_save_dsp_context_v2,
 	.alloc_stream = sst_alloc_stream_mrfld,
+	.post_download = sst_post_download_mrfld,
 };
 
 static struct intel_sst_ops mrfld_32_ops = {
@@ -427,6 +428,7 @@ static struct intel_sst_ops mrfld_32_ops = {
 	.save_dsp_context =  sst_save_dsp_context,
 	.restore_dsp_context = sst_restore_fw_context,
 	.alloc_stream = sst_alloc_stream_ctp,
+	.post_download = sst_post_download_byt,
 };
 
 static struct intel_sst_ops ctp_ops = {
@@ -443,6 +445,7 @@ static struct intel_sst_ops ctp_ops = {
 	.save_dsp_context =  sst_save_dsp_context,
 	.restore_dsp_context = sst_restore_fw_context,
 	.alloc_stream = sst_alloc_stream_ctp,
+	.post_download = sst_post_download_ctp,
 };
 
 int sst_driver_ops(struct intel_sst_drv *sst)

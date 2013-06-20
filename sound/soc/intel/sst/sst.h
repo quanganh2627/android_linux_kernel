@@ -541,6 +541,7 @@ struct intel_sst_drv {
 	unsigned int		use_lli;
 	atomic_t		fw_clear_context;
 	atomic_t		fw_clear_cache;
+	bool			lib_dwnld_reqd;
 	/* list used during FW download in memcpy mode */
 	struct list_head	memcpy_list;
 	/* list used during LIB download in memcpy mode */
@@ -589,6 +590,7 @@ struct intel_sst_ops {
 	int (*save_dsp_context) (struct intel_sst_drv *sst);
 	void (*restore_dsp_context) (void);
 	int (*alloc_stream) (char *params, struct sst_block *block);
+	void (*post_download)(struct intel_sst_drv *sst);
 };
 
 int sst_alloc_stream(char *params, struct sst_block *block);
@@ -640,6 +642,9 @@ int sst_load_library(struct snd_sst_lib_download *lib, u8 ops);
 int sst_load_all_modules_elf(struct intel_sst_drv *ctx);
 int sst_get_next_lib_mem(struct sst_mem_mgr *mgr, int size,
 			u32 *lib_base);
+void sst_post_download_ctp(struct intel_sst_drv *ctx);
+void sst_post_download_mrfld(struct intel_sst_drv *ctx);
+void sst_post_download_byt(struct intel_sst_drv *ctx);
 int sst_get_block_stream(struct intel_sst_drv *sst_drv_ctx);
 void sst_memcpy_free_resources(void);
 
