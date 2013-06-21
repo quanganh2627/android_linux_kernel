@@ -92,6 +92,7 @@
 #define IPC_IA_DRAIN_STREAM_MRFLD 0x8
 #define IPC_IA_CONTROL_ROUTING 0x29
 #define IPC_IA_VTSV_UPDATE_MODULES 0x20
+#define IPC_IA_VTSV_DETECTED 0x21
 
 #define IPC_IA_START_STREAM_MRFLD 0X06
 #define IPC_IA_START_STREAM 0x30 /* Short msg with str_id */
@@ -627,7 +628,11 @@ struct snd_sst_drop_response {
 };
 
 struct snd_sst_async_msg {
-	u32 msg_id; /* Async error msg id */
+	u32 msg_id; /* Async msg id */
+	u32 payload[0];
+};
+
+struct snd_sst_async_err_msg {
 	u32 fw_resp; /* Firmware Result */
 	u32 lib_resp; /*Library result */
 } __packed;
