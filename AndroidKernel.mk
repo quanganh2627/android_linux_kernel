@@ -54,6 +54,7 @@ KERNEL_PATH := $(KERNEL_PATH):$(ANDROID_BUILD_TOP)/$(dir $(KERNEL_CCACHE))
 endif
 
 KERNEL_OUT_DIR := $(PRODUCT_OUT)/linux/kernel
+KERNEL_MODULES_STRIPED := kernel_modules
 KERNEL_MODULES_ROOT := $(PRODUCT_OUT)/root/lib/modules
 KERNEL_CONFIG := $(KERNEL_OUT_DIR)/.config
 KERNEL_BLD_FLAGS := \
@@ -80,17 +81,23 @@ build_bzImage: $(KERNEL_CONFIG) openssl $(MINIGZIP)
 	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS)
 	@cp -f $(KERNEL_OUT_DIR)/arch/x86/boot/bzImage $(PRODUCT_OUT)/kernel
 
+modules_install: build_bzImage
+	@mkdir -p $(KERNEL_OUT_DIR)/$(KERNEL_MODULES_STRIPED)
+	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) INSTALL_MOD_PATH=$(KERNEL_MODULES_STRIPED) INSTALL_MOD_STRIP=1 modules_install
+
 clean_kernel:
 	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) clean
 
 #need to do this to have a modules.dep correctly set.
 #it is not optimized (copying all modules for each rebuild) but better than kernel-build.sh
 #fake depmod with a symbolic link to have /lib/modules/$(version_tag)/xxxx.ko
-copy_modules_to_root: build_bzImage
+copy_modules_to_root: build_bzImage modules_install
 	@$(RM) -rf $(KERNEL_MODULES_ROOT)
 	@mkdir -p $(KERNEL_MODULES_ROOT)
-	@find $(KERNEL_OUT_DIR) -name "*.ko" -exec cp -f {} $(KERNEL_MODULES_ROOT)/ \;
-	@find $(ALL_KERNEL_MODULES) -name "*.ko" -exec cp -f {} $(KERNEL_MODULES_ROOT)/ \;
+	@find $(KERNEL_OUT_DIR)/$(KERNEL_MODULES_STRIPED) -name "*.ko" -exec cp -f {} $(KERNEL_MODULES_ROOT)/ \;
+	# Line above replaces following 2 lines, leaving for future use if needed.
+	#@find $(KERNEL_OUT_DIR) -name "*.ko" -exec cp -f {} $(KERNEL_MODULES_ROOT)/ \;
+	#@find $(ALL_KERNEL_MODULES) -name "*.ko" -exec cp -f {} $(KERNEL_MODULES_ROOT)/ \;
 	@mkdir -p $(KERNEL_FAKE_DEPMOD)
 	@ln -fns $(ANDROID_BUILD_TOP)/$(KERNEL_MODULES_ROOT) $(KERNEL_FAKE_DEPMOD)/`cat $(KERNEL_VERSION_FILE)`
 	@/sbin/depmod -b $(KERNEL_OUT_DIR)/fakedepmod `cat $(KERNEL_VERSION_FILE)`
@@ -117,6 +124,8 @@ $(2): build_bzImage
 	@echo Building kernel module $(2) in $(1)
 	@mkdir -p $(KERNEL_OUT_DIR)/../../$(1)
 	@+$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) M=../../$(1) $(3)
+	@mkdir -p $(PRODUCT_OUT)/$(KERNEL_MODULES_STRIPED)
+	@+$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) M=../../$(1) $(3) INSTALL_MOD_PATH=$(KERNEL_MODULES_STRIPED) INSTALL_MOD_STRIP=1 modules_install
 
 $(2)_clean:
 	@echo Cleaning kernel module $(2) in $(1)
