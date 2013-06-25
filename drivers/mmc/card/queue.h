@@ -59,8 +59,6 @@ struct mmc_queue {
 	struct mmc_queue_req	*mqrq_prev;
 };
 
-int mmc_access_rpmb(struct mmc_queue *mq);
-
 extern int mmc_init_queue(struct mmc_queue *, struct mmc_card *, spinlock_t *,
 			  const char *);
 extern void mmc_cleanup_queue(struct mmc_queue *);
