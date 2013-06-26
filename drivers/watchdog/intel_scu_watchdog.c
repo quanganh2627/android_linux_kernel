@@ -57,6 +57,9 @@
 #define MAX_RETRY 16
 
 #define IPC_SET_WATCHDOG_TIMER	0xF8
+#define IPC_SET_SUB_DISABLE     0x01
+
+static bool disable_kernel_watchdog = true;
 
 static int timer_margin = DEFAULT_SOFT_TO_HARD_MARGIN;
 module_param(timer_margin, int, 0);
@@ -202,8 +205,27 @@ static int intel_scu_keepalive(void)
 
 static int intel_scu_stop(void)
 {
-	iowrite32(0, watchdog_device.timer_control_addr);
-	return 0;
+	int ret;
+
+	pr_crit("%s\n", __func__);
+
+	ret = intel_scu_ipc_command(
+			IPC_SET_WATCHDOG_TIMER,
+			IPC_SET_SUB_DISABLE,
+			NULL,
+			0,
+			NULL,
+			0);
+
+	if (ret) {
+		pr_crit("Error sending disable ipc: %x\n", ret);
+		goto err;
+	}
+
+	watchdog_device.timer_started = 0;
+
+err:
+	return ret;
 }
 
 static int intel_scu_set_heartbeat(u32 t)
@@ -513,15 +535,17 @@ static int __init intel_scu_watchdog_init(void)
 		goto register_reboot_error;
 	}
 
-	watchdog_device.miscdev.minor = WATCHDOG_MINOR;
-	watchdog_device.miscdev.name = "watchdog";
-	watchdog_device.miscdev.fops = &intel_scu_fops;
+	if (!disable_kernel_watchdog) {
+		watchdog_device.miscdev.minor = WATCHDOG_MINOR;
+		watchdog_device.miscdev.name = "watchdog";
+		watchdog_device.miscdev.fops = &intel_scu_fops;
 
-	ret = misc_register(&watchdog_device.miscdev);
-	if (ret) {
-		pr_err("cannot register miscdev %d err =%d\n",
-		       WATCHDOG_MINOR, ret);
-		goto misc_register_error;
+		ret = misc_register(&watchdog_device.miscdev);
+		if (ret) {
+			pr_err("cannot register miscdev %d err =%d\n",
+				WATCHDOG_MINOR, ret);
+			goto misc_register_error;
+		}
 	}
 
 	ret = request_irq((unsigned int)watchdog_device.timer_tbl_ptr->irq,
