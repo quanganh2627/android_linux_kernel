@@ -28,6 +28,13 @@
 #include <asm/intel-mid.h>
 #include <asm/intel_scu_ipc.h>
 
+enum {
+	SCU_IPC_LINCROFT,
+	SCU_IPC_PENWELL,
+	SCU_IPC_CLOVERVIEW,
+	SCU_IPC_TANGIER,
+};
+
 /* IPC defines the following message types */
 #define IPCMSG_WATCHDOG_TIMER 0xF8 /* Set Kernel Watchdog Threshold */
 #define IPCMSG_BATTERY        0xEF /* Coulomb Counter Accumulator */
@@ -564,7 +571,9 @@ static void ipc_remove(struct pci_dev *pdev)
 }
 
 static DEFINE_PCI_DEVICE_TABLE(pci_ids) = {
-	{PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x082a)},
+	{PCI_VDEVICE(INTEL, 0x082a), SCU_IPC_LINCROFT},
+	{PCI_VDEVICE(INTEL, 0x080e), SCU_IPC_PENWELL},
+	{PCI_VDEVICE(INTEL, 0x08ea), SCU_IPC_CLOVERVIEW},
 	{ 0,}
 };
 MODULE_DEVICE_TABLE(pci, pci_ids);
