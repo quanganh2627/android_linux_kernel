@@ -29,7 +29,6 @@
 
 #ifndef _I915_DRV_H_
 #define _I915_DRV_H_
-
 #include <uapi/drm/i915_drm.h>
 
 #include "i915_reg.h"
@@ -890,6 +889,18 @@ struct intel_gen6_power_mgmt {
 	struct mutex hw_lock;
 };
 
+/* Runtime power management related */
+struct intel_gen7_rpm {
+	/* To track (num of get calls - num of put calls)
+	 * made by procfs
+	 */
+	atomic_t procfs_count;
+	/* To make sure ring get/put are in pair */
+	bool ring_active;
+	struct proc_dir_entry *i915_proc_dir;
+	struct proc_dir_entry *i915_proc_file;
+};
+
 /* defined intel_pm.c */
 extern spinlock_t mchdev_lock;
 
@@ -1363,6 +1374,9 @@ typedef struct drm_i915_private {
 
 	/* gen6+ rps state */
 	struct intel_gen6_power_mgmt rps;
+
+	/* Runtime power management related */
+	struct intel_gen7_rpm rpm;
 
 	/* ilk-only ips/rps state. Everything in here is protected by the global
 	 * mchdev_lock in intel_pm.c */
