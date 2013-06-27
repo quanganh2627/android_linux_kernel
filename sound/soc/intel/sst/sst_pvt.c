@@ -44,7 +44,6 @@
 #define SST_EXCE_DUMP_LEN	32
 #define SST_EXCE_DUMP_SIZE	((SST_EXCE_DUMP_LEN)*(SST_EXCE_DUMP_WORD))
 #define SST_EXCE_DUMP_OFFSET	0xA00
-
 /*
  * sst_wait_interruptible - wait on event
  *
@@ -77,61 +76,92 @@ int sst_wait_interruptible(struct intel_sst_drv *sst_drv_ctx,
 
 }
 
+unsigned long long read_shim_data(struct intel_sst_drv *sst, int addr)
+{
+	unsigned long long val = 0;
+
+	switch (sst->pci_id) {
+	case SST_CLV_PCI_ID:
+		val = sst_shim_read(sst->shim, addr);
+		break;
+	case SST_MRFLD_PCI_ID:
+	case SST_BYT_PCI_ID:
+		val = sst_shim_read64(sst->shim, addr);
+		break;
+	}
+	return val;
+}
+
+void write_shim_data(struct intel_sst_drv *sst, int addr,
+				unsigned long long data)
+{
+	switch (sst->pci_id) {
+	case SST_CLV_PCI_ID:
+		sst_shim_write(sst->shim, addr, (u32) data);
+		break;
+	case SST_MRFLD_PCI_ID:
+	case SST_BYT_PCI_ID:
+		sst_shim_write64(sst->shim, addr, (u64) data);
+		break;
+	}
+}
+
+
 void dump_sst_shim(struct intel_sst_drv *sst)
 {
 	unsigned long irq_flags;
 
 	spin_lock_irqsave(&sst->ipc_spin_lock, irq_flags);
 	pr_err("audio shim registers:\n"
-		"CSR: %#x\n"
-		"PISR: %#x\n"
-		"PIMR: %#x\n"
-		"ISRX: %#x\n"
-		"ISRD: %#x\n"
-		"IMRX: %#x\n"
-		"IMRD: %#x\n"
-		"IPCX: %#x\n"
-		"IPCD: %#x\n"
-		"ISRSC: %#x\n"
-		"ISRLPESC: %#x\n"
-		"IMRSC: %#x\n"
-		"IMRLPESC: %#x\n"
-		"IPCSC: %#x\n"
-		"IPCLPESC: %#x\n"
-		"CLKCTL: %#x\n"
-		"CSR2: %#x\n",
-		sst_shim_read(sst->shim, SST_CSR),
-		sst_shim_read(sst->shim, SST_PISR),
-		sst_shim_read(sst->shim, SST_PIMR),
-		sst_shim_read(sst->shim, SST_ISRX),
-		sst_shim_read(sst->shim, SST_ISRD),
-		sst_shim_read(sst->shim, SST_IMRX),
-		sst_shim_read(sst->shim, SST_IMRD),
-		sst_shim_read(sst->shim, sst->ipc_reg.ipcx),
-		sst_shim_read(sst->shim, sst->ipc_reg.ipcd),
-		sst_shim_read(sst->shim, SST_ISRSC),
-		sst_shim_read(sst->shim, SST_ISRLPESC),
-		sst_shim_read(sst->shim, SST_IMRSC),
-		sst_shim_read(sst->shim, SST_IMRLPESC),
-		sst_shim_read(sst->shim, SST_IPCSC),
-		sst_shim_read(sst->shim, SST_IPCLPESC),
-		sst_shim_read(sst->shim, SST_CLKCTL),
-		sst_shim_read(sst->shim, SST_CSR2));
+		"CSR: %.8llx\n"
+		"PISR: %.8llx\n"
+		"PIMR: %.8llx\n"
+		"ISRX: %.8llx\n"
+		"ISRD: %.8llx\n"
+		"IMRX: %.8llx\n"
+		"IMRD: %.8llx\n"
+		"IPCX: %.8llx\n"
+		"IPCD: %.8llx\n"
+		"ISRSC: %.8llx\n"
+		"ISRLPESC: %.8llx\n"
+		"IMRSC: %.8llx\n"
+		"IMRLPESC: %.8llx\n"
+		"IPCSC: %.8llx\n"
+		"IPCLPESC: %.8llx\n"
+		"CLKCTL: %.8llx\n"
+		"CSR2: %.8llx\n",
+		read_shim_data(sst, SST_CSR),
+		read_shim_data(sst, SST_PISR),
+		read_shim_data(sst, SST_PIMR),
+		read_shim_data(sst, SST_ISRX),
+		read_shim_data(sst, SST_ISRD),
+		read_shim_data(sst, SST_IMRX),
+		read_shim_data(sst, SST_IMRD),
+		read_shim_data(sst, sst->ipc_reg.ipcx),
+		read_shim_data(sst, sst->ipc_reg.ipcd),
+		read_shim_data(sst, SST_ISRSC),
+		read_shim_data(sst, SST_ISRLPESC),
+		read_shim_data(sst, SST_IMRSC),
+		read_shim_data(sst, SST_IMRLPESC),
+		read_shim_data(sst, SST_IPCSC),
+		read_shim_data(sst, SST_IPCLPESC),
+		read_shim_data(sst, SST_CLKCTL),
+		read_shim_data(sst, SST_CSR2));
 	spin_unlock_irqrestore(&sst->ipc_spin_lock, irq_flags);
 }
 
 void reset_sst_shim(struct intel_sst_drv *sst)
 {
 	pr_err("Resetting few Shim registers\n");
-	sst_shim_write(sst->shim, sst->ipc_reg.ipcx, 0x0);
-	sst_shim_write(sst->shim, sst->ipc_reg.ipcd, 0x0);
-	sst_shim_write(sst->shim, SST_ISRX, 0x0);
-	sst_shim_write(sst->shim, SST_ISRD, 0x0);
-	sst_shim_write(sst->shim, SST_IPCSC, 0x0);
-	sst_shim_write(sst->shim, SST_IPCLPESC, 0x0);
-	sst_shim_write(sst->shim, SST_ISRSC, 0x0);
-	sst_shim_write(sst->shim, SST_ISRLPESC, 0x0);
-	sst_shim_write(sst->shim, SST_PISR, 0x0);
+	write_shim_data(sst, sst->ipc_reg.ipcx, 0x0);
+	write_shim_data(sst, sst->ipc_reg.ipcd, 0x0);
+	write_shim_data(sst, SST_ISRX, 0x0);
+	write_shim_data(sst, SST_ISRD, 0x0);
+	write_shim_data(sst, SST_IPCSC, 0x0);
+	write_shim_data(sst, SST_IPCLPESC, 0x0);
+	write_shim_data(sst, SST_ISRSC, 0x0);
+	write_shim_data(sst, SST_ISRLPESC, 0x0);
+	write_shim_data(sst, SST_PISR, 0x0);
 }
 
 static void dump_sst_crash_area(void)
@@ -167,7 +197,7 @@ static void dump_sst_crash_area(void)
  * @iram		: true if iram dump else false
  * This function dumps the iram dram data into the respective buffers
  */
-#if defined(DEBUG_SST_REC) && defined(CONFIG_DEBUG_FS)
+#if IS_ENABLED(CONFIG_SND_INTEL_SST_RECOVERY)
 static void dump_ram_area(struct intel_sst_drv *sst,
 			struct sst_dump_buf *dump_buf, enum sst_ram_type type)
 {
@@ -181,10 +211,8 @@ static void dump_ram_area(struct intel_sst_drv *sst,
 				dump_buf->dram_buf.size);
 	}
 }
-#endif
 
 /*FIXME Disabling IRAM/DRAM dump for timeout issues */
-#ifdef DEBUG_SST_REC
 static void sst_stream_recovery(struct intel_sst_drv *sst)
 {
 	struct stream_info *str_info;
@@ -203,14 +231,9 @@ static void sst_do_recovery(struct intel_sst_drv *sst)
 {
 	struct ipc_post *m, *_m;
 	unsigned long irq_flags;
-	char iram_event[30], dram_event[30];
-	char *envp[3];
+	char iram_event[30], dram_event[30], ddr_imr_event[50];
+	char *envp[4];
 	int env_offset = 0;
-
-	if (sst->pci_id == SST_MRFLD_PCI_ID) {
-		dump_stack();
-		return;
-	}
 
 	/*
 	 * setting firmware state as uninit so that the firmware will get
@@ -247,6 +270,12 @@ static void sst_do_recovery(struct intel_sst_drv *sst)
 	envp[env_offset++] = iram_event;
 	sprintf(dram_event, "DRAM_DUMP_SIZE=%d", sst->dump_buf.dram_buf.size);
 	envp[env_offset++] = dram_event;
+
+	if (sst->ddr != NULL) {
+		sprintf(ddr_imr_event, "DDR_IMR_DUMP_SIZE=%d DDR_IMR_ADDRESS=%p",
+			(sst->ddr_end - sst->ddr_base), sst->ddr);
+		envp[env_offset++] = ddr_imr_event;
+	}
 	envp[env_offset] = NULL;
 	kobject_uevent_env(&sst->dev->kobj, KOBJ_CHANGE, envp);
 	pr_err("Recovery Uevent Sent!!\n");

@@ -55,6 +55,7 @@ config SND_MRFLD_MACHINE
 	select SND_SST_PLATFORM
 	select SND_SST_MACHINE
 	select SND_INTEL_SST
+	select SND_INTEL_SST_RECOVERY
 	default n
 	help
 	  This adds support for ASoC machine driver for Intel(R) MID Merrifield platform
@@ -118,4 +119,7 @@ config PRH_TEMP_WA_FOR_SPID
 	tristate "Workaround for PRh since SPID is unavailable"
 
 config SND_SST_MACHINE
+	tristate
+
+config SND_INTEL_SST_RECOVERY
 	tristate

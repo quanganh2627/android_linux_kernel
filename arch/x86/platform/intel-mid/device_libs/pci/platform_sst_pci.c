@@ -20,28 +20,47 @@
 
 #define CTP_SSP_BASE 0xffa23000
 #define CTP_DMA_BASE 0xffaf8000
+#define MRFLD_SSP_BASE 0xff2a0000
+#define MRFLD_DMA_BASE 0xff298000
 #define CTP_MAX_CONFIG_SIZE 500
 
 #define SST_CTP_IRAM_START	0
 #define SST_CTP_IRAM_END	0x80000
 #define SST_CTP_DRAM_START	0x400000
 #define SST_CTP_DRAM_END	0x480000
+#define SSP_SIZE 0x1000
+#define DMA_SIZE_CTP 0x1000
+#define DMA_SIZE_MRFLD 0x4000
+#define SST_CHECKPOINT_OFFSET 0x1C00
+#define SST_CHECKPOINT_OFFSET_MRFLD 0x0C10
+#define CHECKPOINT_DUMP_SZ 256
+#define CHECKPOINT_DUMP_SZ_MRFLD 64
 
 #define SST_V1_MAILBOX_RECV	0x800
 #define SST_V2_MAILBOX_RECV	0x400
 
 struct sst_platform_info sst_data;
 
-static struct sst_ssp_info ssp_inf = {
+static struct sst_ssp_info ssp_inf_ctp = {
 	.gpio = {
 		.alt_function = LNW_ALT_2,
 	},
-	.in_use = true,
+	.gpio_in_use = true,
+};
+
+static struct sst_ssp_info ssp_inf_mrfld = {
+	.base_add = MRFLD_SSP_BASE,
+	.gpio_in_use = false,
 };
 
 static const struct sst_platform_config_data sst_ctp_pdata = {
 	.sst_sram_buff_base = 0xfffc0000,
 	.sst_dma_base[0] = CTP_DMA_BASE,
+	.sst_dma_base[1] = 0x0,
+};
+
+static struct sst_platform_config_data sst_mrfld_pdata = {
+	.sst_dma_base[0] = MRFLD_DMA_BASE,
 	.sst_dma_base[1] = 0x0,
 };
 
@@ -115,6 +134,24 @@ static const struct sst_info mrfld_sst_info = {
 	.num_probes = 16,
 };
 
+static struct sst_platform_debugfs_data ctp_debugfs_data = {
+	.ssp_reg_size = SSP_SIZE,
+	.dma_reg_size = DMA_SIZE_CTP,
+	.num_ssp = 1,
+	.num_dma = 1,
+	.checkpoint_offset = SST_CHECKPOINT_OFFSET,
+	.checkpoint_size = CHECKPOINT_DUMP_SZ,
+};
+
+static struct sst_platform_debugfs_data mrfld_debugfs_data = {
+	.ssp_reg_size = SSP_SIZE,
+	.dma_reg_size = DMA_SIZE_MRFLD,
+	.num_ssp = 3,
+	.num_dma = 2,
+	.checkpoint_offset = SST_CHECKPOINT_OFFSET_MRFLD,
+	.checkpoint_size = CHECKPOINT_DUMP_SZ_MRFLD,
+};
+
 static const struct sst_ipc_info mrfld_ipc_info = {
 	.use_32bit_ops = false,
 	.ipc_offset = 0,
@@ -125,13 +162,13 @@ static int set_ctp_sst_config(struct sst_platform_info *sst_info)
 {
 	unsigned int conf_len;
 
-	ssp_inf.base_add = CTP_SSP_BASE;
-	ssp_inf.gpio.i2s_rx_alt = get_gpio_by_name("gpio_i2s3_rx");
-	ssp_inf.gpio.i2s_tx_alt = get_gpio_by_name("gpio_i2s3_rx");
-	ssp_inf.gpio.i2s_frame = get_gpio_by_name("gpio_i2s3_fs");
-	ssp_inf.gpio.i2s_clock = get_gpio_by_name("gpio_i2s3_clk");
+	ssp_inf_ctp.base_add = CTP_SSP_BASE;
+	ssp_inf_ctp.gpio.i2s_rx_alt = get_gpio_by_name("gpio_i2s3_rx");
+	ssp_inf_ctp.gpio.i2s_tx_alt = get_gpio_by_name("gpio_i2s3_rx");
+	ssp_inf_ctp.gpio.i2s_frame = get_gpio_by_name("gpio_i2s3_fs");
+	ssp_inf_ctp.gpio.i2s_clock = get_gpio_by_name("gpio_i2s3_clk");
 
-	sst_info->ssp_data = &ssp_inf;
+	sst_info->ssp_data = &ssp_inf_ctp;
 	conf_len = sizeof(sst_ctp_pdata) + sizeof(sst_ctp_bdata);
 	if (conf_len > CTP_MAX_CONFIG_SIZE)
 		return -EINVAL;
@@ -139,8 +176,22 @@ static int set_ctp_sst_config(struct sst_platform_info *sst_info)
 	sst_info->bdata = &sst_ctp_bdata;
 	sst_info->probe_data = &ctp_sst_info;
 	sst_info->ipc_info = &ctp_ipc_info;
+	sst_info->debugfs_data = &ctp_debugfs_data;
 
 	return 0;
+}
+
+static void set_mrfld_sst_config(struct sst_platform_info *sst_info)
+{
+	sst_info->ssp_data = &ssp_inf_mrfld;
+	sst_info->pdata = &sst_mrfld_pdata;
+	sst_info->bdata = NULL;
+	sst_info->probe_data = &mrfld_sst_info;
+	sst_info->ipc_info = &mrfld_ipc_info;
+	sst_info->debugfs_data = &mrfld_debugfs_data;
+
+	return ;
+
 }
 
 static struct sst_platform_info *get_sst_platform_data(struct pci_dev *pdev)
@@ -156,11 +207,7 @@ static struct sst_platform_info *get_sst_platform_data(struct pci_dev *pdev)
 		sst_pinfo = &sst_data;
 		break;
 	case PCI_DEVICE_ID_INTEL_SST_MRFLD:
-		sst_data.ssp_data = NULL;
-		sst_data.probe_data = &mrfld_sst_info;
-		sst_data.pdata = NULL;
-		sst_data.bdata = NULL;
-		sst_data.ipc_info = &mrfld_ipc_info;
+		set_mrfld_sst_config(&sst_data);
 		sst_pinfo = &sst_data;
 		break;
 	default:

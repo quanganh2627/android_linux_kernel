@@ -44,6 +44,8 @@
 #include "sst.h"
 
 #define DMA_NUM_CH	8
+#define DEBUGFS_SSP_BUF_SIZE	300  /* 22 chars * 12 reg*/
+#define DEBUGFS_DMA_BUF_SIZE	2500 /* 32 chars * 78 regs*/
 
 /* Register Offsets of SSP3 and LPE DMA */
 u32 ssp_reg_off[] = {0x0, 0x4, 0x8, 0xC, 0x10, 0x28, 0x2C, 0x30, 0x34, 0x38,
@@ -171,7 +173,6 @@ static const struct file_operations sst_debug_shim_ops = {
 };
 
 #define RESVD_DUMP_SZ		40
-#define CHECKPOINT_DUMP_SZ	256
 #define IA_LPE_MAILBOX_DUMP_SZ	100
 #define LPE_IA_MAILBOX_DUMP_SZ	100
 #define SCU_LPE_MAILBOX_DUMP_SZ	256
@@ -269,12 +270,23 @@ static ssize_t sst_debug_sram_lpe_checkpoint_read(struct file *file,
 
 	struct intel_sst_drv *drv = file->private_data;
 	int ret = 0;
+	u32 offset;
+
+	if ((sst_drv_ctx->pci_id != SST_CLV_PCI_ID) &&
+		(sst_drv_ctx->pci_id != SST_MRFLD_PCI_ID)) {
+		pr_err("Only Supported for CTP and MRFLD\n");
+		return -EPERM;
+	}
+
 	ret = is_fw_running(drv);
 	if (ret)
 		return ret;
-	ret = copy_sram_to_user_buffer(user_buf, count, ppos, CHECKPOINT_DUMP_SZ,
-				       (u32 *)(drv->mailbox + SST_CHECKPOINT_OFFSET),
-				       SST_CHECKPOINT_OFFSET);
+
+	offset = sst_drv_ctx->pdata->debugfs_data->checkpoint_offset;
+
+	ret = copy_sram_to_user_buffer(user_buf, count, ppos,
+				sst_drv_ctx->pdata->debugfs_data->checkpoint_size,
+				(u32 *)(drv->mailbox + offset), offset);
 	sst_pm_runtime_put(drv);
 	return ret;
 }
@@ -337,6 +349,12 @@ static ssize_t sst_debug_sram_lpe_scu_mbox_read(struct file *file,
 {
 	struct intel_sst_drv *drv = file->private_data;
 	int ret = 0;
+
+	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) {
+		pr_err("Not supported for MRFLD\n");
+		return -EPERM;
+	}
+
 	ret = is_fw_running(drv);
 	if (ret)
 		return ret;
@@ -357,6 +375,12 @@ static ssize_t sst_debug_sram_scu_lpe_mbox_read(struct file *file,
 		char __user *user_buf, size_t count, loff_t *ppos)
 {	struct intel_sst_drv *drv = file->private_data;
 	int ret = 0;
+
+	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) {
+		pr_err("Not supported for MRFLD\n");
+		return -EPERM;
+	}
+
 	ret = is_fw_running(drv);
 	if (ret)
 		return ret;
@@ -634,7 +658,7 @@ static ssize_t sst_debug_readme_read(struct file *file, char __user *user_buf,
 					"dma single block mode\n"
 		"11. cat fw_ssp_reg,This will dump the ssp register contents\n"
 		"12. cat fw_dma_reg,This will dump the dma register contents\n"
-		"13. iram_dump & dram_dump, interfaces provide mmap support to\n"
+		"13. iram_dump,dram_dump & ddr_imr_dump, interfaces provide mmap support to\n"
 		"get the iram and dram dump these, buffers will have data only\n"
 		"after the recovery is triggered\n";
 
@@ -863,31 +887,55 @@ static const struct file_operations sst_debug_dwnld_mode = {
 	.write = sst_debug_dwnld_mode_write,
 };
 
-static ssize_t sst_debug_ssp_reg_read(struct file *file,
-			char __user *user_buf, size_t count, loff_t *ppos)
+static int dump_ssp_port(void __iomem *ssp_base, char *buf, int pos)
 {
-	char buf[300]; /* 22 chars * 12 reg = 264 ~ 300 */
-	int index = 0, pos = 0;
-	struct intel_sst_drv *drv = file->private_data;
-
-	/* FIXME: support for other platforms as well */
-	if (sst_drv_ctx->pci_id != SST_CLV_PCI_ID) {
-		pr_err("Currently only supported for ctp\n");
-		return -EPERM;
-	}
-
-	pm_runtime_get_sync(drv->dev);
-	buf[0] = 0;
+	int index = 0;
 
 	while (index < ARRAY_SIZE(ssp_reg_off)) {
 		pos += sprintf(buf + pos, "Reg: 0x%x: 0x%x\n", ssp_reg_off[index],
-			sst_reg_read(sst_drv_ctx->debugfs.ssp, ssp_reg_off[index]));
+			sst_reg_read(ssp_base, ssp_reg_off[index]));
 		index++;
+	}
+	return pos;
+}
+
+static ssize_t sst_debug_ssp_reg_read(struct file *file,
+			char __user *user_buf, size_t count, loff_t *ppos)
+{
+	char *buf;
+	int i, pos = 0, off = 0;
+	struct intel_sst_drv *drv = file->private_data;
+	int num_ssp, buf_size, ret;
+
+	if ((sst_drv_ctx->pci_id != SST_CLV_PCI_ID) &&
+		(sst_drv_ctx->pci_id != SST_MRFLD_PCI_ID)) {
+		pr_err("Only Supported for CTP and MRFLD\n");
+		return -EPERM;
+	}
+
+	num_ssp = sst_drv_ctx->pdata->debugfs_data->num_ssp;
+	buf_size = DEBUGFS_SSP_BUF_SIZE * num_ssp;
+
+	buf = kmalloc(buf_size, GFP_KERNEL);
+	if (!buf) {
+		pr_err("%s: no memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret = is_fw_running(drv);
+	if (ret)
+		return ret;
+	buf[0] = 0;
+
+	for (i = 0; i < num_ssp ; i++) {
+		off = sst_drv_ctx->pdata->debugfs_data->ssp_reg_size * i;
+		pos = dump_ssp_port((sst_drv_ctx->debugfs.ssp + off), buf, pos);
 	}
 	sst_pm_runtime_put(drv);
 
-	return simple_read_from_buffer(user_buf, count, ppos,
-					buf, pos);
+	ret = simple_read_from_buffer(user_buf, count, ppos, buf, pos);
+	kfree(buf);
+	return ret;
 }
 
 static const struct file_operations sst_debug_ssp_reg = {
@@ -895,63 +943,85 @@ static const struct file_operations sst_debug_ssp_reg = {
 		.read = sst_debug_ssp_reg_read,
 };
 
-static ssize_t sst_debug_dma_reg_read(struct file *file,
-		char __user *user_buf, size_t count, loff_t *ppos)
+static int dump_dma_reg(char *buf, int pos, int dma)
 {
-	char *buf;
-	int index = 0, pos = 0, i;
-	int off = 0, ret;
-	struct intel_sst_drv *drv = file->private_data;
+	int i, index = 0;
+	int off = 0 ;
+	int dma_offset;
+	void __iomem *dma_reg;
 
-	/* FIXME: support for other platforms as well */
-	if (sst_drv_ctx->pci_id != SST_CLV_PCI_ID) {
-		pr_err("Currently only supported for ctp\n");
-		return -EPERM;
-	}
+	pos += sprintf(buf + pos, "\nDump DMA%d Reg\n\n", dma);
 
-	buf = vmalloc(2500); /* 32 chars * 78 regs = 2496 ~ 2500 */
-	if (!buf) {
-		pr_err("%s: no memory\n", __func__);
-		return -ENOMEM;
-	}
-
-	pm_runtime_get_sync(drv->dev);
-	buf[0] = 0;
+	dma_offset = sst_drv_ctx->pdata->debugfs_data->dma_reg_size * dma;
+	dma_reg = sst_drv_ctx->debugfs.dma_reg + dma_offset;
 
 	/* Dump the DMA channel registers */
 	for (i = 0; i < DMA_NUM_CH; i++) {
 		pos += sprintf(buf + pos, "SAR%d: 0x%x: 0x%llx\n", i, off,
-			sst_reg_read64(sst_drv_ctx->debugfs.dma_reg, off));
+			sst_reg_read64(dma_reg, off));
 		off += 8;
 
 		pos += sprintf(buf + pos, "DAR%d: 0x%x: 0x%llx\n", i, off,
-			sst_reg_read64(sst_drv_ctx->debugfs.dma_reg, off));
+			sst_reg_read64(dma_reg, off));
 		off += 8;
 
 		pos += sprintf(buf + pos, "LLP%d: 0x%x: 0x%llx\n", i, off,
-			sst_reg_read64(sst_drv_ctx->debugfs.dma_reg, off));
+			sst_reg_read64(dma_reg, off));
 		off += 8;
 
 		pos += sprintf(buf + pos, "CTL%d: 0x%x: 0x%llx\n", i, off,
-			sst_reg_read64(sst_drv_ctx->debugfs.dma_reg, off));
+			sst_reg_read64(dma_reg, off));
 		off += 0x28;
 
 		pos += sprintf(buf + pos, "CFG%d: 0x%x: 0x%llx\n", i, off,
-			sst_reg_read64(sst_drv_ctx->debugfs.dma_reg, off));
+			sst_reg_read64(dma_reg, off));
 		off += 0x18;
 	}
 
 	/* Dump the remaining DMA registers */
 	while (index < ARRAY_SIZE(dma_reg_off)) {
 		pos += sprintf(buf + pos, "Reg: 0x%x: 0x%llx\n", dma_reg_off[index],
-			sst_reg_read64(sst_drv_ctx->debugfs.dma_reg, dma_reg_off[index]));
+				sst_reg_read64(dma_reg, dma_reg_off[index]));
 		index++;
 	}
+	return pos;
+}
+
+static ssize_t sst_debug_dma_reg_read(struct file *file,
+		char __user *user_buf, size_t count, loff_t *ppos)
+{
+	char *buf;
+	int pos = 0;
+	int ret, i;
+	struct intel_sst_drv *drv = file->private_data;
+	int num_dma, buf_size;
+
+	if ((sst_drv_ctx->pci_id != SST_CLV_PCI_ID) &&
+		(sst_drv_ctx->pci_id != SST_MRFLD_PCI_ID)) {
+		pr_err("Only Supported for CTP and MRFLD\n");
+		return -EPERM;
+	}
+	num_dma = sst_drv_ctx->pdata->debugfs_data->num_dma;
+	buf_size = DEBUGFS_DMA_BUF_SIZE * num_dma;
+
+	buf = kmalloc(buf_size, GFP_KERNEL);
+	if (!buf) {
+		pr_err("%s: no memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret = is_fw_running(drv);
+	if (ret)
+		return ret;
+	buf[0] = 0;
+
+	for (i = 0; i < num_dma; i++)
+		pos = dump_dma_reg(buf, pos, i);
+
 	sst_pm_runtime_put(drv);
 
-	ret = simple_read_from_buffer(user_buf, count, ppos,
-					buf, pos);
-	vfree(buf);
+	ret = simple_read_from_buffer(user_buf, count, ppos, buf, pos);
+	kfree(buf);
 	return ret;
 }
 
@@ -1000,11 +1070,6 @@ int sst_debug_iram_dump_mmap(struct file *file, struct vm_area_struct *vma)
 	int retval;
 	struct intel_sst_drv *sst = sst_drv_ctx;
 
-	if (sst->pci_id == SST_MRFLD_PCI_ID) {
-		pr_err("Currently not supported for mrfld\n");
-		return -EPERM;
-	}
-
 	retval = sst_debug_remap(vma, sst->dump_buf.iram_buf.buf, SST_IRAM);
 
 	return retval;
@@ -1020,11 +1085,6 @@ int sst_debug_dram_dump_mmap(struct file *file, struct vm_area_struct *vma)
 	int retval;
 	struct intel_sst_drv *sst = sst_drv_ctx;
 
-	if (sst->pci_id == SST_MRFLD_PCI_ID) {
-		pr_err("Currently not supported for mrfld\n");
-		return -EPERM;
-	}
-
 	retval = sst_debug_remap(vma, sst->dump_buf.dram_buf.buf, SST_DRAM);
 
 	return retval;
@@ -1034,6 +1094,27 @@ static const struct file_operations sst_debug_dram_dump = {
 	.open = simple_open,
 	.mmap = sst_debug_dram_dump_mmap,
 };
+
+int sst_debug_ddr_imr_dump_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	int retval;
+	struct intel_sst_drv *sst = sst_drv_ctx;
+
+	if (sst_drv_ctx->pci_id != SST_MRFLD_PCI_ID) {
+		pr_err("Currently Support MRFLD only\n");
+		return -EPERM;
+	}
+
+	retval = sst_debug_remap(vma, sst->ddr, 0);
+
+	return retval;
+}
+
+static const struct file_operations sst_debug_ddr_imr_dump = {
+	.open = simple_open,
+	.mmap = sst_debug_ddr_imr_dump_mmap,
+};
+
 
 void sst_debugfs_init(struct intel_sst_drv *sst)
 {
@@ -1155,6 +1236,13 @@ void sst_debugfs_init(struct intel_sst_drv *sst)
 	if (!debugfs_create_file("dram_dump", 0400, sst->debugfs.root,
 				sst, &sst_debug_dram_dump)) {
 		pr_err("Failed to create dram_dump file\n");
+		return;
+	}
+
+	/* dump Dram */
+	if (!debugfs_create_file("ddr_imr_dump", 0400, sst->debugfs.root,
+				sst, &sst_debug_ddr_imr_dump)) {
+		pr_err("Failed to create ddr_imr_dump file\n");
 		return;
 	}
 
