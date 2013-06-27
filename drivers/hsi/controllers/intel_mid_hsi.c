@@ -4348,7 +4348,7 @@ static const struct dev_pm_ops intel_mid_hsi_rtpm = {
 /**
  * struct pci_ids - PCI IDs handled by the driver (ID of HSI controller)
  */
-static const struct pci_device_id pci_ids[] __devinitdata = {
+static const struct pci_device_id pci_ids[] = {
 	{ PCI_VDEVICE(INTEL, HSI_PNW_PCI_DEVICE_ID) },	/* HSI - Penwell */
 	{ PCI_VDEVICE(INTEL, HSI_CLV_PCI_DEVICE_ID) },	/* HSI - Cloverview */
 	{ PCI_VDEVICE(INTEL, HSI_TNG_PCI_DEVICE_ID) },	/* HSI - Tangier */
