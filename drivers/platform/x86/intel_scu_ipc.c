@@ -60,6 +60,7 @@
 
 #define IPC_WWBUF_SIZE    20		/* IPC Write buffer Size */
 #define IPC_RWBUF_SIZE    20		/* IPC Read buffer Size */
+#define IPC_IOC	          0x100		/* IPC command register IOC bit */
 
 enum {
 	SCU_IPC_LINCROFT,
@@ -110,6 +111,9 @@ struct intel_scu_ipc_dev {
 	struct pci_dev *pdev;
 	void __iomem *ipc_base;
 	void __iomem *i2c_base;
+#ifdef CONFIG_INTEL_SCU_IPC_INTR_MODE
+	struct completion cmd_complete;
+#endif
 };
 
 static struct intel_scu_ipc_dev  ipcdev; /* Only one for now */
@@ -136,7 +140,12 @@ static DEFINE_MUTEX(ipclock); /* lock used to prevent multiple call to SCU */
  */
 static inline void ipc_command(u32 cmd) /* Send ipc command */
 {
+#ifdef CONFIG_INTEL_SCU_IPC_INTR_MODE
+	INIT_COMPLETION(ipcdev.cmd_complete);
+	writel(cmd | IPC_IOC, ipcdev.ipc_base);
+#else
 	writel(cmd, ipcdev.ipc_base);
+#endif
 }
 
 /*
@@ -194,6 +203,37 @@ static inline int busy_loop(void) /* Wait till scu status is busy */
 	return 0;
 }
 
+#ifdef CONFIG_INTEL_SCU_IPC_INTR_MODE
+/* Wait till ipc ioc interrupt is received or timeout in 3 HZ */
+static inline int ipc_wait_for_interrupt(void)
+{
+	int status;
+	int ret = 0;
+
+	if (!wait_for_completion_timeout(&ipcdev.cmd_complete, 3 * HZ)) {
+		ret = -ETIMEDOUT;
+		goto end;
+	}
+
+	status = ipc_read_status();
+
+	if ((status >> 1) & 1)
+		ret = -EIO;
+
+end:
+	return ret;
+}
+#endif
+
+int intel_scu_ipc_check_status(void)
+{
+#ifdef CONFIG_INTEL_SCU_IPC_INTR_MODE
+	return ipc_wait_for_interrupt();
+#else
+	return busy_loop();
+#endif
+}
+
 /* Read/Write power control(PMIC in Langwell, MSIC in PenWell) registers */
 static int pwr_reg_rdwr(u16 *addr, u8 *data, u32 count, u32 op, u32 id)
 {
@@ -234,7 +274,7 @@ static int pwr_reg_rdwr(u16 *addr, u8 *data, u32 count, u32 op, u32 id)
 		ipc_command(4 << 16 |  id << 12 | 0 << 8 | op);
 	}
 
-	err = busy_loop();
+	err = intel_scu_ipc_check_status();
 	if (id == IPC_CMD_PCNTRL_R) { /* Read rbuf */
 		/* Workaround: values are read as 0 without memcpy_fromio */
 		memcpy_fromio(cbuf, ipcdev.ipc_base + 0x90, 16);
@@ -429,7 +469,7 @@ int intel_scu_ipc_simple_command(int cmd, int sub)
 		return -ENODEV;
 	}
 	ipc_command(sub << 12 | cmd);
-	err = busy_loop();
+	err = intel_scu_ipc_check_status();
 	mutex_unlock(&ipclock);
 	return err;
 }
@@ -463,7 +503,7 @@ int intel_scu_ipc_command(int cmd, int sub, u32 *in, int inlen,
 		ipc_data_writel(*in++, 4 * i);
 
 	ipc_command((inlen << 16) | (sub << 12) | cmd);
-	err = busy_loop();
+	err = intel_scu_ipc_check_status();
 
 	for (i = 0; i < outlen; i++)
 		*out++ = ipc_data_readl(4 * i);
@@ -529,6 +569,9 @@ EXPORT_SYMBOL(intel_scu_ipc_i2c_cntrl);
  */
 static irqreturn_t ioc(int irq, void *dev_id)
 {
+#ifdef CONFIG_INTEL_SCU_IPC_INTR_MODE
+	complete(&ipcdev.cmd_complete);
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -565,6 +608,10 @@ static int ipc_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	pci_resource = pci_resource_start(dev, 0);
 	if (!pci_resource)
 		return -ENOMEM;
+
+#ifdef CONFIG_INTEL_SCU_IPC_INTR_MODE
+	init_completion(&ipcdev.cmd_complete);
+#endif
 
 	if (request_irq(dev->irq, ioc, 0, "intel_scu_ipc", &ipcdev))
 		return -EBUSY;
