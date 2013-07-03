@@ -2403,22 +2403,6 @@ CONFIG_USB_ARCH_HAS_OHCI=y
 CONFIG_USB_ARCH_HAS_EHCI=y
 CONFIG_USB_ARCH_HAS_XHCI=y
 # CONFIG_USB_SUPPORT is not set
-# CONFIG_USB_ZERO is not set
-# CONFIG_USB_AUDIO is not set
-# CONFIG_USB_ETH is not set
-# CONFIG_USB_G_NCM is not set
-# CONFIG_USB_GADGETFS is not set
-# CONFIG_USB_FUNCTIONFS is not set
-# CONFIG_USB_MASS_STORAGE is not set
-# CONFIG_USB_G_SERIAL is not set
-# CONFIG_USB_MIDI_GADGET is not set
-# CONFIG_USB_G_PRINTER is not set
-# CONFIG_USB_G_ANDROID is not set
-# CONFIG_USB_CDC_COMPOSITE is not set
-# CONFIG_USB_G_ACM_MS is not set
-# CONFIG_USB_G_MULTI is not set
-# CONFIG_USB_G_HID is not set
-# CONFIG_USB_G_DBGP is not set
 # CONFIG_UWB is not set
 # CONFIG_MMC is not set
 # CONFIG_MEMSTICK is not set
@@ -2664,6 +2648,7 @@ CONFIG_IOMMU_SUPPORT=y
 # CONFIG_VME_BUS is not set
 # CONFIG_PWM is not set
 # CONFIG_IPACK_BUS is not set
+# CONFIG_EXTERNAL_DRIVERS is not set
 
 #
 # Firmware Drivers

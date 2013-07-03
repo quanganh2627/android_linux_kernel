@@ -3012,6 +3012,7 @@ CONFIG_IOMMU_SUPPORT=y
 # CONFIG_VME_BUS is not set
 # CONFIG_PWM is not set
 # CONFIG_IPACK_BUS is not set
+# CONFIG_EXTERNAL_DRIVERS is not set
 
 #
 # Firmware Drivers
