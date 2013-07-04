@@ -18,7 +18,7 @@ menuconfig EXTERNAL_MISC_DRIVERS
 	  Enable support to external misc drivers.
 
 if EXTERNAL_MISC_DRIVERS
-source "drivers/external_drivers/intel_media/Kconfig"
+source "drivers/external_drivers/drivers/Kconfig"
 endif
 
 menuconfig EXTERNAL_INTEL_MEDIA
@@ -29,7 +29,7 @@ menuconfig EXTERNAL_INTEL_MEDIA
 	  Enable support to external intel media drivers.
 
 if EXTERNAL_INTEL_MEDIA
-source "drivers/external_drivers/drivers/Kconfig"
+source "drivers/external_drivers/intel_media/Kconfig"
 endif
 
 endif
