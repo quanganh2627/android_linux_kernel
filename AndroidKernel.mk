@@ -82,6 +82,7 @@ build_bzImage: $(KERNEL_CONFIG) openssl $(MINIGZIP)
 	@cp -f $(KERNEL_OUT_DIR)/arch/x86/boot/bzImage $(PRODUCT_OUT)/kernel
 
 modules_install: build_bzImage
+	@$(RM) -rf $(KERNEL_OUT_DIR)/$(KERNEL_MODULES_STRIPED)
 	@mkdir -p $(KERNEL_OUT_DIR)/$(KERNEL_MODULES_STRIPED)
 	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) INSTALL_MOD_PATH=$(KERNEL_MODULES_STRIPED) INSTALL_MOD_STRIP=1 modules_install
 
