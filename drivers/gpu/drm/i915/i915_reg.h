@@ -5791,6 +5791,11 @@ EDP_PSR_SW_TIMER
 #define VLV_GFX_CLK_FORCE_ON_BIT (1<<2)
 #define VLV_GFX_CLK_STATUS_BIT (1<<3)
 
+#define VLV_IOSFSB_PWRGT_STATUS                        0x61
+#define VLV_PWRGT_DPIO_TX_LANES_MASK   0x000FF000
+#define VLV_PWRGT_DPIO_CMN_LANES_MASK  0x00000C00
+#define VLV_PWRGT_DPIO_RX_TX_LANES_MASK        0x00FFF000
+
 /* GUnit registers for save/restore during s0ix */
 #define GUNIT_CONTROL		0x02030
 #define GUNIT_CONTROL1		0x02034
