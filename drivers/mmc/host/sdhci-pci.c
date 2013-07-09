@@ -332,6 +332,49 @@ static const struct sdhci_pci_fixes sdhci_intel_byt_sdio = {
 };
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_sd = {
+/* Define Host controllers for Intel Merrifield platform */
+#define INTEL_MRFL_EMMC_0	0
+#define INTEL_MRFL_EMMC_1	1
+#define INTEL_MRFL_SD		2
+#define INTEL_MRFL_SDIO		3
+
+static int intel_mrfl_mmc_probe_slot(struct sdhci_pci_slot *slot)
+{
+	int ret = 0;
+
+	if ((PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_EMMC_0) ||
+		(PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_EMMC_1))
+		slot->host->mmc->caps |= MMC_CAP_8_BIT_DATA |
+					 MMC_CAP_NONREMOVABLE |
+					 MMC_CAP_1_8V_DDR;
+
+	if (slot->data->platform_quirks & PLFM_QUIRK_NO_HIGH_SPEED) {
+		slot->host->quirks2 |= SDHCI_QUIRK2_DISABLE_HIGH_SPEED;
+		slot->host->mmc->caps &= ~MMC_CAP_1_8V_DDR;
+	}
+
+	if (slot->data->platform_quirks & PLFM_QUIRK_NO_EMMC_BOOT_PART)
+		slot->host->mmc->caps2 |= MMC_CAP2_BOOTPART_NOACC;
+
+	if (slot->data->platform_quirks & PLFM_QUIRK_NO_HOST_CTRL_HW) {
+		dev_info(&slot->chip->pdev->dev, "Disable MMC Func %d.\n",
+			PCI_FUNC(slot->chip->pdev->devfn));
+		ret = -ENODEV;
+	}
+
+	return ret;
+}
+
+static void intel_mrfl_mmc_remove_slot(struct sdhci_pci_slot *slot, int dead)
+{
+}
+
+static const struct sdhci_pci_fixes sdhci_intel_mrfl_mmc = {
+	.quirks		= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
+	.quirks2	= SDHCI_QUIRK2_BROKEN_AUTO_CMD23 |
+				SDHCI_QUIRK2_HIGH_SPEED_SET_LATE,
+	.probe_slot	= intel_mrfl_mmc_probe_slot,
+	.remove_slot	= intel_mrfl_mmc_remove_slot,
 };
 
 /* O2Micro extra registers */
@@ -950,7 +993,14 @@ static const struct pci_device_id pci_ids[] = {
 	},
 
 	{
+		.vendor		= PCI_VENDOR_ID_INTEL,
+		.device		= PCI_DEVICE_ID_INTEL_MRFL_MMC,
+		.subvendor	= PCI_ANY_ID,
+		.subdevice	= PCI_ANY_ID,
+		.driver_data	= (kernel_ulong_t)&sdhci_intel_mrfl_mmc,
+	},
 
+	{
 		.vendor		= PCI_VENDOR_ID_O2,
 		.device		= PCI_DEVICE_ID_O2_8120,
 		.subvendor	= PCI_ANY_ID,
