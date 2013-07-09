@@ -465,6 +465,25 @@ config X86_MDFLD
 	  nor standard legacy replacement devices/features. e.g. Medfield does
 	  not contain i8259, i8254, HPET, legacy BIOS, most of the io ports.
 
+config ATOM_SOC_POWER
+	bool "Select Atom SOC Power"
+
+choice
+	prompt "Select PMU support"
+	depends on ATOM_SOC_POWER
+	default REMOVEME_INTEL_ATOM_MDFLD_POWER
+
+config REMOVEME_INTEL_ATOM_MDFLD_POWER
+	bool "Medfield"
+
+config REMOVEME_INTEL_ATOM_CLV_POWER
+	bool "Clovertrail"
+
+config REMOVEME_INTEL_ATOM_MRFLD_POWER
+	bool "Merrifield"
+
+endchoice
+
 endif
 
 config X86_INTEL_LPSS
