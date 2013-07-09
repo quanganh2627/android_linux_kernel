@@ -1958,7 +1958,9 @@ static void intel_disable_dp(struct intel_encoder *encoder)
 	ironlake_edp_panel_vdd_on(intel_dp);
 	ironlake_edp_backlight_off(intel_dp);
 	intel_dp_sink_dpms(intel_dp, DRM_MODE_DPMS_ON);
-	ironlake_edp_panel_off(intel_dp);
+	/* Some of the FFRD10 PR1.1B boards doesnt like when edp panel power
+	 * is off */
+	/* ironlake_edp_panel_off(intel_dp); */
 
 	/* cpu edp my only be disable _after_ the cpu pipe/plane is disabled. */
 	if (!(port == PORT_A || IS_VALLEYVIEW(dev)))
