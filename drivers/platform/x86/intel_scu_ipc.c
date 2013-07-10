@@ -61,6 +61,8 @@
 #define IPC_WWBUF_SIZE    20		/* IPC Write buffer Size */
 #define IPC_RWBUF_SIZE    20		/* IPC Read buffer Size */
 #define IPC_IOC	          0x100		/* IPC command register IOC bit */
+#define IPC_SPTR_ADDR	  0x08		/* IPC source pointer */
+#define IPC_DPTR_ADDR	  0x0C		/* IPC destination pointer */
 
 enum {
 	SCU_IPC_LINCROFT,
@@ -474,6 +476,64 @@ int intel_scu_ipc_simple_command(int cmd, int sub)
 	return err;
 }
 EXPORT_SYMBOL(intel_scu_ipc_simple_command);
+
+void intel_scu_ipc_send_command(u32 cmd) /* Send ipc command */
+{
+	ipc_command(cmd);
+}
+EXPORT_SYMBOL(intel_scu_ipc_send_command);
+
+/**
+ *	intel_scu_ipc_raw_command	-	raw ipc command with data
+ *	@cmd: command
+ *	@sub: sub type
+ *	@in: input data
+ *	@inlen: input length in dwords
+ *	@out: output data
+ *	@outlein: output length in dwords
+ *	@sptr: data writing to SPTR register
+ *	@dptr: data writing to DPTR register
+ *
+ *	Issue a command to the SCU which involves data transfers. Do the
+ *	data copies under the lock but leave it for the caller to interpret
+ *	Note: This function should be called with the holding of ipclock
+ */
+
+int intel_scu_ipc_raw_command(int cmd, int sub, u32 *in, int inlen,
+				u32 *out, int outlen, u32 dptr, u32 sptr)
+{
+	int i, err;
+
+	if (ipcdev.pdev == NULL)
+		return -ENODEV;
+
+	writel(dptr, ipcdev.ipc_base + IPC_DPTR_ADDR);
+	writel(sptr, ipcdev.ipc_base + IPC_SPTR_ADDR);
+
+	for (i = 0; i < inlen; i++)
+		ipc_data_writel(*in++, 4 * i);
+
+	ipc_command((inlen << 16) | (sub << 12) | cmd);
+	err = intel_scu_ipc_check_status();
+
+	for (i = 0; i < outlen; i++)
+		*out++ = ipc_data_readl(4 * i);
+
+	return err;
+}
+EXPORT_SYMBOL(intel_scu_ipc_raw_command);
+
+void intel_scu_ipc_lock(void)
+{
+	mutex_lock(&ipclock);
+}
+EXPORT_SYMBOL(intel_scu_ipc_lock);
+
+void intel_scu_ipc_unlock(void)
+{
+	mutex_unlock(&ipclock);
+}
+EXPORT_SYMBOL(intel_scu_ipc_unlock);
 
 /**
  *	intel_scu_ipc_command	-	command with data
