@@ -39,6 +39,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/irqdomain.h>
 
+#define IRQ_TYPE_EDGE   (1 << 0)
+#define IRQ_TYPE_LEVEL  (1 << 1)
+
 /*
  * Langwell chip has 64 pins and thus there are 2 32bit registers to control
  * each feature, while Penwell chip has 96 pins for each block, and need 3 32bit
@@ -62,6 +65,55 @@ enum GPIO_REG {
 	GFER,		/* falling edge detect */
 	GEDR,		/* edge detect result */
 	GAFR,		/* alt function */
+};
+
+enum GPIO_CONTROLLERS {
+	LINCROFT_GPIO,
+	PENWELL_GPIO_AON,
+	PENWELL_GPIO_CORE,
+	CLOVERVIEW_GPIO_AON,
+	CLOVERVIEW_GPIO_CORE,
+	TANGIER_GPIO,
+};
+
+/* langwell gpio driver data */
+struct lnw_gpio_ddata_t {
+	u16 ngpio;		/* number of gpio pins */
+	u32 gplr_offset;	/* offset of first GPLR register from base */
+	u32 flis_base;		/* base address of FLIS registers */
+	u32 flis_len;		/* length of FLIS registers */
+	u32 (*get_flis_offset)(int gpio);
+	u32 chip_irq_type;	/* chip interrupt type */
+};
+
+static struct lnw_gpio_ddata_t lnw_gpio_ddata[] = {
+	[LINCROFT_GPIO] = {
+		.ngpio = 64,
+	},
+	[PENWELL_GPIO_AON] = {
+		.ngpio = 96,
+		.chip_irq_type = IRQ_TYPE_EDGE,
+	},
+	[PENWELL_GPIO_CORE] = {
+		.ngpio = 96,
+		.chip_irq_type = IRQ_TYPE_EDGE,
+	},
+	[CLOVERVIEW_GPIO_AON] = {
+		.ngpio = 96,
+		.chip_irq_type = IRQ_TYPE_EDGE | IRQ_TYPE_LEVEL,
+	},
+	[CLOVERVIEW_GPIO_CORE] = {
+		.ngpio = 96,
+		.chip_irq_type = IRQ_TYPE_EDGE,
+	},
+	[TANGIER_GPIO] = {
+		.ngpio = 192,
+		.gplr_offset = 4,
+		.flis_base = 0xFF0C0000,
+		.flis_len = 0x8000,
+		.get_flis_offset = NULL,
+		.chip_irq_type = IRQ_TYPE_EDGE,
+	},
 };
 
 struct lnw_gpio {
@@ -271,11 +323,18 @@ static struct irq_chip lnw_irqchip = {
 };
 
 static DEFINE_PCI_DEVICE_TABLE(lnw_gpio_ids) = {   /* pin number */
-	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x080f), .driver_data = 64 },
-	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x081f), .driver_data = 96 },
-	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x081a), .driver_data = 96 },
-	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x08eb), .driver_data = 96 },
-	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x08f7), .driver_data = 96 },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x080f),
+		.driver_data = LINCROFT_GPIO },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x081f),
+		.driver_data = PENWELL_GPIO_AON },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x081a),
+		.driver_data = PENWELL_GPIO_CORE },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x08eb),
+		.driver_data = CLOVERVIEW_GPIO_AON },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x08f7),
+		.driver_data = CLOVERVIEW_GPIO_CORE },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x1199),
+		.driver_data = TANGIER_GPIO },
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, lnw_gpio_ids);
@@ -364,7 +423,11 @@ static int lnw_gpio_probe(struct pci_dev *pdev,
 	u32 gpio_base;
 	u32 irq_base;
 	int retval;
-	int ngpio = id->driver_data;
+	struct lnw_gpio_ddata_t *ddata;
+	int pid;
+
+	pid = id->driver_data;
+	ddata = &lnw_gpio_ddata[pid];
 
 	retval = pci_enable_device(pdev);
 	if (retval)
@@ -414,11 +477,12 @@ static int lnw_gpio_probe(struct pci_dev *pdev,
 	lnw->chip.set = lnw_gpio_set;
 	lnw->chip.to_irq = lnw_gpio_to_irq;
 	lnw->chip.base = gpio_base;
-	lnw->chip.ngpio = ngpio;
+	lnw->chip.ngpio = ddata->ngpio;
 	lnw->chip.can_sleep = 0;
 	lnw->pdev = pdev;
 
-	lnw->domain = irq_domain_add_simple(pdev->dev.of_node, ngpio, irq_base,
+	lnw->domain = irq_domain_add_simple(pdev->dev.of_node,
+					    lnw->chip.ngpio, irq_base,
 					    &lnw_gpio_irq_ops, lnw);
 	if (!lnw->domain) {
 		retval = -ENOMEM;
