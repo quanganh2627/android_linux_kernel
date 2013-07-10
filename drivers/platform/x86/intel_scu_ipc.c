@@ -729,7 +729,7 @@ static struct pci_driver ipc_driver = {
 };
 
 
-static int __init intel_scu_ipc_init(void)
+static int intel_scu_ipc_init(void)
 {
 	platform = intel_mid_identify_cpu();
 	if (platform == 0)
