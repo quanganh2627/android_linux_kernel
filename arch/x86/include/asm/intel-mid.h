@@ -120,6 +120,7 @@ struct sd_board_info {
  * identified via MSRs.
  */
 enum intel_mid_cpu_type {
+	INTEL_CPU_CHIP_NOTMID = 0,
 	/* 1 was Moorestown */
 	INTEL_MID_CPU_CHIP_PENWELL = 2,
 	INTEL_MID_CPU_CHIP_CLOVERVIEW,
@@ -159,18 +160,14 @@ struct intel_mid_ops {
 	DECLARE_INTEL_MID_OPS_INIT(anniedale, INTEL_MID_CPU_CHIP_ANNIEDALE) \
 };
 
-#ifdef CONFIG_X86_INTEL_MID
-
 static inline enum intel_mid_cpu_type intel_mid_identify_cpu(void)
 {
+#ifdef CONFIG_X86_INTEL_MID
 	return __intel_mid_cpu_chip;
+#else
+	return INTEL_CPU_CHIP_NOTMID;
+#endif
 }
-
-#else /* !CONFIG_X86_INTEL_MID */
-
-#define intel_mid_identify_cpu()    (0)
-
-#endif /* !CONFIG_X86_INTEL_MID */
 
 enum intel_mid_timer_options {
 	INTEL_MID_TIMER_DEFAULT,
@@ -239,7 +236,11 @@ enum intel_mid_sim_type {
 extern enum intel_mid_sim_type __intel_mid_sim_platform;
 static inline enum intel_mid_sim_type intel_mid_identify_sim(void)
 {
+#ifdef CONFIG_X86_INTEL_MID
 	return __intel_mid_sim_platform;
+#else
+	return INTEL_MID_CPU_SIMULATION_NONE;
+#endif
 }
 
 #define INTEL_MID_IRQ_OFFSET 0x100
