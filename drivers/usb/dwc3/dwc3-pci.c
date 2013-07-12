@@ -210,7 +210,9 @@ static DEFINE_PCI_DEVICE_TABLE(dwc3_pci_id_table) = {
 
 		/* FIXME: move to pci_ids.h */
 #define PCI_DEVICE_ID_INTEL_DWC_VLV2	0x0f37
+#define PCI_DEVICE_ID_INTEL_DWC_TNG	0x119E
 		PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_DWC_VLV2),
+		PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_DWC_TNG),
 	},
 	{  }	/* Terminating Entry */
 };
