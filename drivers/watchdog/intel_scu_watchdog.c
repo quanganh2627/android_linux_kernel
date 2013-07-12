@@ -44,11 +44,14 @@
 #include <linux/sched.h>
 #include <linux/signal.h>
 #include <linux/sfi.h>
+#include <linux/rpmsg.h>
+#include <linux/platform_data/intel_mid_remoteproc.h>
 #include <asm/irq.h>
 #include <linux/atomic.h>
 #include <asm/intel_scu_ipc.h>
 #include <asm/apb_timer.h>
 #include <asm/intel-mid.h>
+#include <asm/intel_mid_rpmsg.h>
 
 #include "intel_scu_watchdog.h"
 
@@ -97,6 +100,8 @@ MODULE_PARM_DESC(force_boot,
 
 static struct intel_scu_watchdog_dev watchdog_device;
 
+static struct rpmsg_instance *watchdog_instance;
+
 /* Forces restart, if force_reboot is set */
 static void watchdog_fire(void)
 {
@@ -136,13 +141,10 @@ static int watchdog_set_ipc(int soft_threshold, int threshold)
 	ipc_wbuf[0] = soft_threshold;
 	ipc_wbuf[1] = threshold;
 
-	ipc_ret = intel_scu_ipc_command(
-			IPC_SET_WATCHDOG_TIMER,
-			0,
-			ipc_wbuf,
-			2,
-			NULL,
-			0);
+	ipc_ret = rpmsg_send_command(watchdog_instance,
+					IPC_SET_WATCHDOG_TIMER,
+					0,
+					ipc_wbuf, NULL, 2, 0);
 
 	if (ipc_ret != 0)
 		pr_err("Error setting SCU watchdog timer: %x\n", ipc_ret);
@@ -209,13 +211,10 @@ static int intel_scu_stop(void)
 
 	pr_crit("%s\n", __func__);
 
-	ret = intel_scu_ipc_command(
-			IPC_SET_WATCHDOG_TIMER,
-			IPC_SET_SUB_DISABLE,
-			NULL,
-			0,
-			NULL,
-			0);
+	ret = rpmsg_send_command(watchdog_instance,
+					IPC_SET_WATCHDOG_TIMER,
+					IPC_SET_SUB_DISABLE,
+					NULL, NULL, 0, 0);
 
 	if (ret) {
 		pr_crit("Error sending disable ipc: %x\n", ret);
@@ -582,8 +581,85 @@ static void __exit intel_scu_watchdog_exit(void)
 	iounmap(watchdog_device.timer_load_count_addr);
 }
 
-late_initcall(intel_scu_watchdog_init);
-module_exit(intel_scu_watchdog_exit);
+static int watchdog_rpmsg_probe(struct rpmsg_channel *rpdev)
+{
+	int ret = 0;
+
+	if (rpdev == NULL) {
+		pr_err("rpmsg channel not created\n");
+		ret = -ENODEV;
+		goto out;
+	}
+
+	dev_info(&rpdev->dev, "Probed watchdog rpmsg device\n");
+
+	/* Allocate rpmsg instance for watchdog*/
+	ret = alloc_rpmsg_instance(rpdev, &watchdog_instance);
+	if (!watchdog_instance) {
+		dev_err(&rpdev->dev, "kzalloc watchdog instance failed\n");
+		goto out;
+	}
+	/* Initialize rpmsg instance */
+	init_rpmsg_instance(watchdog_instance);
+	/* Init scu watchdog */
+	ret = intel_scu_watchdog_init();
+
+	if (ret)
+		free_rpmsg_instance(rpdev, &watchdog_instance);
+out:
+	return ret;
+}
+
+static void watchdog_rpmsg_remove(struct rpmsg_channel *rpdev)
+{
+	intel_scu_watchdog_exit();
+	free_rpmsg_instance(rpdev, &watchdog_instance);
+	dev_info(&rpdev->dev, "Removed watchdog rpmsg device\n");
+}
+
+static void watchdog_rpmsg_cb(struct rpmsg_channel *rpdev, void *data,
+					int len, void *priv, u32 src)
+{
+	dev_warn(&rpdev->dev, "unexpected, message\n");
+
+	print_hex_dump(KERN_DEBUG, __func__, DUMP_PREFIX_NONE, 16, 1,
+		       data, len,  true);
+}
+
+static struct rpmsg_device_id watchdog_rpmsg_id_table[] = {
+	{ .name	= "rpmsg_watchdog" },
+	{ },
+};
+MODULE_DEVICE_TABLE(rpmsg, watchdog_rpmsg_id_table);
+
+static struct rpmsg_driver watchdog_rpmsg = {
+	.drv.name	= KBUILD_MODNAME,
+	.drv.owner	= THIS_MODULE,
+	.id_table	= watchdog_rpmsg_id_table,
+	.probe		= watchdog_rpmsg_probe,
+	.callback	= watchdog_rpmsg_cb,
+	.remove		= watchdog_rpmsg_remove,
+};
+
+static int __init watchdog_rpmsg_init(void)
+{
+	pr_info("watchdog driver: rpmsg_init()\n");
+
+	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_PENWELL ||
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CLOVERVIEW)
+		return register_rpmsg_driver(&watchdog_rpmsg);
+	else {
+		pr_err("%s: watchdog driver: bad platform\n", __func__);
+		return -ENODEV;
+	}
+}
+late_initcall(watchdog_rpmsg_init);
+
+static void __exit watchdog_rpmsg_exit(void)
+{
+	return unregister_rpmsg_driver(&watchdog_rpmsg);
+}
+module_exit(watchdog_rpmsg_exit);
 
 MODULE_AUTHOR("Intel Corporation");
 MODULE_DESCRIPTION("Intel SCU Watchdog Device Driver");
