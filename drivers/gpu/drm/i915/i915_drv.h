@@ -2413,6 +2413,8 @@ int i915_set_plane_180_rotation(struct drm_device *dev, void *data,
 		struct drm_file *file);
 int i915_disp_screen_control(struct drm_device *dev, void *data,
 		struct drm_file *file);
+int i915_set_plane_alpha(struct drm_device *dev, void *data,
+			  struct drm_file *file);
 
 /* overlay */
 extern struct intel_overlay_error_state *intel_overlay_capture_error_state(struct drm_device *dev);
