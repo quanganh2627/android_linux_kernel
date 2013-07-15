@@ -770,9 +770,6 @@ static SIMPLE_DEV_PM_OPS(serial_m3110_pm_ops, serial_m3110_suspend,
 #define SERIAL_M3110_PM_OPS NULL
 #endif
 
-static SIMPLE_DEV_PM_OPS(serial_m3110_pm_ops, serial_m3110_suspend,
-			 serial_m3110_resume);
-
 static int serial_m3110_probe(struct spi_device *spi)
 {
 	struct uart_max3110 *max;
