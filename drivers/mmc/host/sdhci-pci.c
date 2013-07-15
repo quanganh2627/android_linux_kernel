@@ -332,6 +332,8 @@ static const struct sdhci_pci_fixes sdhci_intel_byt_sdio = {
 };
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_sd = {
+};
+
 /* Define Host controllers for Intel Merrifield platform */
 #define INTEL_MRFL_EMMC_0	0
 #define INTEL_MRFL_EMMC_1	1
