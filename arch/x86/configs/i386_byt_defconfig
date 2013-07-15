@@ -3059,8 +3059,14 @@ CONFIG_EXTERNAL_MISC_DRIVERS=y
 # CONFIG_SCU_LOGGING is not set
 # CONFIG_UUID is not set
 # CONFIG_BCM_BT_LPM is not set
+
+#
+# Fork of Texas Instruments shared transport line discipline
+#
+# CONFIG_TI_ST_FORK is not set
 # CONFIG_TOUCHSCREEN_ATMEL_MXT224 is not set
 # CONFIG_INPUT_INTEL_MID_VIBRA is not set
+# CONFIG_PN544_NFC_FORK is not set
 # CONFIG_CHARGER_BQ24192 is not set
 # CONFIG_TOOL_MATRIX is not set
 # CONFIG_REGULATOR_PMIC_AVP is not set
