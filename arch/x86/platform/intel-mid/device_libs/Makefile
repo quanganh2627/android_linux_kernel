@@ -61,6 +61,25 @@ ifndef CONFIG_ACPI
 obj-$(subst m,y,$(CONFIG_BCM_BT_LPM)) += platform_btlpm.o
 endif
 #I2C Devices
+# Camera
+obj-$(subst m,y,$(CONFIG_VIDEO_ATOMISP_TMP))				+= platform_camera.o
+ifdef CONFIG_VIDEO_ATOMISP_TMP
+obj-$(subst m,y,$(CONFIG_VIDEO_MT9E013))				+= platform_mt9e013.o
+obj-$(subst m,y,$(CONFIG_VIDEO_MT9D113))				+= platform_mt9d113.o
+obj-$(subst m,y,$(CONFIG_VIDEO_MT9M114))				+= platform_mt9m114.o
+obj-$(subst m,y,$(CONFIG_VIDEO_MT9V113))				+= platform_mt9v113.o
+obj-$(subst m,y,$(CONFIG_VIDEO_OV8830))					+= platform_ov8830.o
+obj-$(subst m,y,$(CONFIG_VIDEO_IMX))					+= platform_imx175.o
+obj-$(subst m,y,$(CONFIG_VIDEO_IMX))					+= platform_imx135.o
+obj-$(subst m,y,$(CONFIG_VIDEO_IMX))					+= platform_imx132.o
+obj-$(subst m,y,$(CONFIG_VIDEO_IMX))					+= platform_imx134.o
+obj-$(subst m,y,$(CONFIG_VIDEO_S5K8AAY))				+= platform_s5k8aay.o
+obj-$(subst m,y,$(CONFIG_VIDEO_OV9724))					+= platform_ov9724.o
+obj-$(subst m,y,$(CONFIG_VIDEO_OV2722))					+= platform_ov2722.o
+obj-$(subst m,y,$(CONFIG_VIDEO_LM3554))					+= platform_lm3554.o
+obj-$(subst m,y,$(CONFIG_VIDEO_LM3559))					+= platform_lm3559.o
+endif
+
 ifdef CONFIG_BATTERY_MAX17042
 obj-$(subst m,y,$(CONFIG_BATTERY_MAX17042)) += platform_max17042.o
 else
