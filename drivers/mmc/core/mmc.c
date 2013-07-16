@@ -497,6 +497,9 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		 * RPMB regions are defined in multiples of 128K.
 		 */
 		card->ext_csd.raw_rpmb_size_mult = ext_csd[EXT_CSD_RPMB_MULT];
+		card->ext_csd.rpmb_size = 128 *
+			card->ext_csd.raw_rpmb_size_mult;
+		card->ext_csd.rpmb_size <<= 2; /* Unit: half sector */
 		if (ext_csd[EXT_CSD_RPMB_MULT] && mmc_host_cmd23(card->host)) {
 			mmc_part_add(card, ext_csd[EXT_CSD_RPMB_MULT] << 17,
 				EXT_CSD_PART_CONFIG_ACC_RPMB,
@@ -548,6 +551,17 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		card->ext_csd.data_sector_size = 512;
 	}
 
+	/*
+	 * If use legacy relaible write, then the blk counts must not
+	 * big than the relaible write sectors
+	 */
+	if (!(card->ext_csd.rel_param & EXT_CSD_WR_REL_PARAM_EN)) {
+		if (card->ext_csd.rel_sectors < RPMB_AVALIABLE_SECTORS)
+			card->rpmb_max_req = card->ext_csd.rel_sectors;
+		else
+			card->rpmb_max_req = RPMB_AVALIABLE_SECTORS;
+	} else
+		card->rpmb_max_req = RPMB_AVALIABLE_SECTORS;
 out:
 	return err;
 }
@@ -641,6 +655,7 @@ MMC_DEV_ATTR(hpi_command, "%d\n", card->ext_csd.hpi_cmd);
 MMC_DEV_ATTR(hw_reset_support, "%d\n", card->ext_csd.rst_n_function);
 MMC_DEV_ATTR(bkops_support, "%d\n", card->ext_csd.bkops);
 MMC_DEV_ATTR(bkops_enable, "%d\n", card->ext_csd.bkops_en);
+MMC_DEV_ATTR(rpmb_size, "%d\n", card->ext_csd.rpmb_size);
 
 static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_cid.attr,
@@ -665,6 +680,7 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_hw_reset_support.attr,
 	&dev_attr_bkops_support.attr,
 	&dev_attr_bkops_enable.attr,
+	&dev_attr_rpmb_size.attr,
 	NULL,
 };
 
