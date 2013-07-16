@@ -17,7 +17,11 @@
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
 #include <linux/mfd/intel_mid_pmic.h>
+
+#ifdef CONFIG_VLV2_PLAT_CLK
 #include <linux/vlv2_plat_clock.h>
+#endif
+
 #include "platform_camera.h"
 #include "platform_ov2722.h"
 
