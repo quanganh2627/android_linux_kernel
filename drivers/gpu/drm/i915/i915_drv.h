@@ -1823,6 +1823,7 @@ extern int i915_panel_use_ssc __read_mostly;
 extern int i915_vbt_sdvo_panel_type __read_mostly;
 extern int i915_mipi_panel_id __read_mostly;
 extern int i915_enable_rc6 __read_mostly;
+extern int i915_rotation __read_mostly;
 extern int i915_enable_fbc __read_mostly;
 extern bool i915_enable_hangcheck __read_mostly;
 extern int i915_enable_ppgtt __read_mostly;
@@ -2374,6 +2375,8 @@ extern int valleyview_rps_min_freq(struct drm_i915_private *dev_priv);
 extern void intel_detect_pch(struct drm_device *dev);
 extern int intel_trans_dp_port_sel(struct drm_crtc *crtc);
 extern int intel_enable_rc6(const struct drm_device *dev);
+extern int i915_rotation_ffrd(const struct drm_device *dev,
+			const struct drm_crtc *crtc);
 extern void valleyview_enable_rps(struct drm_device *dev);
 extern void valleyview_disable_rps(struct drm_device *dev);
 
