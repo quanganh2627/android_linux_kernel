@@ -639,6 +639,8 @@ MMC_DEV_ATTR(hpi_support, "%d\n", card->ext_csd.hpi);
 MMC_DEV_ATTR(hpi_enable, "%d\n", card->ext_csd.hpi_en);
 MMC_DEV_ATTR(hpi_command, "%d\n", card->ext_csd.hpi_cmd);
 MMC_DEV_ATTR(hw_reset_support, "%d\n", card->ext_csd.rst_n_function);
+MMC_DEV_ATTR(bkops_support, "%d\n", card->ext_csd.bkops);
+MMC_DEV_ATTR(bkops_enable, "%d\n", card->ext_csd.bkops_en);
 
 static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_cid.attr,
@@ -661,6 +663,8 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_hpi_enable.attr,
 	&dev_attr_hpi_command.attr,
 	&dev_attr_hw_reset_support.attr,
+	&dev_attr_bkops_support.attr,
+	&dev_attr_bkops_enable.attr,
 	NULL,
 };
 
