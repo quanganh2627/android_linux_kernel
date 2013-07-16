@@ -2981,7 +2981,7 @@ static void sdhci_panic_cmd_irq(struct sdhci_host *host, u32 intmask)
 
 	if (host->cmd->flags & MMC_RSP_BUSY) {
 		if (host->cmd->data)
-			pr_dbg("Cannot wait for busy signal when also doing a data transfer\n");
+			pr_debug("Cannot wait for busy signal when also doing a data transfer\n");
 		else if (!(host->quirks & SDHCI_QUIRK_NO_BUSY_IRQ))
 			return;
 	}
