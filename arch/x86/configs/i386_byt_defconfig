@@ -1550,10 +1550,10 @@ CONFIG_INPUT_KEYBOARD=y
 # CONFIG_KEYBOARD_ADP5588 is not set
 # CONFIG_KEYBOARD_ADP5589 is not set
 CONFIG_KEYBOARD_ATKBD=y
-CONFIG_KEYBOARD_GPIO=y
 # CONFIG_KEYBOARD_QT1070 is not set
 # CONFIG_KEYBOARD_QT2160 is not set
 # CONFIG_KEYBOARD_LKKBD is not set
+CONFIG_KEYBOARD_GPIO=y
 # CONFIG_KEYBOARD_GPIO_POLLED is not set
 # CONFIG_KEYBOARD_TCA6416 is not set
 # CONFIG_KEYBOARD_TCA8418 is not set
@@ -2163,7 +2163,7 @@ CONFIG_BCMA_POSSIBLE=y
 #
 # Multifunction device drivers
 #
-# CONFIG_MFD_CORE is not set
+CONFIG_MFD_CORE=y
 # CONFIG_MFD_CS5535 is not set
 # CONFIG_MFD_AS3711 is not set
 # CONFIG_PMIC_ADP5520 is not set
@@ -3219,6 +3219,7 @@ CONFIG_SENSORS_PSH_BYT=y
 # CONFIG_MDM_CTRL is not set
 # CONFIG_SCU_LOGGING is not set
 # CONFIG_UUID is not set
+# CONFIG_BCM_BT_LPM is not set
 
 #
 # Fork of Texas Instruments shared transport line discipline
