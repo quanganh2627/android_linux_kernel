@@ -316,6 +316,9 @@ static int mfd_emmc_probe_slot(struct sdhci_pci_slot *slot)
 		break;
 	case PCI_DEVICE_ID_INTEL_MFD_EMMC1:
 		break;
+	case PCI_DEVICE_ID_INTEL_CLV_EMMC0:
+		sdhci_alloc_panic_host(slot->host);
+		break;
 	}
 	slot->host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE;
 	slot->host->mmc->caps2 |= MMC_CAP2_BOOTPART_NOACC |
