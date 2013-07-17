@@ -1924,8 +1924,16 @@ static int mmc_do_erase(struct mmc_card *card, unsigned int from,
 	memset(&cmd, 0, sizeof(struct mmc_command));
 	cmd.opcode = MMC_ERASE;
 	cmd.arg = arg;
-	cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
-	cmd.cmd_timeout_ms = mmc_erase_timeout(card, arg, qty);
+	if (card->host->caps2 & MMC_CAP2_POLL_R1B_BUSY) {
+		cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_AC;
+		if (card->host->max_discard_to)
+			cmd.cmd_timeout_ms = card->host->max_discard_to - 1;
+		else
+			cmd.cmd_timeout_ms = mmc_erase_timeout(card, arg, qty);
+	} else {
+		cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
+		cmd.cmd_timeout_ms = mmc_erase_timeout(card, arg, qty);
+	}
 	err = mmc_wait_for_cmd(card->host, &cmd, 0);
 	if (err) {
 		pr_err("mmc_erase: erase error %d, status %#x\n",
@@ -1934,7 +1942,8 @@ static int mmc_do_erase(struct mmc_card *card, unsigned int from,
 		goto out;
 	}
 
-	if (mmc_host_is_spi(card->host))
+	if (mmc_host_is_spi(card->host) &&
+			!(card->host->caps2 & MMC_CAP2_POLL_R1B_BUSY))
 		goto out;
 
 	timeout = jiffies + msecs_to_jiffies(MMC_CORE_TIMEOUT_MS);
@@ -2100,7 +2109,7 @@ static unsigned int mmc_do_calc_max_discard(struct mmc_card *card,
 {
 	struct mmc_host *host = card->host;
 	unsigned int max_discard, x, y, qty = 0, max_qty, timeout;
-	unsigned int last_timeout = 0;
+	unsigned int last_timeout = 0, aligned_qty;
 
 	if (card->erase_shift)
 		max_qty = UINT_MAX >> card->erase_shift;
@@ -2127,16 +2136,21 @@ static unsigned int mmc_do_calc_max_discard(struct mmc_card *card,
 	if (!qty)
 		return 0;
 
-	if (qty == 1)
-		return 1;
+	if (arg & MMC_TRIM_ARGS) {
+		if (qty == 1)
+			aligned_qty = 1;
+		else
+			aligned_qty = qty - 1;
+	} else
+		aligned_qty = qty;
 
 	/* Convert qty to sectors */
 	if (card->erase_shift)
-		max_discard = --qty << card->erase_shift;
+		max_discard = aligned_qty << card->erase_shift;
 	else if (mmc_card_sd(card))
 		max_discard = qty;
 	else
-		max_discard = --qty * card->erase_size;
+		max_discard = aligned_qty * card->erase_size;
 
 	return max_discard;
 }
@@ -2149,6 +2163,9 @@ unsigned int mmc_calc_max_discard(struct mmc_card *card)
 	if (!host->max_discard_to)
 		return UINT_MAX;
 
+	if (host->caps2 & MMC_CAP2_POLL_R1B_BUSY)
+		return UINT_MAX;
+
 	max_discard = mmc_do_calc_max_discard(card, MMC_ERASE_ARG);
 	if (mmc_can_trim(card)) {
 		max_trim = mmc_do_calc_max_discard(card, MMC_TRIM_ARG);
@@ -2157,7 +2174,7 @@ unsigned int mmc_calc_max_discard(struct mmc_card *card)
 	} else if (max_discard < card->erase_size) {
 		max_discard = 0;
 	}
-	pr_debug("%s: calculated max. discard sectors %u for timeout %u ms\n",
+	pr_info("%s: calculated max. discard sectors %u for timeout %u ms\n",
 		 mmc_hostname(host), max_discard, host->max_discard_to);
 	return max_discard;
 }
