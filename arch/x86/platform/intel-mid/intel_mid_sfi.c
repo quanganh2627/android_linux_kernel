@@ -230,6 +230,7 @@ int get_gpio_by_name(const char *name)
 	}
 	return -1;
 }
+EXPORT_SYMBOL(get_gpio_by_name);
 
 void __init intel_scu_device_register(struct platform_device *pdev)
 {
