@@ -887,6 +887,11 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 		return mmc_blk_cmd_error(req, "r/w cmd", brq->cmd.error,
 				prev_cmd_status_valid, status);
 
+	/* Check for stop cmd errors */
+	if (mmc_card_sd(card) && brq->stop.error == -ETIMEDOUT)
+		return mmc_blk_cmd_error(req, "stop cmd", brq->stop.error,
+				prev_cmd_status_valid, status);
+
 	/* Data errors */
 	if (!brq->stop.error) {
 		/*
