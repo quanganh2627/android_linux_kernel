@@ -16,10 +16,6 @@
 #include <linux/platform_device.h>
 #include <asm/spid.h>
 
-#define INTEL_MID_SSN_SIZE	32
-
-extern struct soft_platform_id spid;
-extern char intel_mid_ssn[INTEL_MID_SSN_SIZE + 1];
 
 #ifdef CONFIG_SFI
 extern int get_gpio_by_name(const char *name);
@@ -79,7 +75,7 @@ struct sfi_table_oemb {
 	u8 ifwi_major_version;
 	u8 ifwi_minor_version;
 	struct soft_platform_id spid;
-	u8 ssn[INTEL_MID_SSN_SIZE];
+	u8 ssn[INTEL_PLATFORM_SSN_SIZE];
 } __packed;
 
 /*
@@ -181,15 +177,6 @@ enum intel_mid_timer_options {
 };
 
 extern enum intel_mid_timer_options intel_mid_timer_options;
-
-#define spid_attr(_name) \
-static struct kobj_attribute _name##_attr = { \
-	.attr = {                             \
-		.name = __stringify(_name),   \
-		.mode = 0444,                 \
-	},                                    \
-	.show   = _name##_show,               \
-}
 
 /*
  * Penwell uses spread spectrum clock, so the freq number is not exactly
