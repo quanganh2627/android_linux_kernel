@@ -90,6 +90,23 @@
 #include "device_libs/platform_wm8994.h"
 #include <asm/platform_cs42l73.h>
 
+#include "device_libs/platform_camera.h"
+#include "device_libs/platform_mt9e013.h"
+#include "device_libs/platform_mt9d113.h"
+#include "device_libs/platform_mt9m114.h"
+#include "device_libs/platform_lm3554.h"
+#include "device_libs/platform_mt9v113.h"
+#include "device_libs/platform_ov5640.h"
+#include "device_libs/platform_imx175.h"
+#include "device_libs/platform_imx135.h"
+#include "device_libs/platform_imx134.h"
+#include "device_libs/platform_imx132.h"
+#include "device_libs/platform_s5k8aay.h"
+#include "device_libs/platform_ov9724.h"
+#include "device_libs/platform_ov2722.h"
+#include "device_libs/platform_lm3559.h"
+#include "device_libs/platform_ov8830.h"
+
 /*
  * SPI devices
  */
@@ -177,6 +194,38 @@ struct devs_id __initconst device_ids[] = {
 		&panel_handler},
 	{"PANEL_JDI_VID", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
+
+	/* I2C devices for camera image subsystem */
+	{"lm3554", SFI_DEV_TYPE_I2C, 0, &lm3554_platform_data_func,
+					&intel_register_i2c_camera_device},
+	{"mt9e013", SFI_DEV_TYPE_I2C, 0, &mt9e013_platform_data,
+					&intel_register_i2c_camera_device},
+	{"mt9d113", SFI_DEV_TYPE_I2C, 0, &mt9d113_platform_data,
+					&intel_register_i2c_camera_device},
+	{"mt9m114", SFI_DEV_TYPE_I2C, 0, &mt9m114_platform_data,
+					&intel_register_i2c_camera_device},
+	{"mt9v113", SFI_DEV_TYPE_I2C, 0, &mt9v113_platform_data,
+					&intel_register_i2c_camera_device},
+	{"ov8830", SFI_DEV_TYPE_I2C, 0, &ov8830_platform_data,
+					&intel_register_i2c_camera_device},
+	{"ov5640", SFI_DEV_TYPE_I2C, 0, &ov5640_platform_data,
+					&intel_register_i2c_camera_device},
+	{"imx175", SFI_DEV_TYPE_I2C, 0, &imx175_platform_data,
+					&intel_register_i2c_camera_device},
+	{"imx135", SFI_DEV_TYPE_I2C, 0, &imx135_platform_data,
+					&intel_register_i2c_camera_device},
+	{"imx134", SFI_DEV_TYPE_I2C, 0, &imx134_platform_data,
+					&intel_register_i2c_camera_device},
+	{"imx132", SFI_DEV_TYPE_I2C, 0, &imx132_platform_data,
+					&intel_register_i2c_camera_device},
+	{"s5k8aay", SFI_DEV_TYPE_I2C, 0, &s5k8aay_platform_data,
+					&intel_register_i2c_camera_device},
+	{"ov9724", SFI_DEV_TYPE_I2C, 0, &ov9724_platform_data,
+					&intel_register_i2c_camera_device},
+	{"ov2722", SFI_DEV_TYPE_I2C, 0, &ov2722_platform_data,
+					&intel_register_i2c_camera_device},
+	{"lm3559", SFI_DEV_TYPE_I2C, 0, &lm3559_platform_data_func,
+					&intel_register_i2c_camera_device},
 	{"PANEL_JDI_CMD", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
 
