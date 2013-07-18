@@ -571,7 +571,7 @@ register_reboot_error:
 	return ret;
 }
 
-static void __exit intel_scu_watchdog_exit(void)
+static void intel_scu_watchdog_exit(void)
 {
 
 	misc_deregister(&watchdog_device.miscdev);
