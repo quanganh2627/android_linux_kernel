@@ -63,8 +63,10 @@ static u32 sfi_mtimer_usage[SFI_MTMR_MAX_NUM];
 int sfi_mrtc_num;
 int sfi_mtimer_num;
 struct kobject *spid_kobj;
-struct soft_platform_id spid;
 char intel_mid_ssn[INTEL_MID_SSN_SIZE + 1];
+
+struct soft_platform_id spid;
+EXPORT_SYMBOL(spid);
 
 struct sfi_rtc_table_entry sfi_mrtc_array[SFI_MRTC_MAX];
 EXPORT_SYMBOL_GPL(sfi_mrtc_array);
