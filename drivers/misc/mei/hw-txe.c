@@ -909,7 +909,7 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 	if (test_and_clear_bit(TXE_INTR_ALIVENESS_BIT, &hw->intr_cause)) {
 		/* Clear the interrupt cause */
 		dev_dbg(&dev->pdev->dev,
-			"Aliveness Interrrupt: Status: %d\n", hw->aliveness);
+			"Aliveness Interrupt: Status: %d\n", hw->aliveness);
 		if (waitqueue_active(&hw->wait_aliveness_resp)) {
 			hw->recvd_aliv_resp = true;
 			wake_up(&hw->wait_aliveness_resp);
