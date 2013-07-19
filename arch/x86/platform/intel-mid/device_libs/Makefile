@@ -64,3 +64,5 @@ endif
 obj-$(subst m,y,$(CONFIG_DRM_MRFLD)) += platform_panel.o
 # GPS
 obj-$(subst m,y,$(CONFIG_INTEL_MID_GPS)) += platform_gps.o
+# WIFI devices
+obj-$(subst m,y,$(CONFIG_BCM43XX_PLATFORM_DATA)) += platform_bcm43xx.o
