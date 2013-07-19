@@ -240,4 +240,6 @@ static inline void mmc_claim_host(struct mmc_host *host)
 
 extern u32 mmc_vddrange_to_ocrmask(int vdd_min, int vdd_max);
 
+extern int mmc_busy_wait(struct mmc_host *host);
+
 #endif /* LINUX_MMC_CORE_H */
