@@ -455,7 +455,7 @@ static const struct file_operations intel_scu_fops = {
 	.release        = intel_scu_release,
 };
 
-static int __init intel_scu_watchdog_init(void)
+static int intel_scu_watchdog_init(void)
 {
 	int ret;
 	u32 __iomem *tmp_addr;
