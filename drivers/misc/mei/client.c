@@ -676,12 +676,6 @@ int mei_cl_read_start(struct mei_cl *cl, size_t length)
 
 	dev = cl->dev;
 
-	if (cl->state != MEI_FILE_CONNECTED)
-		return -ENODEV;
-
-	if (dev->dev_state != MEI_DEV_ENABLED)
-		return -ENODEV;
-
 	cl_dbg(dev, cl, "length=%zu\n", length);
 
 	if (cl->read_cb) {
@@ -699,6 +693,14 @@ int mei_cl_read_start(struct mei_cl *cl, size_t length)
 		pm_runtime_put_noidle(&dev->pdev->dev);
 		cl_err(dev, cl, "rpm: get failed %d\n", rets);
 		return rets;
+	}
+
+	cb = NULL;
+
+	/* we might hit reset while mutex is lifted */
+	if (!mei_cl_is_connected(cl)) {
+		rets = -ENODEV;
+		goto out;
 	}
 
 	cb = mei_io_cb_init(cl, NULL);
@@ -863,6 +865,12 @@ int mei_cl_write(struct mei_cl *cl, struct mei_cl_cb *cb, bool blocking)
 		pm_runtime_put_noidle(&dev->pdev->dev);
 		cl_err(dev, cl, "rpm: get failed %d\n", rets);
 		return rets;
+	}
+
+	/* we might hit reset while mutex is lifted */
+	if (!mei_cl_is_connected(cl)) {
+		rets = -ENODEV;
+		goto err;
 	}
 
 	cb->fop_type = MEI_FOP_WRITE;
