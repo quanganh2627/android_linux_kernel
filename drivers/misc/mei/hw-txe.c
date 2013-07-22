@@ -547,23 +547,20 @@ static int mei_txe_write(struct mei_device *dev,
 	dev_dbg(&dev->pdev->dev, MEI_HDR_FMT, MEI_HDR_PRM(header));
 
 	if ((length + sizeof(struct mei_msg_hdr)) > PAYLOAD_SIZE) {
-		dev_dbg(&dev->pdev->dev,
-			"write lenght exceeded = %ld\n", length);
-		return 0;
+		dev_err(&dev->pdev->dev, "write lenght exceeded = %ld > %d\n",
+			length + sizeof(struct mei_msg_hdr), PAYLOAD_SIZE);
+		return -ERANGE;
 	}
 
-	if (!hw->aliveness) {
-		dev_dbg(&dev->pdev->dev, "Aliveness not set .... requesting\n");
-		if (mei_txe_aliveness_set_sync(dev, 1))
-			return 0;
-	}
+	if (WARN(!hw->aliveness, "txe write: aliveness not asserted\n"))
+		return -EAGAIN;
 
 	/* Enable Input Ready Interrupt. */
 	mei_txe_input_ready_interrupt_enable(dev);
 
 	if (!mei_txe_is_input_ready(dev)) {
-		dev_dbg(&dev->pdev->dev, "Input is not ready");
-		return 0;
+		dev_err(&dev->pdev->dev, "Input is not ready");
+		return -EAGAIN;
 	}
 
 	mei_txe_input_payload_write(dev, 0, *((u32 *)header));
