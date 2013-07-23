@@ -1615,16 +1615,16 @@ static irqreturn_t intel_mid_dma_interrupt(int irq, void *data)
 	u32 tfr_status, err_status, block_status;
 	u32 isr;
 
-	/* On Baytrail, the DMAC is sharing IRQ with other devices */
-	if (is_byt_lpio_dmac(mid) && mid->state == SUSPENDED)
-		return IRQ_NONE;
-
 	/*DMA Interrupt*/
 	pr_debug("MDMA:Got an interrupt on irq %d\n", irq);
 	if (!mid) {
 		pr_err("ERR_MDMA:null pointer mid\n");
-		return -EINVAL;
+		return IRQ_NONE;
 	}
+
+	/* On Baytrail, the DMAC is sharing IRQ with other devices */
+	if (is_byt_lpio_dmac(mid) && mid->state == SUSPENDED)
+		return IRQ_NONE;
 
 	/* Read the interrupt status registers */
 	tfr_status = ioread32(mid->dma_base + STATUS_TFR);
