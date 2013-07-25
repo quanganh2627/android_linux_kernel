@@ -2201,7 +2201,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	host = mmc_priv(mmc);
 
 	sdhci_runtime_pm_get(host);
-	disable_irq(host->irq);
+	disable_irq_lockdep(host->irq);
 	spin_lock(&host->lock);
 
 	ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
@@ -2226,7 +2226,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		ctrl |= SDHCI_CTRL_EXEC_TUNING;
 	else {
 		spin_unlock(&host->lock);
-		enable_irq(host->irq);
+		enable_irq_lockdep(host->irq);
 		sdhci_runtime_pm_put(host);
 		return 0;
 	}
@@ -2329,7 +2329,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 					SDHCI_INT_STATUS);
 			}
 			spin_unlock(&host->lock);
-			enable_irq(host->irq);
+			enable_irq_lockdep(host->irq);
 
 			if (!host->tuning_done)
 				/* Wait for Buffer Read Ready interrupt */
@@ -2337,7 +2337,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 						host->buf_ready_int,
 						(host->tuning_done == 1),
 						msecs_to_jiffies(50));
-			disable_irq(host->irq);
+			disable_irq_lockdep(host->irq);
 			spin_lock(&host->lock);
 
 			intmask = sdhci_readl(host, SDHCI_INT_STATUS);
@@ -2426,7 +2426,7 @@ out:
 
 	sdhci_clear_set_irqs(host, SDHCI_INT_DATA_AVAIL, ier);
 	spin_unlock(&host->lock);
-	enable_irq(host->irq);
+	enable_irq_lockdep(host->irq);
 	sdhci_runtime_pm_put(host);
 
 	return err;
