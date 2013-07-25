@@ -434,6 +434,15 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	src_h--;
 	crtc_w--;
 	crtc_h--;
+	/*
+	 * Disable Max Fifo configuration when sprite plane is enabled.
+	 * Do not disable if Max Fifo is already disabled.
+	 */
+
+	if (I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN) {
+		I915_WRITE(FW_BLC_SELF_VLV,
+			I915_READ(FW_BLC_SELF_VLV) & ~FW_CSPWRDWNEN);
+	}
 
 	I915_WRITE(SPSTRIDE(pipe, plane), fb->pitches[0]);
 	if (rotate)
@@ -487,6 +496,13 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 
 	I915_WRITE(SPCNTR(pipe, plane), I915_READ(SPCNTR(pipe, plane)) &
 		   ~SP_ENABLE);
+	/*
+	 * Check if Max Fifo configuration is required when sprite
+	 * is disabled.
+	 */
+
+	if (is_maxfifo_needed(dev_priv))
+		I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 	/* Activate double buffered register update */
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), 0);
 	POSTING_READ(SPSURF(pipe, plane));

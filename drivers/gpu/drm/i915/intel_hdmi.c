@@ -941,6 +941,13 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		kfree(edid);
 	}
 
+	/* Work around to enable Max Fifo back on HDMI hot un-plug */
+	if (status == connector_status_disconnected) {
+		if (!(is_sprite_enabled(dev_priv, PIPE_A, PLANE_A) ||
+			is_sprite_enabled(dev_priv, PIPE_A, PLANE_B)))
+			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
+	}
+
 	if (status == connector_status_connected) {
 		if (intel_hdmi->force_audio != HDMI_AUDIO_AUTO)
 			intel_hdmi->has_audio =
