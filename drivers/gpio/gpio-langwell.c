@@ -271,6 +271,90 @@ void lnw_gpio_set_alt(int gpio, int alt)
 }
 EXPORT_SYMBOL_GPL(lnw_gpio_set_alt);
 
+int gpio_get_alt(int gpio)
+{
+	struct lnw_gpio *lnw;
+	u32 __iomem *mem;
+	int reg;
+	int bit;
+	u32 value;
+	u32 offset;
+
+	 /* use this trick to get memio */
+	lnw = irq_get_chip_data(gpio_to_irq(gpio));
+	if (!lnw) {
+		pr_err("langwell_gpio: can not find pin %d\n", gpio);
+		return -1;
+	}
+	if (gpio < lnw->chip.base || gpio >= lnw->chip.base + lnw->chip.ngpio) {
+		dev_err(lnw->chip.dev,
+			"langwell_gpio: wrong pin %d to config alt\n", gpio);
+		return -1;
+	}
+#if 0
+	if (lnw->irq_base + gpio - lnw->chip.base != gpio_to_irq(gpio)) {
+		dev_err(lnw->chip.dev,
+			"langwell_gpio: wrong chip data for pin %d\n", gpio);
+		return -1;
+	}
+#endif
+	gpio -= lnw->chip.base;
+
+	if (lnw->type != TANGIER_GPIO) {
+		reg = gpio / 16;
+		bit = gpio % 16;
+
+		mem = gpio_reg(&lnw->chip, 0, GAFR);
+		value = readl(mem + reg);
+		value &= (3 << (bit * 2));
+		value >>= (bit * 2);
+	} else {
+		offset = lnw->get_flis_offset(gpio);
+		if (WARN(offset == -EINVAL, "invalid pin %d\n", gpio))
+			return -EINVAL;
+
+		mem = (void __iomem *)(lnw->flis_base + offset);
+
+		value = readl(mem) & 7;
+	}
+
+	return value;
+}
+EXPORT_SYMBOL_GPL(gpio_get_alt);
+
+static int lnw_gpio_set_debounce(struct gpio_chip *chip, unsigned offset,
+				 unsigned debounce)
+{
+	struct lnw_gpio *lnw = to_lnw_priv(chip);
+	void __iomem *gfbr;
+	unsigned long flags;
+	u32 value;
+	enum GPIO_REG reg_type;
+
+	reg_type = (lnw->type == TANGIER_GPIO) ? GFBR_TNG : GFBR;
+	gfbr = gpio_reg(chip, offset, reg_type);
+
+	if (lnw->pdev)
+		pm_runtime_get(&lnw->pdev->dev);
+
+	spin_lock_irqsave(&lnw->lock, flags);
+	value = readl(gfbr);
+	if (debounce) {
+		/* debounce bypass disable */
+		value &= ~BIT(offset % 32);
+	} else {
+		/* debounce bypass enable */
+		value |= BIT(offset % 32);
+	}
+	writel(value, gfbr);
+	spin_unlock_irqrestore(&lnw->lock, flags);
+
+	if (lnw->pdev)
+		pm_runtime_put(&lnw->pdev->dev);
+
+	return 0;
+}
+
 static void __iomem *gpio_reg_2bit(struct gpio_chip *chip, unsigned offset,
 				   enum GPIO_REG reg_type)
 {
@@ -725,12 +809,15 @@ static int lnw_gpio_probe(struct pci_dev *pdev,
 	lnw->chip.request = lnw_gpio_request;
 	lnw->chip.direction_input = lnw_gpio_direction_input;
 	lnw->chip.direction_output = lnw_gpio_direction_output;
+	lnw->chip.set_pinmux = lnw_gpio_set_alt;
+	lnw->chip.get_pinmux = gpio_get_alt;
 	lnw->chip.get = lnw_gpio_get;
 	lnw->chip.set = lnw_gpio_set;
 	lnw->chip.to_irq = lnw_gpio_to_irq;
 	lnw->chip.base = gpio_base;
 	lnw->chip.ngpio = ddata->ngpio;
 	lnw->chip.can_sleep = 0;
+	lnw->chip.set_debounce = lnw_gpio_set_debounce;
 	lnw->pdev = pdev;
 
 	lnw->domain = irq_domain_add_simple(pdev->dev.of_node,
