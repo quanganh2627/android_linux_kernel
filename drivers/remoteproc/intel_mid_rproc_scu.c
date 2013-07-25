@@ -55,7 +55,7 @@ static int scu_ipc_raw_command(void *tx_buf)
 	tx_msg = (struct tx_ipc_msg *)tx_buf;
 
 	intel_scu_ipc_lock();
-	ret = intel_scu_ipc_raw_command(tx_msg->cmd, tx_msg->sub,
+	ret = intel_scu_ipc_raw_cmd(tx_msg->cmd, tx_msg->sub,
 				tx_msg->in, tx_msg->inlen,
 				tx_msg->out, tx_msg->outlen,
 				tx_msg->dptr, tx_msg->sptr);

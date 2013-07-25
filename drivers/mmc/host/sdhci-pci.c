@@ -26,7 +26,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/mmc/sdhci-pci-data.h>
 
-#include <asm/intel_scu_ipc.h>
+#include <asm/intel_mid_rpmsg.h>
 
 #if defined(CONFIG_X86_MDFLD)
 #include <linux/intel_mid_pm.h>
@@ -274,7 +274,7 @@ static void mfd_emmc_mutex_register(struct sdhci_pci_slot *slot)
 #ifdef CONFIG_INTEL_SCU_IPC
 	int err;
 
-	err = intel_scu_ipc_command(IPC_EMMC_MUTEX_CMD, 0,
+	err = rpmsg_send_generic_command(IPC_EMMC_MUTEX_CMD, 0,
 			NULL, 0, &mutex_var_addr, 1);
 	if (err) {
 		dev_err(&slot->chip->pdev->dev, "IPC error: %d\n", err);
