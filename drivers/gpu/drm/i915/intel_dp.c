@@ -1047,7 +1047,7 @@ void ironlake_edp_panel_vdd_on(struct intel_dp *intel_dp)
 	 * If the panel wasn't on, delay before accessing aux channel
 	 */
 	if (!ironlake_edp_have_panel_power(intel_dp)) {
-		DRM_DEBUG_KMS("eDP was not running\n");
+		DRM_DEBUG_KMS("eDP was not running; waiting for VDD on\n");
 		msleep(intel_dp->panel_power_up_delay);
 	}
 }
@@ -1172,9 +1172,9 @@ void ironlake_edp_panel_off(struct intel_dp *intel_dp)
 	WARN(!intel_dp->want_panel_vdd, "Need VDD to turn off panel\n");
 
 	pp = ironlake_get_pp_control(intel_dp);
-	/* We need to switch off panel power _and_ force vdd, for otherwise some
+	/* We need to switch off panel power, for otherwise some
 	 * panels get very unhappy and cease to work. */
-	pp &= ~(POWER_TARGET_ON | EDP_FORCE_VDD | PANEL_POWER_RESET | EDP_BLC_ENABLE);
+	pp &= ~(POWER_TARGET_ON | PANEL_POWER_RESET | EDP_BLC_ENABLE);
 
 	pp_ctrl_reg = IS_VALLEYVIEW(dev) ? PIPEA_PP_CONTROL : PCH_PP_CONTROL;
 
@@ -1958,9 +1958,7 @@ static void intel_disable_dp(struct intel_encoder *encoder)
 	ironlake_edp_panel_vdd_on(intel_dp);
 	ironlake_edp_backlight_off(intel_dp);
 	intel_dp_sink_dpms(intel_dp, DRM_MODE_DPMS_ON);
-	/* Some of the FFRD10 PR1.1B boards doesnt like when edp panel power
-	 * is off */
-	/* ironlake_edp_panel_off(intel_dp); */
+	ironlake_edp_panel_off(intel_dp);
 
 	/* cpu edp my only be disable _after_ the cpu pipe/plane is disabled. */
 	if (!(port == PORT_A || IS_VALLEYVIEW(dev)))
