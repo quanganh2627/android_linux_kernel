@@ -106,8 +106,7 @@ int mei_start(struct mei_device *dev)
 		goto err;
 	}
 
-	if (dev->version.major_version != HBM_MAJOR_VERSION ||
-	    dev->version.minor_version != HBM_MINOR_VERSION) {
+	if (!mei_hbm_version_is_supported(dev)) {
 		dev_dbg(&dev->pdev->dev, "MEI start failed.\n");
 		goto err;
 	}
@@ -133,13 +132,19 @@ EXPORT_SYMBOL_GPL(mei_start);
 void mei_reset(struct mei_device *dev, int interrupts_enabled)
 {
 	bool unexpected;
+	int ret;
 
 	unexpected = (dev->dev_state != MEI_DEV_INITIALIZING &&
 			dev->dev_state != MEI_DEV_DISABLED &&
 			dev->dev_state != MEI_DEV_POWER_DOWN &&
 			dev->dev_state != MEI_DEV_POWER_UP);
 
-	mei_hw_reset(dev, interrupts_enabled);
+	ret = mei_hw_reset(dev, interrupts_enabled);
+	if (ret) {
+		dev_err(&dev->pdev->dev, "hw reset failed disabling the device\n");
+		interrupts_enabled = false;
+		dev->dev_state = MEI_DEV_DISABLED;
+	}
 
 	dev->hbm_state = MEI_HBM_IDLE;
 
@@ -176,7 +181,12 @@ void mei_reset(struct mei_device *dev, int interrupts_enabled)
 		return;
 	}
 
-	mei_hw_start(dev);
+	ret = mei_hw_start(dev);
+	if (ret) {
+		dev_err(&dev->pdev->dev, "hw_start failed disabling the device\n");
+		dev->dev_state = MEI_DEV_DISABLED;
+		return;
+	}
 
 	dev_dbg(&dev->pdev->dev, "link is established start sending messages.\n");
 	/* link is established * start sending messages.  */
@@ -216,5 +226,26 @@ void mei_stop(struct mei_device *dev)
 }
 EXPORT_SYMBOL_GPL(mei_stop);
 
+/**
+ * mei_write_is_idle - check if there is pending write transaction
+ *
+ * @dev: the device structure
+ * returns true if the writ queues are empty
+ */
+bool mei_write_is_idle(struct mei_device *dev)
+{
+	bool idle = (dev->dev_state == MEI_DEV_ENABLED &&
+		dev->wr_ext_msg.hdr.length == 0  &&
+		list_empty(&dev->ctrl_wr_list.list) &&
+		list_empty(&dev->write_list.list));
 
+	dev_dbg(&dev->pdev->dev, "pm: is idle[%d] state=%s extra=%d, ctrl=%d write=%d\n",
+		idle,
+		mei_dev_state_str(dev->dev_state),
+		dev->wr_ext_msg.hdr.length == 0,
+		list_empty(&dev->ctrl_wr_list.list),
+		list_empty(&dev->write_list.list));
 
+	return idle;
+}
+EXPORT_SYMBOL_GPL(mei_write_is_idle);

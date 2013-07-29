@@ -51,16 +51,6 @@
 extern const uuid_le mei_amthif_guid;
 
 /*
- * Watchdog Client UUID
- */
-extern const uuid_le mei_wd_guid;
-
-/*
- * Watchdog independence state message
- */
-extern const u8 mei_wd_state_independence_msg[3][4];
-
-/*
  * Number of Maximum MEI Clients
  */
 #define MEI_CLIENTS_MAX 256
@@ -201,7 +191,6 @@ struct mei_cl {
 	u8 timer_count;
 	enum mei_file_transaction_states reading_state;
 	enum mei_file_transaction_states writing_state;
-	int sm_state;
 	struct mei_cl_cb *read_cb;
 
 	/* MEI CL bus data */
@@ -239,7 +228,7 @@ struct mei_hw_ops {
 	bool (*host_is_ready) (struct mei_device *dev);
 
 	bool (*hw_is_ready) (struct mei_device *dev);
-	void (*hw_reset) (struct mei_device *dev, bool enable);
+	int (*hw_reset) (struct mei_device *dev, bool enable);
 	int  (*hw_start) (struct mei_device *dev);
 	void (*hw_config) (struct mei_device *dev);
 
@@ -333,6 +322,7 @@ struct mei_cl_device {
  * struct mei_device -  MEI private device struct
 
  * @hbm_state - state of host bus message protocol
+ * @support_rpm - support runtime power managment
  * @mem_addr - mem mapped base register address
 
  * @hbuf_depth - depth of hardware host/write buffer is slots
@@ -378,6 +368,7 @@ struct mei_device {
 	enum mei_dev_state dev_state;
 	enum mei_hbm_state hbm_state;
 	u16 init_clients_timer;
+	bool support_rpm;
 
 	unsigned char rd_msg_buf[MEI_RD_MSG_BUF_SIZE];	/* control messages */
 	u32 rd_msg_hdr;
@@ -502,8 +493,8 @@ struct mei_cl_cb *mei_amthif_find_read_list_entry(struct mei_device *dev,
 
 void mei_amthif_run_next_cmd(struct mei_device *dev);
 
-int mei_amthif_irq_write_complete(struct mei_device *dev, s32 *slots,
-			struct mei_cl_cb *cb, struct mei_cl_cb *cmpl_list);
+int mei_amthif_irq_write_complete(struct mei_cl *cl, struct mei_cl_cb *cb,
+				  s32 *slots, struct mei_cl_cb *cmpl_list);
 
 void mei_amthif_complete(struct mei_device *dev, struct mei_cl_cb *cb);
 int mei_amthif_irq_read_msg(struct mei_device *dev,
@@ -522,15 +513,12 @@ void mei_nfc_host_exit(void);
  */
 extern const uuid_le mei_nfc_guid;
 
-int mei_amthif_irq_write_complete(struct mei_device *dev, s32 *slots,
-			struct mei_cl_cb *cb, struct mei_cl_cb *cmpl_list);
+#ifdef CONFIG_INTEL_MEI_WATCHDOG
+extern const uuid_le mei_wd_guid;
 
-void mei_amthif_complete(struct mei_device *dev, struct mei_cl_cb *cb);
-int mei_amthif_irq_read_message(struct mei_cl_cb *complete_list,
-		struct mei_device *dev, struct mei_msg_hdr *mei_hdr);
-int mei_amthif_irq_read(struct mei_device *dev, s32 *slots);
-
-
+/*
+ * Watchdog Client UUID
+ */
 int mei_wd_send(struct mei_device *dev);
 int mei_wd_stop(struct mei_device *dev);
 int mei_wd_host_init(struct mei_device *dev);
@@ -546,6 +534,28 @@ void mei_watchdog_register(struct mei_device *dev);
  */
 void mei_watchdog_unregister(struct mei_device *dev);
 
+#else
+
+static inline int mei_wd_send(struct mei_device *dev)
+{
+	return 0;
+}
+static inline int mei_wd_stop(struct mei_device *dev)
+{
+	return 0;
+}
+static inline int mei_wd_host_init(struct mei_device *dev)
+{
+	return 0;
+}
+static inline void mei_watchdog_register(struct mei_device *dev) {}
+
+static inline void mei_watchdog_unregister(struct mei_device *dev) {}
+
+static const uuid_le mei_wd_guid = UUID_LE(0x05B79A6F, 0x4628, 0x4D7F,
+	0x89, 0x9D, 0xA9, 0x15, 0x14, 0xCB, 0x32, 0xAB);
+#endif /* CONFIG_INTEL_MEI_WATCHDOG */
+
 /*
  * Register Access Function
  */
@@ -554,14 +564,14 @@ static inline void mei_hw_config(struct mei_device *dev)
 {
 	dev->ops->hw_config(dev);
 }
-static inline void mei_hw_reset(struct mei_device *dev, bool enable)
+static inline int mei_hw_reset(struct mei_device *dev, bool enable)
 {
-	dev->ops->hw_reset(dev, enable);
+	return dev->ops->hw_reset(dev, enable);
 }
 
-static inline void mei_hw_start(struct mei_device *dev)
+static inline int mei_hw_start(struct mei_device *dev)
 {
-	dev->ops->hw_start(dev);
+	return dev->ops->hw_start(dev);
 }
 
 static inline void mei_clear_interrupts(struct mei_device *dev)
@@ -625,6 +635,8 @@ static inline int mei_count_full_read_slots(struct mei_device *dev)
 {
 	return dev->ops->rdbuf_full_slots(dev);
 }
+
+bool mei_write_is_idle(struct mei_device *dev);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 int mei_dbgfs_register(struct mei_device *dev, const char *name);
