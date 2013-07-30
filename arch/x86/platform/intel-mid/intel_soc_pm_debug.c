@@ -353,7 +353,7 @@ static char *dstates[] = {"D0", "D0i1", "D0i2", "D0i3"};
 /* This can be used to report NC power transitions */
 void (*nc_report_power_state) (u32, int);
 
-#if defined(CONFIG_INTEL_REMOVEME_ATOM_MDFLD_POWER)			\
+#if defined(CONFIG_REMOVEME_INTEL_ATOM_MDFLD_POWER)			\
 			|| defined(CONFIG_REMOVEME_INTEL_ATOM_CLV_POWER)
 
 #define PMU_DEBUG_PRINT_STATS	(1U << 0)
@@ -1327,7 +1327,7 @@ void pmu_stats_finish(void)
 
 #endif /*if CONFIG_X86_MDFLD_POWER || CONFIG_X86_CLV_POWER*/
 
-#ifdef CONFIG_INTEL_REMOVEME_ATOM_MRFLD_POWER
+#ifdef CONFIG_REMOVEME_INTEL_ATOM_MRFLD_POWER
 static char *nc_devices[] = {
 	"GFXSLC",
 	"GSDKCK",
@@ -2476,4 +2476,4 @@ void pmu_stats_init(void)
 #endif
 }
 
-#endif /*if CONFIG_INTEL_REMOVEME_ATOM_MRFLD_POWER*/
+#endif /*if CONFIG_REMOVEME_INTEL_ATOM_MRFLD_POWER*/
