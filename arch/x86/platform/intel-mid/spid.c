@@ -254,8 +254,12 @@ static int __init acpi_spid_init(void)
 	}
 
 	/* Populate command line with SPID values */
-	populate_spid_cmdline();
 
+/* REVERTME: command line update is causing issues with USB On
+ *  Baytrail platform.  To ungate other feature teams, temporarily
+ *  removing update of SPID portion of command line for ACPI platforms.
+ */
+	/*populate_spid_cmdline();*/
 	return 0;
 
 err_sysfs_pidv:
