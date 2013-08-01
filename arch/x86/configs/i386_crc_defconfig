@@ -2641,6 +2641,7 @@ CONFIG_INTEL_MFLD_THERMAL=y
 # CONFIG_IBM_RTL is not set
 # CONFIG_SAMSUNG_LAPTOP is not set
 # CONFIG_SAMSUNG_Q10 is not set
+# CONFIG_INTEL_SCU_FLIS is not set
 
 #
 # Hardware Spinlock drivers
