@@ -698,6 +698,7 @@ static void i915_hotplug_work_func(struct work_struct *work)
 	bool hpd_disabled = false;
 	bool changed = false;
 	u32 hpd_event_bits;
+	char *envp[] = {"hdcp_hpd", NULL};
 
 	/* HPD irq before everything is fully set up. */
 	if (!dev_priv->enable_hotplug_processing)
@@ -752,6 +753,8 @@ static void i915_hotplug_work_func(struct work_struct *work)
 	}
 	mutex_unlock(&mode_config->mutex);
 
+	/* HDCPD needs a uevent, every time when there is a hotplug */
+	kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_CHANGE, envp);
 	if (changed)
 		drm_kms_helper_hotplug_event(dev);
 }
