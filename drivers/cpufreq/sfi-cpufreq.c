@@ -246,9 +246,8 @@ static int sfi_cpufreq_target(struct cpufreq_policy *policy,
 
 	freqs.old = perf->states[perf->state].core_frequency * 1000;
 	freqs.new = data->freq_table[next_state].frequency;
-	freqs.cpu = policy->cpu;
 
-	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
 
 	rdmsr_on_cpu(policy->cpu, MSR_IA32_PERF_CTL, &lo, &hi);
 	lo = (lo & ~INTEL_MSR_RANGE) |
@@ -256,7 +255,7 @@ static int sfi_cpufreq_target(struct cpufreq_policy *policy,
 	wrmsr_on_cpu(policy->cpu, MSR_IA32_PERF_CTL, lo, hi);
 
 
-	cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 	perf->state = next_perf_state;
 
 	return result;
