@@ -691,8 +691,11 @@ static int snd_ctp_mc_probe(struct platform_device *pdev)
 		goto free_jack;
 	}
 
-	if (!snd_soc_card_ctp.instantiated)
+	if (!snd_soc_card_ctp.instantiated) {
+		pr_err("snd_soc_card_ctp is not instantiated.\n");
+		ret_val = -ENODEV;
 		goto free_jack;
+	}
 
 	platform_set_drvdata(pdev, &snd_soc_card_ctp);
 	pr_debug("successfully exited probe\n");
