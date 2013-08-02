@@ -369,6 +369,9 @@ void headset_insert_poll(struct work_struct *work)
 		schedule_delayed_work(&ctx->jack_work_insert,
 					HPDETECT_POLL_INTERVAL);
 	}
+	if (!atomic_read(&ctx->hs_det_retry) &&
+			status == SND_JACK_HEADPHONE)
+		set_mic_bias(jack, "MIC2 Bias", false);
 
 	pr_debug("%s: status 0x%x\n", __func__, status);
 }
