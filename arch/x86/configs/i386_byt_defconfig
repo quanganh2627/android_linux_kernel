@@ -1076,6 +1076,8 @@ CONFIG_CB710_DEBUG_ASSUMPTIONS=y
 # Altera FPGA firmware download module
 #
 # CONFIG_ALTERA_STAPL is not set
+CONFIG_INTEL_MEI=y
+CONFIG_INTEL_MEI_TXE=y
 # CONFIG_VMWARE_VMCI is not set
 CONFIG_HAVE_IDE=y
 # CONFIG_IDE is not set
@@ -3065,7 +3067,6 @@ CONFIG_SENSORS_PSH_BYT=y
 # CONFIG_MDM_CTRL is not set
 # CONFIG_SCU_LOGGING is not set
 # CONFIG_UUID is not set
-# CONFIG_VLV2_PLAT_CLK is not set
 # CONFIG_BCM_BT_LPM is not set
 
 #
@@ -3105,8 +3106,6 @@ CONFIG_DMIID=y
 # EFI (Extensible Firmware Interface) Support
 #
 CONFIG_EFI_VARS=y
-CONFIG_EFI_VARS_PSTORE=y
-# CONFIG_EFI_VARS_PSTORE_DEFAULT_DISABLE is not set
 
 #
 # File systems
@@ -3212,8 +3211,6 @@ CONFIG_SQUASHFS_FRAGMENT_CACHE_SIZE=3
 # CONFIG_QNX6FS_FS is not set
 # CONFIG_ROMFS_FS is not set
 # CONFIG_PSTORE is not set
-# CONFIG_PSTORE_CONSOLE is not set
-# CONFIG_PSTORE_RAM is not set
 # CONFIG_SYSV_FS is not set
 # CONFIG_UFS_FS is not set
 # CONFIG_F2FS_FS is not set
