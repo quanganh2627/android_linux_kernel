@@ -4314,7 +4314,7 @@ void valleyview_enable_rps(struct drm_device *dev)
 	if (i915_enable_turbo > 0) {
 		if (dev_priv->rps.state) {
 			vlv_turbo_initialize(dev);
-			if (dev_priv->perfmon.max_frequency_mode) {
+			if (dev_priv->perfmon.max_freq_enable_count) {
 				vlv_turbo_disable(dev);
 				valleyview_set_rps(dev,
 					dev_priv->rps.max_delay);
