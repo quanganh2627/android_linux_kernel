@@ -51,6 +51,7 @@
 
 char intel_platform_ssn[INTEL_PLATFORM_SSN_SIZE + 1];
 struct soft_platform_id spid;
+EXPORT_SYMBOL(spid);
 
 #ifdef CONFIG_ACPI
 struct platform_id pidv;

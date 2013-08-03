@@ -2,6 +2,7 @@
 obj-y += platform_clv_regulator.o
 obj-y += platform_mrfl_regulator.o
 obj-y += platform_ipc.o
+obj-y += platform_i2c_gpio.o
 obj-y += platform_msic.o
 obj-y += platform_msic_audio.o
 obj-y += platform_msic_gpio.o
