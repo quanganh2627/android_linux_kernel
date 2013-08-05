@@ -92,6 +92,12 @@
 		{.reg = xreg, .rreg = xreg, .shift = xshift, \
 		 .rshift = xshift, .min = xmin, .max = xmax, \
 		 .platform_max = xmax, .invert = xinvert} }
+#define SND_SOC_BYTES_EXT(xname, xcount, xhandler_get, xhandler_put) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
+	.info = snd_soc_info_bytes_ext, \
+	.get = xhandler_get, .put = xhandler_put, \
+	.private_value = (unsigned long)&(struct soc_bytes_ext) \
+		{.max = xcount} }
 #define SOC_DOUBLE(xname, reg, shift_left, shift_right, max, invert) \
 {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname),\
 	.info = snd_soc_info_volsw, .get = snd_soc_get_volsw, \
@@ -538,6 +544,8 @@ int snd_soc_get_strobe(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
 int snd_soc_put_strobe(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
+int snd_soc_info_bytes_ext(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *ucontrol);
 
 /**
  * struct snd_soc_reg_access - Describes whether a given register is
@@ -1098,6 +1106,10 @@ struct soc_bytes {
 struct soc_mreg_control {
 	long min, max;
 	unsigned int regbase, regcount, nbits, invert;
+};
+
+struct soc_bytes_ext {
+	int max;
 };
 
 /* enumerated kcontrol */
