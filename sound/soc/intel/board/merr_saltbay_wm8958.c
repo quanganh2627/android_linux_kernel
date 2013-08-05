@@ -30,6 +30,7 @@
 #include <linux/async.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#include <asm/intel_scu_pmic.h>
 #include <asm/intel_mid_rpmsg.h>
 #include <asm/platform_mrfld_audio.h>
 #include <asm/intel_sst_mrfld.h>
@@ -126,6 +127,7 @@ static int mrfld_wm8958_compr_set_params(struct snd_compr_stream *cstream)
 struct mrfld_8958_mc_private {
 	struct snd_soc_jack jack;
 	int jack_retry;
+	u8 pmic_id;
 };
 
 static int mrfld_8958_set_bias_level(struct snd_soc_card *card,
@@ -200,10 +202,47 @@ static int mrfld_8958_set_bias_level_post(struct snd_soc_card *card,
 	return 0;
 }
 
+#define PMIC_ID_ADDR		0x00
+#define PMIC_CHIP_ID_A0_VAL	0xC0
+
+static int mrfld_8958_set_vflex_vsel(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *k, int event)
+{
+#define VFLEXCNT		0xAB
+#define VFLEXVSEL_5V		0x01
+#define VFLEXVSEL_B0_VSYS_PT	0x80	/* B0: Vsys pass-through */
+#define VFLEXVSEL_A0_4P5V	0x41	/* A0: 4.5V */
+
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
+	struct mrfld_8958_mc_private *ctx = snd_soc_card_get_drvdata(card);
+
+	u8 vflexvsel, pmic_id = ctx->pmic_id;
+	int retval = 0;
+
+	pr_debug("%s: ON? %d\n", __func__, SND_SOC_DAPM_EVENT_ON(event));
+
+	vflexvsel = (pmic_id == PMIC_CHIP_ID_A0_VAL) ? VFLEXVSEL_A0_4P5V : VFLEXVSEL_B0_VSYS_PT;
+	pr_debug("pmic_id %#x vflexvsel %#x\n", pmic_id,
+		SND_SOC_DAPM_EVENT_ON(event) ? VFLEXVSEL_5V : vflexvsel);
+
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		retval = intel_scu_ipc_iowrite8(VFLEXCNT, VFLEXVSEL_5V);
+	else if (SND_SOC_DAPM_EVENT_OFF(event))
+		retval = intel_scu_ipc_iowrite8(VFLEXCNT, vflexvsel);
+	if (retval)
+		pr_err("Error writing to VFLEXCNT register\n");
+
+	return retval;
+}
+
 static const struct snd_soc_dapm_widget widgets[] = {
 	SND_SOC_DAPM_HP("Headphones", NULL),
 	SND_SOC_DAPM_MIC("AMIC", NULL),
 	SND_SOC_DAPM_MIC("DMIC", NULL),
+	SND_SOC_DAPM_SUPPLY("VFLEXCNT", SND_SOC_NOPM, 0, 0,
+			mrfld_8958_set_vflex_vsel,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 };
 
 static const struct snd_soc_dapm_route map[] = {
@@ -234,6 +273,17 @@ static const struct snd_soc_dapm_route map[] = {
 	{ "Codec IN0", "NULL", "AIF1ADC1R" },
 	{ "Codec IN1", "NULL", "AIF1ADC2L" },
 	{ "Codec IN1", "NULL", "AIF1ADC2R" },
+
+	{ "AIF1DAC1L", "NULL", "VFLEXCNT" },
+	{ "AIF1DAC1R", "NULL", "VFLEXCNT" },
+	{ "AIF1DAC2L", "NULL", "VFLEXCNT" },
+	{ "AIF1DAC2R", "NULL", "VFLEXCNT" },
+
+	{ "AIF1ADC1L", "NULL", "VFLEXCNT" },
+	{ "AIF1ADC1R", "NULL", "VFLEXCNT" },
+	{ "AIF1ADC2L", "NULL", "VFLEXCNT" },
+	{ "AIF1ADC2R", "NULL", "VFLEXCNT" },
+
 };
 
 static const struct wm8958_micd_rate micdet_rates[] = {
@@ -576,6 +626,12 @@ static int snd_mrfld_8958_mc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	pdata = pdev->dev.platform_data;
+
+	ret_val = intel_scu_ipc_ioread8(PMIC_ID_ADDR, &drv->pmic_id);
+	if (ret_val) {
+		pr_err("Error reading PMIC ID register\n");
+		goto unalloc;
+	}
 
 	/* register the soc card */
 	snd_soc_card_mrfld.dev = &pdev->dev;
