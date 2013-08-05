@@ -2812,7 +2812,8 @@ int snd_soc_put_volsw_sx(struct snd_kcontrol *kcontrol,
 		val2 = (ucontrol->value.integer.value[1] + min) & mask;
 		val2 = val2 << rshift;
 
-		if (snd_soc_update_bits_locked(codec, reg2, val_mask, val2))
+		err = snd_soc_update_bits_locked(codec, reg2, val_mask, val2);
+		if (err < 0)
 			return err;
 	}
 	return 0;
