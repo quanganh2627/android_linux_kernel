@@ -104,6 +104,10 @@
 #define INTEL_DSI_COMMAND_MODE	0
 #define INTEL_DSI_VIDEO_MODE	1
 
+/* CSC correction */
+#define CSC_MAX_COEFF_COUNT	6
+#define CLR_MGR_PARSE_MAX	128
+
 struct intel_framebuffer {
 	struct drm_framebuffer base;
 	struct drm_i915_gem_object *obj;
