@@ -2011,17 +2011,36 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 	int ret = 0, playback = 0, capture = 0;
 
 	if (rtd->dai_link->dynamic || rtd->dai_link->no_pcm) {
-		if (cpu_dai->driver->playback.channels_min)
-			playback = 1;
-		if (cpu_dai->driver->capture.channels_min)
-			capture = 1;
+		if (cpu_dai->driver->playback.channels_min) {
+			if (rtd->dai_link->playback_count)
+				playback = rtd->dai_link->playback_count;
+			else
+				playback = 1;
+		}
+
+		if (cpu_dai->driver->capture.channels_min) {
+			if (rtd->dai_link->capture_count)
+				capture = rtd->dai_link->capture_count;
+			else
+				capture = 1;
+		}
 	} else {
 		if (codec_dai->driver->playback.channels_min &&
-		    cpu_dai->driver->playback.channels_min)
-			playback = 1;
+		    cpu_dai->driver->playback.channels_min) {
+			if (rtd->dai_link->playback_count)
+				playback = rtd->dai_link->playback_count;
+			else
+				playback = 1;
+		}
+
 		if (codec_dai->driver->capture.channels_min &&
-		    cpu_dai->driver->capture.channels_min)
-			capture = 1;
+		    cpu_dai->driver->capture.channels_min) {
+			if (rtd->dai_link->capture_count)
+				capture = rtd->dai_link->capture_count;
+			else
+				capture = 1;
+		}
+
 	}
 
 	/* create the PCM */
