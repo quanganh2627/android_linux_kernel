@@ -43,7 +43,7 @@ static int imx134_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	int ret;
 
-	if (intel_mid_identify_cpu() != INTEL_MID_CPU_CHIP_VALLEYVIEW2) {
+	if (!IS_BYT) {
 		if (camera_reset < 0) {
 			ret = camera_sensor_gpio(-1, GP_CAMERA_0_RESET,
 					GPIOF_DIR_OUT, 1);
@@ -103,7 +103,7 @@ static int imx134_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 	}
 	return vlv2_plat_configure_clock(OSC_CAM0_CLK, flag);
 #endif
-	if (intel_mid_identify_cpu() != INTEL_MID_CPU_CHIP_VALLEYVIEW2)
+	if (!IS_BYT)
 		return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
 			flag ? clock_khz : 0);
 	else
@@ -116,8 +116,7 @@ static int imx134_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (flag) {
 		if (!camera_vprog1_on) {
-			if (intel_mid_identify_cpu() !=
-			    INTEL_MID_CPU_CHIP_VALLEYVIEW2)
+			if (!IS_BYT)
 				ret = intel_scu_ipc_msic_vprog1(1);
 #ifdef CONFIG_CRYSTAL_COVE
 			ret = intel_mid_pmic_writeb(VPROG_2P8V, VPROG_ENABLE);
@@ -134,8 +133,7 @@ static int imx134_power_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	} else {
 		if (camera_vprog1_on) {
-			if (intel_mid_identify_cpu() !=
-			    INTEL_MID_CPU_CHIP_VALLEYVIEW2)
+			if (!IS_BYT)
 				ret = intel_scu_ipc_msic_vprog1(0);
 #ifdef CONFIG_CRYSTAL_COVE
 			ret = intel_mid_pmic_writeb(VPROG_2P8V, VPROG_DISABLE);

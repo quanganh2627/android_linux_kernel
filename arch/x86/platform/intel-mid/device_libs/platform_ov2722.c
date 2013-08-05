@@ -46,7 +46,7 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	int ret;
 	int pin;
-	if (intel_mid_identify_cpu() != INTEL_MID_CPU_CHIP_VALLEYVIEW2) {
+	if (!IS_BYT) {
 		if (gp_camera1_power_down < 0) {
 			ret = camera_sensor_gpio(-1, GP_CAMERA_1_POWER_DOWN,
 					GPIOF_DIR_OUT, 1);
@@ -138,7 +138,7 @@ static int ov2722_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	static const unsigned int clock_khz = 19200;
 	int ret = 0;
-	if (intel_mid_identify_cpu() != INTEL_MID_CPU_CHIP_VALLEYVIEW2)
+	if (!IS_BYT)
 		return intel_scu_ipc_osc_clk(OSC_CLK_CAM1,
 					     flag ? clock_khz : 0);
 #ifdef CONFIG_VLV2_PLAT_CLK
@@ -162,8 +162,7 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (flag) {
 		if (!camera_vprog1_on) {
-			if (intel_mid_identify_cpu() !=
-			    INTEL_MID_CPU_CHIP_VALLEYVIEW2)
+			if (!IS_BYT)
 				ret = intel_scu_ipc_msic_vprog1(1);
 #ifdef CONFIG_CRYSTAL_COVE
 			/*
@@ -183,8 +182,7 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	} else {
 		if (camera_vprog1_on) {
-			if (intel_mid_identify_cpu() !=
-			    INTEL_MID_CPU_CHIP_VALLEYVIEW2)
+			if (!IS_BYT)
 				ret = intel_scu_ipc_msic_vprog1(0);
 #ifdef CONFIG_CRYSTAL_COVE
 			ret = camera_set_pmic_power(CAMERA_2P8V, false);
