@@ -58,6 +58,8 @@
 #include "device_libs/platform_msic_thermal.h"
 #include "device_libs/platform_msic_adc.h"
 #include "device_libs/platform_bcove_adc.h"
+#include <asm/platform_mrfld_audio.h>
+#include <asm/platform_ctp_audio.h>
 
 /*
  * I2C devices
@@ -75,6 +77,9 @@
 
 /* SW devices */
 #include "device_libs/platform_panel.h"
+
+#include "device_libs/platform_wm8994.h"
+#include <asm/platform_cs42l73.h>
 
 /*
  * SPI devices
@@ -152,5 +157,20 @@ struct devs_id __initconst device_ids[] = {
 
 	/* IPC devices */
 	{"pmic_charger", SFI_DEV_TYPE_IPC, 1, &no_platform_data, NULL},
+
+	/* IPC devices */
+	{"ctp_rhb_cs42l73", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
+						&ipc_device_handler},
+	{"ctp_vb_cs42l73", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
+						&ipc_device_handler},
+	{"ctp_ht_wm5102", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
+						&ipc_device_handler},
+	{"mrfld_lm49453", SFI_DEV_TYPE_IPC, 1, &merfld_audio_platform_data,
+						&ipc_device_handler},
+	{"mrfld_wm8958", SFI_DEV_TYPE_IPC, 1, &merfld_wm8958_audio_platform_data,
+						&ipc_device_handler},
+	{"wm8958", SFI_DEV_TYPE_I2C, 0, &wm8994_platform_data, NULL},
+	{"lm49453_codec", SFI_DEV_TYPE_I2C, 1, &no_platform_data, NULL},
+	{"cs42l73", SFI_DEV_TYPE_I2C, 1, &cs42l73_platform_data, NULL},
 	{},
 };

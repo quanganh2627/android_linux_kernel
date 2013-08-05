@@ -1,6 +1,9 @@
 # IPC Devices
+obj-y += platform_sst_audio.o
 obj-y += platform_clv_regulator.o
 obj-y += platform_mrfl_regulator.o
+obj-$(subst m,y,$(CONFIG_SND_MRFLD_MACHINE)) += platform_mrfld_audio.o
+obj-$(subst m,y,$(CONFIG_SND_CTP_MACHINE)) += platform_ctp_audio.o
 obj-y += platform_ipc.o
 obj-y += platform_i2c_gpio.o
 obj-y += platform_msic.o
@@ -24,6 +27,7 @@ obj-$(subst m,y,$(CONFIG_GPIO_PCA953X)) += platform_max7315.o
 obj-$(subst m,y,$(CONFIG_SENSORS_MPU3050)) += platform_mpu3050.o
 obj-$(subst m,y,$(CONFIG_GPIO_PCA953X)) += platform_tca6416.o
 obj-$(subst m,y,$(CONFIG_CHARGER_BQ24192)) += platform_bq24192.o
+obj-$(subst m,y,$(CONFIG_SND_SOC_CS42L73)) += platform_cs42l73.o
 obj-$(subst m,y,$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4_FORK)) += platform_rmi4.o
 obj-$(subst m,y,$(CONFIG_TOUCHSCREEN_R69001_I2C)) += platform_r69001.o
 # SPI Devices
