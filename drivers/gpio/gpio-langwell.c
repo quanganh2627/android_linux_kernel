@@ -72,6 +72,8 @@ enum GPIO_REG {
 	GFBR_TNG = 6,
 	GIMR,		/* interrupt mask */
 	GISR,		/* interrupt source */
+	GITR = 32,	/* interrupt type */
+	GLPR = 33,	/* level-input polarity */
 };
 
 enum GPIO_CONTROLLERS {
@@ -181,7 +183,7 @@ static struct lnw_gpio_ddata_t lnw_gpio_ddata[] = {
 		.flis_base = 0xFF0C0000,
 		.flis_len = 0x8000,
 		.get_flis_offset = get_flis_offset_by_gpio,
-		.chip_irq_type = IRQ_TYPE_EDGE,
+		.chip_irq_type = IRQ_TYPE_EDGE | IRQ_TYPE_LEVEL,
 	},
 };
 
@@ -207,8 +209,17 @@ static void __iomem *gpio_reg(struct gpio_chip *chip, unsigned offset,
 	unsigned nreg = chip->ngpio / 32;
 	u8 reg = offset / 32;
 	void __iomem *ptr;
+	void *base;
 
-	ptr = (void __iomem *)(lnw->reg_gplr + reg_type * nreg * 4 + reg * 4);
+	/**
+	 * On TNG B0, GITR[0]' address is 0xFF008300, while GPLR[0]'s address
+	 * is 0xFF008004. To count GITR[0]'s address, it's easier to count
+	 * from 0xFF008000. So for GITR,GLPR... we switch the base to reg_base.
+	 * This does not affect PNW/CLV, since the reg_gplr is the reg_base,
+	 * while on TNG, the reg_gplr has an offset of 0x4.
+	 */
+	base = reg_type < GITR ? lnw->reg_gplr : lnw->reg_base;
+	ptr = (void __iomem *)(base + reg_type * nreg * 4 + reg * 4);
 	return ptr;
 }
 
@@ -471,8 +482,19 @@ static int lnw_irq_type(struct irq_data *d, unsigned type)
 
 	/* Chip that supports level interrupt has extra GPIT registers */
 	if (lnw->chip_irq_type & IRQ_TYPE_LEVEL) {
-		gpit = gpio_reg(&lnw->chip, gpio, GPIT);
-		gpip = gpio_reg(&lnw->chip, gpio, GPIP);
+		switch (lnw->type) {
+		case CLOVERVIEW_GPIO_AON:
+			gpit = gpio_reg(&lnw->chip, gpio, GPIT);
+			gpip = gpio_reg(&lnw->chip, gpio, GPIP);
+			break;
+		case TANGIER_GPIO:
+			gpit = gpio_reg(&lnw->chip, gpio, GITR);
+			gpip = gpio_reg(&lnw->chip, gpio, GLPR);
+			break;
+		default:
+			ret = -EINVAL;
+			goto out;
+		}
 
 		spin_lock_irqsave(&lnw->lock, flags);
 		if (type & IRQ_TYPE_LEVEL_MASK) {
@@ -527,6 +549,7 @@ static int lnw_irq_type(struct irq_data *d, unsigned type)
 		}
 	}
 
+out:
 	if (lnw->pdev)
 		pm_runtime_put(&lnw->pdev->dev);
 
