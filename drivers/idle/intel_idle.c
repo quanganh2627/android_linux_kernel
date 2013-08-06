@@ -61,6 +61,7 @@
 #include <linux/notifier.h>
 #include <linux/cpu.h>
 #include <linux/module.h>
+#include <linux/intel_mid_pm.h>
 #include <asm/cpu_device_id.h>
 #include <asm/mwait.h>
 #include <asm/msr.h>
@@ -80,6 +81,13 @@ static unsigned int mwait_substates;
 #define LAPIC_TIMER_ALWAYS_RELIABLE 0xFFFFFFFF
 /* Reliable LAPIC Timer States, bit 1 for C1 etc.  */
 static unsigned int lapic_timer_reliable_states = (1 << 1);	 /* Default to only C1 */
+
+#if defined(CONFIG_REMOVEME_INTEL_ATOM_MDFLD_POWER) || \
+	defined(CONFIG_REMOVEME_INTEL_ATOM_CLV_POWER)
+static int soc_s0ix_idle(struct cpuidle_device *dev,
+			 struct cpuidle_driver *drv, int index);
+static atomic_t nr_cpus_in_c6;
+#endif
 
 struct idle_cpu {
 	struct cpuidle_state *state_table;
@@ -329,6 +337,168 @@ static struct cpuidle_state atom_cstates[CPUIDLE_STATE_MAX] = {
 	{
 		.enter = NULL }
 };
+
+#if defined(CONFIG_REMOVEME_INTEL_ATOM_MDFLD_POWER) || \
+	defined(CONFIG_REMOVEME_INTEL_ATOM_CLV_POWER)
+static int enter_s0ix_state(u32 eax, int s0ix_state,
+		  struct cpuidle_device *dev, int index)
+{
+	int s0ix_entered = 0;
+	if (atomic_add_return(1, &nr_cpus_in_c6) == num_online_cpus() &&
+		 s0ix_state) {
+		s0ix_entered = mid_s0ix_enter(s0ix_state);
+		if (!s0ix_entered) {
+			if (pmu_is_s0ix_in_progress()) {
+				atomic_dec(&nr_cpus_in_c6);
+				eax = C4_HINT;
+			}
+			pmu_set_s0ix_complete();
+		}
+	}
+	switch (s0ix_state) {
+	case MID_S0I1_STATE:
+		trace_cpu_idle(S0I1_STATE_IDX, dev->cpu);
+		break;
+	case MID_LPMP3_STATE:
+		trace_cpu_idle(LPMP3_STATE_IDX, dev->cpu);
+		break;
+	case MID_S0I3_STATE:
+		trace_cpu_idle(S0I3_STATE_IDX, dev->cpu);
+		break;
+	case MID_S3_STATE:
+		trace_cpu_idle(S0I3_STATE_IDX, dev->cpu);
+		break;
+	default:
+		trace_cpu_idle((eax >> 4) + 1, dev->cpu);
+	}
+	__monitor((void *)&current_thread_info()->flags, 0, 0);
+	smp_mb();
+	if (!need_resched())
+		__mwait(C6_HINT, 1);
+
+	if (likely(eax == C6_HINT))
+		atomic_dec(&nr_cpus_in_c6);
+
+	/* During s0ix exit inform scu that OS
+	 * has exited. In case scu is still waiting
+	 * for ack c6 trigger, it would exit out
+	 * of the ack-c6 timeout loop
+	 */
+	pmu_set_s0ix_complete();
+
+	/* In case of demotion to S0i1/lpmp3 update last_state */
+	if (s0ix_entered) {
+		if (s0ix_state == MID_S0I1_STATE)
+			index = S0I1_STATE_IDX;
+		else if (s0ix_state == MID_LPMP3_STATE)
+			index = LPMP3_STATE_IDX;
+		}
+	else if (eax == C4_HINT)
+		index = C4_STATE_IDX;
+	else
+		index = C6_STATE_IDX;
+
+	return index;
+}
+
+static int soc_s0ix_idle(struct cpuidle_device *dev,
+		struct cpuidle_driver *drv, int index)
+{
+	struct cpuidle_state *state = &drv->states[index];
+	unsigned long eax = flg2MWAIT(state->flags);
+	ktime_t kt_before, kt_after;
+	s64 usec_delta;
+	int cpu = smp_processor_id();
+	int s0ix_state   = 0;
+
+	/* Check if s0ix is already in progress,
+	 * This is required to demote C6 while S0ix
+	 * is in progress
+	 */
+	if (unlikely(pmu_is_s0ix_in_progress()))
+		return intel_idle(dev, drv, C4_STATE_IDX);
+
+	/* check if we need/possible to do s0ix */
+	if (eax != C6_HINT)
+		s0ix_state = get_target_platform_state(&eax);
+
+	/*
+	 * leave_mm() to avoid costly and often unnecessary wakeups
+	 * for flushing the user TLB's associated with the active mm.
+	 */
+	if (state->flags & CPUIDLE_FLAG_TLB_FLUSHED)
+		leave_mm(cpu);
+
+	clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &cpu);
+
+	kt_before = ktime_get_real();
+
+	stop_critical_timings();
+
+	if (!need_resched())
+		index = enter_s0ix_state(eax, s0ix_state, dev, index);
+
+	start_critical_timings();
+
+	kt_after = ktime_get_real();
+	usec_delta = ktime_to_us(ktime_sub(kt_after, kt_before));
+
+	local_irq_enable();
+
+	clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu);
+
+	/* Update cpuidle counters */
+	dev->last_residency = (int)usec_delta;
+
+	return index;
+}
+#endif
+
+#ifdef CONFIG_ATOM_SOC_POWER
+static unsigned int get_target_residency(unsigned int cstate)
+{
+	unsigned int t_sleep = cpuidle_state_table[cstate].target_residency;
+	unsigned int prev_idx;
+
+	/* get the previous lower sleep state */
+	if ((cstate == 8) || (cstate == 9))
+		prev_idx = cstate - 2;
+	else
+		prev_idx = cstate - 1;
+
+	/* calculate target_residency only if not defined already */
+	if (!t_sleep) {
+		unsigned int p_active = cpuidle_state_table[0].power_usage;
+		unsigned int prev_state_power = cpuidle_state_table
+							[prev_idx].power_usage;
+		unsigned int curr_state_power = cpuidle_state_table
+							[cstate].power_usage;
+		unsigned int prev_state_lat = cpuidle_state_table
+							[prev_idx].exit_latency;
+		unsigned int curr_state_lat = cpuidle_state_table
+							[cstate].exit_latency;
+
+		if (curr_state_power && prev_state_power && p_active &&
+		    prev_state_lat && curr_state_lat &&
+		    (curr_state_lat > prev_state_lat) &&
+		    (prev_state_power > curr_state_power)) {
+			t_sleep = (p_active * (curr_state_lat - prev_state_lat)
+					+ (prev_state_lat * prev_state_power)
+					- (curr_state_lat * curr_state_power)) /
+				  (prev_state_power - curr_state_power);
+
+			/* round-up target_residency */
+			t_sleep++;
+		}
+	}
+
+	WARN_ON(!t_sleep);
+
+	pr_debug(PREFIX "cpuidle: target_residency[%d]= %d\n", cstate, t_sleep);
+
+	return t_sleep;
+}
+#endif
 
 /**
  * intel_idle
@@ -594,6 +764,11 @@ static int intel_idle_cpuidle_driver_init(void)
 			mark_tsc_unstable("TSC halts in idle"
 					" states deeper than C2");
 
+#ifdef CONFIG_ATOM_SOC_POWER
+		/* Calculate target_residency if power_usage is given */
+		cpuidle_state_table[cstate].target_residency =
+			get_target_residency(cstate);
+#endif
 		drv->states[drv->state_count] =	/* structure copy */
 			cpuidle_state_table[cstate];
 
