@@ -315,6 +315,7 @@ struct mmc_host {
 #define MMC_CAP2_NO_PRESCAN_POWERUP (1 << 14)	/* Don't power up before scan */
 #define MMC_CAP2_INIT_CARD_SYNC	(1 << 15)	/* init card in sync mode */
 #define MMC_CAP2_POLL_R1B_BUSY	(1 << 16)	/* host poll R1B busy*/
+#define MMC_CAP2_RPMBPART_NOACC	(1 << 17)	/* RPMB partition no access */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
@@ -531,6 +532,11 @@ static inline int mmc_host_cmd23(struct mmc_host *host)
 static inline int mmc_boot_partition_access(struct mmc_host *host)
 {
 	return !(host->caps2 & MMC_CAP2_BOOTPART_NOACC);
+}
+
+static inline int mmc_rpmb_partition_access(struct mmc_host *host)
+{
+	return !(host->caps2 & MMC_CAP2_RPMBPART_NOACC);
 }
 
 static inline int mmc_host_uhs(struct mmc_host *host)
