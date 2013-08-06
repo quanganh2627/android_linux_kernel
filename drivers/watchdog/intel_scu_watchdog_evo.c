@@ -89,7 +89,7 @@ MODULE_PARM_DESC(kicking_active,
 		"after a while");
 #endif
 
-static bool disable_kernel_watchdog;
+static bool disable_kernel_watchdog = true;
 #ifdef CONFIG_DISABLE_SCU_WATCHDOG
 /*
  * Please note that we are using a config CONFIG_DISABLE_SCU_WATCHDOG
