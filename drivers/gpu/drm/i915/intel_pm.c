@@ -3146,7 +3146,6 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 	/* Sprite A */
 	enable.EnSprite = is_sprite_enabled(dev_priv, 0, 0);
 
-	/* For plane A, Cursor A */
 	if (vlv_compute_drain_latency(dev, 0, NULL, NULL, NULL, NULL,
 		&sprite_prec_mult, &sprite_dl, pixel_size, enable)) {
 		sprite_prec = (sprite_prec_mult ==
@@ -3178,7 +3177,7 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 	/* Sprite C */
 	enable.EnSprite = is_sprite_enabled(dev_priv, 1, 0);
 
-	if (vlv_compute_drain_latency(dev, 0, NULL, NULL, NULL, NULL,
+	if (vlv_compute_drain_latency(dev, 1, NULL, NULL, NULL, NULL,
 		&sprite_prec_mult, &sprite_dl, pixel_size, enable)) {
 		sprite_prec = (sprite_prec_mult ==
 				DRAIN_LATENCY_PRECISION_32) ?
@@ -3194,7 +3193,7 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 	/* Sprite D */
 	enable.EnSprite = is_sprite_enabled(dev_priv, 1, 1);
 
-	if (vlv_compute_drain_latency(dev, 0, NULL, NULL, NULL, NULL,
+	if (vlv_compute_drain_latency(dev, 1, NULL, NULL, NULL, NULL,
 		&sprite_prec_mult, &sprite_dl, pixel_size, enable)) {
 		sprite_prec = (sprite_prec_mult ==
 				DRAIN_LATENCY_PRECISION_32) ?
