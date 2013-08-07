@@ -430,7 +430,7 @@ static int enter_s0ix_state(u32 eax, int s0ix_state,
 	__monitor((void *)&current_thread_info()->flags, 0, 0);
 	smp_mb();
 	if (!need_resched())
-		__mwait(C6_HINT, 1);
+		__mwait(eax, 1);
 
 	if (likely(eax == C6_HINT))
 		atomic_dec(&nr_cpus_in_c6);
@@ -711,6 +711,7 @@ static const struct x86_cpu_id intel_idle_ids[] = {
 	ICPU(0x46, idle_cpu_hsw),
 	ICPU(0x27, idle_cpu_mfld),
 	ICPU(0x35, idle_cpu_mfld),
+	ICPU(0x4a, idle_cpu_mfld),	/* Tangier SoC */
 	{}
 };
 MODULE_DEVICE_TABLE(x86cpu, intel_idle_ids);
