@@ -127,15 +127,16 @@ static int debug_read_history_record(char *page, char **start, off_t off,
 	return len;
 }
 
+static const struct file_operations debug_history_proc_fops = {
+           .owner = THIS_MODULE,
+           .read = debug_read_history_record,
+};
 
 static int __init debug_read_history_record_entry(void)
 {
 	struct proc_dir_entry *res = NULL;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
-	res = create_proc_entry("debug_read_sgx_history", S_IALLUGO, NULL);
-	if (res)
-		res->read_proc = debug_read_history_record;
-#endif
+        res = proc_create_data("debug_read_sgx_history", S_IALLUGO, NULL,
+                                &debug_history_proc_fops, NULL);
 	return 0;
 }
 
