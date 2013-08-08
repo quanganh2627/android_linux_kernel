@@ -74,6 +74,7 @@
 #include "device_libs/platform_rmi4.h"
 #include "device_libs/platform_bq24192.h"
 #include "device_libs/platform_r69001.h"
+#include "device_libs/platform_pn544.h"
 
 /* SW devices */
 #include "device_libs/platform_panel.h"
