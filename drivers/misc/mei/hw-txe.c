@@ -84,7 +84,6 @@ static inline u32 mei_txe_sec_reg_read(struct mei_txe_hw *hw,
 
 	if (!hw->aliveness)
 		dev_warn(&dev->pdev->dev, "aliveness not asserted\n");
-	hw->aliveness_atime = jiffies;
 
 	return mei_txe_sec_reg_read_silent(hw, offset);
 }
@@ -117,7 +116,6 @@ static inline void mei_txe_sec_reg_write(struct mei_txe_hw *hw,
 
 	if (!hw->aliveness)
 		dev_warn(&dev->pdev->dev, "aliveness not asserted\n");
-	hw->aliveness_atime = jiffies;
 	mei_txe_sec_reg_write_silent(hw, offset, value);
 }
 /**
@@ -161,9 +159,6 @@ static bool mei_txe_aliveness_set(struct mei_device *dev, u32 req)
 
 	dev_dbg(&dev->pdev->dev, "Aliveness current=%d request=%d\n",
 				hw->aliveness, req);
-	/* Clear requested */
-	if (req)
-		hw->aliveness_atime = jiffies;
 
 	if (do_req) {
 		hw->recvd_aliv_resp = false;
