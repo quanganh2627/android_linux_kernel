@@ -462,8 +462,6 @@ static int soc_s0ix_idle(struct cpuidle_device *dev,
 {
 	struct cpuidle_state *state = &drv->states[index];
 	unsigned long eax = flg2MWAIT(state->flags);
-	ktime_t kt_before, kt_after;
-	s64 usec_delta;
 	int cpu = smp_processor_id();
 	int s0ix_state   = 0;
 	unsigned int cstate;
@@ -491,8 +489,6 @@ static int soc_s0ix_idle(struct cpuidle_device *dev,
 	if (!(lapic_timer_reliable_states & (1 << (cstate))))
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &cpu);
 
-	kt_before = ktime_get_real();
-
 	stop_critical_timings();
 
 	if (!need_resched())
@@ -500,16 +496,8 @@ static int soc_s0ix_idle(struct cpuidle_device *dev,
 
 	start_critical_timings();
 
-	kt_after = ktime_get_real();
-	usec_delta = ktime_to_us(ktime_sub(kt_after, kt_before));
-
-	local_irq_enable();
-
 	if (!(lapic_timer_reliable_states & (1 << (cstate))))
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu);
-
-	/* Update cpuidle counters */
-	dev->last_residency = (int)usec_delta;
 
 	return index;
 }
