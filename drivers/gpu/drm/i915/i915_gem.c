@@ -841,8 +841,8 @@ out:
 		 */
 		if (!needs_clflush_after &&
 		    obj->base.write_domain != I915_GEM_DOMAIN_CPU) {
-			i915_gem_clflush_object(obj, obj->pin_display);
-			i915_gem_chipset_flush(dev);
+			if (i915_gem_clflush_object(obj, obj->pin_display))
+				i915_gem_chipset_flush(dev);
 		}
 	}
 
@@ -3223,7 +3223,7 @@ err_unpin:
 	return ret;
 }
 
-void
+bool
 i915_gem_clflush_object(struct drm_i915_gem_object *obj,
 			bool force)
 {
@@ -3232,14 +3232,14 @@ i915_gem_clflush_object(struct drm_i915_gem_object *obj,
 	 * again at bind time.
 	 */
 	if (obj->pages == NULL)
-		return;
+		return false;
 
 	/*
 	 * Stolen memory is always coherent with the GPU as it is explicitly
 	 * marked as wc by the system, or the system is cache-coherent.
 	 */
 	if (obj->stolen)
-		return;
+		return false;
 
 	/* If the GPU is snooping the contents of the CPU cache,
 	 * we do not need to manually clear the CPU cache lines.  However,
@@ -3250,11 +3250,12 @@ i915_gem_clflush_object(struct drm_i915_gem_object *obj,
 	 * tracking.
 	 */
 	if (!force && cpu_cache_is_coherent(obj->base.dev, obj->cache_level))
-		return;
+		return false;
 
 	trace_i915_gem_object_clflush(obj);
-
 	drm_clflush_sg(obj->pages);
+
+	return true;
 }
 
 /** Flushes the GTT write domain for the object if it's dirty. */
@@ -3294,8 +3295,9 @@ i915_gem_object_flush_cpu_write_domain(struct drm_i915_gem_object *obj,
 	if (obj->base.write_domain != I915_GEM_DOMAIN_CPU)
 		return;
 
-	i915_gem_clflush_object(obj, force);
-	i915_gem_chipset_flush(obj->base.dev);
+	if (i915_gem_clflush_object(obj, force))
+		i915_gem_chipset_flush(obj->base.dev);
+
 	old_write_domain = obj->base.write_domain;
 	obj->base.write_domain = 0;
 
