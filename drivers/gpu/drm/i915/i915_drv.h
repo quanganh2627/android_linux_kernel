@@ -414,6 +414,11 @@ struct intel_uncore {
 	unsigned int fw_mediacount;
 };
 
+struct drm_i915_pm_funcs {
+	int (*drm_freeze)(struct drm_device *dev);
+	int (*drm_thaw)(struct drm_device *dev);
+};
+
 #define DEV_INFO_FOR_EACH_FLAG(func, sep) \
 	func(is_mobile) sep \
 	func(is_i85x) sep \
@@ -823,6 +828,11 @@ struct i915_suspend_saved_registers {
 	u32 savePIPEB_LINK_N1;
 	u32 saveMCHBAR_RENDER_STANDBY;
 	u32 savePCH_PORT_HOTPLUG;
+	u32 saveGUNIT_Control;
+	u32 saveGUNIT_Control2;
+	u32 saveGUNIT_CZClockGatingDisable1;
+	u32 saveGUNIT_CZClockGatingDisable2;
+	u32 saveDPIO_CFG_DATA;
 };
 
 struct intel_gen6_power_mgmt {
@@ -1190,6 +1200,9 @@ typedef struct drm_i915_private {
 	int relative_constants_mode;
 
 	void __iomem *regs;
+
+	/** related to power management */
+	struct drm_i915_pm_funcs pm;
 
 	struct intel_uncore uncore;
 
@@ -2265,6 +2278,7 @@ const char *i915_cache_level_str(int type);
 /* i915_suspend.c */
 extern int i915_save_state(struct drm_device *dev);
 extern int i915_restore_state(struct drm_device *dev);
+extern void i915_pm_init(struct drm_device *dev);
 
 /* i915_ums.c */
 void i915_save_display_reg(struct drm_device *dev);

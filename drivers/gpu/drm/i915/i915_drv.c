@@ -575,58 +575,10 @@ bool i915_semaphore_is_enabled(struct drm_device *dev)
 static int i915_drm_freeze(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_crtc *crtc;
+	if (!dev_priv->pm.drm_freeze)
+		return -ENODEV;
 
-	/* ignore lid events during suspend */
-	mutex_lock(&dev_priv->modeset_restore_lock);
-	dev_priv->modeset_restore = MODESET_SUSPENDED;
-	mutex_unlock(&dev_priv->modeset_restore_lock);
-
-	/* We do a lot of poking in a lot of registers, make sure they work
-	 * properly. */
-	hsw_disable_package_c8(dev_priv);
-	intel_set_power_well(dev, true);
-
-	drm_kms_helper_poll_disable(dev);
-
-	pci_save_state(dev->pdev);
-
-	/* If KMS is active, we do the leavevt stuff here */
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		int error;
-
-		mutex_lock(&dev->struct_mutex);
-		error = i915_gem_idle(dev);
-		mutex_unlock(&dev->struct_mutex);
-		if (error) {
-			dev_err(&dev->pdev->dev,
-				"GEM idle failed, resume might fail\n");
-			return error;
-		}
-
-		cancel_delayed_work_sync(&dev_priv->rps.delayed_resume_work);
-
-		drm_irq_uninstall(dev);
-		dev_priv->enable_hotplug_processing = false;
-		/*
-		 * Disable CRTCs directly since we want to preserve sw state
-		 * for _thaw.
-		 */
-		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
-			dev_priv->display.crtc_disable(crtc);
-
-		intel_modeset_suspend_hw(dev);
-	}
-
-	i915_save_state(dev);
-
-	intel_opregion_fini(dev);
-
-	console_lock();
-	intel_fbdev_set_suspend(dev, FBINFO_STATE_SUSPENDED);
-	console_unlock();
-
-	return 0;
+	return dev_priv->pm.drm_freeze(dev);
 }
 
 int i915_suspend(struct drm_device *dev, pm_message_t state)
@@ -671,99 +623,23 @@ void intel_console_resume(struct work_struct *work)
 	console_unlock();
 }
 
-static void intel_resume_hotplug(struct drm_device *dev)
-{
-	struct drm_mode_config *mode_config = &dev->mode_config;
-	struct intel_encoder *encoder;
-
-	mutex_lock(&mode_config->mutex);
-	DRM_DEBUG_KMS("running encoder hotplug functions\n");
-
-	list_for_each_entry(encoder, &mode_config->encoder_list, base.head)
-		if (encoder->hot_plug)
-			encoder->hot_plug(encoder);
-
-	mutex_unlock(&mode_config->mutex);
-
-	/* Just fire off a uevent and let userspace tell us what to do */
-	drm_helper_hpd_irq_event(dev);
-}
-
-static int __i915_drm_thaw(struct drm_device *dev)
+static int i915_drm_thaw(struct drm_device *dev, bool restore_gtt)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	int error = 0;
-
-	i915_restore_state(dev);
-	intel_opregion_setup(dev);
-
-	/* KMS EnterVT equivalent */
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		intel_init_pch_refclk(dev);
-
-		mutex_lock(&dev->struct_mutex);
-
-		error = i915_gem_init_hw(dev);
-		mutex_unlock(&dev->struct_mutex);
-
-		/* We need working interrupts for modeset enabling ... */
-		drm_irq_install(dev);
-
-		intel_modeset_init_hw(dev);
-
-		drm_modeset_lock_all(dev);
-		intel_modeset_setup_hw_state(dev, true);
-		drm_modeset_unlock_all(dev);
-
-		/*
-		 * ... but also need to make sure that hotplug processing
-		 * doesn't cause havoc. Like in the driver load code we don't
-		 * bother with the tiny race here where we might loose hotplug
-		 * notifications.
-		 * */
-		intel_hpd_init(dev);
-		dev_priv->enable_hotplug_processing = true;
-		/* Config may have changed between suspend and resume */
-		intel_resume_hotplug(dev);
-	}
-
-	intel_opregion_init(dev);
-
-	/*
-	 * The console lock can be pretty contented on resume due
-	 * to all the printk activity.  Try to keep it out of the hot
-	 * path of resume if possible.
-	 */
-	if (console_trylock()) {
-		intel_fbdev_set_suspend(dev, FBINFO_STATE_RUNNING);
-		console_unlock();
-	} else {
-		schedule_work(&dev_priv->console_resume_work);
-	}
-
-	/* Undo what we did at i915_drm_freeze so the refcount goes back to the
-	 * expected level. */
-	hsw_enable_package_c8(dev_priv);
-
-	mutex_lock(&dev_priv->modeset_restore_lock);
-	dev_priv->modeset_restore = MODESET_DONE;
-	mutex_unlock(&dev_priv->modeset_restore_lock);
-	return error;
-}
-
-static int i915_drm_thaw(struct drm_device *dev)
-{
-	int error = 0;
+	int error;
 
 	intel_uncore_sanitize(dev);
 
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+	if (restore_gtt && drm_core_check_feature(dev, DRIVER_MODESET)) {
 		mutex_lock(&dev->struct_mutex);
 		i915_gem_restore_gtt_mappings(dev);
 		mutex_unlock(&dev->struct_mutex);
 	}
 
-	__i915_drm_thaw(dev);
+	if (!dev_priv->pm.drm_thaw)
+		return -ENODEV;
+
+	error = dev_priv->pm.drm_thaw(dev);
 
 	return error;
 }
@@ -794,7 +670,7 @@ int i915_resume(struct drm_device *dev)
 		mutex_unlock(&dev->struct_mutex);
 	}
 
-	ret = __i915_drm_thaw(dev);
+	ret = i915_drm_thaw(dev, false);
 	if (ret)
 		return ret;
 
@@ -993,7 +869,7 @@ static int i915_pm_thaw(struct device *dev)
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
 
-	return i915_drm_thaw(drm_dev);
+	return i915_drm_thaw(drm_dev, true);
 }
 
 static int i915_pm_poweroff(struct device *dev)
