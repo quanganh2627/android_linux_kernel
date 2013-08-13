@@ -312,20 +312,25 @@ void mrfld_early_console_init(void)
 
 	/* mask interrupts, clear enable and set DSS config */
 	/* SSPSCLK on active transfers only */
-	if (ssp_timing_wr) {
-		dw_writel(pssp, ctrl0, 0xc12c0f);
-		dw_writel(pssp, ctrl1, 0x0);
-	} else {
-		dw_writel(pssp, ctrl0, 0xc0000f);
-		dw_writel(pssp, ctrl1, 0x10000000);
+	if (intel_mid_identify_sim() != INTEL_MID_CPU_SIMULATION_SLE) {
+		if (ssp_timing_wr) {
+			dw_writel(pssp, ctrl0, 0xc12c0f);
+			dw_writel(pssp, ctrl1, 0x0);
+		} else {
+			dw_writel(pssp, ctrl0, 0xc0000f);
+			dw_writel(pssp, ctrl1, 0x10000000);
+		}
 	}
 
 	dw_readl(pssp, sr);
 
 	/* enable port */
-	ctrlr0 = dw_readl(pssp, ctrl0);
-	ctrlr0 |= 0x80;
-	dw_writel(pssp, ctrl0, ctrlr0);
+	if (intel_mid_identify_sim() != INTEL_MID_CPU_SIMULATION_SLE) {
+		ctrlr0 = dw_readl(pssp, ctrl0);
+		ctrlr0 |= 0x80;
+		dw_writel(pssp, ctrl0, ctrlr0);
+	}
+
 }
 
 /* slave select should be called in the read/write function */
