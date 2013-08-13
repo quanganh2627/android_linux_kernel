@@ -1677,7 +1677,7 @@ static const struct snd_kcontrol_new sst_mrfld_controls[] = {
 	SST_ALGO_KCONTROL_INT("Compress Volume", SST_COMPRESS_VOL,
 		0, SST_COMPR_VOL_MAX_INTEG_GAIN, 0,
 		sst_compr_vol_get, sst_compr_vol_set,
-		SST_CODEC_VOLUME_CONTROL, PIPE_MEDIA0_IN, 0,
+		SST_ALGO_VOLUME_CONTROL, PIPE_MEDIA0_IN, 0,
 		SST_COMPR_VOL_MUTE),
 	SOC_SINGLE_BOOL_EXT("SST VTSV Enroll", 0, sst_vtsv_enroll_get,
 		       sst_vtsv_enroll_set),

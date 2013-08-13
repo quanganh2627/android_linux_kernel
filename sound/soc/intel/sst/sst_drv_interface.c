@@ -180,7 +180,7 @@ static int sst_send_lpe_mixer_algo_params(void)
 				& SST_INPUT_STREAM_MIXED;
 	pr_debug("Input Mixer settings %d", input_mixer);
 	stream_device_id = sst_drv_ctx->device_input_mixer - input_mixer;
-	algo_param.algo_id = SST_CODEC_MIXER;
+	algo_param.algo_id = SST_ALGO_MIXER;
 	algo_param.str_id = stream_device_id;
 	algo_param.enable = 1;
 	algo_param.reserved = 0;
