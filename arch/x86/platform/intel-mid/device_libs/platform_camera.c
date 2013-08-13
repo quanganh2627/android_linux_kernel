@@ -18,9 +18,14 @@
 #include <media/v4l2-subdev.h>
 #include <asm/intel-mid.h>
 #include "platform_camera.h"
+#include "platform_imx175.h"
+#include "platform_imx134.h"
+#include "platform_ov2722.h"
+#include "platform_lm3554.h"
 #ifdef CONFIG_CRYSTAL_COVE
 #include <linux/mfd/intel_mid_pmic.h>
 #endif
+
 /*
  * TODO: Check whether we can move this info to OEM table or
  *       set this info in the platform data of each sensor
@@ -41,6 +46,44 @@ const struct intel_v4l2_subdev_id v4l2_ids[] = {
 	{"lm3554", LED_FLASH, -1},
 	{"lm3559", LED_FLASH, -1},
 	{},
+};
+
+struct byt_device_table {
+	struct sfi_device_table_entry entry;
+	struct devs_id dev;
+};
+
+/* Baytrail camera devs table */
+static struct byt_device_table byt_ffrd10_cam_table[] = {
+	{
+		{SFI_DEV_TYPE_I2C, 4, 0x10, 0x0, 0x0, "imx175"},
+		{"imx175", SFI_DEV_TYPE_I2C, 0, &imx175_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 4, 0x36, 0x0, 0x0, "ov2722"},
+		{"ov2722", SFI_DEV_TYPE_I2C, 0, &ov2722_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 4, 0x53, 0x0, 0x0, "lm3554"},
+		{"lm3554", SFI_DEV_TYPE_I2C, 0, &lm3554_platform_data_func,
+			&intel_register_i2c_camera_device}
+	}
+};
+
+static struct byt_device_table byt_ffrd8_cam_table[] = {
+	{
+		{SFI_DEV_TYPE_I2C, 4, 0x10, 0x0, 0x0, "imx134"},
+		{"imx134", SFI_DEV_TYPE_I2C, 0, &imx134_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 4, 0x36, 0x0, 0x0, "ov2722"},
+		{"ov2722", SFI_DEV_TYPE_I2C, 0, &ov2722_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 3, 0x53, 0x0, 0x0, "lm3554"},
+		{"lm3554", SFI_DEV_TYPE_I2C, 0, &lm3554_platform_data_func,
+			&intel_register_i2c_camera_device}
+	}
 };
 
 /*
@@ -393,4 +436,28 @@ done:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(camera_set_pmic_power);
+#endif
+
+#ifdef CONFIG_ACPI
+void __init camera_byt_init_device(void)
+{
+	if (INTEL_MID_BOARD(1, TABLET, BYT)) {
+		struct byt_device_table *table = NULL;
+		int entry_num = 0;
+		int i;
+		if (spid.hardware_id == BYT_TABLET_BLK_8PR0) {
+			table = byt_ffrd8_cam_table;
+			entry_num = ARRAY_SIZE(byt_ffrd8_cam_table);
+		} else {
+			table = byt_ffrd10_cam_table;
+			entry_num = ARRAY_SIZE(byt_ffrd10_cam_table);
+		}
+		for (i = 0; i < entry_num; i++, table++) {
+			if (table->dev.device_handler)
+				table->dev.device_handler(&table->entry,
+					&table->dev);
+		}
+	}
+}
+device_initcall(camera_byt_init_device);
 #endif
