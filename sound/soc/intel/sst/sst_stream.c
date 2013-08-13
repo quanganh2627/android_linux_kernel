@@ -33,6 +33,7 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/pm_runtime.h>
+#include <asm/platform_sst_audio.h>
 #include "../sst_platform.h"
 #include "../platform_ipc_v2.h"
 #include "sst.h"
@@ -804,5 +805,114 @@ int sst_free_stream(int str_id)
 		pr_debug("SST DBG:BADQRC for stream\n");
 	}
 
+	return retval;
+}
+
+int sst_request_vtsv_file(char *fname, struct intel_sst_drv *ctx,
+		void **out_file, u32 *out_size)
+{
+	int retval = 0;
+	const struct firmware *file;
+	u32 ddr_virt_addr, file_base;
+
+	pr_debug("Requesting VTSV file %s now...\n", fname);
+	retval = request_firmware(&file, fname, ctx->dev);
+	if (file == NULL) {
+		pr_err("VTSV file is returning as null\n");
+		return -EINVAL;
+	}
+	if (retval) {
+		pr_err("request fw failed %d\n", retval);
+		return retval;
+	}
+
+	if ((*out_file == NULL) || (*out_size < file->size)) {
+		retval = sst_get_next_lib_mem(&ctx->lib_mem_mgr, file->size,
+			&file_base);
+		*out_file = (void *)file_base;
+	}
+	ddr_virt_addr = (u32)ctx->ddr +
+			(u32)(*out_file - MRFLD_FW_LSP_DDR_BASE);
+	memcpy((void *)ddr_virt_addr, file->data, file->size);
+	*out_size = file->size;
+	release_firmware(file);
+	return 0;
+}
+
+int sst_format_vtsv_message(struct intel_sst_drv *ctx,
+	struct ipc_post **msgptr, struct sst_block **block)
+{
+	int retval = 0, pvt_id, len;
+	struct ipc_dsp_hdr dsp_hdr;
+	struct snd_sst_vtsv_info vinfo;
+	struct ipc_post *msg;
+
+	vinfo.vfiles[0].addr = (u32)ctx->vcache.file1_in_mem;
+	vinfo.vfiles[0].size = ctx->vcache.size1;
+	vinfo.vfiles[1].addr = (u32)ctx->vcache.file2_in_mem;
+	vinfo.vfiles[1].size = ctx->vcache.size2;
+
+	/* Create the vtsv message */
+	pvt_id = sst_assign_pvt_id(ctx);
+	retval = sst_create_block_and_ipc_msg(msgptr, true,
+			ctx, block, IPC_CMD, pvt_id);
+	if (retval)
+		return retval;
+	msg = *msgptr;
+	sst_fill_header_mrfld(&msg->mrfld_header, IPC_CMD,
+			SST_TASK_ID_AWARE, 1, pvt_id);
+	pr_debug("header:%x\n",
+			(unsigned int)msg->mrfld_header.p.header_high.full);
+	msg->mrfld_header.p.header_high.part.res_rqd = 1;
+
+	len = sizeof(vinfo) + sizeof(dsp_hdr);
+	msg->mrfld_header.p.header_low_payload = len;
+	sst_fill_header_dsp(&dsp_hdr, IPC_IA_VTSV_UPDATE_MODULES,
+				PIPE_VAD_OUT, sizeof(u8));
+	dsp_hdr.mod_id = SST_ALGO_VTSV;
+	memcpy(msg->mailbox_data, &dsp_hdr, sizeof(dsp_hdr));
+	memcpy(msg->mailbox_data + sizeof(dsp_hdr),
+			&vinfo, sizeof(vinfo));
+	return 0;
+}
+
+int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx)
+{
+	int retval = 0;
+	struct ipc_post *msg = NULL;
+	struct intel_sst_ops *ops = ctx->ops;
+	unsigned long irq_flags;
+	struct sst_block *block = NULL;
+
+	/* Download both the data files */
+	retval = sst_request_vtsv_file("vtsv_net_119a.bin", ctx,
+			&ctx->vcache.file1_in_mem, &ctx->vcache.size1);
+	if (retval) {
+		pr_err("vtsv data file1 request failed %d\n", retval);
+		return retval;
+	}
+
+	retval = sst_request_vtsv_file("vtsv_grammar_119a.bin", ctx,
+			&ctx->vcache.file2_in_mem, &ctx->vcache.size2);
+	if (retval) {
+		pr_err("vtsv data file2 request failed %d\n", retval);
+		return retval;
+	}
+
+	retval = sst_format_vtsv_message(ctx, &msg, &block);
+	if (retval) {
+		pr_err("vtsv msg format failed %d\n", retval);
+		return retval;
+	}
+	spin_lock_irqsave(&ctx->ipc_spin_lock, irq_flags);
+	list_add_tail(&msg->node,
+			&ctx->ipc_dispatch_list);
+	spin_unlock_irqrestore(&ctx->ipc_spin_lock, irq_flags);
+	ops->post_message(&ctx->ipc_post_msg_wq);
+	retval = sst_wait_timeout(ctx, block);
+	if (retval)
+		pr_err("vtsv msg send to fw failed %d\n", retval);
+
+	sst_free_block(ctx, block);
 	return retval;
 }

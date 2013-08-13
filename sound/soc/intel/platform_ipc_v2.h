@@ -91,6 +91,7 @@
 #define IPC_IA_DRAIN_STREAM 0x27 /* Short msg with str_id */
 #define IPC_IA_DRAIN_STREAM_MRFLD 0x8
 #define IPC_IA_CONTROL_ROUTING 0x29
+#define IPC_IA_VTSV_UPDATE_MODULES 0x20
 
 #define IPC_IA_START_STREAM_MRFLD 0X06
 #define IPC_IA_START_STREAM 0x30 /* Short msg with str_id */
@@ -715,4 +716,10 @@ struct snd_sst_bytes_v2 {
 	u16 len;
 	char bytes[0];
 };
+
+#define MAX_VTSV_FILES 2
+struct snd_sst_vtsv_info {
+	struct sst_address_info vfiles[MAX_VTSV_FILES];
+} __packed;
+
 #endif /* __PLATFORMDRV_IPC_V2_H__ */

@@ -1018,6 +1018,17 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 		ret_val = sst_send_probe_bytes(sst_drv_ctx);
 		break;
 	}
+	case SST_SET_VTSV_INFO: {
+		ret_val = intel_sst_check_device();
+		if (ret_val)
+			return ret_val;
+
+		ret_val = sst_send_vtsv_data_to_fw(sst_drv_ctx);
+		if (ret_val)
+			pr_err("vtsv data send failed\n");
+		pm_runtime_put(sst_drv_ctx->dev);
+		break;
+	}
 	default:
 		pr_err("Invalid cmd request:%d\n", cmd);
 		ret_val = -EINVAL;

@@ -454,6 +454,13 @@ struct sst_shim_regs64 {
 	u64 csr2;
 };
 
+struct sst_vtsv_cache {
+	void *file1_in_mem;
+	u32 size1;
+	void *file2_in_mem;
+	u32 size2;
+};
+
 /***
  *
  * struct intel_sst_drv - driver ops
@@ -568,6 +575,8 @@ struct intel_sst_drv {
 	struct sst_ipc_reg	ipc_reg;
 	/* IMR region Library space memory manager */
 	struct sst_mem_mgr      lib_mem_mgr;
+	/* Contains the cached vtsv files*/
+	struct sst_vtsv_cache	vcache;
 };
 
 extern struct intel_sst_drv *sst_drv_ctx;
@@ -694,6 +703,7 @@ int sst_acpi_probe(struct platform_device *pdev);
 int sst_acpi_remove(struct platform_device *pdev);
 void sst_save_shim64(struct intel_sst_drv *ctx, void __iomem *shim,
 		     struct sst_shim_regs64 *shim_regs);
+int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx);
 
 static inline int sst_pm_runtime_put(struct intel_sst_drv *sst_drv)
 {
