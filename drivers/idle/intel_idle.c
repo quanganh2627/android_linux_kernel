@@ -340,6 +340,62 @@ static struct cpuidle_state atom_cstates[CPUIDLE_STATE_MAX] = {
 
 #if defined(CONFIG_REMOVEME_INTEL_ATOM_MDFLD_POWER) || \
 	defined(CONFIG_REMOVEME_INTEL_ATOM_CLV_POWER)
+
+static struct cpuidle_state mfld_cstates[CPUIDLE_STATE_MAX] = {
+	{ /* MWAIT C1 */
+		.name = "ATM-C1",
+		.desc = "MWAIT 0x00",
+		.flags = MWAIT2flg(0x00) | CPUIDLE_FLAG_TIME_VALID,
+		.exit_latency = CSTATE_EXIT_LATENCY_C1,
+		.target_residency = 4,
+		.enter = &intel_idle },
+	{ /* MWAIT C2 */
+		.name = "ATM-C2",
+		.desc = "MWAIT 0x10",
+		.flags = MWAIT2flg(0x10) | CPUIDLE_FLAG_TIME_VALID,
+		.exit_latency = CSTATE_EXIT_LATENCY_C2,
+		.target_residency = 80,
+		.enter = &intel_idle },
+	{ /* MWAIT C4 */
+		.name = "ATM-C4",
+		.desc = "MWAIT 0x30",
+		.flags = MWAIT2flg(0x30) | CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TLB_FLUSHED,
+		.exit_latency = CSTATE_EXIT_LATENCY_C4,
+		.target_residency = 400,
+		.enter = &intel_idle },
+	{ /* MWAIT C6 */
+		.name = "ATM-C6",
+		.desc = "MWAIT 0x52",
+		.flags = MWAIT2flg(0x52) | CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TLB_FLUSHED,
+		.exit_latency = CSTATE_EXIT_LATENCY_C6,
+		.power_usage  = C6_POWER_USAGE,
+		.target_residency = 560,
+		.enter = &soc_s0ix_idle },
+	{
+		.name = "ATM-S0i1",
+		.desc = "MWAIT 0x52",
+		.flags = MWAIT2flg(0x52) | CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TLB_FLUSHED,
+		.exit_latency = CSTATE_EXIT_LATENCY_S0i1,
+		.power_usage  = S0I1_POWER_USAGE,
+		.enter = &soc_s0ix_idle },
+	{
+		.name = "ATM-LpAudio",
+		.desc = "MWAIT 0x52",
+		.flags = MWAIT2flg(0x52) | CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TLB_FLUSHED,
+		.exit_latency = CSTATE_EXIT_LATENCY_LPMP3,
+		.power_usage  = LPMP3_POWER_USAGE,
+		.enter = &soc_s0ix_idle },
+	{
+		.name = "ATM-S0i3",
+		.desc = "MWAIT 0x52",
+		.flags = MWAIT2flg(0x52) | CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TLB_FLUSHED,
+		.exit_latency = CSTATE_EXIT_LATENCY_S0i3,
+		.power_usage  = S0I3_POWER_USAGE,
+		.enter = &soc_s0ix_idle },
+	{
+		.enter = NULL }
+};
+
 static int enter_s0ix_state(u32 eax, int s0ix_state,
 		  struct cpuidle_device *dev, int index)
 {
@@ -452,6 +508,8 @@ static int soc_s0ix_idle(struct cpuidle_device *dev,
 
 	return index;
 }
+#else
+#define mfld_cstates atom_cstates
 #endif
 
 #ifdef CONFIG_ATOM_SOC_POWER
@@ -632,6 +690,11 @@ static const struct idle_cpu idle_cpu_hsw = {
 	.disable_promotion_to_c1e = true,
 };
 
+static const struct idle_cpu idle_cpu_mfld = {
+	.state_table = mfld_cstates,
+	.auto_demotion_disable_flags = ATM_LNC_C6_AUTO_DEMOTE,
+};
+
 #define ICPU(model, cpu) \
 	{ X86_VENDOR_INTEL, 6, model, X86_FEATURE_MWAIT, (unsigned long)&cpu }
 
@@ -653,6 +716,8 @@ static const struct x86_cpu_id intel_idle_ids[] = {
 	ICPU(0x3f, idle_cpu_hsw),
 	ICPU(0x45, idle_cpu_hsw),
 	ICPU(0x46, idle_cpu_hsw),
+	ICPU(0x27, idle_cpu_mfld),
+	ICPU(0x35, idle_cpu_mfld),
 	{}
 };
 MODULE_DEVICE_TABLE(x86cpu, intel_idle_ids);
