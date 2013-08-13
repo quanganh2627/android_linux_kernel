@@ -1648,7 +1648,7 @@ static void sst_init_lib_mem_mgr(struct sst_mem_mgr *mgr)
 
 #define ALIGN_256 0x100
 
-static int sst_get_next_lib_mem(struct sst_mem_mgr *mgr, int size,
+int sst_get_next_lib_mem(struct sst_mem_mgr *mgr, int size,
 			u32 *lib_base)
 {
 	int retval = 0;
@@ -1771,14 +1771,13 @@ int sst_load_all_modules_elf(struct intel_sst_drv *ctx)
 	int i;
 	const struct firmware *fw_lib;
 	struct sst_module_info *mod = NULL;
-	struct sst_mem_mgr lib_mem_mgr;
 	char *out_elf;
 	unsigned int lib_size = 0;
 	u32 lib_base;
 
 	pr_debug("In %s", __func__);
 
-	sst_init_lib_mem_mgr(&lib_mem_mgr);
+	sst_init_lib_mem_mgr(&ctx->lib_mem_mgr);
 
 	for (i = 0; i < ARRAY_SIZE(sst_modules_mrfld); i++) {
 		mod = &sst_modules_mrfld[i];
@@ -1797,7 +1796,7 @@ int sst_load_all_modules_elf(struct intel_sst_drv *ctx)
 		}
 		pr_debug("elf validated\n");
 		retval = sst_allocate_lib_mem(fw_lib, lib_size,
-				&lib_mem_mgr, &out_elf, &lib_base);
+				&ctx->lib_mem_mgr, &out_elf, &lib_base);
 		if (retval < 0) {
 			pr_err("lib mem allocation failed: %d\n", retval);
 			continue;

@@ -566,6 +566,8 @@ struct intel_sst_drv {
 	struct snd_sst_probe_bytes *probe_bytes;
 	/* contains the ipc registers */
 	struct sst_ipc_reg	ipc_reg;
+	/* IMR region Library space memory manager */
+	struct sst_mem_mgr      lib_mem_mgr;
 };
 
 extern struct intel_sst_drv *sst_drv_ctx;
@@ -646,6 +648,8 @@ int intel_sst_release_cntrl(struct inode *i_node, struct file *file_ptr);
 int sst_load_fw(void);
 int sst_load_library(struct snd_sst_lib_download *lib, u8 ops);
 int sst_load_all_modules_elf(struct intel_sst_drv *ctx);
+int sst_get_next_lib_mem(struct sst_mem_mgr *mgr, int size,
+			u32 *lib_base);
 int sst_get_block_stream(struct intel_sst_drv *sst_drv_ctx);
 void sst_memcpy_free_resources(void);
 
