@@ -12,6 +12,7 @@ struct sdhci_pci_data {
 	int		platform_quirks; /* Platform related quirks */
 	int		(*setup)(struct sdhci_pci_data *data);
 	void		(*cleanup)(struct sdhci_pci_data *data);
+	int		(*power_up)(void *data);
 };
 
 /* Some Pre-Silicon platform not support all SDHCI HCs of the SoC */
