@@ -396,10 +396,12 @@ static struct cpuidle_state mfld_cstates[CPUIDLE_STATE_MAX] = {
 		.enter = NULL }
 };
 
-static int enter_s0ix_state(u32 eax, int s0ix_state,
+static int enter_s0ix_state(u32 eax, int gov_req_state, int s0ix_state,
 		  struct cpuidle_device *dev, int index)
 {
 	int s0ix_entered = 0;
+	int selected_state = C6_STATE_IDX;
+
 	if (atomic_add_return(1, &nr_cpus_in_c6) == num_online_cpus() &&
 		 s0ix_state) {
 		s0ix_entered = mid_s0ix_enter(s0ix_state);
@@ -444,15 +446,22 @@ static int enter_s0ix_state(u32 eax, int s0ix_state,
 
 	/* In case of demotion to S0i1/lpmp3 update last_state */
 	if (s0ix_entered) {
-		if (s0ix_state == MID_S0I1_STATE)
+		selected_state = S0I3_STATE_IDX;
+
+		if (s0ix_state == MID_S0I1_STATE) {
 			index = S0I1_STATE_IDX;
-		else if (s0ix_state == MID_LPMP3_STATE)
+			selected_state = S0I1_STATE_IDX;
+		} else if (s0ix_state == MID_LPMP3_STATE) {
 			index = LPMP3_STATE_IDX;
+			selected_state = LPMP3_STATE_IDX;
 		}
-	else if (eax == C4_HINT)
+	} else if (eax == C4_HINT) {
 		index = C4_STATE_IDX;
-	else
+		selected_state = C4_STATE_IDX;
+	} else
 		index = C6_STATE_IDX;
+
+	pmu_s0ix_demotion_stat(gov_req_state, selected_state);
 
 	return index;
 }
@@ -465,6 +474,7 @@ static int soc_s0ix_idle(struct cpuidle_device *dev,
 	int cpu = smp_processor_id();
 	int s0ix_state   = 0;
 	unsigned int cstate;
+	int gov_req_state = (int) eax;
 
 	/* Check if s0ix is already in progress,
 	 * This is required to demote C6 while S0ix
@@ -492,7 +502,8 @@ static int soc_s0ix_idle(struct cpuidle_device *dev,
 	stop_critical_timings();
 
 	if (!need_resched())
-		index = enter_s0ix_state(eax, s0ix_state, dev, index);
+		index = enter_s0ix_state(eax, gov_req_state,
+					s0ix_state, dev, index);
 
 	start_critical_timings();
 
