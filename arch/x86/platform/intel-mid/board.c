@@ -54,6 +54,7 @@
 #include "device_libs/platform_msic_power_btn.h"
 #include "device_libs/platform_msic_ocd.h"
 #include "device_libs/platform_msic_thermal.h"
+#include "device_libs/platform_msic_adc.h"
 
 /*
  * I2C devices
@@ -109,6 +110,8 @@ struct devs_id __initconst device_ids[] = {
 	{"max17047", SFI_DEV_TYPE_I2C, 1, &max17042_platform_data, NULL},
 	{"max17050", SFI_DEV_TYPE_I2C, 1, &max17042_platform_data, NULL},
 	/* MSIC subdevices */
+	{"msic_adc", SFI_DEV_TYPE_IPC, 1, &msic_adc_platform_data,
+						&ipc_device_handler},
 	{"msic_battery", SFI_DEV_TYPE_IPC, 1, &msic_battery_platform_data,
 					&ipc_device_handler},
 	{"msic_gpio", SFI_DEV_TYPE_IPC, 1, &msic_gpio_platform_data,
