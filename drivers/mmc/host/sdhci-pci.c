@@ -25,6 +25,8 @@
 #include <linux/gpio.h>
 #include <linux/pm_runtime.h>
 #include <linux/mmc/sdhci-pci-data.h>
+#include <linux/lnw_gpio.h>
+#include <linux/acpi_gpio.h>
 
 #include <asm/intel_mid_rpmsg.h>
 
@@ -39,9 +41,6 @@
  */
 #define PCI_DEVICE_ID_INTEL_PCH_SDIO0	0x8809
 #define PCI_DEVICE_ID_INTEL_PCH_SDIO1	0x880a
-#define PCI_DEVICE_ID_INTEL_BYT_EMMC	0x0f14
-#define PCI_DEVICE_ID_INTEL_BYT_SDIO	0x0f15
-#define PCI_DEVICE_ID_INTEL_BYT_SD	0x0f16
 
 /*
  * PCI registers
@@ -410,6 +409,30 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 {
 	slot->host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE;
 	slot->host->mmc->caps2 |= MMC_CAP2_HC_ERASE_SZ;
+
+	switch (slot->chip->pdev->device) {
+	case PCI_DEVICE_ID_INTEL_BYT_EMMC:
+		slot->host->mmc->caps |= MMC_CAP_1_8V_DDR;
+		slot->host->mmc->caps2 |= MMC_CAP2_INIT_CARD_SYNC;
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+#define BYT_SD_WP	7
+#define BYT_SD_CD	38
+static int byt_sd_probe_slot(struct sdhci_pci_slot *slot)
+{
+	slot->cd_gpio = acpi_get_gpio("\\_SB.GPO0", BYT_SD_CD);
+	/*
+	 * change GPIOC_7 to alternate function 2
+	 * This should be done in IA FW
+	 * Do this in driver as a temporal solution
+	 */
+	lnw_gpio_set_alt(BYT_SD_WP, 2);
+
 	return 0;
 }
 
@@ -425,12 +448,14 @@ static const struct sdhci_pci_fixes sdhci_intel_byt_emmc = {
 };
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_sdio = {
-	.quirks2	= SDHCI_QUIRK2_HOST_OFF_CARD_ON,
+	.quirks2	= SDHCI_QUIRK2_HOST_OFF_CARD_ON |
+		SDHCI_QUIRK2_CAN_VDD_300 | SDHCI_QUIRK2_CAN_VDD_330,
 	.allow_runtime_pm = true,
 	.probe_slot	= byt_sdio_probe_slot,
 };
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_sd = {
+	.probe_slot	= byt_sd_probe_slot,
 };
 
 /* Define Host controllers for Intel Merrifield platform */
