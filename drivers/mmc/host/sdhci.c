@@ -1830,6 +1830,18 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 				>> SDHCI_PRESET_DRV_SHIFT;
 		}
 
+		/*
+		 * Some buggy SDHC Host Controller requires the
+		 * Host Control Register High Speed Enable bit
+		 * must be set after Host Control 2 Register
+		 * 1.8V Signaling Enable bit set.
+		 * Otherwise it will fail to work on High Speed.
+		 * So, here we just write the Host control Register
+		 * with the same value again to workaround the issue.
+		 */
+		if (host->quirks2 & SDHCI_QUIRK2_HIGH_SPEED_SET_LATE)
+			sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
+
 		/* Re-enable SD Clock */
 		sdhci_update_clock(host);
 	} else
