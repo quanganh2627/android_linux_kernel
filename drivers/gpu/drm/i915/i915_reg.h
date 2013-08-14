@@ -3612,6 +3612,12 @@ EDP_PSR_SW_TIMER
 #define _DSPBSURFLIVE		(dev_priv->info->display_mmio_offset + 0x711AC)
 #define _VLV_DSPBADDR		(dev_priv->info->display_mmio_offset + 0x7117C)
 
+/* Sprite Contrast and Brightness Registers */
+#define SPRITEA_CB_REG		0x721d0
+#define SPRITEB_CB_REG		0x722d0
+#define SPRITEC_CB_REG		0x723d0
+#define SPRITED_CB_REG		0x724d0
+
 /* Sprite A control */
 #define _DVSACNTR		0x72180
 #define   DVS_ENABLE		(1<<31)
