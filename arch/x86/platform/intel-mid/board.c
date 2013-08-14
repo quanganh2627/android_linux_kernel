@@ -66,6 +66,7 @@
 #include "device_libs/platform_mpu3050.h"
 #include "device_libs/platform_tc35876x.h"
 #include "device_libs/platform_rmi4.h"
+#include "device_libs/platform_bq24192.h"
 
 /*
  * SPI devices
@@ -116,5 +117,8 @@ struct devs_id __initconst device_ids[] = {
 					&ipc_device_handler},
 	{"msic_thermal", SFI_DEV_TYPE_IPC, 1, &msic_thermal_platform_data,
 					&ipc_device_handler},
+
+	/* I2C devices */
+	{"bq24192", SFI_DEV_TYPE_I2C, 1, &bq24192_platform_data},
 	{},
 };

@@ -56,6 +56,7 @@ extern u32 intel_mid_msgbus_read32_raw(u32 cmd);
 extern void intel_mid_msgbus_write32_raw(u32 cmd, u32 data);
 extern u32 intel_mid_msgbus_read32(u8 port, u32 addr);
 extern void intel_mid_msgbus_write32(u8 port, u32 addr, u32 data);
+extern void *get_oem0_table(void);
 extern void register_rpmsg_service(char *name, int id, u32 addr);
 extern int sdhci_pci_request_regulators(void);
 
