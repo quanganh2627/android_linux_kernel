@@ -36,6 +36,22 @@ static int is_hybridvp(struct dwc_otg2 *otg)
 	return data->is_hvp;
 }
 
+static void usb2phy_eye_optimization(struct dwc_otg2 *otg)
+{
+	struct usb_phy *phy;
+
+	phy = usb_get_phy(USB_PHY_TYPE_USB2);
+	if (!phy)
+		return;
+
+	/* Set 0x7f for better quality in eye diagram
+	 * It means ZHSDRV = 0b11 and IHSTX = 0b1111*/
+	usb_phy_io_write(phy, 0x7f, TUSB1211_VENDOR_SPECIFIC1_SET);
+
+	usb_put_phy(phy);
+}
+
+
 /* As we use SW mode to do charger detection, need to notify HW
  * the result SW get, charging port or not */
 static int dwc_otg_charger_hwdet(bool enable)
@@ -61,6 +77,7 @@ static int dwc_otg_charger_hwdet(bool enable)
 			return retval;
 		otg_dbg(otg, "clear HWDETECT\n");
 	}
+	usb_put_phy(phy);
 
 	return 0;
 }
@@ -776,15 +793,20 @@ static int dwc3_intel_handle_notification(struct notifier_block *nb,
 
 int dwc3_intel_prepare_start_host(struct dwc_otg2 *otg)
 {
-	if (!is_hybridvp(otg))
+	if (!is_hybridvp(otg)) {
 		enable_usb_phy(otg, true);
+		usb2phy_eye_optimization(otg);
+	}
+
 	return 0;
 }
 
 int dwc3_intel_prepare_start_peripheral(struct dwc_otg2 *otg)
 {
-	if (!is_hybridvp(otg))
+	if (!is_hybridvp(otg)) {
 		enable_usb_phy(otg, true);
+		usb2phy_eye_optimization(otg);
+	}
 
 	return 0;
 }
