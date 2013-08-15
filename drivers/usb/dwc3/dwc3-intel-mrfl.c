@@ -302,7 +302,6 @@ int dwc3_intel_b_idle(struct dwc_otg2 *otg)
 	gctl |= GCTL_PRT_CAP_DIR_DEV << GCTL_PRT_CAP_DIR_SHIFT;
 	otg_write(otg, GCTL, gctl);
 
-	enable_usb_phy(otg, true);
 	mdelay(100);
 
 	return 0;
