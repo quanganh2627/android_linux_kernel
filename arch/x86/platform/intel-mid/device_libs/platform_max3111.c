@@ -54,13 +54,15 @@ void __init *max3111_platform_data(void *info)
 	}
 
 	/*force polling for HVP and VP simulation platforms
-	 * on TANGIER AND ANNIEDALE.
+	 * on TANGIER,  ANNIEDALE AND CARBONCANYON.
 	 */
 	if ((intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_VP) ||
 	    (intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_SLE) ||
 	    (intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_HVP)) {
 		if ((intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) ||
-		   (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)) {
+		   (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+		   (intel_mid_identify_cpu()
+				== INTEL_MID_CPU_CHIP_CARBONCANYON)) {
 			spi_info->irq = 0;
 		}
 	}

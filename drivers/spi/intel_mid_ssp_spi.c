@@ -83,7 +83,8 @@ static void dump_trailer(const struct device *dev, char *buf, int len, int sz)
 static inline u8 ssp_cfg_get_mode(u8 ssp_cfg)
 {
 	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
-	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE ||
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CARBONCANYON)
 		return (ssp_cfg) & 0x03;
 	else
 		return (ssp_cfg) & 0x07;
@@ -92,7 +93,8 @@ static inline u8 ssp_cfg_get_mode(u8 ssp_cfg)
 static inline u8 ssp_cfg_get_spi_bus_nb(u8 ssp_cfg)
 {
 	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
-	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE ||
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CARBONCANYON)
 		return ((ssp_cfg) >> 2) & 0x07;
 	else
 		return ((ssp_cfg) >> 3) & 0x07;
@@ -101,7 +103,8 @@ static inline u8 ssp_cfg_get_spi_bus_nb(u8 ssp_cfg)
 static inline u8 ssp_cfg_is_spi_slave(u8 ssp_cfg)
 {
 	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
-	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE ||
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CARBONCANYON)
 		return (ssp_cfg) & 0x20;
 	else
 		return (ssp_cfg) & 0x40;
@@ -946,7 +949,8 @@ static int handle_message(struct ssp_drv_context *sspc)
 
 	/* [REVERT ME] Bug in status register clear for Tangier simulation */
 	if ((intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) ||
-	    (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)) {
+	    (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+	    (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CARBONCANYON)) {
 		if ((intel_mid_identify_sim() != INTEL_MID_CPU_SIMULATION_VP &&
 		    (intel_mid_identify_sim() != INTEL_MID_CPU_SIMULATION_HVP)))
 			write_SSSR(sspc->clear_sr, reg);
