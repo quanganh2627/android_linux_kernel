@@ -36,6 +36,36 @@ static int is_hybridvp(struct dwc_otg2 *otg)
 	return data->is_hvp;
 }
 
+/* As we use SW mode to do charger detection, need to notify HW
+ * the result SW get, charging port or not */
+static int dwc_otg_charger_hwdet(bool enable)
+{
+	int				retval;
+	struct usb_phy *phy;
+	struct dwc_otg2 *otg = dwc3_get_otg();
+
+	phy = usb_get_phy(USB_PHY_TYPE_USB2);
+	if (!phy)
+		return -ENODEV;
+
+	if (enable) {
+		retval = usb_phy_io_write(phy, PWCTRL_HWDETECT,
+				TUSB1211_POWER_CONTROL_SET);
+		if (retval)
+			return retval;
+		otg_dbg(otg, "set HWDETECT\n");
+	} else {
+		retval = usb_phy_io_write(phy, PWCTRL_HWDETECT,
+				TUSB1211_POWER_CONTROL_CLR);
+		if (retval)
+			return retval;
+		otg_dbg(otg, "clear HWDETECT\n");
+	}
+
+	return 0;
+}
+
+
 static enum power_supply_charger_cable_type aca_check(struct dwc_otg2 *otg)
 {
 	u8 rarbrc;
@@ -243,8 +273,10 @@ int dwc3_intel_b_idle(struct dwc_otg2 *otg)
 {
 	u32 gctl, tmp;
 
-	if (!is_hybridvp(otg))
+	if (!is_hybridvp(otg)) {
 		enable_usb_phy(otg, false);
+		dwc_otg_charger_hwdet(false);
+	}
 
 	/* Disable hibernation mode by default */
 	gctl = otg_read(otg, GCTL);
@@ -601,8 +633,21 @@ cleanup:
 
 	usb_put_phy(phy);
 
-	return type;
+	switch (type) {
+	case POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK:
+	case POWER_SUPPLY_CHARGER_TYPE_ACA_A:
+	case POWER_SUPPLY_CHARGER_TYPE_ACA_B:
+	case POWER_SUPPLY_CHARGER_TYPE_ACA_C:
+	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
+	case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
+	case POWER_SUPPLY_CHARGER_TYPE_SE1:
+		dwc_otg_charger_hwdet(true);
+		break;
+	default:
+		break;
+	};
 
+	return type;
 }
 
 static int dwc3_intel_handle_notification(struct notifier_block *nb,
