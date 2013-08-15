@@ -701,6 +701,65 @@ int dwc3_intel_prepare_start_peripheral(struct dwc_otg2 *otg)
 	return 0;
 }
 
+int dwc3_intel_suspend(struct dwc_otg2 *otg)
+{
+	struct pci_dev *pci_dev = to_pci_dev(otg->dev);
+	pci_power_t state = PCI_D3cold;
+
+	if (!otg)
+		return 0;
+
+	if (otg->state == DWC_STATE_B_PERIPHERAL ||
+			otg->state == DWC_STATE_A_HOST)
+		state = PCI_D3hot;
+
+	set_sus_phy(otg, 1);
+
+	if (pci_save_state(pci_dev)) {
+		otg_err(otg, "pci_save_state failed!\n");
+		return -EIO;
+	}
+
+	pci_disable_device(pci_dev);
+	pci_set_power_state(pci_dev, state);
+
+	return 0;
+}
+
+int dwc3_intel_resume(struct dwc_otg2 *otg)
+{
+	struct pci_dev *pci_dev = to_pci_dev(otg->dev);
+
+	if (!otg)
+		return 0;
+
+	/* This is one WA for silicon BUG.
+	 * Without this WA, the USB2 phy will enter low power
+	 * mode during hibernation resume flow. and met
+	 * fabric error
+	 */
+	if (otg->state == DWC_STATE_A_HOST) {
+		enable_usb_phy(otg, false);
+		enable_usb_phy(otg, true);
+	}
+
+	/* From synopsys spec 12.2.11.
+	 * Software cannot access memory-mapped I/O space
+	 * for 10ms.
+	 */
+	mdelay(10);
+
+	pci_restore_state(pci_dev);
+	if (pci_enable_device(pci_dev) < 0) {
+		otg_err(otg, "pci_enable_device failed.\n");
+		return -EIO;
+	}
+
+	set_sus_phy(otg, 0);
+
+	return 0;
+}
+
 struct dwc3_otg_hw_ops dwc3_intel_otg_pdata = {
 	.mode = DWC3_DRD,
 	.bus = DWC3_PCI,
@@ -713,6 +772,9 @@ struct dwc3_otg_hw_ops dwc3_intel_otg_pdata = {
 	.otg_notifier_handler = dwc3_intel_handle_notification,
 	.prepare_start_peripheral = dwc3_intel_prepare_start_peripheral,
 	.prepare_start_host = dwc3_intel_prepare_start_host,
+
+	.suspend = dwc3_intel_suspend,
+	.resume = dwc3_intel_resume,
 };
 
 static int __init dwc3_intel_init(void)
