@@ -26,6 +26,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/usb/otg.h>
 #include <linux/platform_device.h>
+#include <linux/usb/dwc3-intel-mrfl.h>
 #include "../host/xhci.h"
 #include "core.h"
 #include "otg.h"
@@ -104,6 +105,30 @@ static void dwc_xhci_enable_phy_suspend(struct usb_hcd *hcd, bool enable)
 	writel(val, hcd->regs + GUSB2PHYCFG0);
 }
 
+static void dwc_silicon_wa(struct usb_hcd *hcd)
+{
+	void __iomem *addr;
+	u32 val;
+
+	/* Clear GUCTL bit 15 as workaround of DWC controller Bugs
+	 * This Bug cause the xHCI driver does not see any
+	 * transfer complete events for certain EP after exit
+	 * from hibernation mode.*/
+	val = readl(hcd->regs + GUCTL);
+	val &= ~GUCTL_CMDEVADDR;
+	writel(val, hcd->regs + GUCTL);
+
+	/* Disable OTG3-EXI interface by default. It is one
+	 * workaround for silicon BUG. It will cause transfer
+	 * failed on EP#8 of any USB device.
+	 */
+	addr = ioremap_nocache(APBFC_EXIOTG3_MISC0_REG, 4);
+	val = readl(addr);
+	val |= (1 << 3);
+	writel(val, addr);
+	iounmap(addr);
+}
+
 static void dwc_core_reset(struct usb_hcd *hcd)
 {
 	u32 val;
@@ -135,15 +160,6 @@ static void dwc_core_reset(struct usb_hcd *hcd)
 	val = readl(hcd->regs + GCTL);
 	val &= ~GCTL_CORESOFTRESET;
 	writel(val, hcd->regs + GCTL);
-
-
-	/* Clear GUCTL bit 15 as workaround of DWC2.10a Bugs
-	 * This Bug cause the xHCI driver does not see any
-	 * transfer complete events for certain EP after exit
-	 * from hibernation mode. */
-	val = readl(hcd->regs + GUCTL);
-	val &= ~GUCTL_CMDEVADDR;
-	writel(val, hcd->regs + GUCTL);
 }
 
 /* This is a hardware workaround.
@@ -208,6 +224,7 @@ static int dwc3_start_host(struct usb_hcd *hcd)
 	pm_runtime_get_sync(hcd->self.controller);
 
 	dwc_core_reset(hcd);
+	dwc_silicon_wa(hcd);
 	dwc_set_host_mode(hcd);
 	dwc_disable_ssphy_p3(hcd);
 
