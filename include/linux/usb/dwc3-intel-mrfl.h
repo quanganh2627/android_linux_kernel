@@ -155,7 +155,7 @@ struct intel_dwc_otg_pdata {
 #define USBIDCTRL_USB_IDEN_D0	(1 << 0)
 #define PMIC_USBIDSTS				0x1A
 #define USBIDSTS_ID_GND			(1 << 0)
-#define USBIDSTS_ID_RARBRC_STS(v)	((v & 0x3)  << 0)
+#define USBIDSTS_ID_RARBRC_STS(v)	((v & 0x3)  << 1)
 #define USBIDSTS_ID_FLOAT_STS	(1 << 3)
 #define PMIC_USBPHYCTRL_D0		(1 << 0)
 #define APBFC_EXIOTG3_MISC0_REG			0xF90FF85C

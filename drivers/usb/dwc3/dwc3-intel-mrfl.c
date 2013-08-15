@@ -73,6 +73,12 @@ static enum power_supply_charger_cable_type aca_check(struct dwc_otg2 *otg)
 	enum power_supply_charger_cable_type type =
 		POWER_SUPPLY_CHARGER_TYPE_NONE;
 
+	ret = intel_scu_ipc_update_register(PMIC_USBIDCTRL,
+			USBIDCTRL_ACA_DETEN_D1,
+			USBIDCTRL_ACA_DETEN_D1);
+	if (ret)
+		otg_err(otg, "Fail to enable ACA&ID detection logic\n");
+
 	/* Wait >66.1ms (for TCHGD_SERX_DEB) */
 	msleep(66);
 
@@ -81,6 +87,7 @@ static enum power_supply_charger_cable_type aca_check(struct dwc_otg2 *otg)
 	if (ret)
 		otg_err(otg, "Fail to read decoded RID value\n");
 	rarbrc &= USBIDSTS_ID_RARBRC_STS(3);
+	rarbrc >>= 1;
 
 	/* If ID_RARBRC_STS==01: ACA-Dock detected
 	 * If ID_RARBRC_STS==00: MHL detected
@@ -92,6 +99,12 @@ static enum power_supply_charger_cable_type aca_check(struct dwc_otg2 *otg)
 		/* MHL */
 		type = POWER_SUPPLY_CHARGER_TYPE_MHL;
 	}
+
+	ret = intel_scu_ipc_update_register(PMIC_USBIDCTRL,
+			USBIDCTRL_ACA_DETEN_D1,
+			0);
+	if (ret)
+		otg_err(otg, "Fail to enable ACA&ID detection logic\n");
 
 	return type;
 }
@@ -265,6 +278,12 @@ int dwc3_intel_get_id(struct dwc_otg2 *otg)
 		id = RID_B;
 	else if (idsts & USBIDSTS_ID_RARBRC_STS(3))
 		id = RID_C;
+
+	ret = intel_scu_ipc_update_register(PMIC_USBIDCTRL,
+			USBIDCTRL_ACA_DETEN_D1 | PMIC_USBPHYCTRL_D0,
+			0);
+	if (ret)
+		otg_err(otg, "Fail to enable ACA&ID detection logic\n");
 
 	return id;
 }
