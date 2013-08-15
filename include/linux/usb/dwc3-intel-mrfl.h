@@ -165,4 +165,11 @@ struct intel_dwc_otg_pdata {
 #define DATACON_INTERVAL	10
 #define VBUS_TIMEOUT	300
 #define PCI_DEVICE_ID_DWC 0x119E
+
+#define VENDOR_ID_MASK (0x03 << 6)
+#define BASIN_COVE_PMIC_ID (0x03 << 6)
+
+#define PMIC_MAJOR_REV (0x07 << 3)
+#define PMIC_A0_MAJOR_REV 0x00
+
 #endif /* __DWC3_INTEL_H */

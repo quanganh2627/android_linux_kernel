@@ -252,7 +252,7 @@ static int enable_usb_phy(struct dwc_otg2 *otg, bool on_off)
 int dwc3_intel_get_id(struct dwc_otg2 *otg)
 {
 	int ret, id = RID_UNKNOWN;
-	u8 idsts;
+	u8 idsts, pmic_id;
 
 	ret = intel_scu_ipc_update_register(PMIC_USBIDCTRL,
 			USBIDCTRL_ACA_DETEN_D1 | PMIC_USBPHYCTRL_D0,
@@ -270,14 +270,28 @@ int dwc3_intel_get_id(struct dwc_otg2 *otg)
 
 	if (idsts & USBIDSTS_ID_FLOAT_STS)
 		id = RID_FLOAT;
-	else if (idsts & USBIDSTS_ID_GND)
-		id = RID_GND;
 	else if (idsts & USBIDSTS_ID_RARBRC_STS(1))
 		id = RID_A;
 	else if (idsts & USBIDSTS_ID_RARBRC_STS(2))
 		id = RID_B;
 	else if (idsts & USBIDSTS_ID_RARBRC_STS(3))
 		id = RID_C;
+	else {
+		/* PMIC A0 reports ID_GND = 0 for RID_GND but PMIC B0 reports
+		*  ID_GND = 1 for RID_GND
+		*/
+		ret = intel_scu_ipc_ioread8(0x00, &pmic_id);
+		if (ret) {
+			otg_err(otg, "Fail to read PMIC ID register\n");
+		} else if (((pmic_id & VENDOR_ID_MASK) == BASIN_COVE_PMIC_ID) &&
+			((pmic_id & PMIC_MAJOR_REV) == PMIC_A0_MAJOR_REV)) {
+				if (idsts & USBIDSTS_ID_GND)
+					id = RID_GND;
+		} else {
+			if (!(idsts & USBIDSTS_ID_GND))
+				id = RID_GND;
+		}
+	}
 
 	ret = intel_scu_ipc_update_register(PMIC_USBIDCTRL,
 			USBIDCTRL_ACA_DETEN_D1 | PMIC_USBPHYCTRL_D0,
