@@ -1265,6 +1265,15 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 					MMC_SIGNAL_VOLTAGE_120);
 				if (err)
 					goto err;
+			} else {
+				/*
+				 * for SDHC host controller, 1.8v signaling is
+				 * required for DDR mode
+				 */
+				err = __mmc_set_signal_voltage(host,
+					MMC_SIGNAL_VOLTAGE_180);
+				if (err)
+					goto err;
 			}
 			mmc_card_set_ddr_mode(card);
 			mmc_set_timing(card->host, MMC_TIMING_UHS_DDR50);
