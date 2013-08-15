@@ -474,6 +474,9 @@ static int intel_mrfl_mmc_probe_slot(struct sdhci_pci_slot *slot)
 					 MMC_CAP_NONREMOVABLE |
 					 MMC_CAP_1_8V_DDR;
 
+	if (PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_EMMC_0)
+		sdhci_alloc_panic_host(slot->host);
+
 	slot->host->mmc->caps2 |= MMC_CAP2_INIT_CARD_SYNC;
 
 	if (slot->data->platform_quirks & PLFM_QUIRK_NO_HIGH_SPEED) {
