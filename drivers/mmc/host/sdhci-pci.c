@@ -411,6 +411,7 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 	slot->host->mmc->caps2 |= MMC_CAP2_HC_ERASE_SZ;
 
 	switch (slot->chip->pdev->device) {
+	case PCI_DEVICE_ID_INTEL_BYT_EMMC45:
 	case PCI_DEVICE_ID_INTEL_BYT_EMMC:
 		slot->host->mmc->caps |= MMC_CAP_1_8V_DDR;
 		slot->host->mmc->caps2 |= MMC_CAP2_INIT_CARD_SYNC;
@@ -1063,6 +1064,14 @@ static const struct pci_device_id pci_ids[] = {
 	{
 		.vendor		= PCI_VENDOR_ID_INTEL,
 		.device		= PCI_DEVICE_ID_INTEL_BYT_EMMC,
+		.subvendor	= PCI_ANY_ID,
+		.subdevice	= PCI_ANY_ID,
+		.driver_data	= (kernel_ulong_t)&sdhci_intel_byt_emmc,
+	},
+
+	{
+		.vendor		= PCI_VENDOR_ID_INTEL,
+		.device		= PCI_DEVICE_ID_INTEL_BYT_EMMC45,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
 		.driver_data	= (kernel_ulong_t)&sdhci_intel_byt_emmc,
