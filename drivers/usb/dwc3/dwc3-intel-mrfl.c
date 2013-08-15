@@ -687,10 +687,13 @@ static int dwc3_intel_handle_notification(struct notifier_block *nb,
 		state = NOTIFY_OK;
 		break;
 	case USB_EVENT_VBUS:
-		if (val)
+		if (val) {
 			otg->otg_events |= OEVT_B_DEV_SES_VLD_DET_EVNT;
-		else
+			otg->otg_events &= ~OEVT_A_DEV_SESS_END_DET_EVNT;
+		} else {
 			otg->otg_events |= OEVT_A_DEV_SESS_END_DET_EVNT;
+			otg->otg_events &= ~OEVT_B_DEV_SES_VLD_DET_EVNT;
+		}
 		state = NOTIFY_OK;
 		break;
 	default:
