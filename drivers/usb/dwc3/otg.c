@@ -278,16 +278,16 @@ static int dwc_otg_notify_charger_type(struct dwc_otg2 *otg,
 	return 0;
 }
 
-int otg_get_chr_status(struct usb_phy *phy, void *data)
+static int dwc_otg_get_chrg_status(struct usb_phy *x, void *data)
 {
 	unsigned long flags;
 	struct otg_bc_cap *cap = (struct otg_bc_cap *)data;
 	struct dwc_otg2 *otg = the_transceiver;
 
-	if (phy == NULL)
+	if (!x)
 		return -ENODEV;
 
-	if (data == NULL)
+	if (!data)
 		return -EINVAL;
 
 	spin_lock_irqsave(&otg->lock, flags);
@@ -298,7 +298,6 @@ int otg_get_chr_status(struct usb_phy *phy, void *data)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(otg_get_chr_status);
 
 static int dwc_otg_enable_vbus(struct dwc_otg2 *otg, int enable)
 {
@@ -993,6 +992,7 @@ static struct dwc_otg2 *dwc3_otg_alloc(struct device *dev)
 	otg->usb2_phy.label		= "dwc-usb2-phy";
 	otg->usb2_phy.state		= OTG_STATE_UNDEFINED;
 	otg->usb2_phy.set_power	= dwc3_otg_pdata->set_power;
+	otg->usb2_phy.get_chrg_status	= dwc_otg_get_chrg_status;
 	otg->usb2_phy.io_ops = &dwc_otg_io_ops;
 	otg->usb2_phy.otg	= &otg->otg;
 	otg->otg.set_host	= dwc_otg2_set_host;
