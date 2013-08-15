@@ -117,6 +117,15 @@ static void dwc_core_reset(struct usb_hcd *hcd)
 	val = readl(hcd->regs + GCTL);
 	val &= ~GCTL_CORESOFTRESET;
 	writel(val, hcd->regs + GCTL);
+
+
+	/* Clear GUCTL bit 15 as workaround of DWC2.10a Bugs
+	 * This Bug cause the xHCI driver does not see any
+	 * transfer complete events for certain EP after exit
+	 * from hibernation mode. */
+	val = readl(hcd->regs + GUCTL);
+	val &= ~GUCTL_CMDEVADDR;
+	writel(val, hcd->regs + GUCTL);
 }
 
 /* This is a hardware workaround.
