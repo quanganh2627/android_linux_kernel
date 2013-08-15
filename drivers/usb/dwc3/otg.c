@@ -569,6 +569,11 @@ static enum dwc_otg_state do_a_host(struct dwc_otg2 *otg)
 	int id = RID_UNKNOWN;
 	unsigned long flags;
 
+	if (otg->usb2_phy.vbus_state == VBUS_DISABLED) {
+		otg_uevent_trigger(&otg->usb2_phy);
+		return DWC_STATE_B_IDLE;
+	}
+
 	if (otg->charging_cap.chrg_type !=
 			POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK) {
 		dwc_otg_enable_vbus(otg, 1);
@@ -589,12 +594,11 @@ static enum dwc_otg_state do_a_host(struct dwc_otg2 *otg)
 
 	otg_events = 0;
 	user_events = 0;
-	otg_mask = 0;
-	user_mask = 0;
 
+	user_mask = USER_A_BUS_DROP |
+				USER_ID_B_CHANGE_EVENT;
 	otg_mask = OEVT_CONN_ID_STS_CHNG_EVNT |
 			OEVT_A_DEV_SESS_END_DET_EVNT;
-	user_mask =	USER_ID_B_CHANGE_EVENT;
 
 	rc = sleep_until_event(otg,
 			otg_mask, user_mask,
@@ -605,7 +609,8 @@ static enum dwc_otg_state do_a_host(struct dwc_otg2 *otg)
 	}
 
 	/* Higher priority first */
-	if (otg_events & OEVT_A_DEV_SESS_END_DET_EVNT) {
+	if (otg_events & OEVT_A_DEV_SESS_END_DET_EVNT ||
+			user_events & USER_A_BUS_DROP) {
 		otg_dbg(otg, "OEVT_A_DEV_SESS_END_DET_EVNT\n");
 
 		/* ACA-Dock plug out */
@@ -990,6 +995,19 @@ static struct usb_phy_io_ops dwc_otg_io_ops = {
 	.write = ulpi_write,
 };
 
+static void dwc_a_bus_drop(struct usb_phy *x)
+{
+	struct dwc_otg2 *otg = the_transceiver;
+	unsigned long flags;
+
+	if (otg->usb2_phy.vbus_state == VBUS_DISABLED) {
+		spin_lock_irqsave(&otg->lock, flags);
+		otg->user_events |= USER_A_BUS_DROP;
+		dwc3_wakeup_otg_thread(otg);
+		spin_unlock_irqrestore(&otg->lock, flags);
+	}
+}
+
 static struct dwc_otg2 *dwc3_otg_alloc(struct device *dev)
 {
 	struct dwc_otg2 *otg = NULL;
@@ -1029,6 +1047,8 @@ static struct dwc_otg2 *dwc3_otg_alloc(struct device *dev)
 	otg->state = DWC_STATE_B_IDLE;
 	spin_lock_init(&otg->lock);
 	init_waitqueue_head(&otg->main_wq);
+	otg->usb2_phy.a_bus_drop = dwc_a_bus_drop;
+	otg->usb2_phy.vbus_state = VBUS_ENABLED;
 
 	/* Register otg notifier to monitor ID and VBus change events */
 	otg->nb.notifier_call = dwc_otg_handle_notification;
