@@ -85,6 +85,24 @@ static const struct hc_driver xhci_dwc_hc_driver = {
 	.bus_resume =		xhci_bus_resume,
 };
 
+static void dwc_xhci_enable_phy_suspend(struct usb_hcd *hcd, bool enable)
+{
+	u32 val;
+
+	val = readl(hcd->regs + GUSB3PIPECTL0);
+	if (enable)
+		val |= GUSB3PIPECTL_SUS_EN;
+	else
+		val &= ~GUSB3PIPECTL_SUS_EN;
+	writel(val, hcd->regs + GUSB3PIPECTL0);
+
+	val = readl(hcd->regs + GUSB2PHYCFG0);
+	if (enable)
+		val |= GUSB2PHYCFG_SUS_PHY;
+	else
+		val &= ~GUSB2PHYCFG_SUS_PHY;
+	writel(val, hcd->regs + GUSB2PHYCFG0);
+}
 
 static void dwc_core_reset(struct usb_hcd *hcd)
 {
@@ -272,6 +290,8 @@ static int dwc3_stop_host(struct usb_hcd *hcd)
 	kfree(xhci);
 	*((struct xhci_hcd **) hcd->hcd_priv) = NULL;
 
+	dwc_xhci_enable_phy_suspend(hcd, false);
+
 	pm_runtime_put(hcd->self.controller);
 	device_remove_file(hcd->self.controller, &dev_attr_pm_get);
 	return 0;
@@ -430,6 +450,11 @@ static int dwc_hcd_suspend_common(struct device *dev)
 			retval = -EINVAL;
 
 		if (!retval) {
+			/* Ensure that suspend enable are set for
+			 * USB2 and USB3 PHY
+			 */
+			dwc_xhci_enable_phy_suspend(hcd, true);
+
 			data = readl(hcd->regs + GCTL);
 			data |= GCTL_GBL_HIBERNATION_EN;
 			writel(data, hcd->regs + GCTL);
