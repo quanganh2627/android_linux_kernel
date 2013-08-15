@@ -331,24 +331,10 @@ static int dwc3_intel_set_power(struct usb_phy *_otg,
 {
 	unsigned long flags;
 	struct dwc_otg2 *otg = dwc3_get_otg();
+	struct power_supply_cable_props cap;
+	struct intel_dwc_otg_pdata *data;
 
-	if (!otg)
-		return 0;
-
-	/* force 896ma to 900ma
-	 * Beucause the power just can be set as an
-	 * integer multiple of 8 in usb configuration descriptor
-	 */
-	if (ma == 896)
-		ma = 900;
-
-	if ((ma != 100) &&
-		(ma != 150) &&
-		(ma != 500) &&
-		(ma != 900)) {
-		otg_err(otg, "Device driver set invalid SDP current value!\n");
-		return -EINVAL;
-	}
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
 
 	if (otg->charging_cap.chrg_type ==
 			POWER_SUPPLY_CHARGER_TYPE_USB_CDP)
@@ -357,6 +343,73 @@ static int dwc3_intel_set_power(struct usb_phy *_otg,
 			POWER_SUPPLY_CHARGER_TYPE_USB_SDP) {
 		otg_err(otg, "%s: currently, chrg type is not SDP!\n",
 				__func__);
+		return -EINVAL;
+	}
+
+	if (ma == OTG_DEVICE_SUSPEND) {
+		spin_lock_irqsave(&otg->lock, flags);
+		cap.chrg_type = otg->charging_cap.chrg_type;
+		cap.mA = otg->charging_cap.mA;
+		cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_SUSPEND;
+		spin_unlock_irqrestore(&otg->lock, flags);
+
+		/* mA is zero mean D+/D- opened cable.
+		 * If SMIP set, then notify 500mA.
+		 * Otherwise, notify 0mA.
+		*/
+		if (!cap.mA) {
+			if (data->charging_compliance) {
+				cap.mA = 500;
+				cap.chrg_evt =
+					POWER_SUPPLY_CHARGER_EVENT_CONNECT;
+			}
+		/* For standard SDP, if SMIP set, then ignore suspend */
+		} else if (data->charging_compliance)
+			return 0;
+		/* Stander SDP(cap.mA != 0) and SMIP not set.
+		 * Should send 0mA with SUSPEND event
+		 */
+		else
+			cap.mA = 0;
+
+		atomic_notifier_call_chain(&otg->usb2_phy.notifier,
+				USB_EVENT_CHARGER, &cap);
+		otg_dbg(otg, "Notify EM");
+		otg_dbg(otg, "POWER_SUPPLY_CHARGER_EVENT_SUSPEND\n");
+
+		return 0;
+	} else if (ma == OTG_DEVICE_RESUME) {
+		otg_dbg(otg, "Notify EM");
+		otg_dbg(otg, "POWER_SUPPLY_CHARGER_EVENT_CONNECT\n");
+		dwc3_intel_notify_charger_type(otg,
+				POWER_SUPPLY_CHARGER_EVENT_CONNECT);
+
+		return 0;
+	}
+
+	/* For SMIP set case, only need to report 500/900mA */
+	if (data->charging_compliance) {
+		if ((ma != OTG_USB2_500MA) &&
+				(ma != OTG_USB3_900MA))
+			return 0;
+	}
+
+	/* Covert macro to integer number*/
+	switch (ma) {
+	case OTG_USB2_100MA:
+		ma = 100;
+		break;
+	case OTG_USB3_150MA:
+		ma = 150;
+		break;
+	case OTG_USB2_500MA:
+		ma = 500;
+		break;
+	case OTG_USB3_900MA:
+		ma = 900;
+		break;
+	default:
+		otg_err(otg, "Device driver set invalid SDP current value!\n");
 		return -EINVAL;
 	}
 
@@ -793,6 +846,7 @@ struct dwc3_otg_hw_ops dwc3_intel_otg_pdata = {
 	.otg_notifier_handler = dwc3_intel_handle_notification,
 	.prepare_start_peripheral = dwc3_intel_prepare_start_peripheral,
 	.prepare_start_host = dwc3_intel_prepare_start_host,
+	.notify_charger_type = dwc3_intel_notify_charger_type,
 
 	.suspend = dwc3_intel_suspend,
 	.resume = dwc3_intel_resume,
