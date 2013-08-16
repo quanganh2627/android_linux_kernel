@@ -625,6 +625,7 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 	switch (slot->chip->pdev->device) {
 	case PCI_DEVICE_ID_INTEL_BYT_EMMC45:
 	case PCI_DEVICE_ID_INTEL_BYT_EMMC:
+		sdhci_alloc_panic_host(slot->host);
 		slot->host->mmc->caps |= MMC_CAP_1_8V_DDR;
 		slot->host->mmc->caps2 |= MMC_CAP2_INIT_CARD_SYNC;
 		break;
@@ -1543,6 +1544,13 @@ static int sdhci_pci_power_up_host(struct sdhci_host *host)
 
 	if (slot->data && slot->data->power_up)
 		ret = slot->data->power_up(host);
+	else {
+		/*
+		 * use standard PCI power up function
+		 */
+		ret = pci_set_power_state(slot->chip->pdev, PCI_D0);
+		mdelay(10);
+	}
 	/*
 	 * If there is no power_up callbacks in platform data,
 	 * return -ENOSYS;
