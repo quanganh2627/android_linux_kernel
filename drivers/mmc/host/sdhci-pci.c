@@ -657,18 +657,21 @@ static int byt_sdio_probe_slot(struct sdhci_pci_slot *slot)
 }
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_emmc = {
+	.quirks2	= SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.allow_runtime_pm = true,
 	.probe_slot	= byt_emmc_probe_slot,
 };
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_sdio = {
 	.quirks2	= SDHCI_QUIRK2_HOST_OFF_CARD_ON |
-		SDHCI_QUIRK2_CAN_VDD_300 | SDHCI_QUIRK2_CAN_VDD_330,
+		SDHCI_QUIRK2_CAN_VDD_300 | SDHCI_QUIRK2_CAN_VDD_330 |
+		SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.allow_runtime_pm = true,
 	.probe_slot	= byt_sdio_probe_slot,
 };
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_sd = {
+	.quirks2	= SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.probe_slot	= byt_sd_probe_slot,
 };
 
@@ -717,7 +720,8 @@ static void intel_mrfl_mmc_remove_slot(struct sdhci_pci_slot *slot, int dead)
 static const struct sdhci_pci_fixes sdhci_intel_mrfl_mmc = {
 	.quirks		= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
 	.quirks2	= SDHCI_QUIRK2_BROKEN_AUTO_CMD23 |
-				SDHCI_QUIRK2_HIGH_SPEED_SET_LATE,
+				SDHCI_QUIRK2_HIGH_SPEED_SET_LATE |
+				SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.allow_runtime_pm = true,
 	.probe_slot	= intel_mrfl_mmc_probe_slot,
 	.remove_slot	= intel_mrfl_mmc_remove_slot,
