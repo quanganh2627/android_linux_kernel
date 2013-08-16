@@ -2363,6 +2363,13 @@ static void sdhci_card_event(struct mmc_host *mmc)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
+static void sdhci_set_dev_power(struct mmc_host *mmc, bool poweron)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	if (host->ops->set_dev_power)
+		host->ops->set_dev_power(host, poweron);
+}
+
 static const struct mmc_host_ops sdhci_ops = {
 	.request	= sdhci_request,
 	.set_ios	= sdhci_set_ios,
@@ -2374,6 +2381,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.execute_tuning			= sdhci_execute_tuning,
 	.card_event			= sdhci_card_event,
 	.card_busy	= sdhci_card_busy,
+	.set_dev_power = sdhci_set_dev_power,
 };
 
 /*****************************************************************************\
