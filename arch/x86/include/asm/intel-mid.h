@@ -44,6 +44,7 @@ static inline int get_gpio_by_name(const char *name) { return -1; }
 #define PCI_ROOT_MSGBUS_DWORD_ENABLE	0xf0
 
 extern int intel_mid_pci_init(void);
+extern void *get_oem0_table(void);
 extern void intel_delayed_device_register(void *dev,
 			void (*delayed_callback)(void *dev_desc));
 extern void intel_scu_device_register(struct platform_device *pdev);
@@ -127,6 +128,7 @@ enum intel_mid_cpu_type {
 	INTEL_MID_CPU_CHIP_PENWELL = 2,
 	INTEL_MID_CPU_CHIP_CLOVERVIEW,
 	INTEL_MID_CPU_CHIP_TANGIER,
+	INTEL_MID_CPU_CHIP_VALLEYVIEW2,
 	INTEL_MID_CPU_CHIP_ANNIEDALE,
 };
 

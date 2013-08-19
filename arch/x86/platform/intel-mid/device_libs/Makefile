@@ -30,3 +30,10 @@ obj-$(subst m,y,$(CONFIG_KEYBOARD_GPIO)) += platform_gpio_keys.o
 obj-$(subst m,y,$(CONFIG_SERIAL_MFD_HSU_EXT)) += platform_hsu.o
 # SD Devices
 obj-$(subst m,y,$(CONFIG_WILINK_PLATFORM_DATA)) += platform_wl12xx.o
+#I2C Devices
+ifdef CONFIG_BATTERY_MAX17042
+obj-$(subst m,y,$(CONFIG_BATTERY_MAX17042)) += platform_max17042.o
+else
+obj-$(subst m,y,$(CONFIG_BATTERY_MAX17050)) += platform_max17042.o
+endif
+
