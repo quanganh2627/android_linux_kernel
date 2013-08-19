@@ -1238,6 +1238,7 @@ const struct sst_probe_info intel_byt_info = {
 	.imr_start	= SST_BYT_IMR_START,
 	.imr_end	= SST_BYT_IMR_END,
 	.imr_use	= true,
+	.dma_addr_ia_viewpt = false,
 };
 
 static const struct acpi_device_id sst_acpi_ids[] = {

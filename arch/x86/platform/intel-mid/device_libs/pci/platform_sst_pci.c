@@ -22,6 +22,11 @@
 #define CTP_DMA_BASE 0xffaf8000
 #define CTP_MAX_CONFIG_SIZE 500
 
+#define SST_CTP_IRAM_START	0
+#define SST_CTP_IRAM_END	0x80000
+#define SST_CTP_DRAM_START	0x400000
+#define SST_CTP_DRAM_END	0x480000
+
 struct sst_pci_info sst_data;
 
 struct sst_ssp_info ssp_inf = {
@@ -71,16 +76,17 @@ static struct sst_board_config_data sst_ctp_bdata = {
 };
 
 struct sst_info ctp_sst_info = {
-	.iram_start = 0,
-	.iram_end = 0,
-	.iram_use = false,
-	.dram_start = 0,
-	.dram_end = 0,
-	.dram_use = false,
+	.iram_start = SST_CTP_IRAM_START,
+	.iram_end = SST_CTP_IRAM_END,
+	.iram_use = true,
+	.dram_start = SST_CTP_DRAM_START,
+	.dram_end = SST_CTP_DRAM_END,
+	.dram_use = true,
 	.imr_start = 0,
 	.imr_end = 0,
 	.imr_use = false,
 	.use_elf = false,
+	.dma_addr_ia_viewpt = true,
 	.max_streams = 5,
 	.dma_max_len = (SST_MAX_DMA_LEN * 4),
 	.num_probes = 1,
@@ -98,6 +104,7 @@ struct sst_info mrfld_sst_info = {
 	.imr_end = 0,
 	.imr_use = false,
 	.use_elf = true,
+	.dma_addr_ia_viewpt = true,
 	.max_streams = 23,
 	.dma_max_len = SST_MAX_DMA_LEN_MRFLD,
 	.num_probes = 16,

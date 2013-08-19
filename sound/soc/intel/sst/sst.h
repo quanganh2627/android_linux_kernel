@@ -380,6 +380,7 @@ struct sst_probe_info {
 	u32 imr_end;
 	bool imr_use;
 	bool use_elf;
+	bool dma_addr_ia_viewpt;
 	unsigned int max_streams;
 	u32 dma_max_len;
 	u8 num_probes;

@@ -169,6 +169,9 @@ void intel_sst_set_bypass_mfld(bool set)
 	mutex_unlock(&sst_drv_ctx->csr_lock);
 
 }
+#define SST_CALC_DMA_DSTN(dma_addr_ia_viewpt, ia_viewpt_addr, elf_paddr, \
+			lpe_viewpt_addr) ((dma_addr_ia_viewpt) ? \
+		(ia_viewpt_addr + elf_paddr - lpe_viewpt_addr) : elf_paddr)
 
 static int sst_fill_dstn(struct intel_sst_drv *sst, struct sst_info info,
 			Elf32_Phdr *pr, void **dstn, unsigned int *dstn_phys, int *mem_type)
@@ -181,7 +184,8 @@ static int sst_fill_dstn(struct intel_sst_drv *sst, struct sst_info info,
 		if (data_size)
 			pr->p_filesz += 4 - data_size;
 		*dstn = sst->iram + (pr->p_paddr - info.iram_start);
-		*dstn_phys = pr->p_paddr;
+		*dstn_phys = SST_CALC_DMA_DSTN(info.dma_addr_ia_viewpt,
+				sst->iram_base, pr->p_paddr, info.iram_start);
 		*mem_type = 1;
 	}
 #else
@@ -189,7 +193,8 @@ static int sst_fill_dstn(struct intel_sst_drv *sst, struct sst_info info,
 	    (pr->p_paddr < info.iram_end)) {
 
 		*dstn = sst->iram + (pr->p_paddr - info.iram_start);
-		*dstn_phys = pr->p_paddr;
+		*dstn_phys = SST_CALC_DMA_DSTN(info.dma_addr_ia_viewpt,
+				sst->iram_base, pr->p_paddr, info.iram_start);
 		*mem_type = 1;
 	}
 #endif
@@ -197,7 +202,8 @@ static int sst_fill_dstn(struct intel_sst_drv *sst, struct sst_info info,
 		 (pr->p_paddr < info.dram_end)) {
 
 		*dstn = sst->dram + (pr->p_paddr - info.dram_start);
-		*dstn_phys = pr->p_paddr;
+		*dstn_phys = SST_CALC_DMA_DSTN(info.dma_addr_ia_viewpt,
+				sst->dram_base, pr->p_paddr, info.dram_start);
 		*mem_type = 1;
 	} else if ((pr->p_paddr >= info.imr_start) &&
 		   (pr->p_paddr < info.imr_end)) {
@@ -237,6 +243,7 @@ static void sst_fill_info(struct intel_sst_drv *sst,
 		info->imr_end = relocate_imr_addr_mrfld(sst->ddr_end);
 	}
 
+	info->dma_addr_ia_viewpt = sst->info.dma_addr_ia_viewpt;
 	info->dma_max_len = sst->info.dma_max_len;
 	pr_debug("%s: dma_max_len 0x%x", __func__, info->dma_max_len);
 }
