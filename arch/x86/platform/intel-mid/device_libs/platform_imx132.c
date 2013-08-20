@@ -77,6 +77,7 @@ static int imx132_power_ctrl(struct v4l2_subdev *sd, int flag)
 			return ret;
 		}
 	}
+	return 0;
 }
 
 static int imx132_csi_configure(struct v4l2_subdev *sd, int flag)
