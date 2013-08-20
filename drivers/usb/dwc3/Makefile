@@ -36,6 +36,7 @@ obj-$(CONFIG_USB_DWC3)		+= dwc3-omap.o
 obj-$(CONFIG_USB_DWC3)		+= dwc3-exynos.o
 
 ifneq ($(CONFIG_PCI),)
+	obj-$(CONFIG_USB_DWC3_OTG)	+= otg.o
 	obj-$(CONFIG_USB_DWC3)		+= dwc3-pci.o
 endif
 

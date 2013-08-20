@@ -40,6 +40,17 @@ config USB_DWC3_DUAL_ROLE
 
 endchoice
 
+config USB_DWC3_OTG
+	tristate "DWC3 OTG mode support"
+	depends on USB && PCI
+	select USB_OTG
+	help
+	  Say Y here to enable DWC3 OTG driver.
+	  This driver implement OTG framework for DWC3 OTG controller.
+	  Support role switch and charger detection feature. And maintain
+	  one state machine. This driver should be work with platform
+	  speical driver. Because every platform has their own hardware design.
+
 config USB_DWC3_DEBUG
 	bool "Enable Debugging Messages"
 	help
