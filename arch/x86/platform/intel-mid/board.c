@@ -53,6 +53,7 @@
 #include "device_libs/platform_msic_audio.h"
 #include "device_libs/platform_msic_power_btn.h"
 #include "device_libs/platform_msic_ocd.h"
+#include "device_libs/platform_msic_vdd.h"
 #include "device_libs/platform_msic_thermal.h"
 #include "device_libs/platform_msic_adc.h"
 #include "device_libs/platform_bcove_adc.h"
@@ -126,6 +127,8 @@ struct devs_id __initconst device_ids[] = {
 	{"msic_audio", SFI_DEV_TYPE_IPC, 1, &msic_audio_platform_data,
 					&ipc_device_handler},
 	{"msic_power_btn", SFI_DEV_TYPE_IPC, 1, &msic_power_btn_platform_data,
+					&ipc_device_handler},
+	{"msic_vdd", SFI_DEV_TYPE_IPC, 1, &msic_vdd_platform_data,
 					&ipc_device_handler},
 	{"msic_ocd", SFI_DEV_TYPE_IPC, 1, &msic_ocd_platform_data,
 					&ipc_device_handler},
