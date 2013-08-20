@@ -10048,6 +10048,33 @@ static void intel_shared_dpll_init(struct drm_device *dev)
 		      dev_priv->num_shared_dpll);
 }
 
+/*
+Simulate like a hpd event at sleep/resume
+hpd_on =0 >  while suspend, this will clear the modes
+hpd_on =1 >  only at resume  */
+void i915_simulate_hpd(struct drm_device *dev, int hpd_on)
+{
+	struct drm_connector *connector = NULL;
+
+	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+		if (connector->polled == DRM_CONNECTOR_POLL_HPD) {
+			if (hpd_on) {
+				/* Resuming, detect and read modes again */
+				connector->funcs->fill_modes(connector,
+				dev->mode_config.max_width,
+				dev->mode_config.max_height);
+			} else {
+				/* Suspend, reset previous detects and modes */
+				if (connector->funcs->reset)
+					connector->funcs->reset(connector);
+			}
+			DRM_DEBUG_KMS("Simulated HPD %s for connector %s\n",
+			(hpd_on ? "On" : "Off"),
+			drm_get_connector_name(connector));
+		}
+	}
+}
+
 extern void intel_cancel_fbc_work(struct drm_i915_private *dev_priv);
 static int display_disable_wq(struct drm_device *drm_dev)
 {
@@ -10106,6 +10133,9 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	struct drm_crtc *crtc;
 	struct intel_encoder *intel_encoder;
 
+	/* Force a re-detection on Hot-pluggable displays */
+	i915_simulate_hpd(dev, false);
+
 	/* ignore lid events during suspend */
 	mutex_lock(&dev_priv->modeset_restore_lock);
 	dev_priv->modeset_restore = MODESET_SUSPENDED;
@@ -10145,6 +10175,9 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	i915_rpm_get_disp(dev);
+
+	/* Re-detect hot pluggable displays */
+	i915_simulate_hpd(dev, true);
 
 	drm_kms_helper_poll_enable(dev);
 	display_save_restore_hotplug(dev, RESTOREHPD);
