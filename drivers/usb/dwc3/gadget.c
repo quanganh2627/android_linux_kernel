@@ -1517,7 +1517,7 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
 	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
-			IRQF_SHARED | IRQF_ONESHOT, "dwc3", dwc);
+			IRQF_SHARED, "dwc3", dwc);
 	if (ret) {
 		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
 				irq, ret);
@@ -2512,6 +2512,7 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 	struct dwc3 *dwc = _dwc;
 	unsigned long flags;
 	irqreturn_t ret = IRQ_NONE;
+	u32 reg;
 	int i;
 
 	spin_lock_irqsave(&dwc->lock, flags);
@@ -2551,6 +2552,11 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 		evt->count = 0;
 		evt->flags &= ~DWC3_EVENT_PENDING;
 		ret = IRQ_HANDLED;
+
+		/* Unmask interrupt */
+		reg = dwc3_readl(dwc->regs, DWC3_GEVNTSIZ(i));
+		reg &= ~DWC3_GEVNTSIZ_INTMASK;
+		dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(i), reg);
 	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
@@ -2562,6 +2568,7 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc, u32 buf)
 {
 	struct dwc3_event_buffer *evt;
 	u32 count;
+	u32 reg;
 
 	evt = dwc->ev_buffs[buf];
 
@@ -2572,6 +2579,11 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc, u32 buf)
 
 	evt->count = count;
 	evt->flags |= DWC3_EVENT_PENDING;
+
+	/* Mask interrupt */
+	reg = dwc3_readl(dwc->regs, DWC3_GEVNTSIZ(buf));
+	reg |= DWC3_GEVNTSIZ_INTMASK;
+	dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(buf), reg);
 
 	return IRQ_WAKE_THREAD;
 }
