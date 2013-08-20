@@ -319,15 +319,47 @@ int dwc3_intel_enable_vbus(struct dwc_otg2 *otg, int enable)
 {
 	struct otg_bc_cap cap;
 	int ret = 0;
+	u8 ovrwr;
 
-	if (enable)
+	if (enable) {
 		cap.chrg_state = OTG_CHR_STATE_HOST;
-	else
+		ovrwr = 0x40;
+	} else {
 		cap.chrg_state = OTG_CHR_STATE_DISCONNECTED;
+		ovrwr = 0x00;
+	}
+
+	/* Workaround for EM driver.
+	 * Revert it after EM port done.
+	 */
+	ret = intel_scu_ipc_iowrite8(PMIC_I2COVRDADDR, 0x6B);
+	if (ret) {
+		otg_err(otg, "Fail to Write the I2C address for Charger IC\n");
+		goto err;
+	}
+
+	ret = intel_scu_ipc_iowrite8(PMIC_I2COVROFFSET, 0x0);
+	if (ret) {
+		otg_err(otg, "Fail to Load offset\n");
+		goto err;
+	}
+
+	ret = intel_scu_ipc_iowrite8(PMIC_I2COVRWRDATA, ovrwr);
+	if (ret) {
+		otg_err(otg, "Fail to Load the data to be writen\n");
+		goto err;
+	}
+
+	ret = intel_scu_ipc_iowrite8(PMIC_I2COVRCTRL, 0x01);
+	if (ret) {
+		otg_err(otg, "Fail to Set I2CWR bit\n");
+		goto err;
+	}
 
 	atomic_notifier_call_chain(&otg->usb2_phy.notifier,
 			USB_EVENT_DRIVE_VBUS, &cap);
 
+err:
 	return ret;
 }
 
