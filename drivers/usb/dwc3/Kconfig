@@ -51,6 +51,17 @@ config USB_DWC3_OTG
 	  one state machine. This driver should be work with platform
 	  speical driver. Because every platform has their own hardware design.
 
+config USB_DWC3_INTEL_MRFL
+	tristate "DWC OTG 3.0 for Intel Merrifield platforms"
+	depends on USB && USB_DWC3_OTG
+	select USB_OTG
+	help
+	  Say Y here to enable DWC3 OTG driver for Intel Merrifield platforms.
+	  It implement OTG feature on DWC3 OTG controller.
+	  Support role switch and charger detection feature.
+	  This driver is must be set if you want to enable host mode on Intel
+	  Merrifield platforms.
+
 config USB_DWC3_DEBUG
 	bool "Enable Debugging Messages"
 	help
