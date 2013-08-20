@@ -726,10 +726,11 @@ bool intel_dsi_init(struct drm_device *dev)
 	 * default ASUS panel ID for now */
 	if (i915_mipi_panel_id <= 0) {
 		/* check if panel id available from VBT */
-		if (!dev_priv->mipi_panel_id) {
+		if (!dev_priv->vbt.dsi.panel_id) {
 			/* default Panasonic panel */
 			dev_priv->mipi_panel_id = MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID;
-		}
+		} else
+			dev_priv->mipi_panel_id = dev_priv->vbt.dsi.panel_id;
 	} else
 		dev_priv->mipi_panel_id = i915_mipi_panel_id;
 
