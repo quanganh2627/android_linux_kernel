@@ -2118,6 +2118,15 @@ static void sdhci_pci_shutdown(struct pci_dev *pdev)
 			pm_runtime_put_noidle(&pdev->dev);
 		}
 		break;
+	case PCI_DEVICE_ID_INTEL_BYT_EMMC:
+	case PCI_DEVICE_ID_INTEL_BYT_EMMC45:
+	case PCI_DEVICE_ID_INTEL_BYT_SD:
+	case PCI_DEVICE_ID_INTEL_BYT_SDIO:
+		if (chip->allow_runtime_pm) {
+			pm_runtime_put_sync_suspend(&pdev->dev);
+			pm_runtime_disable(&pdev->dev);
+		}
+		break;
 	default:
 		break;
 	}
