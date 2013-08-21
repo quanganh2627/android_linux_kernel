@@ -108,6 +108,8 @@ enum sst_audio_device_id_mrfld {
 	PIPE_PROBE6_IN = 0x98,
 	PIPE_PROBE7_IN = 0x99,
 	PIPE_PROBE8_IN = 0x9A,
+	PIPE_MEDIA3_IN = 0x9C,
+	PIPE_LOW_PCM0_IN = 0x9D,
 	PIPE_RSVD = 0xFF,
 };
 

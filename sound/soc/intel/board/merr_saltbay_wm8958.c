@@ -458,6 +458,7 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 		.init = mrfld_8958_init,
 		.ignore_suspend = 1,
 		.ops = &mrfld_8958_ops,
+		.playback_count = 3,
 	},
 	[MERR_SALTBAY_COMPR] = {
 		.name = "Merrifield Compress Port",
