@@ -3639,6 +3639,29 @@ int sdhci_resume_host(struct sdhci_host *host)
 	int ret;
 	unsigned long flags;
 
+	if (host->quirks2 & SDHCI_QUIRK2_CARD_CD_DELAY) {
+		int loop = 0;
+		unsigned int present;
+		present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
+			SDHCI_CARD_PRESENT;
+		/*
+		 * delay 10ms to wait for present register stable
+		 * try 5 loops, and each loops will wait 2ms
+		 */
+		while (!present && loop < 5) {
+			/* BYT eMMC4.5 silicon issue workaround: 4599639 */
+			mdelay(2);
+			present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
+				SDHCI_CARD_PRESENT;
+			loop++;
+		}
+		if (loop == 5) {
+			WARN_ON(1);
+			pr_warn("%s %s: PRESENT bit16 is not recover\n",
+					__func__, mmc_hostname(host->mmc));
+		}
+	}
+
 	sdhci_acquire_ownership(host->mmc);
 
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
@@ -3736,6 +3759,30 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 {
 	unsigned long flags;
 	int ret = 0, host_flags = host->flags;
+
+	if (host->quirks2 & SDHCI_QUIRK2_CARD_CD_DELAY) {
+		int loop = 0;
+		unsigned int present;
+		present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
+			SDHCI_CARD_PRESENT;
+		/*
+		 * delay 10ms to wait for present register stable
+		 * try 5 loops, and each loops will wait 2ms
+		 */
+		while (!present && loop < 5) {
+			/* BYT eMMC4.5 silicon issue workaround: 4599639 */
+			mdelay(2);
+			present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
+				SDHCI_CARD_PRESENT;
+			loop++;
+		}
+		if (loop == 5) {
+			WARN_ON(1);
+			pr_warn("%s %s: PRESENT bit16 is not recover\n",
+					__func__, mmc_hostname(host->mmc));
+
+		}
+	}
 
 	sdhci_do_acquire_ownership(host->mmc);
 

@@ -624,6 +624,7 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 
 	switch (slot->chip->pdev->device) {
 	case PCI_DEVICE_ID_INTEL_BYT_EMMC45:
+		slot->host->quirks2 |= SDHCI_QUIRK2_CARD_CD_DELAY;
 	case PCI_DEVICE_ID_INTEL_BYT_EMMC:
 		sdhci_alloc_panic_host(slot->host);
 		slot->host->mmc->caps |= MMC_CAP_1_8V_DDR;
