@@ -1,3 +1,4 @@
+#undef pr_fmt
 #define pr_fmt(fmt) "mm :" fmt
 
 #include <linux/module.h>
