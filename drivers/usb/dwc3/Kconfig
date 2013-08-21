@@ -70,8 +70,6 @@ config USB_DWC3_PCI
 	  One such PCIe-based platform is Synopsys' PCIe HAPS model of
 	  this IP.
 
-comment "Debugging features"
-
 config USB_DWC3_OTG
 	tristate "DWC3 OTG mode support"
 	depends on USB && PCI
@@ -102,6 +100,8 @@ config USB_DWC3_HOST_INTEL
 	  It is should be enable with DWC3 INTEL driver. Because Intel platform
 	  use different design with standard USB_DWC3_HOST. So if you want to
 	  enable host mode on Intel platform, then you have to enable this config.
+
+comment "Debugging features"
 
 config USB_DWC3_DEBUG
 	bool "Enable Debugging Messages"
