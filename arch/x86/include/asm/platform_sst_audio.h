@@ -128,7 +128,6 @@ struct sst_dev_stream_map {
 struct sst_platform_data {
 	/* Intel software platform id*/
 	const struct soft_platform_id *spid;
-	bool use_strm_map;
 	struct sst_dev_stream_map *pdev_strm_map;
 	unsigned int strm_map_size;
 };

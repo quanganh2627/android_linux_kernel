@@ -85,8 +85,6 @@ static struct sst_dev_stream_map mrfld_strm_map[] = {
 
 static void set_ctp_platform_config(void)
 {
-	sst_platform_pdata.use_strm_map = true;
-
 	/* FIX ME: SPID for PRh is not yet available */
 #ifdef CONFIG_PRH_TEMP_WA_FOR_SPID
 	sst_platform_pdata.pdev_strm_map = merr_bb_strm_map;
@@ -112,14 +110,12 @@ static void set_ctp_platform_config(void)
 
 static void set_byt_platform_config(void)
 {
-	sst_platform_pdata.use_strm_map = true;
 	sst_platform_pdata.pdev_strm_map = byt_bl_strm_map;
 	sst_platform_pdata.strm_map_size =  ARRAY_SIZE(byt_bl_strm_map);
 }
 
 static void set_mrfld_platform_config(void)
 {
-	sst_platform_pdata.use_strm_map = true;
 	sst_platform_pdata.pdev_strm_map = mrfld_strm_map;
 	sst_platform_pdata.strm_map_size = ARRAY_SIZE(mrfld_strm_map);
 }

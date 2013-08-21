@@ -181,14 +181,12 @@ static int sst_get_stream_mapping(int dev, int sdev, int dir,
 int sst_fill_stream_params(void *substream,
 	const struct sst_data *ctx, struct snd_sst_params *str_params, bool is_compress)
 {
-	bool use_strm_map;
 	int map_size;
 	int index;
 	struct sst_dev_stream_map *map;
 	struct snd_pcm_substream *pstream = NULL;
 	struct snd_compr_stream *cstream = NULL;
 
-	use_strm_map = ctx->pdata->use_strm_map;
 	map = ctx->pdata->pdev_strm_map;
 	map_size = ctx->pdata->strm_map_size;
 
@@ -201,54 +199,41 @@ int sst_fill_stream_params(void *substream,
 
 	/* For pcm streams */
 	if (pstream) {
-		if (use_strm_map) {
-			index = sst_get_stream_mapping(pstream->pcm->device,
-						  pstream->number, pstream->stream,
-						  map, map_size, ctx->pipe_id);
-			if (index <= 0)
-				return -EINVAL;
+		index = sst_get_stream_mapping(pstream->pcm->device,
+					  pstream->number, pstream->stream,
+					  map, map_size, ctx->pipe_id);
+		if (index <= 0)
+			return -EINVAL;
 
-			str_params->stream_id = index;
-			str_params->device_type = map[index].device_id;
-			str_params->task = map[index].task_id;
+		str_params->stream_id = index;
+		str_params->device_type = map[index].device_id;
+		str_params->task = map[index].task_id;
 
-			if (str_params->device_type == SST_PROBE_IN)
-				str_params->stream_type = SST_STREAM_TYPE_PROBE;
+		if (str_params->device_type == SST_PROBE_IN)
+			str_params->stream_type = SST_STREAM_TYPE_PROBE;
 
-			pr_debug("str_id = %d, device_type = %d, task = %d",
-				 str_params->stream_id, str_params->device_type,
-				 str_params->task);
-		} else {
-			if (pstream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-				str_params->device_type = pstream->pcm->device + 1;
-				pr_debug("Playback stream, Device %d\n",
-						pstream->pcm->device);
-			} else {
-				str_params->device_type = SND_SST_DEVICE_CAPTURE;
-				pr_debug("Capture stream, Device %d\n",
-						pstream->pcm->device);
-			}
-		}
+		pr_debug("str_id = %d, device_type = %d, task = %d",
+			 str_params->stream_id, str_params->device_type,
+			 str_params->task);
+
 		str_params->ops = (u8)pstream->stream;
 	}
 
 	if (cstream) {
-		if (use_strm_map) {
-			/* FIXME: Add support for subdevice number in
-			 * snd_compr_stream */
-			index = sst_get_stream_mapping(cstream->device->device,
-						       0, cstream->direction,
-						       map, map_size, ctx->pipe_id);
-			if (index <= 0)
-				return -EINVAL;
-			str_params->stream_id = index;
-			str_params->device_type = map[index].device_id;
-			str_params->task = map[index].task_id;
-			pr_debug("compress str_id = %d, device_type = %d, task = %d",
-				 str_params->stream_id, str_params->device_type,
-				 str_params->task);
+		/* FIXME: Add support for subdevice number in
+		 * snd_compr_stream */
+		index = sst_get_stream_mapping(cstream->device->device,
+					       0, cstream->direction,
+					       map, map_size, ctx->pipe_id);
+		if (index <= 0)
+			return -EINVAL;
+		str_params->stream_id = index;
+		str_params->device_type = map[index].device_id;
+		str_params->task = map[index].task_id;
+		pr_debug("compress str_id = %d, device_type = %d, task = %d",
+			 str_params->stream_id, str_params->device_type,
+			 str_params->task);
 
-		}
 		str_params->ops = (u8)cstream->direction;
 	}
 	return 0;
