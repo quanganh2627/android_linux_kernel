@@ -296,12 +296,13 @@ static int sst_platform_alloc_stream(struct snd_pcm_substream *substream,
 	if (ret_val < 0)
 		return ret_val;
 
+	stream->stream_info.str_id = str_params.stream_id;
+
 	ret_val = stream->ops->open(&str_params);
 	pr_debug("platform prepare: stream open ret_val = 0x%x\n", ret_val);
 	if (ret_val <= 0)
 		return ret_val;
 
-	stream->stream_info.str_id = ret_val;
 	pr_debug("platform allocated strid:  %d\n", stream->stream_info.str_id);
 
 	return ret_val;
