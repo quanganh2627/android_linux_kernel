@@ -175,6 +175,7 @@ struct sst_lowlatency_deepbuff {
 	/* Thresholds for low latency & deep buffer */
 	unsigned long	*low_latency;
 	unsigned long	*deep_buffer;
+	unsigned long	period_time;
 };
 
 struct sst_data {
