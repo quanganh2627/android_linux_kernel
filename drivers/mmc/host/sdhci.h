@@ -83,6 +83,8 @@
 #define   SDHCI_CTRL_ADMA32	0x10
 #define   SDHCI_CTRL_ADMA64	0x18
 #define   SDHCI_CTRL_8BITBUS	0x20
+#define	SDHCI_CTRL_CD_SD	0x80
+#define	SDHCI_CTRL_CD_TL	0x40
 
 #define SDHCI_POWER_CONTROL	0x29
 #define  SDHCI_POWER_ON		0x01
@@ -298,6 +300,7 @@ struct sdhci_ops {
 	void	(*platform_init)(struct sdhci_host *host);
 	int	(*power_up_host)(struct sdhci_host *host);
 	void	(*set_dev_power)(struct sdhci_host *, bool);
+	int	(*get_cd)(struct sdhci_host *host);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS

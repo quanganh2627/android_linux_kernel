@@ -595,6 +595,7 @@ static int ctp_sd_probe_slot(struct sdhci_pci_slot *slot)
 
 static const struct sdhci_pci_fixes sdhci_intel_mfd_sd = {
 	.quirks		= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
+	.quirks2	= SDHCI_QUIRK2_BAD_SD_CD,
 	.allow_runtime_pm = true,
 	.probe_slot	= ctp_sd_probe_slot,
 };
@@ -1610,12 +1611,31 @@ static void sdhci_pci_set_dev_power(struct sdhci_host *host, bool poweron)
 	}
 }
 
+static int sdhci_pci_get_cd(struct sdhci_host *host)
+{
+	bool present;
+	struct sdhci_pci_slot *slot = sdhci_priv(host);
+
+	if (gpio_is_valid(slot->cd_gpio))
+		return gpio_get_value(slot->cd_gpio) ? 0 : 1;
+
+	/* If nonremovable or polling, assume that the card is always present */
+	if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
+		present = true;
+	else
+		present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
+			SDHCI_CARD_PRESENT;
+
+	return present;
+}
+
 static const struct sdhci_ops sdhci_pci_ops = {
 	.enable_dma	= sdhci_pci_enable_dma,
 	.platform_bus_width	= sdhci_pci_bus_width,
 	.hw_reset		= sdhci_pci_hw_reset,
 	.power_up_host		= sdhci_pci_power_up_host,
 	.set_dev_power		= sdhci_pci_set_dev_power,
+	.get_cd		= sdhci_pci_get_cd,
 };
 
 /*****************************************************************************\
