@@ -4261,6 +4261,7 @@ int sdhci_add_host(struct sdhci_host *host)
 			     SDHCI_RETUNING_MODE_SHIFT;
 
 	ocr_avail = 0;
+	spin_lock_init(&host->lock);
 
 #ifdef CONFIG_REGULATOR
 	sdhci_try_get_regulator(host);
@@ -4352,8 +4353,6 @@ int sdhci_add_host(struct sdhci_host *host)
 			"support voltages.\n", mmc_hostname(mmc));
 		return -ENODEV;
 	}
-
-	spin_lock_init(&host->lock);
 
 	/*
 	 * Maximum number of segments. Depends on if the hardware
