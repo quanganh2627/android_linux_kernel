@@ -672,6 +672,7 @@ static const struct sdhci_pci_fixes sdhci_intel_byt_sdio = {
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_sd = {
 	.quirks2	= SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+	.allow_runtime_pm = true,
 	.probe_slot	= byt_sd_probe_slot,
 };
 
