@@ -2646,10 +2646,12 @@ static void mmc_blk_shutdown(struct device *dev)
 		mmc_queue_suspend(&md->queue);
 		list_for_each_entry(part_md, &md->part, part) {
 			mmc_queue_suspend(&part_md->queue);
-			if (part_md->part_type == EXT_CSD_PART_CONFIG_ACC_RPMB)
+			if (part_md->part_type ==
+					EXT_CSD_PART_CONFIG_ACC_RPMB) {
 				mmc_claim_host(mmc);
 				part_md->flags |= MMC_BLK_SUSPENDED;
 				mmc_release_host(mmc);
+			}
 		}
 	}
 
