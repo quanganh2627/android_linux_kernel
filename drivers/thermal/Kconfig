@@ -51,6 +51,13 @@ config THERMAL_DEFAULT_GOV_USER_SPACE
 
 endchoice
 
+config INTEL_MFLD_THERMAL
+	tristate "Thermal driver for Intel Medfield platform"
+	depends on MFD_INTEL_MSIC && THERMAL
+	help
+	  Say Y here to enable thermal driver support for the  Intel Medfield
+	   platform.
+
 config THERMAL_GOV_FAIR_SHARE
 	bool "Fair-share thermal governor"
 	help
