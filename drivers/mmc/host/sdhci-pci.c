@@ -31,6 +31,7 @@
 #include <asm/intel_mid_rpmsg.h>
 #include <asm/intel_scu_flis.h>
 #include <asm/intel_scu_pmic.h>
+#include <asm/spid.h>
 
 #include "sdhci.h"
 
@@ -628,6 +629,13 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 	case PCI_DEVICE_ID_INTEL_BYT_EMMC45:
 		slot->host->quirks2 |= SDHCI_QUIRK2_CARD_CD_DELAY |
 			SDHCI_QUIRK2_WAIT_FOR_IDLE;
+		if (!INTEL_MID_BOARDV3(TABLET, BYT, BLK, PRO, RVP1) &&
+			!INTEL_MID_BOARDV3(TABLET, BYT, BLK, PRO, RVP2) &&
+			!INTEL_MID_BOARDV3(TABLET, BYT, BLK, PRO, RVP3) &&
+			!INTEL_MID_BOARDV3(TABLET, BYT, BLK, ENG, RVP1) &&
+			!INTEL_MID_BOARDV3(TABLET, BYT, BLK, ENG, RVP2) &&
+			!INTEL_MID_BOARDV3(TABLET, BYT, BLK, ENG, RVP3))
+			slot->host->mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
 	case PCI_DEVICE_ID_INTEL_BYT_EMMC:
 		sdhci_alloc_panic_host(slot->host);
 		slot->host->mmc->caps |= MMC_CAP_1_8V_DDR;
@@ -1682,6 +1690,21 @@ static void  sdhci_platform_reset_exit(struct sdhci_host *host, u8 mask)
 	}
 }
 
+static int sdhci_pci_get_tuning_count(struct sdhci_host *host)
+{
+	struct sdhci_pci_slot *slot = sdhci_priv(host);
+	int tuning_count = 0;
+
+	switch (slot->chip->pdev->device) {
+	case PCI_DEVICE_ID_INTEL_BYT_EMMC45:
+		tuning_count = 4; /* using 8 seconds, this can be tuning */
+	default:
+		break;
+	}
+
+	return tuning_count;
+}
+
 static const struct sdhci_ops sdhci_pci_ops = {
 	.enable_dma	= sdhci_pci_enable_dma,
 	.platform_bus_width	= sdhci_pci_bus_width,
@@ -1690,6 +1713,7 @@ static const struct sdhci_ops sdhci_pci_ops = {
 	.set_dev_power		= sdhci_pci_set_dev_power,
 	.get_cd		= sdhci_pci_get_cd,
 	.platform_reset_exit = sdhci_platform_reset_exit,
+	.get_tuning_count = sdhci_pci_get_tuning_count,
 };
 
 /*****************************************************************************\

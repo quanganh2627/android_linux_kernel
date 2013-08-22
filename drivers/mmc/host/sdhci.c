@@ -2183,9 +2183,12 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	 * If the Host Controller supports the HS200 mode then the
 	 * tuning function has to be executed.
 	 */
-	if (((ctrl & SDHCI_CTRL_UHS_MASK) == SDHCI_CTRL_UHS_SDR50) &&
-	    (host->flags & SDHCI_SDR50_NEEDS_TUNING ||
-	     host->flags & SDHCI_HS200_NEEDS_TUNING))
+	if ((((ctrl & SDHCI_CTRL_UHS_MASK) == SDHCI_CTRL_UHS_SDR50) &&
+	    (host->flags & SDHCI_SDR50_NEEDS_TUNING) &&
+	    (mmc->ios.timing == MMC_TIMING_UHS_SDR50)) ||
+	     ((host->flags & SDHCI_HS200_NEEDS_TUNING) &&
+	      mmc->ios.timing == MMC_TIMING_MMC_HS200) ||
+	       mmc->ios.timing == MMC_TIMING_UHS_SDR104)
 		requires_tuning_nonuhs = true;
 
 	if (((ctrl & SDHCI_CTRL_UHS_MASK) == SDHCI_CTRL_UHS_SDR104) ||
@@ -2221,6 +2224,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	do {
 		struct mmc_command cmd = {0};
 		struct mmc_request mrq = {NULL};
+		unsigned int intmask;
 
 		if (!tuning_loop_counter && !timeout)
 			break;
@@ -2265,15 +2269,32 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		host->cmd = NULL;
 		host->mrq = NULL;
 
+		/* delete the timer created by send command */
+		del_timer(&host->timer);
+		intmask = sdhci_readl(host, SDHCI_INT_STATUS);
+		if (intmask & SDHCI_INT_DATA_AVAIL) {
+			host->tuning_done = 1;
+			sdhci_writel(host, intmask & SDHCI_INT_DATA_AVAIL,
+				SDHCI_INT_STATUS);
+		}
+
 		spin_unlock(&host->lock);
 		enable_irq(host->irq);
 
 		/* Wait for Buffer Read Ready interrupt */
-		wait_event_interruptible_timeout(host->buf_ready_int,
-					(host->tuning_done == 1),
-					msecs_to_jiffies(50));
+		if (!host->tuning_done)
+			wait_event_interruptible_timeout(host->buf_ready_int,
+						(host->tuning_done == 1),
+						msecs_to_jiffies(50));
 		disable_irq(host->irq);
 		spin_lock(&host->lock);
+
+		intmask = sdhci_readl(host, SDHCI_INT_STATUS);
+		if (intmask & SDHCI_INT_DATA_AVAIL) {
+			host->tuning_done = 1;
+			sdhci_writel(host, intmask & SDHCI_INT_DATA_AVAIL,
+				SDHCI_INT_STATUS);
+		}
 
 		if (!host->tuning_done) {
 			pr_info(DRIVER_NAME ": Timeout waiting for "
@@ -2284,6 +2305,15 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 			ctrl &= ~SDHCI_CTRL_TUNED_CLK;
 			ctrl &= ~SDHCI_CTRL_EXEC_TUNING;
 			sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
+
+			pr_info("%s: present %08x, ctrl2 %08x, irq %08x\n"
+				"%s: loop %d, timeout %ld, retry....\n",
+				mmc_hostname(host->mmc),
+				sdhci_readl(host, SDHCI_PRESENT_STATE),
+				sdhci_readw(host, SDHCI_HOST_CONTROL2),
+				sdhci_readl(host, SDHCI_INT_STATUS),
+				mmc_hostname(host->mmc),
+				tuning_loop_counter, timeout);
 
 			err = -EIO;
 			goto out;
@@ -4208,6 +4238,8 @@ int sdhci_add_host(struct sdhci_host *host)
 	/* Initial value for re-tuning timer count */
 	host->tuning_count = (caps[1] & SDHCI_RETUNING_TIMER_COUNT_MASK) >>
 			      SDHCI_RETUNING_TIMER_COUNT_SHIFT;
+	if (host->tuning_count == 0 && host->ops->get_tuning_count)
+		host->tuning_count = host->ops->get_tuning_count(host);
 
 	/*
 	 * In case Re-tuning Timer is not disabled, the actual value of
