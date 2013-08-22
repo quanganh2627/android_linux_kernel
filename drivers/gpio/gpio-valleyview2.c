@@ -439,7 +439,6 @@ static void vlv_irq_unmask(struct irq_data *d)
 	unsigned long flags;
 	unsigned type, *gpio_conf = vg->gpio_conf;
 
-
 	if (offset >= vg->chip.ngpio)
 		return;
 
@@ -484,6 +483,7 @@ static void vlv_irq_ack(struct irq_data *d)
 
 static void vlv_irq_shutdown(struct irq_data *d)
 {
+	vlv_irq_mask(d);
 }
 
 static struct irq_chip vlv_irqchip = {
