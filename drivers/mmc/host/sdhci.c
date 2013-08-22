@@ -1675,12 +1675,12 @@ end_tuning:
 			 * SD bus clock is stopped. no interrupts will be
 			 * generate in this case.
 			 */
-			pr_warn("%s:%s: SD bus clock not enabled\n",
-					__func__, mmc_hostname(mmc));
-			pr_warn("%s:%s: host->pwr 0x%x, host->clock 0x%x\n",
+			pr_warn("%s:%s: SD bus clock not enabled for CMD %d\n",
+					__func__, mmc_hostname(mmc),
+					host->mrq->cmd->opcode);
+			pr_warn("%s:%s: host->pwr 0x%x, host->clock %d\n",
 					__func__, mmc_hostname(mmc),
 					host->pwr, host->clock);
-			sdhci_dumpregs(host);
 			host->mrq->cmd->error = -EIO;
 			tasklet_schedule(&host->finish_tasklet);
 			goto out;
