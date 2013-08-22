@@ -10073,6 +10073,7 @@ void i915_simulate_hpd(struct drm_device *dev, int hpd_on)
 			drm_get_connector_name(connector));
 		}
 	}
+	drm_sysfs_hotplug_event(dev);
 }
 
 extern void intel_cancel_fbc_work(struct drm_i915_private *dev_priv);
