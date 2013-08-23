@@ -649,6 +649,7 @@
 #define RING_SYNC_0(base)	((base)+0x40)
 #define RING_SYNC_1(base)	((base)+0x44)
 #define RING_SYNC_2(base)	((base)+0x48)
+#define RING_MI_MODE(base)		((base)+0x9c)
 #define GEN6_RVSYNC	(RING_SYNC_0(RENDER_RING_BASE))
 #define GEN6_RBSYNC	(RING_SYNC_1(RENDER_RING_BASE))
 #define GEN6_RVESYNC	(RING_SYNC_2(RENDER_RING_BASE))
@@ -765,6 +766,8 @@
 #define MI_MODE		0x0209c
 # define VS_TIMER_DISPATCH				(1 << 6)
 # define MI_FLUSH_ENABLE				(1 << 12)
+# define MODE_STOP					(1 << 8)
+# define MODE_IDLE					(1 << 9)
 # define ASYNC_FLIP_PERF_DISABLE			(1 << 14)
 
 #define GEN6_GT_MODE	0x20d0

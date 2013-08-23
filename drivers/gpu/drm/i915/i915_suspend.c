@@ -541,6 +541,9 @@ static int __i915_drm_thaw(struct drm_device *dev)
 		mutex_lock(&dev->struct_mutex);
 
 		error = i915_gem_init_hw(dev);
+		if (error)
+			DRM_ERROR("get_init_hw failed with error %x\n", error);
+
 		mutex_unlock(&dev->struct_mutex);
 
 		/* We need working interrupts for modeset enabling ... */
