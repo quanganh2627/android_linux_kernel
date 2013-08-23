@@ -52,3 +52,5 @@ obj-$(subst m,y,$(CONFIG_BATTERY_MAX17050)) += platform_max17042.o
 endif
 # Panel Control Device
 obj-$(subst m,y,$(CONFIG_DRM_MRFLD)) += platform_panel.o
+# GPS
+obj-$(subst m,y,$(CONFIG_INTEL_MID_GPS)) += platform_gps.o
