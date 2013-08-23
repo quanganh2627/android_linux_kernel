@@ -61,7 +61,8 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 		if (ret)
 			goto err0;
 
-		dwc3_gadget_run_stop(dwc, 1);
+		if (dwc->soft_connected)
+			dwc3_gadget_run_stop(dwc, 1);
 	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
