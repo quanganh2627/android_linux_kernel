@@ -12,6 +12,8 @@
 #ifndef __RT5640_H__
 #define __RT5640_H__
 
+#include <sound/soc.h>
+
 /* Info */
 #define RT5640_RESET				0x00
 #define RT5640_VENDOR_ID			0xfd
@@ -2070,8 +2072,9 @@ enum {
 #define RT5640_HEADSET_DET	BIT(1)
 #define RT5640_HEADPHO_DET	BIT(2)
 
-int rt5640_headset_detect(struct snd_soc_codec *codec, int jack_insert);
-int rt5640_check_interrupt_event(struct snd_soc_codec *codec);
+int rt5640_detect_hs_type(struct snd_soc_codec *codec, int jack_insert);
+int rt5640_check_jd_status(struct snd_soc_codec *codec);
+int rt5640_check_bp_status(struct snd_soc_codec *codec);
 
 /* System Clock Source */
 enum {
@@ -2151,8 +2154,6 @@ struct rt5640_priv {
 	bool dsp_play_pass;
 	bool dsp_rec_pass;
 
-	bool jd_status; /* true if jack inserted */
-	bool bp_status; /* true if butten pressed */
 	int jack_type;
 };
 
