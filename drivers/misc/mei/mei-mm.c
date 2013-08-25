@@ -146,8 +146,8 @@ static int mei_mm_alloc(struct mei_mm_device *mdev, unsigned long arg)
 	size_t aligned_size; /* for mmap to work we need page multipliers */
 
 	if (copy_from_user(&req, (char __user *)arg, sizeof(req))) {
+		meimm_err(mdev, "failed to copy data from userland\n");
 		ret = -EFAULT;
-		meimm_err(mdev, "EFAULT");
 		goto err;
 	}
 
@@ -169,6 +169,7 @@ static int mei_mm_alloc(struct mei_mm_device *mdev, unsigned long arg)
 			(unsigned long long)paddr, req.size);
 
 	if (copy_to_user((char __user *)arg, &req, sizeof(req))) {
+		meimm_err(mdev, "failed to copy data to userland\n");
 		ret = -EFAULT;
 		goto err_unlock;
 	}
@@ -202,8 +203,8 @@ static int mei_mm_free(struct mei_mm_device *mdev, unsigned long arg)
 	int ret;
 
 	if (copy_from_user(&req, (char __user *)arg, sizeof(req))) {
+		meimm_err(mdev, "failed to copy data from userland\n");
 		ret = -EFAULT;
-		meimm_err(mdev, "EFAULT\n");
 		goto err;
 	}
 
