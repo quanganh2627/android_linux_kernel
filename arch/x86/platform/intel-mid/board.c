@@ -115,6 +115,7 @@ struct devs_id __initconst device_ids[] = {
 	{"max17042", SFI_DEV_TYPE_I2C, 1, &max17042_platform_data, NULL},
 	{"max17047", SFI_DEV_TYPE_I2C, 1, &max17042_platform_data, NULL},
 	{"max17050", SFI_DEV_TYPE_I2C, 1, &max17042_platform_data, NULL},
+	{"bq24192", SFI_DEV_TYPE_I2C, 1, &bq24192_platform_data},
 	/* MSIC subdevices */
 	{"msic_adc", SFI_DEV_TYPE_IPC, 1, &msic_adc_platform_data,
 						&ipc_device_handler},
@@ -133,9 +134,6 @@ struct devs_id __initconst device_ids[] = {
 	{"bcove_adc", SFI_DEV_TYPE_IPC, 1, &bcove_adc_platform_data,
 					&ipc_device_handler},
 
-	/* I2C devices */
-	{"bq24192", SFI_DEV_TYPE_I2C, 1, &bq24192_platform_data},
-
 	/* Panel */
 	{"PANEL_CMI_CMD", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
@@ -143,5 +141,8 @@ struct devs_id __initconst device_ids[] = {
 		&panel_handler},
 	{"PANEL_JDI_CMD", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
+
+	/* IPC devices */
+	{"pmic_charger", SFI_DEV_TYPE_IPC, 1, &no_platform_data, NULL},
 	{},
 };
