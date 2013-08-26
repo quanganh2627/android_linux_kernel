@@ -217,6 +217,7 @@ struct drm_display_info {
 	u32 color_formats;
 
 	u8 cea_rev;
+	char *raw_edid; /* if any */
 };
 
 struct drm_framebuffer_funcs {
@@ -597,6 +598,7 @@ struct drm_connector {
 	struct drm_display_info display_info;
 	const struct drm_connector_funcs *funcs;
 
+	struct list_head user_modes;
 	struct drm_property_blob *edid_blob_ptr;
 	struct drm_object_properties properties;
 

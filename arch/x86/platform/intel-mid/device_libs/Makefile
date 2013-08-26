@@ -40,3 +40,5 @@ obj-$(subst m,y,$(CONFIG_BATTERY_MAX17042)) += platform_max17042.o
 else
 obj-$(subst m,y,$(CONFIG_BATTERY_MAX17050)) += platform_max17042.o
 endif
+# Panel Control Device
+obj-$(subst m,y,$(CONFIG_DRM_MRFLD)) += platform_panel.o

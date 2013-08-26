@@ -71,6 +71,9 @@
 #include "device_libs/platform_bq24192.h"
 #include "device_libs/platform_r69001.h"
 
+/* SW devices */
+#include "device_libs/platform_panel.h"
+
 /*
  * SPI devices
  */
@@ -132,5 +135,13 @@ struct devs_id __initconst device_ids[] = {
 
 	/* I2C devices */
 	{"bq24192", SFI_DEV_TYPE_I2C, 1, &bq24192_platform_data},
+
+	/* Panel */
+	{"PANEL_CMI_CMD", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+	{"PANEL_JDI_VID", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+	{"PANEL_JDI_CMD", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
 	{},
 };
