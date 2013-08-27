@@ -36,6 +36,8 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
+#include <asm/intel_scu_ipc.h>
+
 #define DRIVERNAME		"pti"
 #define PCINAME			"pciPTI"
 #define TTYNAME			"ttyPTI"
@@ -55,6 +57,9 @@
 #define APERTURE_14		0x3800000 /* offset to first OS write addr */
 #define APERTURE_LEN		0x400000  /* address length */
 
+#define SMIP_PTI_OFFSET	0x30C  /* offset to PTI config in MIP header */
+#define SMIP_PTI_EN		(1<<7) /* PTI enable bit in PTI configuration */
+
 #define PTI_PNW_PCI_ID			0x082B
 #define PTI_CLV_PCI_ID			0x0900
 #define PTI_TNG_PCI_ID			0x119F
@@ -68,18 +73,22 @@
 
 struct pti_device_info {
 	u8 pci_bar;
+	u8 scu_secure_mode:1;
 };
 
 static const struct pti_device_info intel_pti_pnw_info = {
 	.pci_bar = 1,
+	.scu_secure_mode = 0,
 };
 
 static const struct pti_device_info intel_pti_clv_info = {
 	.pci_bar = 1,
+	.scu_secure_mode = 1,
 };
 
 static const struct pti_device_info intel_pti_tng_info = {
 	.pci_bar = 2,
+	.scu_secure_mode = 0,
 };
 
 static DEFINE_PCI_DEVICE_TABLE(pci_ids) = {
@@ -90,6 +99,7 @@ static DEFINE_PCI_DEVICE_TABLE(pci_ids) = {
 };
 
 #define GET_PCI_BAR(pti_dev) (pti_dev->pti_dev_info->pci_bar)
+#define HAS_SCU_SECURE_MODE(pti_dev) (pti_dev->pti_dev_info->scu_secure_mode)
 
 struct pti_tty {
 	struct pti_masterchannel *mc;
@@ -337,6 +347,9 @@ struct pti_masterchannel *pti_request_masterchannel(u8 type,
 						    const char *thread_name)
 {
 	struct pti_masterchannel *mc;
+
+	if (drv_data == NULL)
+		return NULL;
 
 	mutex_lock(&alloclock);
 
@@ -812,6 +825,36 @@ static const struct tty_port_operations tty_port_ops = {
 	.shutdown = pti_port_shutdown,
 };
 
+
+#ifdef CONFIG_INTEL_SCU_IPC
+/**
+ * pti_scu_check()- Used to check whether the PTI is enabled on SCU
+ *
+ * Returns:
+ *	0 if PTI is enabled
+ *	otherwise, error value
+ */
+static int pti_scu_check(void)
+{
+	int retval;
+	u8 smip_pti;
+
+	retval = intel_scu_ipc_read_mip(&smip_pti, 1, SMIP_PTI_OFFSET, 1);
+	if (retval) {
+		pr_err("%s(%d): Mip read failed (retval = %d)\n",
+		       __func__, __LINE__, retval);
+		return retval;
+	}
+	if (!(smip_pti & SMIP_PTI_EN)) {
+		pr_info("%s(%d): PTI disabled in MIP header\n",
+			__func__, __LINE__);
+		return -EPERM;
+	}
+
+	return 0;
+}
+#endif /* CONFIG_INTEL_SCU_IPC */
+
 /*
  * Note the _probe() call sets everything up and ties the char and tty
  * to successfully detecting the PTI device on the pci bus.
@@ -865,6 +908,14 @@ static int pti_pci_probe(struct pci_dev *pdev,
 
 	drv_data->pti_dev_info = (struct pti_device_info *)ent->driver_data;
 
+#ifdef CONFIG_INTEL_SCU_IPC
+	if (HAS_SCU_SECURE_MODE(drv_data)) {
+		retval = pti_scu_check();
+		if (retval != 0)
+			goto err_free_dd;
+	}
+#endif /* CONFIG_INTEL_SCU_IPC */
+
 	drv_data->pti_addr = pci_resource_start(pdev, GET_PCI_BAR(drv_data));
 
 	retval = pci_request_region(pdev, GET_PCI_BAR(drv_data),
@@ -901,6 +952,7 @@ err_rel_reg:
 	pci_release_region(pdev, GET_PCI_BAR(drv_data));
 err_free_dd:
 	kfree(drv_data);
+	drv_data = NULL;
 err_disable_pci:
 	pci_disable_device(pdev);
 err_unreg_misc:
