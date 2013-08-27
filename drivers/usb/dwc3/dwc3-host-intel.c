@@ -26,7 +26,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/usb/otg.h>
 #include <linux/platform_device.h>
-#include <linux/usb/dwc3-intel-mrfl.h>
+#include <linux/usb/dwc3-intel-mid.h>
 #include "../host/xhci.h"
 #include "core.h"
 #include "otg.h"

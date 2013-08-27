@@ -20,7 +20,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 
-#include <linux/usb/dwc3-intel-mrfl.h>
+#include <linux/usb/dwc3-intel-mid.h>
 #include <linux/usb/phy.h>
 
 #include "core.h"
