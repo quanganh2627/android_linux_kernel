@@ -2605,6 +2605,7 @@ CONFIG_STAGING=y
 # CONFIG_IDE_PHISON is not set
 # CONFIG_VT6655 is not set
 # CONFIG_DX_SEP is not set
+# CONFIG_DX_SEP54 is not set
 # CONFIG_ZSMALLOC is not set
 # CONFIG_FB_SM7XX is not set
 # CONFIG_CRYSTALHD is not set
