@@ -86,6 +86,44 @@ static const struct hc_driver xhci_dwc_hc_driver = {
 	.bus_resume =		xhci_bus_resume,
 };
 
+static int if_usb_devices_connected(struct xhci_hcd *xhci)
+{
+	struct usb_device		*usb_dev;
+	int i, connected_devices = 0;
+
+	if (!xhci)
+		return -EINVAL;
+
+	usb_dev = xhci->main_hcd->self.root_hub;
+	for (i = 1; i <= usb_dev->maxchild; ++i) {
+		if (usb_hub_find_child(usb_dev, i))
+			connected_devices++;
+	}
+
+	usb_dev = xhci->shared_hcd->self.root_hub;
+	for (i = 1; i <= usb_dev->maxchild; ++i) {
+		if (usb_hub_find_child(usb_dev, i))
+			connected_devices++;
+	}
+
+	if (connected_devices)
+		return 1;
+
+	return 0;
+}
+
+static void dwc_xhci_enable_phy_auto_resume(struct usb_hcd *hcd, bool enable)
+{
+	u32 val;
+
+	val = readl(hcd->regs + GUSB2PHYCFG0);
+	if (enable)
+		val |= GUSB2PHYCFG_ULPI_AUTO_RESUME;
+	else
+		val &= ~GUSB2PHYCFG_ULPI_AUTO_RESUME;
+	writel(val, hcd->regs + GUSB3PIPECTL0);
+}
+
 static void dwc_xhci_enable_phy_suspend(struct usb_hcd *hcd, bool enable)
 {
 	u32 val;
@@ -467,6 +505,15 @@ static int dwc_hcd_suspend_common(struct device *dev)
 			retval = -EINVAL;
 
 		if (!retval) {
+			/* The auto-resume is diabled by default. Need enable it
+			 * if there have valid connection. To ensure that when
+			 * device resumes, host does resume reflect within
+			 * 900 usec as in USB spec.
+			 */
+			if (if_usb_devices_connected(xhci) == 1)
+				dwc_xhci_enable_phy_auto_resume(
+						xhci->main_hcd, true);
+
 			/* Ensure that suspend enable are set for
 			 * USB2 and USB3 PHY
 			 */
@@ -531,8 +578,14 @@ static int dwc_hcd_resume_common(struct device *dev)
 static int dwc_hcd_runtime_suspend(struct device *dev)
 {
 	int retval;
+	struct platform_device      *pdev = to_platform_device(dev);
+	struct usb_hcd      *hcd = platform_get_drvdata(pdev);
 
 	retval = dwc_hcd_suspend_common(dev);
+
+	if (retval)
+		dwc_xhci_enable_phy_auto_resume(
+			hcd, false);
 
 	dev_dbg(dev, "hcd_pci_runtime_suspend: %d\n", retval);
 	return retval;

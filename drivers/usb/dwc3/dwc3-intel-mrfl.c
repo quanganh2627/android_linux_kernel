@@ -244,6 +244,18 @@ int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 	return 0;
 }
 
+/* Disable auto-resume feature for USB2 PHY. This is one
+ * silicon workaround. It will cause fabric timeout error
+ * for LS case after resume from hibernation */
+static void disable_phy_auto_resume(struct dwc_otg2 *otg)
+{
+	u32 data = 0;
+
+	data = otg_read(otg, GUSB2PHYCFG0);
+	data &= ~GUSB2PHYCFG_ULPI_AUTO_RESUME;
+	otg_write(otg, GUSB2PHYCFG0, data);
+}
+
 /* This function will control VUSBPHY to power gate/ungate USBPHY */
 static int enable_usb_phy(struct dwc_otg2 *otg, bool on_off)
 {
@@ -796,6 +808,7 @@ int dwc3_intel_prepare_start_host(struct dwc_otg2 *otg)
 	if (!is_hybridvp(otg)) {
 		enable_usb_phy(otg, true);
 		usb2phy_eye_optimization(otg);
+		disable_phy_auto_resume(otg);
 	}
 
 	return 0;
@@ -806,6 +819,7 @@ int dwc3_intel_prepare_start_peripheral(struct dwc_otg2 *otg)
 	if (!is_hybridvp(otg)) {
 		enable_usb_phy(otg, true);
 		usb2phy_eye_optimization(otg);
+		disable_phy_auto_resume(otg);
 	}
 
 	return 0;
@@ -842,16 +856,6 @@ int dwc3_intel_resume(struct dwc_otg2 *otg)
 
 	if (!otg)
 		return 0;
-
-	/* This is one WA for silicon BUG.
-	 * Without this WA, the USB2 phy will enter low power
-	 * mode during hibernation resume flow. and met
-	 * fabric error
-	 */
-	if (otg->state == DWC_STATE_A_HOST) {
-		enable_usb_phy(otg, false);
-		enable_usb_phy(otg, true);
-	}
 
 	/* From synopsys spec 12.2.11.
 	 * Software cannot access memory-mapped I/O space
