@@ -1415,16 +1415,6 @@ int cs42l73_hp_detection(struct snd_soc_codec *codec,
 		}
 	}
 
-#ifdef CONFIG_SWITCH_MID
-	if (status) {
-		if (status == SND_JACK_HEADPHONE)
-			mid_headset_report((1<<1));
-		else if (status == SND_JACK_HEADSET)
-			mid_headset_report(1);
-	} else {
-		mid_headset_report(0);
-	}
-#endif
 	pr_debug("Plug Status = %x\n", plug_status);
 	pr_debug("Jack Status = %x\n", status);
 	return status;
