@@ -1088,6 +1088,11 @@ struct intel_vbt_data {
 	int edp_bpp;
 	struct edp_power_seq edp_pps;
 
+	/* MIPI DSI */
+	struct {
+		u16 panel_id;
+	} dsi;
+
 	int crt_ddc_pin;
 
 	int child_dev_num;
