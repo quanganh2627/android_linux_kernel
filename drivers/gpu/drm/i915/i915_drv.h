@@ -1294,6 +1294,12 @@ typedef struct drm_i915_private {
 	/* Cannot be determined by PCIID. You must always read a register. */
 	size_t ellc_size;
 
+	struct {
+		atomic_t up_threshold;
+		atomic_t down_threshold;
+	} turbodebug;
+
+
 	/* gen6+ rps state */
 	struct intel_gen6_power_mgmt rps;
 
