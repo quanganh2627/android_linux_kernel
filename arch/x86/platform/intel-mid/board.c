@@ -68,6 +68,7 @@
 #include "device_libs/platform_tc35876x.h"
 #include "device_libs/platform_rmi4.h"
 #include "device_libs/platform_bq24192.h"
+#include "device_libs/platform_r69001.h"
 
 /*
  * SPI devices
@@ -102,6 +103,7 @@ struct devs_id __initconst device_ids[] = {
 					&ipc_device_handler},
 	{"mpu3050", SFI_DEV_TYPE_I2C, 1, &mpu3050_platform_data, NULL},
 	{"i2c_disp_brig", SFI_DEV_TYPE_I2C, 0, &tc35876x_platform_data, NULL},
+	{"r69001-ts-i2c", SFI_DEV_TYPE_I2C, 0, &r69001_platform_data, NULL},
 	{"synaptics_3202", SFI_DEV_TYPE_I2C, 0, &rmi4_platform_data, NULL},
 	{"syn_3400_cgs", SFI_DEV_TYPE_I2C, 0, &rmi4_platform_data, NULL},
 	{"syn_3400_igzo", SFI_DEV_TYPE_I2C, 0, &rmi4_platform_data, NULL},
