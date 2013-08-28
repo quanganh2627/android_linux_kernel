@@ -1248,6 +1248,7 @@ const struct sst_probe_info intel_byt_info = {
 
 static const struct acpi_device_id sst_acpi_ids[] = {
 	{ "LPE0F28", (kernel_ulong_t) &intel_byt_info },
+	{ "LPE0F281", (kernel_ulong_t) &intel_byt_info },
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, sst_acpi_ids);
