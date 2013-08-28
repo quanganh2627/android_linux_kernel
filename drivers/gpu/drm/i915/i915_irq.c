@@ -830,7 +830,19 @@ static void gen6_pm_rps_work(struct work_struct *work)
 	mutex_lock(&dev_priv->rps.hw_lock);
 
 	if (pm_iir & GEN6_PM_RP_UP_THRESHOLD) {
-		new_delay = dev_priv->rps.cur_delay + 1;
+
+		if (dev_priv->rps.cur_delay >= dev_priv->rps.max_delay) {
+			I915_WRITE(GEN6_PMINTRMSK,
+					I915_READ(GEN6_PMINTRMSK) | 1 << 5);
+			dev_priv->rps.rp_up_masked = 1;
+			new_delay = dev_priv->rps.cur_delay;
+		} else {
+			new_delay = dev_priv->rps.cur_delay + 1;
+		}
+		if (dev_priv->rps.rp_down_masked) {
+			I915_WRITE(GEN6_PMINTRMSK, 0);
+			dev_priv->rps.rp_down_masked = 0;
+		}
 
 		/*
 		 * For better performance, jump directly
@@ -839,9 +851,20 @@ static void gen6_pm_rps_work(struct work_struct *work)
 		if (IS_VALLEYVIEW(dev_priv->dev) &&
 		    dev_priv->rps.cur_delay < dev_priv->rps.rpe_delay)
 			new_delay = dev_priv->rps.rpe_delay;
-	} else
-		new_delay = dev_priv->rps.cur_delay - 1;
-
+	} else {
+		if (dev_priv->rps.cur_delay <= dev_priv->rps.min_delay) {
+			I915_WRITE(GEN6_PMINTRMSK,
+					I915_READ(GEN6_PMINTRMSK) | 1 << 4);
+			dev_priv->rps.rp_down_masked = 1;
+			new_delay = dev_priv->rps.cur_delay;
+		} else {
+			new_delay = dev_priv->rps.cur_delay - 1;
+		}
+		if (dev_priv->rps.rp_up_masked) {
+			I915_WRITE(GEN6_PMINTRMSK, 0);
+			dev_priv->rps.rp_up_masked = 0;
+		}
+	}
 	/* sysfs frequency interfaces may have snuck in while servicing the
 	 * interrupt
 	 */

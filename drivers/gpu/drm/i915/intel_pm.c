@@ -3507,9 +3507,8 @@ static void vlv_update_rps_cur_delay(struct drm_i915_private *dev_priv)
 
 void valleyview_set_rps(struct drm_device *dev, u8 val)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	gen6_rps_limits(dev_priv, &val);
+	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 	WARN_ON(val > dev_priv->rps.max_delay);
@@ -3524,6 +3523,9 @@ void valleyview_set_rps(struct drm_device *dev, u8 val)
 			 vlv_gpu_freq(dev_priv->mem_freq, val), val);
 
 	if (val == dev_priv->rps.cur_delay)
+		return;
+
+	if (val > dev_priv->rps.max_delay || val < dev_priv->rps.min_delay)
 		return;
 
 	vlv_punit_write(dev_priv, PUNIT_REG_GPU_FREQ_REQ, val);
@@ -3554,6 +3556,11 @@ static void gen6_disable_rps_interrupts(struct drm_device *dev)
 static void gen6_disable_rps(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (IS_VALLEYVIEW(dev)) {
+		valleyview_set_rps(dev, dev_priv->rps.min_delay);
+		I915_WRITE(GEN6_RC_CONTROL, 0);
+	}
 
 	I915_WRITE(GEN6_RC_CONTROL, 0);
 	I915_WRITE(GEN6_RPNSWREQ, 1 << 31);
@@ -3607,6 +3614,7 @@ static void gen6_enable_rps_interrupts(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+	/* requires MSI enabled */
 	spin_lock_irq(&dev_priv->irq_lock);
 	WARN_ON(dev_priv->rps.pm_iir);
 	snb_enable_pm_irq(dev_priv, GEN6_PM_RPS_EVENTS);
@@ -3922,7 +3930,7 @@ out:
 static void valleyview_enable_rps(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 gtfifodbg;
+	u32 gtfifodbg, val;
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 
@@ -3933,8 +3941,94 @@ static void valleyview_enable_rps(struct drm_device *dev)
 
 	valleyview_setup_pctx(dev);
 
+
 	/* 1. Setup RC6 */
 	vlv_rs_initialize(dev);
+
+	I915_WRITE(GEN6_RP_UP_THRESHOLD, 59400);
+	I915_WRITE(GEN6_RP_DOWN_THRESHOLD, 245000);
+	I915_WRITE(GEN6_RP_UP_EI, 66000);
+	I915_WRITE(GEN6_RP_DOWN_EI, 350000);
+
+	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
+	I915_WRITE(GEN6_RP_DOWN_TIMEOUT, 0xf4240);
+
+	I915_WRITE(GEN6_RP_CONTROL,
+		   /*GEN6_RP_MEDIA_TURBO |*/
+		   GEN6_RP_MEDIA_HW_NORMAL_MODE |
+		   /*GEN6_RP_MEDIA_IS_GFX | */
+		   GEN6_RP_ENABLE |
+		   GEN6_RP_UP_BUSY_AVG |
+		   GEN6_RP_DOWN_IDLE_CONT);
+
+
+	val = vlv_punit_read(dev_priv, PUNIT_FUSE_BUS2);
+	DRM_DEBUG_DRIVER("max GPLL freq: %d\n", val);
+
+	val = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
+	switch ((val >> 6) & 3) {
+	case 0:
+	case 1:
+		dev_priv->mem_freq = 800;
+		break;
+	case 2:
+		dev_priv->mem_freq = 1066;
+		break;
+	case 3:
+		dev_priv->mem_freq = 1333;
+		break;
+	}
+	DRM_DEBUG_DRIVER("DDR speed: %d MHz", dev_priv->mem_freq);
+
+	DRM_DEBUG_DRIVER("GPLL enabled? %s\n", val & 0x10 ? "yes" : "no");
+	DRM_DEBUG_DRIVER("GPU status: 0x%08x\n", val);
+
+	dev_priv->rps.cur_delay = (val >> 8) & 0xff;
+	DRM_DEBUG_DRIVER("current GPU freq: %d MHz (%u)\n",
+			 vlv_gpu_freq(dev_priv->mem_freq,
+				      dev_priv->rps.cur_delay),
+			 dev_priv->rps.cur_delay);
+
+	/* Bits [10:3] */
+	dev_priv->rps.max_delay = valleyview_rps_max_freq(dev_priv);
+	dev_priv->rps.hw_max = dev_priv->rps.max_delay;
+	DRM_DEBUG_DRIVER("max GPU freq: %d MHz (%u)\n",
+			 vlv_gpu_freq(dev_priv->mem_freq,
+				      dev_priv->rps.max_delay),
+			 dev_priv->rps.max_delay);
+
+	/* Rpe is min freq */
+	dev_priv->rps.rpe_delay = valleyview_rps_rpe_freq(dev_priv);
+	DRM_DEBUG_DRIVER("RPe GPU freq: %d MHz (%u)\n",
+			 vlv_gpu_freq(dev_priv->mem_freq,
+				      dev_priv->rps.rpe_delay),
+			 dev_priv->rps.rpe_delay);
+
+	dev_priv->rps.min_delay = valleyview_rps_min_freq(dev_priv);
+	DRM_DEBUG_DRIVER("min GPU freq: %d MHz (%u)\n",
+			 vlv_gpu_freq(dev_priv->mem_freq,
+				      dev_priv->rps.min_delay),
+			 dev_priv->rps.min_delay);
+
+	DRM_DEBUG_DRIVER("setting GPU freq to %d MHz (%u)\n",
+			 vlv_gpu_freq(dev_priv->mem_freq,
+				      dev_priv->rps.rpe_delay),
+			 dev_priv->rps.rpe_delay);
+
+	/* Setting IA/GT Fixed Power Bias  */
+	val = VLV_OVERRIDE_MSR_REG
+		| VLV_ENABLE_TDP_SHARE_WITH_SOC
+		| VLV_CPU_GPU_BIAS_VAL_87_12; /* 6 => CPU:12.5% GPU:87.5% */
+	vlv_punit_write(dev_priv, VLV_IOSFB_RPS_OVERRIDE, val);
+
+	dev_priv->rps.rp_up_masked = 0;
+	dev_priv->rps.rp_down_masked = 0;
+
+	INIT_DELAYED_WORK(&dev_priv->rps.vlv_work, vlv_rps_timer_work);
+
+	valleyview_set_rps(dev_priv->dev, dev_priv->rps.rpe_delay);
+
+	gen6_enable_rps_interrupts(dev);
 }
 
 void ironlake_teardown_rc6(struct drm_device *dev)

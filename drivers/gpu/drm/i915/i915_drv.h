@@ -839,6 +839,9 @@ struct intel_gen6_power_mgmt {
 	u8 rpe_delay;
 	u8 hw_max;
 
+	u8 rp_up_masked;
+	u8 rp_down_masked;
+
 	struct delayed_work delayed_resume_work;
 
 	/*
