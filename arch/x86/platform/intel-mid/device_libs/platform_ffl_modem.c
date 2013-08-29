@@ -105,6 +105,8 @@ void *ffl_modem_platform_data(void *data)
 		.rx_fifo_sizes[7] = -1,
 	};
 
+	pr_info("HSI FFL platform data setup\n");
+
 	hsi_info[0].platform_data = (void *)&mid_info;
 	hsi_info[1].platform_data = (void *)&mid_info;
 
