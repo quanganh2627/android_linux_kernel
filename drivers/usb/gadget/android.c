@@ -142,6 +142,17 @@ static struct usb_device_descriptor device_desc = {
 	.bNumConfigurations   = 1,
 };
 
+static struct usb_otg_descriptor otg_descriptor = {
+	.bLength              = sizeof otg_descriptor,
+	.bDescriptorType      = USB_DT_OTG,
+	.bcdOTG               = 0x0200, /* version 2.0 */
+};
+
+const struct usb_descriptor_header *otg_desc[] = {
+	(struct usb_descriptor_header *) &otg_descriptor,
+	NULL,
+};
+
 static struct usb_configuration android_config_driver = {
 	.label		= "android",
 	.unbind		= android_unbind_config,
@@ -165,6 +176,8 @@ static void android_work(struct work_struct *data)
 		uevent_envp = configured;
 	else if (dev->connected != dev->sw_connected)
 		uevent_envp = dev->connected ? connected : disconnected;
+	else if (!cdev->config && dev->connected)
+		uevent_envp = connected;
 	dev->sw_connected = dev->connected;
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
@@ -197,6 +210,13 @@ static void android_disable(struct android_dev *dev)
 
 	if (dev->disable_depth++ == 0) {
 		usb_gadget_disconnect(cdev->gadget);
+
+		/* As connection is disconnected here,
+		 * any flying request should be completed or potential
+		 * request should be added within 50ms.
+		 */
+		 msleep(50);
+
 		/* Cancel pending control requests */
 		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
 		usb_remove_config(cdev, &android_config_driver);
@@ -1185,6 +1205,11 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 				f->disable(f);
 		}
 		dev->enabled = false;
+		/* notify uplevel to correct status */
+		schedule_work(&dev->work);
+	} else if (!enabled && !dev->enabled) {
+		usb_gadget_disconnect(cdev->gadget);
+		dev->enabled = false;
 	} else {
 		pr_err("android_usb: already %s\n",
 				dev->enabled ? "enabled" : "disabled");
@@ -1292,6 +1317,9 @@ static int android_bind_config(struct usb_configuration *c)
 	struct android_dev *dev = _android_dev;
 	int ret = 0;
 
+	if (gadget_is_otg(c->cdev->gadget))
+		c->descriptors = otg_desc;
+
 	ret = android_bind_enabled_functions(dev, c);
 	if (ret)
 		return ret;
@@ -1347,6 +1375,11 @@ static int android_bind(struct usb_composite_dev *cdev)
 		return id;
 	strings_dev[STRING_SERIAL_IDX].id = id;
 	device_desc.iSerialNumber = id;
+
+	cdev->reset_string_id = id;
+
+	if (gadget_is_otg(gadget))
+		cdev->otg_desc = &otg_descriptor;
 
 	usb_gadget_set_selfpowered(gadget);
 	dev->cdev = cdev;

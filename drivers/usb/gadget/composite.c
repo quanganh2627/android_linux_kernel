@@ -831,6 +831,12 @@ static void unbind_config(struct usb_composite_dev *cdev,
 		config->unbind(config);
 			/* may free memory for "c" */
 	}
+
+	/* reset cdev->next_string_id to cdev->reset_string_id
+	 * because "android_usb" driver is working and its
+	 * string descriptor numbers have been allocated
+	 */
+	cdev->next_string_id = cdev->reset_string_id;
 }
 
 /**
@@ -1289,6 +1295,12 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			if (gadget_is_superspeed(gadget)) {
 				value = bos_desc(cdev);
 				value = min(w_length, (u16) value);
+			}
+			break;
+		case USB_DT_OTG:
+			if (cdev->otg_desc) {
+				memcpy(req->buf, cdev->otg_desc, w_length);
+				value = w_length;
 			}
 			break;
 		}
