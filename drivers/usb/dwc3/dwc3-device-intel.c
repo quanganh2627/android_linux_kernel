@@ -115,6 +115,16 @@ static void dwc3_enable_host_auto_retry(struct dwc3 *dwc, bool enable)
 	dwc3_writel(dwc->regs, DWC3_GUCTL, reg);
 }
 
+static void dwc3_do_extra_change(struct dwc3 *dwc)
+{
+	dwc3_set_flis_reg();
+
+	if (dwc->revision == DWC3_REVISION_250A)
+		dwc3_disable_multi_packet(dwc);
+
+	dwc3_enable_host_auto_retry(dwc, false);
+}
+
 int dwc3_start_peripheral(struct usb_gadget *g)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
@@ -135,20 +145,18 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
-	if (dwc->gadget_driver) {
+	if (dwc->gadget_driver && dwc->soft_connected) {
 		dwc3_core_init(dwc);
-		dwc3_set_flis_reg();
+		dwc3_do_extra_change(dwc);
 		dwc3_event_buffers_setup(dwc);
-		if (dwc->revision == DWC3_REVISION_250A)
-			dwc3_disable_multi_packet(dwc);
-		dwc3_enable_host_auto_retry(dwc, false);
 		ret = dwc3_init_for_enumeration(dwc);
 		if (ret)
 			goto err0;
 
-		if (dwc->soft_connected)
-			dwc3_gadget_run_stop(dwc, 1);
+		dwc3_gadget_run_stop(dwc, 1);
 	}
+
+	dwc->pm_state = PM_ACTIVE;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	return 0;
@@ -234,6 +242,64 @@ int dwc3_vbus_draw(struct usb_gadget *g, unsigned ma)
 
 	return ret;
 }
+
+static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
+{
+	struct dwc3		*dwc = gadget_to_dwc(g);
+	unsigned long		flags;
+	int			ret;
+
+	is_on = !!is_on;
+
+	if (dwc->soft_connected == is_on)
+		return 0;
+
+	dwc->soft_connected = is_on;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	if (dwc->pm_state == PM_DISCONNECTED) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return 0;
+	}
+
+	if (is_on) {
+		/* Per dwc3 databook 2.40a section 8.1.9, re-connection
+		 * should follow steps described section 8.1.1 power on
+		 * or soft reset.
+		 */
+		dwc3_core_init(dwc);
+		dwc3_do_extra_change(dwc);
+		dwc3_event_buffers_setup(dwc);
+		dwc3_init_for_enumeration(dwc);
+		ret = dwc3_gadget_run_stop(dwc, 1);
+	} else {
+		u8 epnum;
+
+		for (epnum = 0; epnum < 2; epnum++) {
+			struct dwc3_ep  *dep;
+
+			dep = dwc->eps[epnum];
+
+			if (dep->flags & DWC3_EP_ENABLED)
+				__dwc3_gadget_ep_disable(dep);
+		}
+
+		ret = dwc3_gadget_run_stop(dwc, 0);
+	}
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	return ret;
+}
+
+static const struct usb_gadget_ops dwc3_device_gadget_ops = {
+	.get_frame		= dwc3_gadget_get_frame,
+	.wakeup			= dwc3_gadget_wakeup,
+	.set_selfpowered	= dwc3_gadget_set_selfpowered,
+	.pullup			= dwc3_device_gadget_pullup,
+	.udc_start		= dwc3_gadget_start,
+	.udc_stop		= dwc3_gadget_stop,
+};
 
 static int dwc3_device_intel_probe(struct platform_device *pdev)
 {
@@ -364,6 +430,7 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to initialize gadget\n");
 		goto err0;
 	}
+	dwc->gadget.ops = &dwc3_device_gadget_ops;
 	dwc->mode = DWC3_MODE_DEVICE;
 
 	ret = dwc3_debugfs_init(dwc);
