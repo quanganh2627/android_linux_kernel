@@ -228,6 +228,9 @@ struct wm8994_pdata {
 	 * lines is mastered.
 	 */
 	int max_channels_clocked[WM8994_NUM_AIF];
+	/* Override the params for an AIF
+	 */
+	int override_rates[WM8994_NUM_AIF];
 };
 
 #endif

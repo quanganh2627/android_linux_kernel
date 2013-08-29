@@ -2797,6 +2797,7 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 	int rate_val = 0;
 	int id = dai->id - 1;
 	int format_bits = 0;
+	int rate = params_rate(params);
 
 	int i, cur_val, best_val, bclk_rate, best;
 
@@ -2831,7 +2832,12 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	bclk_rate = params_rate(params);
+	/* Is there a rate override for this AIF? */
+	if (pdata->override_rates[dai->id - 1])
+			rate = pdata->override_rates[dai->id - 1];
+
+	bclk_rate = rate;
+
 	if (wm8994->format_bits)
 		format_bits = wm8994->format_bits;
 	else
@@ -2877,7 +2883,7 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 
 	/* Try to find an appropriate sample rate; look for an exact match. */
 	for (i = 0; i < ARRAY_SIZE(srs); i++)
-		if (srs[i].rate == params_rate(params))
+		if (srs[i].rate == rate)
 			break;
 	if (i == ARRAY_SIZE(srs))
 		return -EINVAL;
@@ -2898,10 +2904,10 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 
 	/* AIFCLK/fs ratio; look for a close match in either direction */
 	best = 0;
-	best_val = abs((fs_ratios[0] * params_rate(params))
+	best_val = abs((fs_ratios[0] * rate)
 		       - wm8994->aifclk[id]);
 	for (i = 1; i < ARRAY_SIZE(fs_ratios); i++) {
-		cur_val = abs((fs_ratios[i] * params_rate(params))
+		cur_val = abs((fs_ratios[i] * rate)
 			      - wm8994->aifclk[id]);
 		if (cur_val >= best_val)
 			continue;
@@ -2929,7 +2935,7 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 		bclk_divs[best], bclk_rate);
 	bclk |= best << WM8994_AIF1_BCLK_DIV_SHIFT;
 
-	lrclk = bclk_rate / params_rate(params);
+	lrclk = bclk_rate / rate;
 	if (!lrclk) {
 		dev_err(dai->dev, "Unable to generate LRCLK from %dHz BCLK\n",
 			bclk_rate);
@@ -2949,12 +2955,12 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		switch (dai->id) {
 		case 1:
-			wm8994->dac_rates[0] = params_rate(params);
+			wm8994->dac_rates[0] = rate;
 			wm8994_set_retune_mobile(codec, 0);
 			wm8994_set_retune_mobile(codec, 1);
 			break;
 		case 2:
-			wm8994->dac_rates[1] = params_rate(params);
+			wm8994->dac_rates[1] = rate;
 			wm8994_set_retune_mobile(codec, 2);
 			break;
 		}

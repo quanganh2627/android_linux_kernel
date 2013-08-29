@@ -168,6 +168,7 @@ static struct wm8994_pdata wm8958_merr_pdata = {
 
 	.mic_id_delay = 300, /*300ms delay*/
 	.micdet_delay = 500,
+	.override_rates[0] = 48000,
 };
 
 void __init *wm8994_platform_data(void *info)
