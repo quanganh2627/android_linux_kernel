@@ -32,6 +32,7 @@
 #define HSI_CLIENT_CNT	1
 #endif
 
+extern int nbr_hsi_clients;
 
 void *hsi_modem_platform_data(void *data)
 {
