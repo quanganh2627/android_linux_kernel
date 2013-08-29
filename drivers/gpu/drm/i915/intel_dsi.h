@@ -175,7 +175,8 @@ extern struct intel_dsi_dev_ops auo_b080xat_dsi_display_ops;
 extern struct intel_dsi_dev_ops jdi_lpm070w425b_dsi_display_ops;
 void intel_dsi_clear_device_ready(struct intel_encoder *encoder);
 
-#define	MIPI_DSI_RESERVED_PANEL_ID			0x01
+#define	MIPI_DSI_UNDEFINED_PANEL_ID			0x00
+#define	MIPI_DSI_GENERIC_PANEL_ID			0x01
 #define	MIPI_DSI_AUO_B101UAN01_PANEL_ID			0x02
 #define	MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID	0x03
 #define	MIPI_DSI_AUO_B080XAT_PANEL_ID			0x04

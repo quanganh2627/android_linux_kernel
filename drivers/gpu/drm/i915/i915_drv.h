@@ -1126,6 +1126,7 @@ struct intel_vbt_data {
 
 	/* MIPI DSI */
 	struct {
+		u8 seq_version;
 		u16 panel_id;
 		struct mipi_config *config;
 		struct mipi_pps_data *pps;
