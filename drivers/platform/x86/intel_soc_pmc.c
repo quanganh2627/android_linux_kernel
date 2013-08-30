@@ -24,18 +24,79 @@
 #include <linux/seq_file.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/acpi.h>
-#include <linux/pci.h>
 #include <linux/device.h>
 #include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/semaphore.h>
 #include <linux/suspend.h>
-#include <linux/intel_mid_pm.h>
 #include <linux/time.h>
 
-#include "intel_soc_pmc.h"
+#include <asm/intel_mid_pcihelpers.h>
 
+#define	MAX_PLATFORM_STATES	5
+#define BYT_S3_HINT		0x64
+#define	S0I3			3
+
+#define	S0IX_REGISTERS_OFFSET	0x80
+
+#define	S0IR_TMR_OFFSET		0x80
+#define	S0I1_TMR_OFFSET		0x84
+#define	S0I2_TMR_OFFSET		0x88
+#define	S0I3_TMR_OFFSET		0x8c
+#define	S0_TMR_OFFSET		0x90
+
+#define	S0IX_WAKE_EN		0x3c
+
+#define	PMC_MMIO_BAR		1
+#define	BASE_ADDRESS_MASK	0xFFFFFFFE00
+#define	DISABLE_LPC_CLK_WAKE_EN 0xffffef
+
+#define PM_SUPPORT		0x21
+
+#define ISP_POS			7
+#define ISP_SUB_CLASS		0x80
+
+#define PUNIT_PORT		0x04
+#define PWRGT_CNT		0x60
+#define PWRGT_STATUS		0x61
+#define VED_SS_PM0		0x32
+#define ISP_SS_PM0		0x39
+#define MIO_SS_PM		0x3B
+#define SSS_SHIFT		24
+#define RENDER_POS		0
+#define MEDIA_POS		2
+#define DISPLAY_POS		6
+
+#define MAX_POWER_ISLANDS	16
+#define ISLAND_UP		0x0
+#define ISLAND_DOWN		0x1
+/*Soft reset*/
+#define ISLAND_SR		0x2
+
+/* Soft reset mask */
+#define SR_MASK			0x2
+
+#define NC_PM_SSS		0x3F
+
+#define GFX_LSS_INDEX		1
+
+#define PMC_D0I0_MASK		0
+#define PMC_D0I1_MASK		1
+#define PMC_D0I2_MASK		2
+#define PMC_D0I3_MASK		3
+
+#define BITS_PER_LSS		2
+#define PCI_ID_ANY		(~0)
+#define SUB_CLASS_MASK		0xFF00
+
+struct pmc_dev {
+	u32 base_address;
+	u32 __iomem *pmc_registers;
+	u32 __iomem *s0ix_wake_en;
+	struct pci_dev const *pdev;
+	struct semaphore nc_ready_lock;
+	u32 s3_residency;
+};
 
 u32 residency_total;
 
@@ -48,7 +109,8 @@ char *states[] = {
 	"S3",
 };
 
-struct mid_pmc_dev *mid_pmc_cxt;
+struct pmc_dev *pmc_cxt;
+
 static char *dstates[] = {"D0", "D0i1", "D0i2", "D0i3"};
 struct nc_device {
 	char *name;
@@ -65,7 +127,7 @@ struct nc_device {
 
 static int no_of_nc_devices = sizeof(nc_devices)/sizeof(nc_devices[0]);
 
-static int byt_wait_for_nc_pmcmd_complete(int verify_mask,
+static int pmc_wait_for_nc_pmcmd_complete(int verify_mask,
 				int status_mask, int state_type , int reg)
 {
 	int pwr_sts;
@@ -79,14 +141,14 @@ static int byt_wait_for_nc_pmcmd_complete(int verify_mask,
 			pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, reg);
 			pwr_sts = pwr_sts >> SSS_SHIFT;
 		}
-		if (state_type == OSPM_ISLAND_DOWN ||
-				state_type == OSPM_ISLAND_SR) {
+		if (state_type == ISLAND_DOWN ||
+				state_type == ISLAND_SR) {
 			if ((pwr_sts & status_mask) ==
 					(verify_mask & status_mask))
 				break;
 			else
 				usleep_range(10, 20);
-		} else if (state_type == OSPM_ISLAND_UP) {
+		} else if (state_type == ISLAND_UP) {
 			if ((~pwr_sts & status_mask)  ==
 					(~verify_mask & status_mask))
 				break;
@@ -101,34 +163,34 @@ static int byt_wait_for_nc_pmcmd_complete(int verify_mask,
 	return 0;
 }
 
-int byt_pmu_nc_get_power_state(int islands, int reg)
+int pmc_nc_get_power_state(int islands, int reg)
 {
 	int pwr_sts, i, lss, ret = 0;
 
-	if (unlikely(!mid_pmc_cxt))
+	if (unlikely(!pmc_cxt))
 		return -EAGAIN;
 
 	might_sleep();
 
-	down(&mid_pmc_cxt->nc_ready_lock);
+	down(&pmc_cxt->nc_ready_lock);
 
 	pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, reg);
 	if (reg != PWRGT_STATUS)
 		pwr_sts = pwr_sts >> SSS_SHIFT;
 
-	for (i = 0; i < OSPM_MAX_POWER_ISLANDS; i++) {
+	for (i = 0; i < MAX_POWER_ISLANDS; i++) {
 		lss = islands & (0x1 << i);
 		if (lss) {
-			ret = (pwr_sts >> (BITS_PER_LSS * i)) & D0I3_MASK;
+			ret = (pwr_sts >> (BITS_PER_LSS * i)) & PMC_D0I3_MASK;
 			break;
 		}
 	}
 
-	up(&mid_pmc_cxt->nc_ready_lock);
+	up(&pmc_cxt->nc_ready_lock);
 	return ret;
 }
 
-int byt_pmu_nc_set_power_state(int islands, int state_type, int reg)
+int pmc_nc_set_power_state(int islands, int state_type, int reg)
 {
 	u32 pwr_sts = 0;
 	u32 pwr_mask = 0;
@@ -136,27 +198,27 @@ int byt_pmu_nc_set_power_state(int islands, int state_type, int reg)
 	int ret = 0;
 	int status_mask = 0;
 
-	if (unlikely(!mid_pmc_cxt))
+	if (unlikely(!pmc_cxt))
 		return -EAGAIN;
 
 	might_sleep();
 
-	down(&mid_pmc_cxt->nc_ready_lock);
+	down(&pmc_cxt->nc_ready_lock);
 
 	pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, reg);
 	pwr_mask = pwr_sts;
 
-	for (i = 0; i < OSPM_MAX_POWER_ISLANDS; i++) {
+	for (i = 0; i < MAX_POWER_ISLANDS; i++) {
 		lss = islands & (0x1 << i);
 		if (lss) {
-			mask = D0I3_MASK << (BITS_PER_LSS * i);
+			mask = PMC_D0I3_MASK << (BITS_PER_LSS * i);
 			status_mask = status_mask | mask;
-			if (state_type == OSPM_ISLAND_DOWN)
+			if (state_type == ISLAND_DOWN)
 				pwr_mask |= mask;
-			else if (state_type == OSPM_ISLAND_UP)
+			else if (state_type == ISLAND_UP)
 				pwr_mask &= ~mask;
 			/* Soft reset case */
-			else if (state_type == OSPM_ISLAND_SR) {
+			else if (state_type == ISLAND_SR) {
 				pwr_mask &= ~mask;
 				mask = SR_MASK << (BITS_PER_LSS * i);
 				 pwr_mask |= mask;
@@ -165,16 +227,16 @@ int byt_pmu_nc_set_power_state(int islands, int state_type, int reg)
 	}
 
 	intel_mid_msgbus_write32(PUNIT_PORT, reg, pwr_mask);
-	ret = byt_wait_for_nc_pmcmd_complete(pwr_mask,
+	ret = pmc_wait_for_nc_pmcmd_complete(pwr_mask,
 				status_mask, state_type, reg);
 
-	up(&mid_pmc_cxt->nc_ready_lock);
+	up(&pmc_cxt->nc_ready_lock);
 	return ret;
 }
 
 static u32 pmc_register_read(int reg_offset)
 {
-	return readl(mid_pmc_cxt->pmc_registers + reg_offset);
+	return readl(pmc_cxt->pmc_registers + reg_offset);
 }
 
 static void print_residency_per_state(struct seq_file *s, int state, u32 count)
@@ -194,7 +256,7 @@ static void print_residency_per_state(struct seq_file *s, int state, u32 count)
 			time, rem_time, residency, rem_res_reduced);
 }
 
-static int pmu_devices_state_show(struct seq_file *s, void *unused)
+static int pmc_devices_state_show(struct seq_file *s, void *unused)
 {
 	int i;
 	u32 val, nc_pwr_sts, reg;
@@ -208,12 +270,12 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 		s0ix_residency[i] = pmc_register_read(i);
 		residency_total += s0ix_residency[i];
 	}
-	s0ix_residency[S0I3] = s0ix_residency[S0I3] - mid_pmc_cxt->s3_residency;
+	s0ix_residency[S0I3] = s0ix_residency[S0I3] - pmc_cxt->s3_residency;
 
 	seq_printf(s, "State \t\t Time[sec] \t\t Residency[%%]\n");
 	for (i = 0; i < MAX_PLATFORM_STATES; i++)
 		print_residency_per_state(s, i, s0ix_residency[i]);
-	print_residency_per_state(s, i, mid_pmc_cxt->s3_residency);
+	print_residency_per_state(s, i, pmc_cxt->s3_residency);
 
 	seq_printf(s, "\n\nNORTH COMPLEX DEVICES :\n");
 
@@ -221,7 +283,7 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 		reg = nc_devices[i].reg;
 		nc_pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, reg);
 		nc_pwr_sts >>= nc_devices[i].sss_pos;
-		val = nc_pwr_sts & D0I3_MASK;
+		val = nc_pwr_sts & PMC_D0I3_MASK;
 		seq_printf(s, "%9s : %s\n", nc_devices[i].name, dstates[val]);
 	}
 
@@ -229,7 +291,7 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 
 	while ((dev = pci_get_device(PCI_ID_ANY, PCI_ID_ANY, dev)) != NULL) {
 		pci_read_config_word(dev, dev->pm_cap + PCI_PM_CTRL, &pmcsr);
-		val = pmcsr & D0I3_MASK;
+		val = pmcsr & PMC_D0I3_MASK;
 		seq_printf(s, "%9s %15s : %s\n", dev_name(&dev->dev),
 			dev_driver_string(&dev->dev), dstates[val]);
 	}
@@ -242,7 +304,7 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 
 static int devices_state_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, pmu_devices_state_show, NULL);
+	return single_open(file, pmc_devices_state_show, NULL);
 }
 
 static const struct file_operations devices_state_operations = {
@@ -278,9 +340,9 @@ static ssize_t nc_set_power_write(struct file *file,
 								!= NULL) {
 			pci_read_config_word(dev, dev->pm_cap +
 							PCI_PM_CTRL, &pmcsr);
-			val = pmcsr & D0I3_MASK;
+			val = pmcsr & PMC_D0I3_MASK;
 			if (!val) {
-				pmcsr |= D0I3_MASK;
+				pmcsr |= PMC_D0I3_MASK;
 				pci_write_config_word(dev, dev->pm_cap +
 							PCI_PM_CTRL, pmcsr);
 			}
@@ -288,7 +350,7 @@ static ssize_t nc_set_power_write(struct file *file,
 		return count;
 	}
 
-	pmu_nc_set_power_state(islands, state, reg);
+	pmc_nc_set_power_state(islands, state, reg);
 	return count;
 }
 
@@ -305,12 +367,12 @@ static const struct file_operations nc_set_power_operations = {
 	.release        = single_release,
 };
 
-static int mid_suspend_begin(suspend_state_t state)
+static int pmc_suspend_begin(suspend_state_t state)
 {
 	return 0;
 }
 
-static int mid_suspend_valid(suspend_state_t state)
+static int pmc_suspend_valid(suspend_state_t state)
 {
 	int ret = 0;
 
@@ -323,17 +385,17 @@ static int mid_suspend_valid(suspend_state_t state)
 	return ret;
 }
 
-static int mid_suspend_prepare(void)
+static int pmc_suspend_prepare(void)
 {
 	return 0;
 }
 
-static int mid_suspend_prepare_late(void)
+static int pmc_suspend_prepare_late(void)
 {
 	return 0;
 }
 
-static int mid_suspend_enter(suspend_state_t state)
+static int pmc_suspend_enter(suspend_state_t state)
 {
 	u32 temp = 0, count_before_entry, count_after_exit;
 
@@ -348,43 +410,25 @@ static int mid_suspend_enter(suspend_state_t state)
 	trace_printk("s3_exit\n");
 	count_after_exit = pmc_register_read(S0I3);
 
-	mid_pmc_cxt->s3_residency = mid_pmc_cxt->s3_residency +
+	pmc_cxt->s3_residency = pmc_cxt->s3_residency +
 				count_after_exit - count_before_entry;
 	return 0;
 }
 
 
-static void mid_suspend_end(void)
+static void pmc_suspend_end(void)
 {
 	return;
 }
 
-static const struct platform_suspend_ops mid_suspend_ops = {
-	.begin = mid_suspend_begin,
-	.valid = mid_suspend_valid,
-	.prepare = mid_suspend_prepare,
-	.prepare_late = mid_suspend_prepare_late,
-	.enter = mid_suspend_enter,
-	.end = mid_suspend_end,
+static const struct platform_suspend_ops pmc_suspend_ops = {
+	.begin = pmc_suspend_begin,
+	.valid = pmc_suspend_valid,
+	.prepare = pmc_suspend_prepare,
+	.prepare_late = pmc_suspend_prepare_late,
+	.enter = pmc_suspend_enter,
+	.end = pmc_suspend_end,
 };
-
-static int byt_pmu_init(void)
-{
-	suspend_set_ops(&mid_suspend_ops);
-
-	sema_init(&mid_pmc_cxt->nc_ready_lock, 1);
-
-	/* /sys/kernel/debug/mid_pmu_states */
-	(void) debugfs_create_file("mid_pmu_states", S_IFREG | S_IRUGO,
-				NULL, NULL, &devices_state_operations);
-
-	/* /sys/kernel/debug/mid_pmu_states */
-	(void) debugfs_create_file("nc_set_power", S_IFREG | S_IRUGO,
-				NULL, NULL, &nc_set_power_operations);
-
-	writel(DISABLE_LPC_CLK_WAKE_EN, mid_pmc_cxt->s0ix_wake_en);
-	return 0;
-}
 
 static DEFINE_PCI_DEVICE_TABLE(pmc_pci_tbl) = {
 	{PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x0F1C)},
@@ -396,16 +440,17 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 				const struct pci_device_id *id)
 {
 	int error = 0;
+	struct dentry *d;
 
-	mid_pmc_cxt = kzalloc(sizeof(struct mid_pmc_dev), GFP_KERNEL);
+	pmc_cxt = kzalloc(sizeof(struct pmc_dev), GFP_KERNEL);
 
-	if (unlikely(!mid_pmc_cxt)) {
-		pr_err("Failed to allocate memory for mid_pmc_cxt.\n");
+	if (unlikely(!pmc_cxt)) {
+		pr_err("Failed to allocate memory for pmc_cxt.\n");
 		error = -ENOMEM;
 		goto exit_err0;
 	}
 
-	mid_pmc_cxt->pdev = pdev;
+	pmc_cxt->pdev = pdev;
 
 	if (pci_enable_device(pdev)) {
 		pr_err("Failed to initialize PMC as PCI device\n");
@@ -414,8 +459,8 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	}
 
 	pci_read_config_dword(pdev, PCI_CB_LEGACY_MODE_BASE,
-					&mid_pmc_cxt->base_address);
-	mid_pmc_cxt->base_address &= BASE_ADDRESS_MASK ;
+					&pmc_cxt->base_address);
+	pmc_cxt->base_address &= BASE_ADDRESS_MASK;
 
 	if (pci_request_region(pdev, PMC_MMIO_BAR, "pmc_driver")) {
 		pr_err("Failed to allocate requested PCI region\n");
@@ -423,33 +468,52 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 		goto exit_err1;
 	}
 
-	mid_pmc_cxt->pmc_registers = ioremap_nocache(
-		mid_pmc_cxt->base_address + S0IX_REGISTERS_OFFSET, 20);
+	pmc_cxt->pmc_registers = ioremap_nocache(
+		pmc_cxt->base_address + S0IX_REGISTERS_OFFSET, 20);
 
-	mid_pmc_cxt->s0ix_wake_en = ioremap_nocache(
-		mid_pmc_cxt->base_address + S0IX_WAKE_EN, 4);
+	pmc_cxt->s0ix_wake_en = ioremap_nocache(
+		pmc_cxt->base_address + S0IX_WAKE_EN, 4);
 
-	if (unlikely(!mid_pmc_cxt->pmc_registers ||
-				!mid_pmc_cxt->s0ix_wake_en)) {
+	if (unlikely(!pmc_cxt->pmc_registers ||
+				!pmc_cxt->s0ix_wake_en)) {
 		pr_err("Failed to map PMC registers.\n");
 		error = -EFAULT;
 		goto exit_err1;
 	}
 
-	error = byt_pmu_init();
-	if (error) {
-		pr_err("Unable to register acpi_pmu driver.\n");
+	suspend_set_ops(&pmc_suspend_ops);
+
+	sema_init(&pmc_cxt->nc_ready_lock, 1);
+
+	/* /sys/kernel/debug/pmc_states */
+	d = debugfs_create_file("pmc_states", S_IFREG | S_IRUGO,
+				NULL, NULL, &devices_state_operations);
+	if (!d) {
+		dev_err(&pdev->dev, "Can not create a debug file\n");
+		error = -ENOMEM;
 		goto exit_err2;
 	}
+
+	/* /sys/kernel/debug/pmc_states */
+	d = debugfs_create_file("nc_set_power", S_IFREG | S_IRUGO,
+				NULL, NULL, &nc_set_power_operations);
+
+	if (!d) {
+		dev_err(&pdev->dev, "Can not create a debug file\n");
+		error = -ENOMEM;
+		goto exit_err2;
+	}
+
+	writel(DISABLE_LPC_CLK_WAKE_EN, pmc_cxt->s0ix_wake_en);
 
 	return 0;
 
 exit_err2:
-	iounmap(mid_pmc_cxt->pmc_registers);
-	iounmap(mid_pmc_cxt->s0ix_wake_en);
+	iounmap(pmc_cxt->pmc_registers);
+	iounmap(pmc_cxt->s0ix_wake_en);
 exit_err1:
-	kfree(mid_pmc_cxt);
-	mid_pmc_cxt = NULL;
+	kfree(pmc_cxt);
+	pmc_cxt = NULL;
 exit_err0:
 	pr_err("%s: Initialization failed\n", __func__);
 	return error;
