@@ -2504,6 +2504,8 @@ static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
 static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 		const struct dwc3_event_devt *event)
 {
+	u32	reg;
+
 	switch (event->type) {
 	case DWC3_DEVICE_EVENT_DISCONNECT:
 		dwc3_gadget_disconnect_interrupt(dwc);
@@ -2528,6 +2530,14 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 		break;
 	case DWC3_DEVICE_EVENT_ERRATIC_ERROR:
 		dev_vdbg(dwc->dev, "Erratic Error\n");
+
+		/* Controller may generate too many Erratic Errors Messages,
+		 * Disable it until we find a way to recover the failure.
+		 */
+		reg = dwc3_readl(dwc->regs, DWC3_DEVTEN);
+		reg &= ~DWC3_DEVTEN_ERRTICERREN;
+		dwc3_writel(dwc->regs, DWC3_DEVTEN, reg);
+		dev_info(dwc->dev, "Erratic Error Event disabled\n");
 		break;
 	case DWC3_DEVICE_EVENT_CMD_CMPL:
 		dev_vdbg(dwc->dev, "Command Complete\n");
