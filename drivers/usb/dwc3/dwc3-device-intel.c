@@ -432,6 +432,8 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 		goto err0;
 	}
 	dwc->gadget.ops = &dwc3_device_gadget_ops;
+	dwc->gadget.is_otg = 1;
+
 	dwc->mode = DWC3_MODE_DEVICE;
 
 	ret = dwc3_debugfs_init(dwc);
