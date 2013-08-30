@@ -543,7 +543,6 @@ static void dx_crypto_api_handle_op_completion(struct work_struct *work)
 		default:
 			SEP_LOG_ERR("Unsupported alg_type (%d)\n",
 				    crypto_tfm_alg_type(initiating_req->tfm));
-			req_info_p = NULL;
 		}
 		/* Save ret_code info before cleaning op_ctx */
 		err = -(op_ctx->error_info);
@@ -897,7 +896,7 @@ static int ablkcipher_algs_init(void)
 	struct crypto_alg alg_spad;
 
 	/* Create block cipher algorithms from base + specs via scratchpad */
-	for (i = 0, rc = 0; i < DX_ABLKCIPHER_NUM; i++) {
+	for (i = 0; i < DX_ABLKCIPHER_NUM; i++) {
 		/* Get base template */
 		memcpy(&alg_spad, &blkcipher_algs_base,
 		       sizeof(struct crypto_alg));

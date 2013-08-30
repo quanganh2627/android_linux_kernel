@@ -124,7 +124,7 @@ static int fetch_image(struct device *mydev, const char *image_name,
 	int rc;
 
 	rc = request_firmware(&image, image_name, mydev);
-	if (unlikely(rc != 0)) {
+	if (unlikely(rc != 0 || image == NULL)) {
 		SEP_LOG_ERR("Failed loading image %s (%d)\n", image_name, rc);
 		return -ENODEV;
 	}
@@ -269,7 +269,6 @@ struct cc_init_ctx *create_cc_init_ctx(struct sep_drvdata *drvdata)
 	init_ctx = kzalloc(sizeof(struct cc_init_ctx), GFP_KERNEL);
 	if (unlikely(init_ctx == NULL)) {
 		SEP_LOG_ERR("Failed allocating CC-Init. context\n");
-		rc = -ENOMEM;
 		goto create_err;
 	}
 	init_ctx->drvdata = drvdata;

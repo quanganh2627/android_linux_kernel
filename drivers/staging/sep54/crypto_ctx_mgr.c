@@ -248,6 +248,10 @@ int ctxmgr_map_user_ctx(struct client_crypto_ctx_info *ctx_info,
 	     ((unsigned long)user_ctx_ptr & ~PAGE_MASK));
 
 	ctx_info->ctx_kptr = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (ctx_info->ctx_kptr == NULL) {
+		SEP_LOG_ERR("Memory allocation failed\n");
+		return -ENOMEM;
+	}
 
 	if (alg_class == ALG_CLASS_NONE) {
 		size_t host_ctx_size = sizeof(struct host_crypto_ctx);
@@ -1152,7 +1156,6 @@ u32 ctxmgr_get_digest_or_mac_ptr(struct client_crypto_ctx_info *ctx_info,
 				      u8 **digest_or_mac_pp)
 {
 	struct sep_ctx_cache_entry *sep_ctx_p;
-	enum crypto_alg_class alg_class;
 	u32 digest_or_mac_size = 0;
 
 #ifdef DEBUG
@@ -1162,7 +1165,6 @@ u32 ctxmgr_get_digest_or_mac_ptr(struct client_crypto_ctx_info *ctx_info,
 	}
 #endif
 	*digest_or_mac_pp = NULL;	/* default */
-	alg_class = ctx_info->ctx_kptr->alg_class;
 	sep_ctx_p = ctx_info->sep_ctx_kptr;
 	switch (le32_to_cpu(sep_ctx_p->alg)) {
 	case SEP_CRYPTO_ALG_HMAC:
@@ -1432,10 +1434,10 @@ int ctxmgr_set_symcipher_iv(struct client_crypto_ctx_info *ctx_info,
 {
 	u8 *host_ctx_iv;
 	u8 *sep_ctx_iv;
-	unsigned long iv_size;
+	unsigned long iv_size = 0;
 
 	get_symcipher_iv_info(ctx_info, &host_ctx_iv, &sep_ctx_iv, &iv_size);
-	if (iv_size > 0) {
+	if (iv_size > 0 && host_ctx_iv != NULL && sep_ctx_iv != NULL) {
 		memcpy(sep_ctx_iv, iv, iv_size);
 		memcpy(host_ctx_iv, iv, iv_size);
 	}

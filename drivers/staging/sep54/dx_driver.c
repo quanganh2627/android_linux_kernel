@@ -1584,7 +1584,6 @@ static int sep_fin_proc(struct sep_op_ctx *op_ctx,
 	int rc;
 	int sep_cache_load_required;
 	int sep_ctx_init_required = 0;
-	enum crypto_alg_class alg_class;
 	enum host_ctx_state ctx_state;
 
 	rc = map_ctx_for_proc(op_ctx->client_ctx, &op_ctx->ctx_info,
@@ -1605,7 +1604,6 @@ static int sep_fin_proc(struct sep_op_ctx *op_ctx,
 	}
 
 	op_ctx->op_type = SEP_OP_CRYPTO_FINI;
-	alg_class = ctxmgr_get_alg_class(&op_ctx->ctx_info);
 
 	rc = prepare_data_for_sep(op_ctx, data_in, NULL, data_out, NULL,
 				  data_in_size, CRYPTO_DATA_TEXT_FINALIZE);
@@ -1732,6 +1730,12 @@ static int sep_combined_proc_dblk(struct sep_op_ctx *op_ctx,
 
 	rc = prepare_combined_data_for_sep(op_ctx, data_in, data_out,
 					   data_in_size, CRYPTO_DATA_TEXT);
+	if (unlikely(rc != 0)) {
+		SEP_LOG_ERR(
+			    "Failed preparing DMA buffers (rc=%d, err_info=0x%08X\n)\n",
+			    rc, op_ctx->error_info);
+		return rc;
+	}
 
 	ctx_info_p = &(op_ctx->ctx_info);
 
@@ -4061,7 +4065,7 @@ static void free_host_mem_for_sep(struct sep_drvdata *drvdata)
 #endif
 }
 
-static int emmc_match(struct device *dev, void *data)
+static int emmc_match(struct device *dev, const void *data)
 {
 	if (strcmp(dev_name(dev), data) == 0)
 		return 1;

@@ -179,9 +179,11 @@ static ssize_t sys_queue_size_show(struct kobject *kobj,
 static ssize_t sys_queue_dump_show(struct kobject *kobj,
 				   struct kobj_attribute *attr, char *buf)
 {
+#ifdef DESCQ_DUMP_SUPPORT
 	int i;
 
 	i = sys_get_queue_num(kobj, (struct sys_dir *)&sys_queue_dirs);
+#endif
 
 	return sprintf(buf, "DescQ dump not supported, yet.\n");
 }

@@ -441,7 +441,6 @@ static int create_sg_list(struct page **pages_array,
 	/* Handle following (whole) pages, but last (which may be partial) */
 	for (i = 1; i < (num_of_sg_ents - 1); i++) {
 		cur_sge = sg_next(cur_sge);
-#ifdef DEBUG
 		if (unlikely(cur_sge == NULL)) {
 			SEP_LOG_ERR(
 				    "Reached end of sgl before (%d) num_of_sg_ents (%lu)\n",
@@ -450,14 +449,12 @@ static int create_sg_list(struct page **pages_array,
 			*new_sg_list_p = NULL;
 			return -EINVAL;
 		}
-#endif
 		sg_set_page(cur_sge, pages_array[i], PAGE_SIZE, 0);
 	}
 	/* Handle last (partial?) page */
 	if (num_of_sg_ents > 1) {
 		/* only if was not handled already as first */
 		cur_sge = sg_next(cur_sge);
-#ifdef DEBUG
 		if (unlikely(cur_sge == NULL)) {
 			SEP_LOG_ERR(
 				    "Cannot put last page in given num_of_sg_ents (%lu)\n",
@@ -466,7 +463,6 @@ static int create_sg_list(struct page **pages_array,
 			*new_sg_list_p = NULL;
 			return -EINVAL;
 		}
-#endif
 		sg_set_page(cur_sge,
 			    pages_array[num_of_sg_ents - 1],
 			    size_of_last_page, 0);
@@ -2004,13 +2000,11 @@ int llimgr_create_mlli(void *llimgr,
 		}
 	}			/*for */
 
-#ifdef DEBUG
 	if (remaining_main_sg_ents > 0) {
 		SEP_LOG_ERR("Remaining sg_ents>0 after end of S/G list!\n");
 		rc = -EINVAL;
 		goto mlli_create_exit;	/* do cleanup */
 	}
-#endif
 
 	/* Append end aux. buffer */
 	if (client_memref->buf_end_aux_buf_size > 0) {
