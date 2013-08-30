@@ -42,7 +42,18 @@ static unsigned long __init tangier_calibrate_tsc(void)
 	/* [REVERT ME] fast timer calibration method to be defined */
 	if ((intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_VP) ||
 	    (intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_HVP)) {
-		lapic_timer_frequency = 50000;
+		/*
+		 * CRC K310 has issues with the lapic timer freq value
+		 * 50000, the jiffies running ten times faster than
+		 * required value
+		 */
+		if (intel_mid_identify_cpu() ==
+				INTEL_MID_CPU_CHIP_CARBONCANYON) {
+			lapic_timer_frequency = 500000;
+		} else {
+			lapic_timer_frequency = 50000;
+		}
+
 		return 1000000;
 	}
 
