@@ -284,6 +284,7 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 				__dwc3_gadget_ep_disable(dep);
 		}
 
+		dwc3_stop_active_transfers(dwc);
 		ret = dwc3_gadget_run_stop(dwc, 0);
 	}
 
