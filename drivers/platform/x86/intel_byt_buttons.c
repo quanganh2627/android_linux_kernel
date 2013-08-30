@@ -33,6 +33,8 @@
 #include <linux/platform_device.h>
 #include <asm/intel_byt_ec.h>
 #include <asm/intel_byt_buttons.h>
+#include <acpi/acpi_bus.h>
+#include <acpi/acpi_drivers.h>
 
 #define DRIVER_NAME "byt_buttons"
 
@@ -87,6 +89,7 @@ static int byt_ec_evt_btn_callback(struct notifier_block *nb,
 		if (valid & POWER_BTN_STAT_MASK) {
 			input_event(priv->input, EV_KEY, KEY_POWER,
 				!(stat & POWER_BTN_STAT_MASK));
+			acpi_clear_event(ACPI_EVENT_POWER_BUTTON);
 		}
 		if (valid & HOME_BTN_STAT_MASK) {
 			input_event(priv->input, EV_KEY, KEY_HOME,
