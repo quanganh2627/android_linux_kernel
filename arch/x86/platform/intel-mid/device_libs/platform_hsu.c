@@ -642,6 +642,7 @@ int intel_mid_hsu_func_to_port(unsigned int func)
 		return hsu_port_func_id_tlb[hsu_clv][func];
 		break;
 	case INTEL_MID_CPU_CHIP_TANGIER:
+	case INTEL_MID_CPU_CHIP_ANNIEDALE:
 		return hsu_port_func_id_tlb[hsu_tng][func];
 		break;
 	case INTEL_MID_CPU_CHIP_PENWELL:
@@ -687,6 +688,7 @@ static void hsu_platform_clk(enum intel_mid_cpu_type cpu_type)
 
 	switch (cpu_type) {
 	case INTEL_MID_CPU_CHIP_TANGIER:
+	case INTEL_MID_CPU_CHIP_ANNIEDALE:
 		clock = 100000;
 		clkctl = ioremap_nocache(TNG_CLOCK_CTL, 4);
 		if (!clkctl) {
@@ -750,6 +752,7 @@ static __init int hsu_dev_platform_data(void)
 		break;
 
 	case INTEL_MID_CPU_CHIP_TANGIER:
+	case INTEL_MID_CPU_CHIP_ANNIEDALE:
 		platform_hsu_info = &hsu_port_cfgs[hsu_tng][0];
 		hsu_port_gpio_mux = &hsu_port_pin_cfgs[hsu_tng][hsu_pid_def][0];
 		break;
