@@ -856,20 +856,21 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 	s32 slots;
 	int rets;
 
-	dev_dbg(&dev->pdev->dev, "Interrupt Registers HHISR|HISR|SEC=%02X|%04X|%02X\n",
+	dev_dbg(&dev->pdev->dev, "irq thread: Interrupt Registers HHISR|HISR|SEC=%02X|%04X|%02X\n",
 		mei_txe_br_reg_read(hw, HHISR_REG),
 		mei_txe_br_reg_read(hw, HISR_REG),
 		mei_txe_sec_reg_read_silent(hw, SEC_IPC_HOST_INT_STATUS_REG));
 
-	mei_txe_pending_interrupts(dev);
 
-	dev_dbg(&dev->pdev->dev, "function called after ISR to handle the interrupt processing.\n");
 	/* initialize our complete list */
 	mutex_lock(&dev->device_lock);
 	mei_io_list_init(&complete_list);
 
 	if (pci_dev_msi_enabled(dev->pdev))
 		mei_txe_check_and_ack_intrs(dev, true);
+
+	/* show irq events */
+	mei_txe_pending_interrupts(dev);
 
 	hw->aliveness = mei_txe_aliveness_get(dev);
 	hw->readiness_state = mei_txe_readiness_get(dev);
@@ -926,9 +927,9 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 
 		/* Read from TXE */
 		rets = mei_irq_read_handler(dev, &complete_list, &slots);
-		dev_dbg(&dev->pdev->dev,
-			"from mei_irq_read_handler ret=%d.\n", rets);
 		if (rets) {
+			dev_err(&dev->pdev->dev,
+				"mei_irq_read_handler ret = %d.\n", rets);
 			mutex_unlock(&dev->device_lock);
 			goto out;
 		}
@@ -946,17 +947,20 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 		}
 
 		rets = mei_irq_write_handler(dev, &complete_list);
-		dev_dbg(&dev->pdev->dev,
-				"mei_irq_write_handler ret=%d.\n", rets);
+		if (rets) {
+			dev_err(&dev->pdev->dev,
+				"mei_irq_write_handler ret = %d.\n", rets);
+		}
 	}
 
-	dev_dbg(&dev->pdev->dev, "end of bottom half function.\n");
 
 	mutex_unlock(&dev->device_lock);
 
 	mei_irq_compl_handler(dev, &complete_list);
 
 out:
+	dev_dbg(&dev->pdev->dev, "irq thread end rets = %d\n", rets);
+
 	mei_enable_interrupts(dev);
 	return IRQ_HANDLED;
 }
