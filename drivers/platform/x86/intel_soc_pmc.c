@@ -440,22 +440,22 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 				const struct pci_device_id *id)
 {
 	int error = 0;
-	struct dentry *d;
+	struct dentry *d, *d1;
 
-	pmc_cxt = kzalloc(sizeof(struct pmc_dev), GFP_KERNEL);
+	pmc_cxt = devm_kzalloc(&pdev->dev,
+			sizeof(struct pmc_dev), GFP_KERNEL);
 
-	if (unlikely(!pmc_cxt)) {
-		pr_err("Failed to allocate memory for pmc_cxt.\n");
-		error = -ENOMEM;
-		goto exit_err0;
+	if (!pmc_cxt) {
+		dev_err(&pdev->dev, "Failed to allocate memory for pmc_cxt.\n");
+		return -ENOMEM;
 	}
 
 	pmc_cxt->pdev = pdev;
 
 	if (pci_enable_device(pdev)) {
-		pr_err("Failed to initialize PMC as PCI device\n");
+		dev_err(&pdev->dev, "Failed to initialize PMC as PCI device\n");
 		error = -EFAULT;
-		goto exit_err1;
+		goto exit_err;
 	}
 
 	pci_read_config_dword(pdev, PCI_CB_LEGACY_MODE_BASE,
@@ -463,22 +463,21 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	pmc_cxt->base_address &= BASE_ADDRESS_MASK;
 
 	if (pci_request_region(pdev, PMC_MMIO_BAR, "pmc_driver")) {
-		pr_err("Failed to allocate requested PCI region\n");
+		dev_err(&pdev->dev, "Failed to allocate requested PCI region\n");
 		error = -EFAULT;
-		goto exit_err1;
+		goto exit_err;
 	}
 
-	pmc_cxt->pmc_registers = ioremap_nocache(
+	pmc_cxt->pmc_registers = devm_ioremap_nocache(&pdev->dev,
 		pmc_cxt->base_address + S0IX_REGISTERS_OFFSET, 20);
 
-	pmc_cxt->s0ix_wake_en = ioremap_nocache(
+	pmc_cxt->s0ix_wake_en = devm_ioremap_nocache(&pdev->dev,
 		pmc_cxt->base_address + S0IX_WAKE_EN, 4);
 
-	if (unlikely(!pmc_cxt->pmc_registers ||
-				!pmc_cxt->s0ix_wake_en)) {
-		pr_err("Failed to map PMC registers.\n");
+	if (!pmc_cxt->pmc_registers || !pmc_cxt->s0ix_wake_en) {
+		dev_err(&pdev->dev, "Failed to map PMC registers.\n");
 		error = -EFAULT;
-		goto exit_err1;
+		goto err_release_region;
 	}
 
 	suspend_set_ops(&pmc_suspend_ops);
@@ -491,31 +490,29 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	if (!d) {
 		dev_err(&pdev->dev, "Can not create a debug file\n");
 		error = -ENOMEM;
-		goto exit_err2;
+		goto err_release_region;
 	}
 
 	/* /sys/kernel/debug/pmc_states */
-	d = debugfs_create_file("nc_set_power", S_IFREG | S_IRUGO,
+	d1 = debugfs_create_file("nc_set_power", S_IFREG | S_IRUGO,
 				NULL, NULL, &nc_set_power_operations);
 
 	if (!d) {
 		dev_err(&pdev->dev, "Can not create a debug file\n");
 		error = -ENOMEM;
-		goto exit_err2;
+		debugfs_remove(d);
+		goto err_release_region;
 	}
 
 	writel(DISABLE_LPC_CLK_WAKE_EN, pmc_cxt->s0ix_wake_en);
 
 	return 0;
 
-exit_err2:
-	iounmap(pmc_cxt->pmc_registers);
-	iounmap(pmc_cxt->s0ix_wake_en);
-exit_err1:
-	kfree(pmc_cxt);
-	pmc_cxt = NULL;
-exit_err0:
-	pr_err("%s: Initialization failed\n", __func__);
+err_release_region:
+	pci_release_region(pdev, PMC_MMIO_BAR);
+exit_err:
+	dev_err(&pdev->dev, "Initialization failed\n");
+
 	return error;
 }
 
@@ -525,21 +522,7 @@ static struct pci_driver pmc_pci_driver = {
 	.probe = pmc_pci_probe,
 };
 
-static int __init pmc_init(void)
-{
-	pr_info("Initializing PMC module\n");
-	return pci_register_driver(&pmc_pci_driver);
-}
-
-static void __exit pmc_exit(void)
-{
-
-	pr_info("Exiting PMC module\n");
-	pci_unregister_driver(&pmc_pci_driver);
-}
-
-module_init(pmc_init);
-module_exit(pmc_exit);
+module_pci_driver(pmc_pci_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Intel ATOM Platform Power Management Controller (PMC) Driver");
