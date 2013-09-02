@@ -3219,7 +3219,7 @@ CONFIG_SENSORS_PSH_BYT=y
 # CONFIG_MDM_CTRL is not set
 # CONFIG_SCU_LOGGING is not set
 # CONFIG_UUID is not set
-# CONFIG_BCM_BT_LPM is not set
+CONFIG_BCM_BT_LPM=m
 
 #
 # Fork of Texas Instruments shared transport line discipline
