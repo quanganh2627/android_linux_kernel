@@ -125,8 +125,6 @@ struct nc_device {
 	{ "MIO", MIO_SS_PM, SSS_SHIFT},
 };
 
-static int no_of_nc_devices = sizeof(nc_devices)/sizeof(nc_devices[0]);
-
 static int pmc_wait_for_nc_pmcmd_complete(int verify_mask,
 				int status_mask, int state_type , int reg)
 {
@@ -292,7 +290,7 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 
 	seq_printf(s, "\n\nNORTH COMPLEX DEVICES :\n");
 
-	for (i = 0; i < no_of_nc_devices; i++) {
+	for (i = 0; i < ARRAY_SIZE(nc_devices); i++) {
 		reg = nc_devices[i].reg;
 		nc_pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, reg);
 		nc_pwr_sts >>= nc_devices[i].sss_pos;
