@@ -283,12 +283,12 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 	}
 	s0ix_residency[S0I3] = s0ix_residency[S0I3] - pmc_cxt->s3_residency;
 
-	seq_printf(s, "State \t\t Time[sec] \t\t Residency[%%]\n");
+	seq_puts(s, "State \t\t Time[sec] \t\t Residency[%%]\n");
 	for (i = 0; i < MAX_PLATFORM_STATES; i++)
 		print_residency_per_state(s, i, s0ix_residency[i]);
 	print_residency_per_state(s, i, pmc_cxt->s3_residency);
 
-	seq_printf(s, "\n\nNORTH COMPLEX DEVICES :\n");
+	seq_puts(s, "\n\nNORTH COMPLEX DEVICES :\n");
 
 	for (i = 0; i < ARRAY_SIZE(nc_devices); i++) {
 		reg = nc_devices[i].reg;
@@ -298,7 +298,7 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 		seq_printf(s, "%9s : %s\n", nc_devices[i].name, dstates[val]);
 	}
 
-	seq_printf(s, "\nSOUTH COMPLEX DEVICES :\n");
+	seq_puts(s, "\nSOUTH COMPLEX DEVICES :\n");
 
 	while ((dev = pci_get_device(PCI_ID_ANY, PCI_ID_ANY, dev)) != NULL) {
 		pci_read_config_word(dev, dev->pm_cap + PCI_PM_CTRL, &pmcsr);
@@ -307,7 +307,7 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 			dev_driver_string(&dev->dev), dstates[val]);
 	}
 
-	seq_printf(s, "\n");
+	seq_puts(s, "\n");
 
 	return 0;
 }
