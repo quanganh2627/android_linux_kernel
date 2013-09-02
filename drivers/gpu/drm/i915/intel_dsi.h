@@ -173,6 +173,7 @@ extern struct intel_dsi_dev_ops auo_b101uan01_dsi_display_ops;
 extern struct intel_dsi_dev_ops panasonic_vvx09f006a00_dsi_display_ops;
 extern struct intel_dsi_dev_ops auo_b080xat_dsi_display_ops;
 extern struct intel_dsi_dev_ops jdi_lpm070w425b_dsi_display_ops;
+extern struct intel_dsi_dev_ops vbt_generic_dsi_display_ops;
 void intel_dsi_clear_device_ready(struct intel_encoder *encoder);
 
 #define	MIPI_DSI_UNDEFINED_PANEL_ID			0x00
