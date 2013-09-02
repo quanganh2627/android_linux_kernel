@@ -380,34 +380,6 @@ static const struct file_operations nc_set_power_operations = {
 	.release        = single_release,
 };
 
-static int pmc_suspend_begin(suspend_state_t state)
-{
-	return 0;
-}
-
-static int pmc_suspend_valid(suspend_state_t state)
-{
-	int ret = 0;
-
-	switch (state) {
-	case PM_SUSPEND_ON:
-	case PM_SUSPEND_MEM:
-		ret = 1;
-		break;
-	}
-	return ret;
-}
-
-static int pmc_suspend_prepare(void)
-{
-	return 0;
-}
-
-static int pmc_suspend_prepare_late(void)
-{
-	return 0;
-}
-
 static int pmc_suspend_enter(suspend_state_t state)
 {
 	u32 temp = 0, count_before_entry, count_after_exit;
@@ -428,18 +400,9 @@ static int pmc_suspend_enter(suspend_state_t state)
 	return 0;
 }
 
-static void pmc_suspend_end(void)
-{
-	return;
-}
-
 static const struct platform_suspend_ops pmc_suspend_ops = {
-	.begin = pmc_suspend_begin,
-	.valid = pmc_suspend_valid,
-	.prepare = pmc_suspend_prepare,
-	.prepare_late = pmc_suspend_prepare_late,
+	.valid = suspend_valid_only_mem,
 	.enter = pmc_suspend_enter,
-	.end = pmc_suspend_end,
 };
 
 static DEFINE_PCI_DEVICE_TABLE(pmc_pci_tbl) = {
