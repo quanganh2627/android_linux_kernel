@@ -43,4 +43,15 @@ if EXTERNAL_CAMERA
 source "drivers/external_drivers/camera/Kconfig"
 endif
 
+menuconfig EXTERNAL_PRIVATE_DEBUG_TOOLS
+	bool "Enable support to private debug tools"
+	depends on EXTERNAL_DRIVERS
+	default y
+	help
+	  Enable support to external private debug tools.
+
+if EXTERNAL_PRIVATE_DEBUG_TOOLS
+source "drivers/external_drivers/private_debug_tools/Kconfig"
+endif
+
 endif
