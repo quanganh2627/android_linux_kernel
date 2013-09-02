@@ -96,9 +96,8 @@ struct pmc_dev {
 	struct pci_dev const *pdev;
 	struct semaphore nc_ready_lock;
 	u32 s3_residency;
+	u32 residency_total;
 };
-
-u32 residency_total;
 
 char *states[] = {
 	"S0IR",
@@ -109,7 +108,8 @@ char *states[] = {
 	"S3",
 };
 
-struct pmc_dev *pmc_cxt;
+/* REVISIT, FIXME: paranoia's sake */
+struct pmc_dev *pmc;
 
 static char *dstates[] = {"D0", "D0i1", "D0i2", "D0i3"};
 struct nc_device {
@@ -163,16 +163,20 @@ static int pmc_wait_for_nc_pmcmd_complete(int verify_mask,
 	return 0;
 }
 
+/*
+ * FIXME: The functions below are legacy and subject to change. They are kept
+ * for backward compatibility.
+ */
 int pmc_nc_get_power_state(int islands, int reg)
 {
 	int pwr_sts, i, lss, ret = 0;
 
-	if (unlikely(!pmc_cxt))
+	if (unlikely(!pmc))
 		return -EAGAIN;
 
 	might_sleep();
 
-	down(&pmc_cxt->nc_ready_lock);
+	down(&pmc->nc_ready_lock);
 
 	pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, reg);
 	if (reg != PWRGT_STATUS)
@@ -186,9 +190,11 @@ int pmc_nc_get_power_state(int islands, int reg)
 		}
 	}
 
-	up(&pmc_cxt->nc_ready_lock);
+	up(&pmc->nc_ready_lock);
+
 	return ret;
 }
+EXPORT_SYMBOL(pmc_nc_get_power_state);
 
 int pmc_nc_set_power_state(int islands, int state_type, int reg)
 {
@@ -198,12 +204,12 @@ int pmc_nc_set_power_state(int islands, int state_type, int reg)
 	int ret = 0;
 	int status_mask = 0;
 
-	if (unlikely(!pmc_cxt))
+	if (unlikely(!pmc))
 		return -EAGAIN;
 
 	might_sleep();
 
-	down(&pmc_cxt->nc_ready_lock);
+	down(&pmc->nc_ready_lock);
 
 	pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, reg);
 	pwr_mask = pwr_sts;
@@ -221,7 +227,7 @@ int pmc_nc_set_power_state(int islands, int state_type, int reg)
 			else if (state_type == ISLAND_SR) {
 				pwr_mask &= ~mask;
 				mask = SR_MASK << (BITS_PER_LSS * i);
-				 pwr_mask |= mask;
+				pwr_mask |= mask;
 			}
 		}
 	}
@@ -230,26 +236,31 @@ int pmc_nc_set_power_state(int islands, int state_type, int reg)
 	ret = pmc_wait_for_nc_pmcmd_complete(pwr_mask,
 				status_mask, state_type, reg);
 
-	up(&pmc_cxt->nc_ready_lock);
+	up(&pmc->nc_ready_lock);
+
 	return ret;
 }
+EXPORT_SYMBOL(pmc_nc_set_power_state);
 
 static u32 pmc_register_read(int reg_offset)
 {
-	return readl(pmc_cxt->pmc_registers + reg_offset);
+	return readl(pmc->pmc_registers + reg_offset);
 }
 
 static void print_residency_per_state(struct seq_file *s, int state, u32 count)
 {
+	struct pmc_dev *pmc_cxt = (struct pmc_dev *)s->private;
 	u32 rem_time, rem_res = 0;
 	u64 rem_res_reduced = 0;
+
 	/* Counter increments every 32 us. */
 	u64 time = (u64)count << 5;
 	u64 residency = (u64)count * 100;
-	if (residency_total) {
-		rem_res = do_div(residency, residency_total);
+
+	if (pmc_cxt->residency_total) {
+		rem_res = do_div(residency, pmc_cxt->residency_total);
 		rem_res_reduced = (u64)rem_res * 1000;
-		do_div(rem_res_reduced, residency_total);
+		do_div(rem_res_reduced,  pmc_cxt->residency_total);
 	}
 	rem_time = do_div(time, USEC_PER_SEC);
 	seq_printf(s, "%s \t\t %.6llu.%.6u \t\t %.2llu.%.3llu\n", states[state],
@@ -258,17 +269,19 @@ static void print_residency_per_state(struct seq_file *s, int state, u32 count)
 
 static int pmc_devices_state_show(struct seq_file *s, void *unused)
 {
+	struct pmc_dev *pmc_cxt = (struct pmc_dev *)s->private;
 	int i;
 	u32 val, nc_pwr_sts, reg;
 	struct pci_dev *dev = NULL;
 	u16 pmcsr;
 	u32 s0ix_residency[MAX_PLATFORM_STATES];
 
-	residency_total = 0;
+	pmc_cxt->residency_total = 0;
+
 	/* Read s0ix residency counters */
 	for (i = 0; i < MAX_PLATFORM_STATES; i++) {
 		s0ix_residency[i] = pmc_register_read(i);
-		residency_total += s0ix_residency[i];
+		pmc_cxt->residency_total += s0ix_residency[i];
 	}
 	s0ix_residency[S0I3] = s0ix_residency[S0I3] - pmc_cxt->s3_residency;
 
@@ -410,11 +423,10 @@ static int pmc_suspend_enter(suspend_state_t state)
 	trace_printk("s3_exit\n");
 	count_after_exit = pmc_register_read(S0I3);
 
-	pmc_cxt->s3_residency = pmc_cxt->s3_residency +
-				count_after_exit - count_before_entry;
+	pmc->s3_residency += count_after_exit - count_before_entry;
+
 	return 0;
 }
-
 
 static void pmc_suspend_end(void)
 {
@@ -441,6 +453,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 {
 	int error = 0;
 	struct dentry *d, *d1;
+	struct pmc_dev *pmc_cxt;
 
 	pmc_cxt = devm_kzalloc(&pdev->dev,
 			sizeof(struct pmc_dev), GFP_KERNEL);
@@ -450,7 +463,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 		return -ENOMEM;
 	}
 
-	pmc_cxt->pdev = pdev;
+	pmc = pmc_cxt;
 
 	if (pci_enable_device(pdev)) {
 		dev_err(&pdev->dev, "Failed to initialize PMC as PCI device\n");
@@ -483,6 +496,8 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	suspend_set_ops(&pmc_suspend_ops);
 
 	sema_init(&pmc_cxt->nc_ready_lock, 1);
+
+	pci_set_drvdata(pdev, pmc_cxt);
 
 	/* /sys/kernel/debug/pmc_states */
 	d = debugfs_create_file("pmc_states", S_IFREG | S_IRUGO,
