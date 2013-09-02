@@ -133,6 +133,16 @@ menuconfig xconfig gconfig: $(KERNEL_CONFIG)
 	@echo $(KERNEL_DIFFCONFIG) has been modified !
 	@echo ===========
 
+TAGS_files := TAGS
+tags_files := tags
+gtags_files := GTAGS GPATH GRTAGS GSYMS
+cscope_files := $(addprefix cscope.,files out out.in out.po)
+
+TAGS tags gtags cscope: $(KERNEL_CONFIG)
+	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) $@
+	@rm -f $(KERNEL_SRC_DIR)/$($@_files)
+	@cp -fs $(addprefix `pwd`/$(KERNEL_OUT_DIR)/,$($@_files)) $(KERNEL_SRC_DIR)/
+
 #used to build out-of-tree kernel modules
 #$(1) is source path relative Android top, $(2) is module name
 #$(3) is extra flags
@@ -147,6 +157,11 @@ $(2): build_bzImage
 $(2)_clean:
 	@echo Cleaning kernel module $(2) in $(1)
 	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) M=../../$(1) clean
+
+$(addprefix $(2)_,TAGS tags gtags cscope): $(KERNEL_CONFIG)
+	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) M=../../$(1) $$(subst $(2)_,,$$@)
+	@rm -f $(1)/$$($$(subst $(2)_,,$$@)_files)
+	@cp -fs $$(addprefix `pwd`/$(KERNEL_OUT_DIR)/,$$($$(subst $(2)_,,$$@)_files)) $(1)/
 
 copy_modules_to_root: $(2)
 
