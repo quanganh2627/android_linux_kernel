@@ -119,7 +119,7 @@ static struct rt5640_init_reg init_list[] = {
 	{RT5640_DSP_PATH2, 0x0c00},
 #endif
 #if RT5640_DET_EXT_MIC
-	{RT5640_MICBIAS, 0x3a10},	/* enable MICBIAS short current;
+	{RT5640_MICBIAS, 0x3c10},	/* enable MICBIAS short current;
 					 chopper(b5) circuit disabled */
 	{RT5640_GPIO_CTRL1, 0x8400},	/* set GPIO1 to IRQ */
 	{RT5640_GPIO_CTRL3, 0x0004},	/* set GPIO1 output */
@@ -544,7 +544,7 @@ int rt5640_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 		snd_soc_update_bits(codec, RT5640_MICBIAS,
 				    RT5640_MIC1_OVCD_MASK | RT5640_MIC1_OVTH_MASK
 				    | RT5640_PWR_CLK25M_MASK,
-				    RT5640_MIC1_OVCD_EN | RT5640_MIC1_OVTH_1500UA
+				    RT5640_MIC1_OVCD_EN | RT5640_MIC1_OVTH_2000UA
 				    | RT5640_PWR_CLK25M_PU);
 		snd_soc_update_bits(codec, RT5640_GEN_CTRL1, 0x1, 0x1);
 		pr_debug("%s:jack inserted", __func__);
