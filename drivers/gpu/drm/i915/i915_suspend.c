@@ -572,9 +572,323 @@ static int __i915_drm_thaw(struct drm_device *dev)
 	return error;
 }
 
+void vlv_save_gunit_regs(struct drm_i915_private *dev_priv)
+{
+	dev_priv->regfile.saveGUNIT_Control = I915_READ(GUNIT_CONTROL);
+	dev_priv->regfile.saveGUNIT_Control2 = I915_READ(GUNIT_CONTROL1);
+	dev_priv->regfile.saveGUNIT_CZClockGatingDisable1 =
+		I915_READ(GUNIT_CZCLOCK_GATING_DISABLE1);
+	dev_priv->regfile.saveGUNIT_CZClockGatingDisable2 =
+		I915_READ(GUNIT_CZCLOCK_GATING_DISABLE2);
+	dev_priv->regfile.saveDPIO_CFG_DATA = I915_READ(DPIO_CTL);
+}
+
+void vlv_restore_gunit_regs(struct drm_i915_private *dev_priv)
+{
+	I915_WRITE(GUNIT_CONTROL, dev_priv->regfile.saveGUNIT_Control);
+	I915_WRITE(GUNIT_CONTROL1, dev_priv->regfile.saveGUNIT_Control2);
+	I915_WRITE(GUNIT_CZCLOCK_GATING_DISABLE1,
+			dev_priv->regfile.saveGUNIT_CZClockGatingDisable1);
+	I915_WRITE(GUNIT_CZCLOCK_GATING_DISABLE2,
+			dev_priv->regfile.saveGUNIT_CZClockGatingDisable2);
+	I915_WRITE(DPIO_CTL, dev_priv->regfile.saveDPIO_CFG_DATA);
+}
+
+int i915_write_withmask(struct drm_device *dev, u32 addr, u32 val, u32 mask)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 reg;
+	reg = I915_READ(addr);
+	reg = (reg & (~mask)) | (val & mask);
+	I915_WRITE(addr, reg);
+	return 0;
+}
+
+void vlv_restore_rc6_regs(struct drm_device *drm_dev)
+{
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+	struct intel_ring_buffer *ring;
+	int i = 0;
+
+	/* Set the Rc6 wake limit */
+	I915_WRITE(VLV_RC6_WAKE_RATE_LIMIT_REG, VLV_RC6_WAKE_RATE_LIMIT);
+
+	/* Set the Evaluation interval (in units of micro-seconds) */
+	I915_WRITE(VLV_RC_EVALUATION_INTERVAL_REG, VLV_EVALUATION_INTERVAL);
+
+	/* Set RC6 promotion timers */
+	I915_WRITE(VLV_RC6_RENDER_PROMOTION_TIMER_REG,
+			VLV_RC6_RENDER_PROMOTION_TIMER_TO);
+
+	/* Set the RC idle Hysteresis */
+	I915_WRITE(VLV_RC_IDLE_HYSTERESIS_REG, VLV_RC_IDLE_HYSTERESIS);
+
+	/* Set the idle count for each ring */
+	for_each_ring(ring, dev_priv, i) {
+		I915_WRITE(RING_MAX_IDLE(ring->mmio_base),
+						VLV_RING_IDLE_MAX_COUNT);
+	}
+
+	/* Enable RC state counters */
+	I915_WRITE(VLV_RC_COUNTER_ENABLE_REG, VLV_RC_COUNTER_CONTROL);
+}
+
+#define TIMEOUT 100
+
+/* follow the sequence below for VLV suspend*/
+/* ===========================================================================
+ * D0 - Dx Power Transition
+ * +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * i)   Set Graphics Clocks to Forced ON
+ * ii)  Set Global Force Wake to avoid waking up wells every time during saving
+ *      registers
+ * iii) save regsiters
+ * iv)  Change the Gfx Freq to lowest possible on platform
+ * v)  Clear Global Force Wake and transition render and media wells to RC6
+ * vI)   Clear Allow Wake Bit so that none of the force/demand wake requests
+ *		will be completed
+ * vii)  Power Gate Render, Media and Display Power Wells
+ * viii) Release graphics clocks
+ */
+static int valleyview_freeze(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_crtc *crtc;
+	u32 reg;
+
+	/* ignore lid events during suspend */
+	mutex_lock(&dev_priv->modeset_restore_lock);
+	dev_priv->modeset_restore = MODESET_SUSPENDED;
+	mutex_unlock(&dev_priv->modeset_restore_lock);
+
+	drm_kms_helper_poll_disable(dev);
+
+	pci_save_state(dev->pdev);
+
+	/* i) Set Graphics Clocks to Forced ON */
+	reg = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
+	reg |= VLV_GFX_CLK_FORCE_ON_BIT;
+	I915_WRITE(VLV_GTLC_SURVIVABILITY_REG, reg);
+	if (wait_for_atomic(((VLV_GFX_CLK_STATUS_BIT &
+		I915_READ(VLV_GTLC_SURVIVABILITY_REG)) != 0), TIMEOUT)) {
+		dev_err(&dev->pdev->dev,
+				"GFX_CLK_ON timed out, suspend might fail\n");
+	}
+
+	/* ii) Set Global Force Wake to avoid waking up wells every
+	 * time during saving registers
+	 */
+	vlv_force_wake_get(dev_priv, FORCEWAKE_ALL);
+
+	/* If KMS is active, we do the leavevt stuff here */
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		int error;
+
+		mutex_lock(&dev->struct_mutex);
+		error = i915_gem_idle(dev);
+		mutex_unlock(&dev->struct_mutex);
+		if (error) {
+			dev_err(&dev->pdev->dev,
+				"GEM idle failed, resume might fail\n");
+			return error;
+		}
+
+		drm_irq_uninstall(dev);
+
+		/* cancel all outstanding wq */
+		cancel_delayed_work_sync(&dev_priv->rps.delayed_resume_work);
+		cancel_work_sync(&dev_priv->hotplug_work);
+		cancel_work_sync(&dev_priv->gpu_error.work);
+		cancel_work_sync(&dev_priv->rps.work);
+
+		dev_priv->enable_hotplug_processing = false;
+		/*
+		 * Disable CRTCs directly since we want to preserve sw state
+		 * for _thaw.
+		 */
+		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
+			dev_priv->display.crtc_disable(crtc);
+
+		intel_modeset_suspend_hw(dev);
+	}
+
+	/* iii) Save state */
+	vlv_save_gunit_regs(dev_priv);
+	i915_save_state(dev);
+
+	intel_opregion_fini(dev);
+
+	console_lock();
+	intel_fbdev_set_suspend(dev, FBINFO_STATE_SUSPENDED);
+	console_unlock();
+
+	/* iv) Change the freq to lowest possible on platform */
+	if (dev_priv->rps.lowest_delay) {
+		vlv_punit_write(dev_priv,
+					PUNIT_REG_GPU_FREQ_REQ,
+					dev_priv->rps.lowest_delay);
+		dev_priv->rps.requested_delay = dev_priv->rps.lowest_delay;
+	}
+
+
+	/* v) Clear Global Force Wake and transition render and
+	 * media wells to RC6
+	 */
+	vlv_rs_setstate(dev, true);
+
+	/* vi) Clear Allow Wake Bit so that none of the
+	 * force/demand wake requests
+	 */
+	reg = I915_READ(VLV_GTLC_WAKE_CTRL);
+	reg &= ~VLV_ALLOW_WAKE_REQ_BIT;
+	I915_WRITE(VLV_GTLC_WAKE_CTRL, reg);
+	if (wait_for_atomic((0 == (I915_READ(VLV_POWER_WELL_STATUS_REG) &
+		VLV_ALLOW_WAKE_ACK_BIT)), TIMEOUT)) {
+		dev_err(&dev->pdev->dev,
+				"ALLOW_WAKE_SET timed out, suspend might fail\n");
+	}
+
+
+	/* vii)  Power Gate Power Wells */
+	pmu_nc_set_power_state(VLV_DISPLAY_ISLAND,
+			OSPM_ISLAND_DOWN, VLV_IOSFSB_PWRGT_CNT_CTRL);
+
+	/* viii) Release graphics clocks */
+	reg = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
+	reg &= ~VLV_GFX_CLK_FORCE_ON_BIT;
+	I915_WRITE(VLV_GTLC_SURVIVABILITY_REG, reg);
+
+	return 0;
+}
+
+/* follow the sequence below for VLV resume*/
+/* ===========================================================================
+ * Dx -> D0 Power Transition
+ * +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * i)   Set Graphics Clocks to Forced ON
+ * ii)  Power ungate Power Wells
+ * iii) Restore Gunit Registers , so that Gunit goes to its original state
+ *          Note : No Force Wake should be required at this step
+ * iv)  Set Allow Wake Bit in GTLC Wake control, so that wake requests to media
+ *      and engines will be completed
+ * v)   Force Wake Render and Media Wells
+ * vi)  Restore required registers and do the D0ix work
+ * vii) Restore RC6 related registers
+ * viii)Clear Global Force Wake set in Step v and allow the wells to go down
+ * ix)  Release Graphics Clocks
+*/
+static int valleyview_thaw(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int error = 0;
+	u32 reg;
+
+	/* i) Set Graphics Clocks to Forced ON */
+	reg = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
+	reg |= VLV_GFX_CLK_FORCE_ON_BIT;
+	I915_WRITE(VLV_GTLC_SURVIVABILITY_REG, reg);
+	if (wait_for_atomic(((VLV_GFX_CLK_STATUS_BIT &
+		I915_READ(VLV_GTLC_SURVIVABILITY_REG)) != 0), TIMEOUT)) {
+		dev_err(&dev->pdev->dev,
+				"GFX_CLK_ON timed out, resume might fail\n");
+	}
+
+	/* ii)  Power ungate Power Wells */
+	pmu_nc_set_power_state(VLV_DISPLAY_ISLAND,
+			OSPM_ISLAND_UP, VLV_IOSFSB_PWRGT_CNT_CTRL);
+
+	/* iii) Restore Gunit Registers */
+	vlv_restore_gunit_regs(dev_priv);
+
+	/* iv)  Set Allow Wake Bit in GTLC Wake control */
+	reg = I915_READ(VLV_GTLC_WAKE_CTRL);
+	reg |= VLV_ALLOW_WAKE_REQ_BIT;
+	I915_WRITE(VLV_GTLC_WAKE_CTRL, reg);
+	if (wait_for_atomic((0 != (I915_READ(VLV_POWER_WELL_STATUS_REG) &
+		VLV_ALLOW_WAKE_ACK_BIT)), TIMEOUT)) {
+		dev_err(&dev->pdev->dev,
+				"ALLOW_WAKE_SET timed out, resume might fail\n");
+	}
+
+	/* v) Set Global Force Wake */
+	vlv_rs_sleepstateinit(dev, false);
+	vlv_force_wake_get(dev_priv, FORCEWAKE_ALL);
+
+	/* vi)  Restore required registers and do the D0ix work */
+	i915_restore_state(dev);
+	intel_opregion_setup(dev);
+
+	/* KMS EnterVT equivalent */
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		intel_init_pch_refclk(dev);
+
+		mutex_lock(&dev->struct_mutex);
+
+		error = i915_gem_init_hw(dev);
+		mutex_unlock(&dev->struct_mutex);
+
+		/* We need working interrupts for modeset enabling ... */
+		drm_irq_install(dev);
+
+		intel_modeset_init_hw(dev);
+
+		drm_modeset_lock_all(dev);
+		intel_modeset_setup_hw_state(dev, true);
+		drm_modeset_unlock_all(dev);
+
+		/*
+		 * ... but also need to make sure that hotplug processing
+		 * doesn't cause havoc. Like in the driver load code we don't
+		 * bother with the tiny race here where we might loose hotplug
+		 * notifications.
+		 * */
+		intel_hpd_init(dev);
+		dev_priv->enable_hotplug_processing = true;
+		/* Config may have changed between suspend and resume */
+		intel_resume_hotplug(dev);
+	}
+
+	intel_opregion_init(dev);
+
+	/*
+	 * The console lock can be pretty contented on resume due
+	 * to all the printk activity.  Try to keep it out of the hot
+	 * path of resume if possible.
+	 */
+	if (console_trylock()) {
+		intel_fbdev_set_suspend(dev, FBINFO_STATE_RUNNING);
+		console_unlock();
+	} else {
+		schedule_work(&dev_priv->console_resume_work);
+	}
+
+	mutex_lock(&dev_priv->modeset_restore_lock);
+	dev_priv->modeset_restore = MODESET_DONE;
+	mutex_unlock(&dev_priv->modeset_restore_lock);
+	/* vii) RC6 init and Restore Hysteresis registers */
+	vlv_restore_rc6_regs(dev);
+
+	/* viii) Clear Global Force Wake and transition render and
+	 * media wells to RC6
+	 */
+	vlv_force_wake_put(dev_priv, FORCEWAKE_ALL);
+
+	/* ix) Release graphics clocks */
+	reg = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
+	reg &= ~VLV_GFX_CLK_FORCE_ON_BIT;
+	I915_WRITE(VLV_GTLC_SURVIVABILITY_REG, reg);
+
+	return error;
+}
+
 void i915_pm_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	dev_priv->pm.drm_freeze = __i915_drm_freeze;
-	dev_priv->pm.drm_thaw = __i915_drm_thaw;
+	if (IS_VALLEYVIEW(dev)) {
+		dev_priv->pm.drm_freeze = valleyview_freeze;
+		dev_priv->pm.drm_thaw = valleyview_thaw;
+	} else {
+		dev_priv->pm.drm_freeze = __i915_drm_freeze;
+		dev_priv->pm.drm_thaw = __i915_drm_thaw;
+	}
 }
