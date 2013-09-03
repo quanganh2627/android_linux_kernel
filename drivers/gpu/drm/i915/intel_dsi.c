@@ -154,20 +154,26 @@ void intel_dsi_device_ready(struct intel_encoder *encoder)
 	if (intel_dsi->dev.dev_ops->panel_reset)
 		intel_dsi->dev.dev_ops->panel_reset(&intel_dsi->dev);
 
-	I915_WRITE_BITS(MIPI_PORT_CTRL(pipe), LP_OUTPUT_HOLD, LP_OUTPUT_HOLD);
-	usleep_range(1000, 1500);
-	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY |
-			ULPS_STATE_EXIT, DEVICE_READY | ULPS_STATE_MASK);
-	usleep_range(2000, 2500);
-	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY,
-			DEVICE_READY | ULPS_STATE_MASK);
-	usleep_range(2000, 2500);
-	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), 0x00,
-			DEVICE_READY | ULPS_STATE_MASK);
-	usleep_range(2000, 2500);
-	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY,
-			DEVICE_READY | ULPS_STATE_MASK);
-	usleep_range(2000, 2500);
+	if (is_vid_mode(intel_dsi)) {
+		I915_WRITE_BITS(MIPI_PORT_CTRL(pipe), LP_OUTPUT_HOLD,
+							LP_OUTPUT_HOLD);
+
+		usleep_range(1000, 1500);
+		I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY |
+				ULPS_STATE_EXIT, DEVICE_READY |
+				ULPS_STATE_MASK);
+
+		usleep_range(2000, 2500);
+		I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY,
+				DEVICE_READY | ULPS_STATE_MASK);
+		usleep_range(2000, 2500);
+		I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), 0x00,
+				DEVICE_READY | ULPS_STATE_MASK);
+		usleep_range(2000, 2500);
+		I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY,
+				DEVICE_READY | ULPS_STATE_MASK);
+		usleep_range(2000, 2500);
+	}
 
 	if (intel_dsi->dev.dev_ops->send_otp_cmds)
 		intel_dsi->dev.dev_ops->send_otp_cmds(&intel_dsi->dev);
@@ -202,30 +208,6 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 		msleep(20); /* XXX */
 		dpi_send_cmd(intel_dsi, TURN_ON);
 		msleep(100);
-#if 0
-		intr_stat = I915_READ(MIPI_INTR_STAT(pipe));
-		if (intr_stat & SPL_PKT_SENT_INTERRUPT)
-			I915_WRITE(MIPI_INTR_STAT(pipe),
-					SPL_PKT_SENT_INTERRUPT);
-
-		/* XXX: fix the bits with constants */
-		I915_WRITE(MIPI_DPI_CONTROL(pipe), ((0x1 << 1) &
-				~(0x1 << 0) & ~(0x1 << 6)));
-		I915_WRITE(MIPI_DPI_CONTROL(pipe), 0x2);
-
-		udelay(500);
-
-		/* Wait till SPL Packet Sent status bit is not set */
-		if (wait_for(I915_READ(MIPI_INTR_STAT(pipe)) &
-				SPL_PKT_SENT_INTERRUPT, 50))
-			DRM_ERROR("SPL Packet Sent failed\n");
-#endif
-		intr_stat = I915_READ(MIPI_INTR_STAT(pipe));
-#if 0
-		if (intr_stat & SPL_PKT_SENT_INTERRUPT)
-			I915_WRITE(MIPI_INTR_STAT(pipe),
-					SPL_PKT_SENT_INTERRUPT);
-#endif
 
 		temp = I915_READ(MIPI_PORT_CTRL(pipe));
 		temp = temp | intel_dsi->port_bits;
