@@ -141,19 +141,21 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 static int ov2722_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	static const unsigned int clock_khz = 19200;
-	int ret = 0;
-	if (!IS_BYT)
-		return intel_scu_ipc_osc_clk(OSC_CLK_CAM1,
-					     flag ? clock_khz : 0);
 #ifdef CONFIG_VLV2_PLAT_CLK
+	int ret = 0;
 	if (flag) {
 		ret = vlv2_plat_set_clock_freq(OSC_CAM1_CLK, CLK_19P2MHz);
 		if (ret)
 			return ret;
 	}
-	ret = vlv2_plat_configure_clock(OSC_CAM1_CLK, flag);
+	return vlv2_plat_configure_clock(OSC_CAM1_CLK, flag);
+#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
+	return intel_scu_ipc_osc_clk(OSC_CLK_CAM1,
+				     flag ? clock_khz : 0);
+#else
+	pr_err("ov2722 clock is not set.\n");
+	return 0;
 #endif
-	return ret;
 }
 
 /*
@@ -166,8 +168,6 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (flag) {
 		if (!camera_vprog1_on) {
-			if (!IS_BYT)
-				ret = intel_scu_ipc_msic_vprog1(1);
 #ifdef CONFIG_CRYSTAL_COVE
 			/*
 			 * This should call VRF APIs.
@@ -179,6 +179,10 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 			if (ret)
 				return ret;
 			ret = camera_set_pmic_power(CAMERA_1P8V, true);
+#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
+			ret = intel_scu_ipc_msic_vprog1(1);
+#else
+			pr_err("ov2722 power is not set.\n");
 #endif
 			if (!ret)
 				camera_vprog1_on = 1;
@@ -186,13 +190,15 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	} else {
 		if (camera_vprog1_on) {
-			if (!IS_BYT)
-				ret = intel_scu_ipc_msic_vprog1(0);
 #ifdef CONFIG_CRYSTAL_COVE
 			ret = camera_set_pmic_power(CAMERA_2P8V, false);
 			if (ret)
 				return ret;
 			ret = camera_set_pmic_power(CAMERA_1P8V, false);
+#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
+			ret = intel_scu_ipc_msic_vprog1(0);
+#else
+			pr_err("ov2722 power is not set.\n");
 #endif
 			if (!ret)
 				camera_vprog1_on = 0;

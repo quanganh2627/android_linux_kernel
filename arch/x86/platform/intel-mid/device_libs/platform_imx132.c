@@ -55,7 +55,12 @@ static int imx132_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 static int imx132_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	static const unsigned int clock_khz = 19200;
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
 	return intel_scu_ipc_osc_clk(OSC_CLK_CAM1, flag ? clock_khz : 0);
+#else
+	pr_err("imx132 clock is not set.\n");
+	return 0;
+#endif
 }
 
 static int imx132_power_ctrl(struct v4l2_subdev *sd, int flag)
@@ -64,14 +69,22 @@ static int imx132_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (flag) {
 		if (!camera_vprog1_on) {
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
 			ret = intel_scu_ipc_msic_vprog1(1);
+#else
+			pr_err("imx132 power is not set.\n");
+#endif
 			if (!ret)
 				camera_vprog1_on = 1;
 			return ret;
 		}
 	} else {
 		if (camera_vprog1_on) {
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
 			ret = intel_scu_ipc_msic_vprog1(0);
+#else
+			pr_err("imx132 power is not set.\n");
+#endif
 			if (!ret)
 				camera_vprog1_on = 0;
 			return ret;

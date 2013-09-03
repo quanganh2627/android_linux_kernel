@@ -106,12 +106,13 @@ static int imx134_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 			return ret;
 	}
 	return vlv2_plat_configure_clock(OSC_CAM0_CLK, flag);
-#endif
-	if (!IS_BYT)
-		return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
+#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
+	return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
 			flag ? clock_khz : 0);
-	else
-		return 0;
+#else
+	pr_err("imx134 clock is not set.\n");
+	return 0;
+#endif
 }
 
 static int imx134_power_ctrl(struct v4l2_subdev *sd, int flag)
@@ -120,13 +121,15 @@ static int imx134_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (flag) {
 		if (!camera_vprog1_on) {
-			if (!IS_BYT)
-				ret = intel_scu_ipc_msic_vprog1(1);
 #ifdef CONFIG_CRYSTAL_COVE
 			ret = intel_mid_pmic_writeb(VPROG_2P8V, VPROG_ENABLE);
 			if (ret)
 				return ret;
 			ret = intel_mid_pmic_writeb(VPROG_1P8V, VPROG_ENABLE);
+#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
+			ret = intel_scu_ipc_msic_vprog1(1);
+#else
+			pr_err("imx134 power is not set.\n");
 #endif
 			if (!ret) {
 				/* imx1x5 VDIG rise to XCLR release */
@@ -137,13 +140,15 @@ static int imx134_power_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	} else {
 		if (camera_vprog1_on) {
-			if (!IS_BYT)
-				ret = intel_scu_ipc_msic_vprog1(0);
 #ifdef CONFIG_CRYSTAL_COVE
 			ret = intel_mid_pmic_writeb(VPROG_2P8V, VPROG_DISABLE);
 			if (ret)
 				return ret;
 			ret = intel_mid_pmic_writeb(VPROG_1P8V, VPROG_DISABLE);
+#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
+			ret = intel_scu_ipc_msic_vprog1(0);
+#else
+			pr_err("imx134 power is not set.\n");
 #endif
 			if (!ret)
 				camera_vprog1_on = 0;

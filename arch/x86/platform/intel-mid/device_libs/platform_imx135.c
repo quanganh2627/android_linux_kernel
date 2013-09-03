@@ -79,7 +79,12 @@ static int imx135_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 static int imx135_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	static const unsigned int clock_khz = 19200;
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
 	return intel_scu_ipc_osc_clk(OSC_CLK_CAM0, flag ? clock_khz : 0);
+#else
+	pr_err("imx135 clock is not set.\n");
+	return 0;
+#endif
 }
 
 static int imx135_power_ctrl(struct v4l2_subdev *sd, int flag)
@@ -126,7 +131,11 @@ static int imx135_power_ctrl(struct v4l2_subdev *sd, int flag)
 		usleep_range(250, 300);
 #else
 		if(!camera_vprog1_on) {
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
 			ret = intel_scu_ipc_msic_vprog1(1);
+#else
+			pr_err("imx135 power is not set.\n");
+#endif
 			if (!ret) {
 				/* imx1x5 VDIG rise to XCLR release */
 				usleep_range(1000, 1200);
@@ -158,7 +167,11 @@ static int imx135_power_ctrl(struct v4l2_subdev *sd, int flag)
 #else
 		if (camera_vprog1_on) {
 			camera_vprog1_on = 0;
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
 			ret = intel_scu_ipc_msic_vprog1(0);
+#else
+			pr_err("imx135 power is not set.\n");
+#endif
 			if (!ret)
 				camera_vprog1_on = 0;
 			return ret;

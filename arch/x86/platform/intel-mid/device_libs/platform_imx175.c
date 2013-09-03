@@ -107,12 +107,13 @@ static int imx175_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 			return ret;
 	}
 	return vlv2_plat_configure_clock(OSC_CAM0_CLK, flag);
-#endif
-	if (!IS_BYT)
-		return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
+#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
+	return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
 			flag ? clock_khz : 0);
-	else
-		return 0;
+#else
+	pr_err("imx175 clock is not set\n");
+	return 0;
+#endif
 }
 
 static int imx175_power_ctrl(struct v4l2_subdev *sd, int flag)
@@ -121,8 +122,6 @@ static int imx175_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (flag) {
 		if (!camera_vprog1_on) {
-			if (!IS_BYT)
-				ret = intel_scu_ipc_msic_vprog1(1);
 #ifdef CONFIG_CRYSTAL_COVE
 			/*
 			 * This should call VRF APIs.
@@ -134,6 +133,10 @@ static int imx175_power_ctrl(struct v4l2_subdev *sd, int flag)
 			if (ret)
 				return ret;
 			ret = camera_set_pmic_power(CAMERA_1P8V, true);
+#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
+			ret = intel_scu_ipc_msic_vprog1(1);
+#else
+			pr_err("imx175 power is not set.\n");
 #endif
 			if (!ret) {
 				/* imx1x5 VDIG rise to XCLR release */
@@ -144,13 +147,15 @@ static int imx175_power_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	} else {
 		if (camera_vprog1_on) {
-			if (!IS_BYT)
-				ret = intel_scu_ipc_msic_vprog1(0);
 #ifdef CONFIG_CRYSTAL_COVE
 			ret = camera_set_pmic_power(CAMERA_2P8V, false);
 			if (ret)
 				return ret;
 			ret = camera_set_pmic_power(CAMERA_1P8V, false);
+#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
+			ret = intel_scu_ipc_msic_vprog1(0);
+#else
+			pr_err("imx175 power is not set.\n");
 #endif
 			if (!ret)
 				camera_vprog1_on = 0;
