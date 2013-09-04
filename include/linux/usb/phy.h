@@ -110,7 +110,7 @@ struct usb_phy {
 			enum usb_device_speed speed);
 
 	/* check charger status */
-	int	(*get_chr_status)(struct usb_phy *x, void *data);
+	int	(*get_chrg_status)(struct usb_phy *x, void *data);
 };
 
 /**
@@ -301,4 +301,14 @@ static inline const char *usb_phy_type_string(enum usb_phy_type type)
 		return "UNKNOWN PHY TYPE";
 	}
 }
+
+static inline int
+otg_get_chrg_status(struct usb_phy *x, void *data)
+{
+	if (x && x->get_chrg_status)
+		return x->get_chrg_status(x, data);
+
+	return -ENOTSUPP;
+}
+
 #endif /* __LINUX_USB_PHY_H */

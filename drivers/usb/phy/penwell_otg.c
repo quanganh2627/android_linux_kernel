@@ -622,7 +622,7 @@ static int penwell_otg_set_power(struct usb_phy *otg, unsigned mA)
 	return 0;
 }
 
-int penwell_otg_get_chr_status(struct usb_phy *x, void *data)
+int penwell_otg_get_chrg_status(struct usb_phy *x, void *data)
 {
 	unsigned long flags;
 	struct power_supply_cable_props *cap =
@@ -4847,7 +4847,7 @@ static int penwell_otg_probe(struct pci_dev *pdev,
 	pnw->iotg.otg.set_power = penwell_otg_set_power;
 	pnw->iotg.otg.otg->set_vbus =  penwell_otg_set_vbus;
 	pnw->iotg.otg.otg->start_srp = penwell_otg_start_srp;
-	pnw->iotg.otg.get_chr_status = penwell_otg_get_chr_status;
+	pnw->iotg.otg.get_chrg_status = penwell_otg_get_chrg_status;
 	pnw->iotg.set_adp_probe = NULL;
 	pnw->iotg.set_adp_sense = NULL;
 	pnw->iotg.start_hnp_poll = NULL;
