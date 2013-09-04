@@ -47,6 +47,7 @@
 #include <asm/byteorder.h>
 #include <asm/unaligned.h>
 #include <linux/list.h>
+#include <linux/pci.h>
 
 #include "cdc-acm.h"
 
@@ -932,6 +933,27 @@ static int acm_write_buffers_alloc(struct acm *acm)
 	return 0;
 }
 
+static inline int is_hsic_host(struct usb_device *udev)
+{
+	struct pci_dev   *pdev;
+
+	if (udev == NULL)
+		return -EINVAL;
+
+	pdev = to_pci_dev(udev->bus->controller);
+	if (pdev->device == 0x119D)
+		return 1;
+	else
+		return 0;
+}
+
+static int is_comneon_modem(struct usb_device *dev)
+{
+	return (le16_to_cpu(dev->descriptor.idVendor) == CTP_MODEM_VID &&
+			le16_to_cpu(dev->descriptor.idProduct) ==
+			CTP_MODEM_PID);
+}
+
 static int acm_probe(struct usb_interface *intf,
 		     const struct usb_device_id *id)
 {
@@ -1331,6 +1353,17 @@ skip_countries:
 		rv = PTR_ERR(tty_dev);
 		goto alloc_fail8;
 	}
+
+	/* Enable Runtime-PM for HSIC */
+	if (is_hsic_host(usb_dev)) {
+		dev_dbg(&intf->dev,
+			"Enable autosuspend\n");
+		usb_enable_autosuspend(usb_dev);
+	}
+
+	/* Enable Runtime-PM for CTP Modem */
+	if (is_comneon_modem(usb_dev))
+		usb_enable_autosuspend(usb_dev);
 
 	return 0;
 alloc_fail8:
