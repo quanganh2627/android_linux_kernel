@@ -98,8 +98,6 @@ struct dwc_device_par {
 #define GUSB2PHYACC0_VCTRL(v)  ((v & 0xFF) << 8)
 #define GUSB2PHYACC0_REGDATA(v)  (v & 0xFF)
 #define GUSB2PHYACC0_REGDATA_MASK  0xFF
-#define DATACON_TIMEOUT		750
-#define DATACON_INTERVAL	10
 
 #define GUSB3PIPECTL0                           0xc2c0
 #define GUSB3PIPECTL_SUS_EN                     0x20000
@@ -113,7 +111,6 @@ struct dwc_device_par {
 
 #define GUCTL 0xC12C
 #define GUCTL_CMDEVADDR		(1 << 15)
-#define APBFC_EXIOTG3_MISC0_REG			0xF90FF85C
 
 #define GCTL 0xc110
 #define GCTL_PRT_CAP_DIR 0x3000
@@ -371,7 +368,6 @@ struct dwc_otg2 {
 	/* Charger detection */
 	struct otg_bc_cap charging_cap;
 	struct notifier_block nb;
-	struct intel_dwc_otg_pdata *otg_data;
 
 	/* Interfaces between host/device driver */
 	int (*start_host) (struct usb_hcd *hcd);
@@ -379,6 +375,9 @@ struct dwc_otg2 {
 	int (*start_device)(struct usb_gadget *);
 	int (*stop_device)(struct usb_gadget *);
 	int (*vbus_draw) (struct usb_gadget *, unsigned ma);
+
+	/* Vendor driver private date */
+	void *otg_data;
 };
 
 #define sleep_main_thread_until_condition_timeout(otg, condition, msecs) ({ \

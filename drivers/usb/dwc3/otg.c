@@ -784,8 +784,24 @@ int otg_main_thread(void *data)
 
 static void start_main_thread(struct dwc_otg2 *otg)
 {
+	enum dwc3_otg_mode mode = dwc3_otg_pdata->mode;
+	bool children_ready = false;
+
 	mutex_lock(&lock);
-	if (!otg->main_thread && otg->otg.gadget && otg->otg.host) {
+
+	if ((mode == DWC3_DEVICE_ONLY) &&
+			otg->otg.gadget)
+		children_ready = true;
+
+	if ((mode == DWC3_HOST_ONLY) &&
+			otg->otg.host)
+		children_ready = true;
+
+	if ((mode == DWC3_DRD) &&
+			otg->otg.host && otg->otg.gadget)
+		children_ready = true;
+
+	if (!otg->main_thread && children_ready) {
 		otg_dbg(otg, "Starting OTG main thread\n");
 		otg->main_thread = kthread_create(otg_main_thread, otg, "otg");
 		wake_up_process(otg->main_thread);

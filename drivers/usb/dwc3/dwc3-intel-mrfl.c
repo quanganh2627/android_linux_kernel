@@ -27,11 +27,13 @@ static int dwc3_intel_notify_charger_type(struct dwc_otg2 *otg,
 
 static int is_hybridvp(struct dwc_otg2 *otg)
 {
-	return 0;
+	struct intel_dwc_otg_pdata *data;
 	if (!otg || !otg->otg_data)
 		return -EINVAL;
 
-	return otg->otg_data->is_hvp;
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+
+	return data->is_hvp;
 }
 
 static enum usb_charger_type aca_check(struct dwc_otg2 *otg)
