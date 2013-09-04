@@ -2279,6 +2279,7 @@ const char *i915_cache_level_str(int type);
 extern int i915_save_state(struct drm_device *dev);
 extern int i915_restore_state(struct drm_device *dev);
 extern void i915_pm_init(struct drm_device *dev);
+extern void i915_pm_deinit(struct drm_device *dev);
 
 /* i915_ums.c */
 void i915_save_display_reg(struct drm_device *dev);

@@ -1751,6 +1751,8 @@ int i915_driver_unload(struct drm_device *dev)
 	i915_gem_retire_requests(dev);
 	mutex_unlock(&dev->struct_mutex);
 
+	i915_pm_deinit(dev);
+
 	/* Cancel the retire work handler, which should be idle now. */
 	cancel_delayed_work_sync(&dev_priv->mm.retire_work);
 

@@ -644,7 +644,7 @@ static int i915_drm_thaw(struct drm_device *dev, bool restore_gtt)
 	return error;
 }
 
-int i915_resume(struct drm_device *dev)
+int i915_resume_common(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
@@ -676,6 +676,11 @@ int i915_resume(struct drm_device *dev)
 
 	drm_kms_helper_poll_enable(dev);
 	return 0;
+}
+
+int i915_resume(struct drm_device *dev)
+{
+	return i915_resume_common(dev);
 }
 
 /**
@@ -819,7 +824,7 @@ i915_pci_remove(struct pci_dev *pdev)
 	drm_put_dev(dev);
 }
 
-static int i915_pm_suspend(struct device *dev)
+static int i915_suspend_common(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
@@ -843,12 +848,54 @@ static int i915_pm_suspend(struct device *dev)
 	return 0;
 }
 
+static int i915_pm_suspend(struct device *dev)
+{
+	int ret;
+
+	DRM_DEBUG_PM("PM Suspend called\n");
+	ret = i915_suspend_common(dev);
+	DRM_DEBUG_PM("PM Suspend finished\n");
+
+	return ret;
+
+}
+
+static int i915_rpm_suspend(struct device *dev)
+{
+	int ret;
+
+	DRM_DEBUG_PM("Runtime PM Suspend called\n");
+	ret = i915_suspend_common(dev);
+	DRM_DEBUG_PM("Runtime PM Suspend finished\n");
+
+	return ret;
+
+}
+
 static int i915_pm_resume(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	u32 ret;
 
-	return i915_resume(drm_dev);
+	DRM_DEBUG_PM("PM Resume called\n");
+	ret = i915_resume_common(drm_dev);
+	DRM_DEBUG_PM("PM Resume finished\n");
+
+	return ret;
+}
+
+static int i915_rpm_resume(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	int ret;
+
+	DRM_DEBUG_PM("Runtime PM Resume called\n");
+	ret = i915_resume_common(drm_dev);
+	DRM_DEBUG_PM("Runtime PM Resume finished\n");
+
+	return ret;
 }
 
 static int i915_pm_freeze(struct device *dev)
@@ -887,6 +934,10 @@ static const struct dev_pm_ops i915_pm_ops = {
 	.thaw = i915_pm_thaw,
 	.poweroff = i915_pm_poweroff,
 	.restore = i915_pm_resume,
+#ifdef CONFIG_PM_RUNTIME
+	.runtime_suspend = i915_rpm_suspend,
+	.runtime_resume = i915_rpm_resume,
+#endif
 };
 
 static const struct vm_operations_struct i915_gem_vm_ops = {

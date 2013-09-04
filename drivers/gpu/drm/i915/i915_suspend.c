@@ -891,4 +891,10 @@ void i915_pm_init(struct drm_device *dev)
 		dev_priv->pm.drm_freeze = __i915_drm_freeze;
 		dev_priv->pm.drm_thaw = __i915_drm_thaw;
 	}
+	i915_rpm_init(dev);
+}
+
+void i915_pm_deinit(struct drm_device *dev)
+{
+	i915_rpm_deinit(dev);
 }
