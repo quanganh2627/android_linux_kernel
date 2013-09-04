@@ -2265,6 +2265,224 @@ static void intel_mid_scu_ipc_oemnib_debugfs_exit(void)
 	debugfs_remove_recursive(scu_ipc_oemnib_dir);
 }
 
+#define IPC_CMD_RXTX_BUF_SIZE 16
+#define IPC_CMD_INPUT_ENTRY_SIZE 16
+
+struct scu_ipc_cmd {
+	u32 sptr;
+	u32 dptr;
+	u8 cmd;
+	u8 cmdid;
+	u8 wbuf[IPC_CMD_RXTX_BUF_SIZE];
+	u32 rbuf[IPC_CMD_RXTX_BUF_SIZE / sizeof(u32)];
+	u8 inlen;
+	u8 outlen;
+};
+
+static struct scu_ipc_cmd ipc_cmd;
+
+static ssize_t intel_scu_ipc_trigger_write(struct file *file,
+					  const char __user *buf,
+					    size_t count, loff_t *ppos)
+{
+	int ret;
+
+	if (ipc_cmd.inlen > IPC_CMD_RXTX_BUF_SIZE ||
+	    ipc_cmd.outlen > IPC_CMD_RXTX_BUF_SIZE / sizeof(u32)) {
+		pr_err("Given RX/TX length is too big");
+		return -EFAULT;
+	}
+
+	ret = rpmsg_send_generic_raw_command(ipc_cmd.cmd, ipc_cmd.cmdid,
+					     ipc_cmd.wbuf, ipc_cmd.inlen,
+					     ipc_cmd.rbuf, ipc_cmd.outlen,
+					     ipc_cmd.dptr, ipc_cmd.sptr);
+	if (ret) {
+		pr_err("Failed to send ipc command");
+		return ret;
+	}
+
+	return count;
+}
+
+static int intel_scu_ipc_rwbuf_show(struct seq_file *m, void *unused)
+{
+	int i, tmp, ret = 0;
+	u8 *buf = (u8 *)m->private;
+
+	for (i = 0; i < IPC_CMD_RXTX_BUF_SIZE; i++) {
+		ret = seq_printf(m, "%02d:0x%02x\n", i, buf[i]);
+		if (ret) {
+			pr_err("Failed to perform sequential print");
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
+static ssize_t intel_scu_ipc_rbuf_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, intel_scu_ipc_rwbuf_show, &ipc_cmd.rbuf);
+}
+
+static ssize_t intel_scu_ipc_wbuf_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, intel_scu_ipc_rwbuf_show, &ipc_cmd.wbuf);
+}
+
+static ssize_t intel_scu_ipc_wbuf_write(struct file *file,
+					  const char __user *buf,
+					    size_t count, loff_t *ppos)
+{
+	int ret, idx, val;
+	char tmp[IPC_CMD_INPUT_ENTRY_SIZE] = {0}; /* "01:0xff" */
+
+	if (!count || count > sizeof(tmp))
+		return -EFAULT;
+
+	ret = copy_from_user(&tmp, buf, count);
+	if (ret) {
+		pr_err("Failed to copy from user space");
+		return ret;
+	}
+
+	tmp[2] = 0; /* "01\0" */
+	ret = kstrtoul(tmp, 10, &idx);
+	if (ret) {
+		pr_err("Given index is invalid");
+		return -EFAULT;
+	}
+	if (idx + 1 > IPC_CMD_RXTX_BUF_SIZE || idx < 0) {
+		pr_err("Given index is out of range. Should be 0...15");
+		return -EFAULT;
+	}
+
+	tmp[7] = 0; /* "01\00xff\0" */
+	ret = kstrtoul(&tmp[3], 16, &val);
+	if (ret)
+		return -EFAULT;
+	if (val > 0xff || val < 0x00)
+		return -EFAULT;
+
+	ipc_cmd.wbuf[idx] = val;
+
+	return count;
+}
+
+static const struct file_operations scu_ipc_trigger_fops = {
+	.owner = THIS_MODULE,
+	.write = intel_scu_ipc_trigger_write,
+};
+
+static const struct file_operations scu_ipc_rbuf_fops = {
+	.owner = THIS_MODULE,
+	.open = intel_scu_ipc_rbuf_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static const struct file_operations scu_ipc_wbuf_fops = {
+	.owner = THIS_MODULE,
+	.open = intel_scu_ipc_wbuf_open,
+	.read = seq_read,
+	.write = intel_scu_ipc_wbuf_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static struct dentry *scu_ipc_cmd_dir, *scu_ipc_cmd_file,
+	*scu_ipc_cmdid_file, *scu_ipc_trigger_file, *scu_ipc_rbuf_file,
+	*scu_ipc_wbuf_file, *scu_ipc_sptr_file, *scu_ipc_dptr_file,
+	*scu_ipc_inlen_file, *scu_ipc_outlen_file;
+
+static int intel_mid_scu_ipc_cmd_debugfs_init(void)
+{
+	scu_ipc_cmd_dir = debugfs_create_dir("intel_scu_ipc_cmd", NULL);
+	if (!scu_ipc_cmd_dir) {
+		pr_err("cannot create ipc cmd debugfs directory\n");
+		return -ENOMEM;
+	}
+
+	scu_ipc_cmd_file = debugfs_create_x8("ipc_cmd", S_IWUSR | S_IRUSR,
+						scu_ipc_cmd_dir, &ipc_cmd.cmd);
+	if (!scu_ipc_cmd_file) {
+		pr_err("cannot create ipc cmd debugfs file\n");
+		goto err;
+	}
+
+	scu_ipc_cmdid_file = debugfs_create_x8("ipc_cmdid", S_IWUSR | S_IRUSR,
+						scu_ipc_cmd_dir,
+					       &ipc_cmd.cmdid);
+	if (!scu_ipc_cmdid_file) {
+		pr_err("cannot create ipc cmdid debugfs file\n");
+		goto err;
+	}
+
+	scu_ipc_trigger_file = debugfs_create_file("ipc_trigger", S_IWUSR,
+						   scu_ipc_cmd_dir, NULL,
+						   &scu_ipc_trigger_fops);
+	if (!scu_ipc_trigger_file) {
+		pr_err("cannot create ipc trigger debugfs file\n");
+		goto err;
+	}
+
+	scu_ipc_wbuf_file = debugfs_create_file("ipc_wbuf", S_IWUSR | S_IRUSR,
+						scu_ipc_cmd_dir, NULL,
+						&scu_ipc_wbuf_fops);
+	if (!scu_ipc_wbuf_file) {
+		pr_err("cannot create ipc wbuf debugfs file\n");
+		goto err;
+	}
+
+	scu_ipc_rbuf_file = debugfs_create_file("ipc_rbuf", S_IWUSR | S_IRUSR,
+						scu_ipc_cmd_dir, NULL,
+						&scu_ipc_rbuf_fops);
+	if (!scu_ipc_rbuf_file) {
+		pr_err("cannot create ipc rbuf debugfs file\n");
+		goto err;
+	}
+
+	scu_ipc_sptr_file = debugfs_create_x32("ipc_sptr", S_IWUSR | S_IRUSR,
+					       scu_ipc_cmd_dir, &ipc_cmd.sptr);
+	if (!scu_ipc_sptr_file) {
+		pr_err("cannot create ipc sptr debugfs file\n");
+		goto err;
+	}
+
+	scu_ipc_dptr_file = debugfs_create_x32("ipc_dptr", S_IWUSR | S_IRUSR,
+					       scu_ipc_cmd_dir, &ipc_cmd.dptr);
+	if (!scu_ipc_dptr_file) {
+		pr_err("cannot create ipc dptr debugfs file\n");
+		goto err;
+	}
+
+	scu_ipc_inlen_file = debugfs_create_u8("ipc_inlen", S_IWUSR | S_IRUSR,
+					     scu_ipc_cmd_dir, &ipc_cmd.inlen);
+	if (!scu_ipc_inlen_file) {
+		pr_err("cannot create ipc inlen debugfs file\n");
+		goto err;
+	}
+
+	scu_ipc_outlen_file = debugfs_create_u8("ipc_outlen", S_IWUSR | S_IRUSR,
+					     scu_ipc_cmd_dir, &ipc_cmd.outlen);
+	if (!scu_ipc_outlen_file) {
+		pr_err("cannot create ipc outlen debugfs file\n");
+		goto err;
+	}
+
+	return 0;
+
+err:
+	debugfs_remove_recursive(scu_ipc_cmd_dir);
+	return -ENOMEM;
+}
+
+static void intel_mid_scu_ipc_cmd_debugfs_exit(void)
+{
+	debugfs_remove_recursive(scu_ipc_cmd_dir);
+}
 #endif /* CONFIG_DEBUG_FS */
 
 static const struct file_operations scu_ipc_fops = {
@@ -2472,6 +2690,12 @@ static int oshob_init(void)
 			pr_info("OEMNIB interface registered to debugfs\n");
 		}
 	}
+	ret = intel_mid_scu_ipc_cmd_debugfs_init();
+	if (ret) {
+		pr_err("Cannot register ipc cmd interface to debugfs");
+		goto exit;
+	}
+
 #endif /* CONFIG_DEBUG_FS */
 
 exit:
@@ -2534,6 +2758,7 @@ static void ipcutil_rpmsg_remove(struct rpmsg_channel *rpdev)
 		/* unregister from debugfs.                     */
 		intel_mid_scu_ipc_oemnib_debugfs_exit();
 	}
+	intel_mid_scu_ipc_cmd_debugfs_exit();
 #endif /* CONFIG_DEBUG_FS */
 
 	kfree(oshob_info);
