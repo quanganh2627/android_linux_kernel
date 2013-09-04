@@ -83,12 +83,6 @@ static void intel_mid_reboot(void)
 	else
 		rpmsg_send_generic_simple_command(IPCMSG_COLD_RESET, 0);
 }
-static struct sfi_table_header *oem0_table;
-
-void *get_oem0_table(void)
-{
-	return oem0_table;
-}
 
 static unsigned long __init intel_mid_calibrate_tsc(void)
 {

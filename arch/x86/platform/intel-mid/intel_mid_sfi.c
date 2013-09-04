@@ -581,11 +581,28 @@ static int __init sfi_parse_oemb(struct sfi_table_header *table)
 	return 0;
 }
 
+/*
+ * Parsing OEM0 table.
+ */
+static struct sfi_table_header *oem0_table;
+
+static int __init sfi_parse_oem0(struct sfi_table_header *table)
+{
+	oem0_table = table;
+	return 0;
+}
+
+void *get_oem0_table(void)
+{
+	return oem0_table;
+}
+
 static int __init intel_mid_platform_init(void)
 {
 	/* Get SFI OEMB Layout */
 	sfi_table_parse(SFI_SIG_OEMB, NULL, NULL, sfi_parse_oemb);
 	sfi_table_parse(SFI_SIG_GPIO, NULL, NULL, sfi_parse_gpio);
+	sfi_table_parse(SFI_SIG_OEM0, NULL, NULL, sfi_parse_oem0);
 	sfi_table_parse(SFI_SIG_DEVS, NULL, NULL, sfi_parse_devs);
 
 	return 0;
