@@ -458,11 +458,8 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	pdata->codec_gpio = acpi_get_gpio("\\_SB.GPO2", 4); /* GPIO_SUS4 */
-	pdata->hsdet_gpio = acpi_get_gpio("\\_SB.GPO2", 28); /* GPIO_SUS28 */
-	pdata->dock_hs_gpio = acpi_get_gpio("\\_SB.GPO2", 27); /* GPIO_SUS27 */
-	pr_info("%s: GPIOs - codec %d, hsdet %d, dock_hs %d", __func__,
-		pdata->codec_gpio, pdata->hsdet_gpio, pdata->dock_hs_gpio);
+	pdata->codec_gpio = acpi_get_gpio_by_index(&pdev->dev, 0, NULL);  /* GPIO_SUS4 */
+	pr_debug("%s: GPIOs - codec %d", __func__, pdata->codec_gpio);
 
 	hs_gpio.gpio = pdata->codec_gpio;
 	/* register the soc card */
