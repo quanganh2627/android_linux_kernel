@@ -8533,6 +8533,7 @@ static int intel_gen7_queue_flip(struct drm_device *dev,
 
 	intel_mark_page_flip_active(intel_crtc);
 	intel_ring_advance(ring);
+	i915_add_request_wo_flush(ring);
 	return 0;
 
 err_unpin:

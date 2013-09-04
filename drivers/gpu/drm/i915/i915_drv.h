@@ -1976,7 +1976,7 @@ static inline void i915_gem_object_unpin_pages(struct drm_i915_gem_object *obj)
 
 int __must_check i915_mutex_lock_interruptible(struct drm_device *dev);
 int i915_gem_object_sync(struct drm_i915_gem_object *obj,
-			 struct intel_ring_buffer *to);
+			 struct intel_ring_buffer *to, bool add_request);
 void i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 				    struct intel_ring_buffer *ring);
 
@@ -2059,9 +2059,12 @@ int __must_check i915_gem_idle(struct drm_device *dev);
 int __i915_add_request(struct intel_ring_buffer *ring,
 		       struct drm_file *file,
 		       struct drm_i915_gem_object *batch_obj,
-		       u32 *seqno);
+		       u32 *seqno,
+			   bool flush_caches);
 #define i915_add_request(ring, seqno) \
-	__i915_add_request(ring, NULL, NULL, seqno)
+	__i915_add_request(ring, NULL, NULL, seqno, true)
+#define i915_add_request_wo_flush(ring) \
+	__i915_add_request(ring, NULL, NULL, NULL, false)
 int __must_check i915_wait_seqno(struct intel_ring_buffer *ring,
 				 uint32_t seqno);
 int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);

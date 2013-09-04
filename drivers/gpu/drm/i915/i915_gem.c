@@ -2066,7 +2066,8 @@ i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
 int __i915_add_request(struct intel_ring_buffer *ring,
 		       struct drm_file *file,
 		       struct drm_i915_gem_object *obj,
-		       u32 *out_seqno)
+		       u32 *out_seqno,
+			   bool flush_caches)
 {
 	drm_i915_private_t *dev_priv = ring->dev->dev_private;
 	struct drm_i915_gem_request *request;
@@ -2082,9 +2083,11 @@ int __i915_add_request(struct intel_ring_buffer *ring,
 	 * is that the flush _must_ happen before the next request, no matter
 	 * what.
 	 */
-	ret = intel_ring_flush_all_caches(ring);
-	if (ret)
-		return ret;
+	if (flush_caches) {
+		ret = intel_ring_flush_all_caches(ring);
+		if (ret)
+			return ret;
+	}
 
 	request = kmalloc(sizeof(*request), GFP_KERNEL);
 	if (request == NULL)
@@ -2103,6 +2106,9 @@ int __i915_add_request(struct intel_ring_buffer *ring,
 		kfree(request);
 		return ret;
 	}
+
+	/* make sure that we keep the GPU on */
+	i915_rpm_get_ring(dev_priv->dev);
 
 	request->seqno = intel_ring_get_seqno(ring);
 	request->ring = ring;
@@ -2460,8 +2466,10 @@ i915_gem_retire_work_handler(struct work_struct *work)
 	if (!dev_priv->ums.mm_suspended && !idle)
 		queue_delayed_work(dev_priv->wq, &dev_priv->mm.retire_work,
 				   round_jiffies_up_relative(HZ));
-	if (idle)
+	if (idle) {
 		intel_mark_idle(dev);
+		i915_rpm_put_ring(dev);
+	}
 
 	mutex_unlock(&dev->struct_mutex);
 }
@@ -2577,6 +2585,8 @@ out:
  *
  * @obj: object which may be in use on another ring.
  * @to: ring we wish to use the object on. May be NULL.
+ * @add_request: do we need to add a request to track operations
+ *    submitted on ring with sync_to function
  *
  * This code is meant to abstract object synchronization with the GPU.
  * Calling with NULL implies synchronizing the object with the CPU
@@ -2586,7 +2596,7 @@ out:
  */
 int
 i915_gem_object_sync(struct drm_i915_gem_object *obj,
-		     struct intel_ring_buffer *to)
+		     struct intel_ring_buffer *to, bool add_request)
 {
 	struct intel_ring_buffer *from = obj->ring;
 	u32 seqno;
@@ -2609,12 +2619,15 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 		return ret;
 
 	ret = to->sync_to(to, from, seqno);
-	if (!ret)
+	if (!ret) {
 		/* We use last_read_seqno because sync_to()
 		 * might have just caused seqno wrap under
 		 * the radar.
 		 */
 		from->sync_seqno[idx] = obj->last_read_seqno;
+		if (add_request)
+			i915_add_request_wo_flush(to);
+	}
 
 	return ret;
 }
@@ -3618,7 +3631,7 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	int ret;
 
 	if (pipelined != obj->ring) {
-		ret = i915_gem_object_sync(obj, pipelined);
+		ret = i915_gem_object_sync(obj, pipelined, true);
 		if (ret)
 			return ret;
 	}

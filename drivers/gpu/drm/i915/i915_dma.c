@@ -444,6 +444,7 @@ static int i915_dispatch_cmdbuffer(struct drm_device * dev,
 				   struct drm_clip_rect *cliprects,
 				   void *cmdbuf)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	int nbox = cmd->num_cliprects;
 	int i = 0, count, ret;
 
@@ -470,6 +471,7 @@ static int i915_dispatch_cmdbuffer(struct drm_device * dev,
 	}
 
 	i915_emit_breadcrumb(dev);
+	i915_add_request_wo_flush(LP_RING(dev_priv));
 	return 0;
 }
 
@@ -532,6 +534,7 @@ static int i915_dispatch_batchbuffer(struct drm_device * dev,
 	}
 
 	i915_emit_breadcrumb(dev);
+	i915_add_request_wo_flush(LP_RING(dev_priv));
 	return 0;
 }
 
@@ -585,6 +588,7 @@ static int i915_dispatch_flip(struct drm_device * dev)
 		ADVANCE_LP_RING();
 	}
 
+	i915_add_request_wo_flush(LP_RING(dev_priv));
 	master_priv->sarea_priv->pf_current_page = dev_priv->dri1.current_page;
 	return 0;
 }
@@ -758,6 +762,7 @@ static int i915_emit_irq(struct drm_device * dev)
 		OUT_RING(dev_priv->dri1.counter);
 		OUT_RING(MI_USER_INTERRUPT);
 		ADVANCE_LP_RING();
+		i915_add_request_wo_flush(LP_RING(dev_priv));
 	}
 
 	return dev_priv->dri1.counter;
