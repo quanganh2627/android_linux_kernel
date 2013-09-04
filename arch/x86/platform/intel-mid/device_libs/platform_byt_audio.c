@@ -21,10 +21,6 @@
 
 #define SST_IRQ	29
 
-static struct byt_audio_platform_data byt_audio_pdata = {
-	.spid = &spid,
-};
-
 static inline int byt_program_ioapic(int irq, int trigger, int polarity)
 {
 	struct io_apic_irq_attr irq_attr;
@@ -69,12 +65,6 @@ static int __init byt_audio_platform_init(void)
 	ret = platform_device_add(pdev);
 	if (ret) {
 		pr_err("failed to add byt_rt5642 platform device\n");
-		platform_device_put(pdev);
-		return 0;
-	}
-	if (platform_device_add_data(pdev, &byt_audio_pdata,
-				     sizeof(byt_audio_pdata))) {
-		pr_err("failed to add byt_rt5642 platform data\n");
 		platform_device_put(pdev);
 		return 0;
 	}

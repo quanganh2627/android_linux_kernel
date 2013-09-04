@@ -12,15 +12,6 @@
 #ifndef _PLATFORM_BYT_AUDIO_H_
 #define _PLATFORM_BYT_AUDIO_H_
 
-#include <linux/sfi.h>
-
-struct byt_audio_platform_data {
-	const struct soft_platform_id *spid;
-	int codec_gpio;
-	int hsdet_gpio;
-	int dock_hs_gpio;
-};
-
 enum {
 	BYT_AUD_AIF1 = 0,
 	BYT_AUD_AIF2,

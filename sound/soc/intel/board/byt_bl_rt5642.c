@@ -448,7 +448,7 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 {
 	int ret_val = 0;
 	struct byt_mc_private *drv;
-	struct byt_audio_platform_data *pdata = pdev->dev.platform_data;
+	int codec_gpio;
 
 	pr_debug("Entry %s\n", __func__);
 
@@ -458,10 +458,10 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	pdata->codec_gpio = acpi_get_gpio_by_index(&pdev->dev, 0, NULL);  /* GPIO_SUS4 */
-	pr_debug("%s: GPIOs - codec %d", __func__, pdata->codec_gpio);
+	codec_gpio = acpi_get_gpio_by_index(&pdev->dev, 0, NULL);  /* GPIO_SUS4 */
+	pr_debug("%s: GPIOs - codec %d", __func__, codec_gpio);
+	hs_gpio.gpio = codec_gpio;
 
-	hs_gpio.gpio = pdata->codec_gpio;
 	/* register the soc card */
 	snd_soc_card_byt.dev = &pdev->dev;
 	snd_soc_card_set_drvdata(&snd_soc_card_byt, drv);
