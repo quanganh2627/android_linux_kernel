@@ -59,6 +59,7 @@ struct dwc3_dev_data {
 	void __iomem		*flis_reg;
 	u32			grxthrcfg;
 	struct wake_lock	wake_lock;
+	struct mutex		mutex;
 };
 
 static struct dwc3_dev_data	*_dev_data;
@@ -137,6 +138,8 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 	wake_lock(&_dev_data->wake_lock);
 	pm_runtime_get_sync(dwc->dev);
 
+	mutex_lock(&_dev_data->mutex);
+
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
 	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
 			IRQF_SHARED, "dwc3", dwc);
@@ -149,7 +152,10 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	if (dwc->gadget_driver && dwc->soft_connected) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		dwc3_core_init(dwc);
+		spin_lock_irqsave(&dwc->lock, flags);
+
 		dwc3_do_extra_change(dwc);
 		dwc3_event_buffers_setup(dwc);
 		ret = dwc3_init_for_enumeration(dwc);
@@ -162,12 +168,16 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 	dwc->pm_state = PM_ACTIVE;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
+	mutex_unlock(&_dev_data->mutex);
+
 	return 0;
 
 err0:
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	free_irq(irq, dwc);
+
+	mutex_unlock(&_dev_data->mutex);
 
 	return ret;
 }
@@ -179,6 +189,7 @@ int dwc3_stop_peripheral(struct usb_gadget *g)
 	u8			epnum;
 	int			irq;
 
+	mutex_lock(&_dev_data->mutex);
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	dwc3_stop_active_transfers(dwc);
@@ -221,6 +232,8 @@ int dwc3_stop_peripheral(struct usb_gadget *g)
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
 	free_irq(irq, dwc);
 
+	mutex_unlock(&_dev_data->mutex);
+
 	pm_runtime_put(dwc->dev);
 	wake_unlock(&_dev_data->wake_lock);
 
@@ -255,15 +268,17 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	is_on = !!is_on;
 
+	mutex_lock(&_dev_data->mutex);
+
 	if (dwc->soft_connected == is_on)
-		return 0;
+		goto done;
 
 	dwc->soft_connected = is_on;
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (dwc->pm_state == PM_DISCONNECTED) {
 		spin_unlock_irqrestore(&dwc->lock, flags);
-		return 0;
+		goto done;
 	}
 
 	if (is_on) {
@@ -271,7 +286,10 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 		 * should follow steps described section 8.1.1 power on
 		 * or soft reset.
 		 */
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		dwc3_core_init(dwc);
+		spin_lock_irqsave(&dwc->lock, flags);
+
 		dwc3_do_extra_change(dwc);
 		dwc3_event_buffers_setup(dwc);
 		dwc3_init_for_enumeration(dwc);
@@ -293,8 +311,14 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
+	mutex_unlock(&_dev_data->mutex);
 
 	return ret;
+
+done:
+	mutex_unlock(&_dev_data->mutex);
+
+	return 0;
 }
 
 static const struct usb_gadget_ops dwc3_device_gadget_ops = {
@@ -379,6 +403,7 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 
+	mutex_init(&_dev_data->mutex);
 	spin_lock_init(&dwc->lock);
 	platform_set_drvdata(pdev, dwc);
 
