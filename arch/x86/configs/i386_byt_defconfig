@@ -2879,6 +2879,7 @@ CONFIG_USB_DWC3_GADGET=y
 #
 # Platform Glue Driver Support
 #
+# CONFIG_USB_DWC3_OMAP is not set
 CONFIG_USB_DWC3_EXYNOS=y
 # CONFIG_USB_DWC3_PCI is not set
 CONFIG_USB_DWC3_OTG=y
@@ -3324,6 +3325,7 @@ CONFIG_EEEPC_LAPTOP=y
 # CONFIG_APPLE_GMUX is not set
 # CONFIG_PVPANIC is not set
 CONFIG_INTEL_SOC_PMC=y
+CONFIG_INTEL_CRYSTALCOVE_PWRSRC=y
 
 #
 # Hardware Spinlock drivers
@@ -3346,7 +3348,14 @@ CONFIG_IOMMU_SUPPORT=y
 # Rpmsg drivers
 #
 # CONFIG_PM_DEVFREQ is not set
-# CONFIG_EXTCON is not set
+CONFIG_EXTCON=y
+
+#
+# Extcon Device Drivers
+#
+# CONFIG_EXTCON_GPIO is not set
+# CONFIG_EXTCON_ADC_JACK is not set
+# CONFIG_EXTCON_FSA9285 is not set
 # CONFIG_MEMORY is not set
 CONFIG_IIO=y
 # CONFIG_IIO_BUFFER is not set
