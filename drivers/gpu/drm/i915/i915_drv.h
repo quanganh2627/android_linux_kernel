@@ -2434,6 +2434,34 @@ int intel_flisdsi_write32_bits(struct drm_i915_private *dev_priv, u32 reg,
 int vlv_gpu_freq(int ddr_freq, int val);
 int vlv_freq_opcode(int ddr_freq, int val);
 
+/* runtime power management related */
+int i915_rpm_init(struct drm_device *dev);
+int i915_rpm_deinit(struct drm_device *dev);
+
+int i915_rpm_get_ring(struct drm_device *dev);
+int i915_rpm_put_ring(struct drm_device *dev);
+
+int i915_rpm_get_callback(struct drm_device *dev);
+int i915_rpm_put_callback(struct drm_device *dev);
+
+int i915_rpm_get_ioctl(struct drm_device *dev);
+int i915_rpm_put_ioctl(struct drm_device *dev);
+
+int i915_rpm_get_disp(struct drm_device *dev);
+int i915_rpm_put_disp(struct drm_device *dev);
+
+#ifdef CONFIG_DRM_VXD_BYT
+int i915_rpm_get_vxd(struct drm_device *dev);
+int i915_rpm_put_vxd(struct drm_device *dev);
+#endif
+
+bool i915_rpm_access_check(struct drm_device *dev);
+bool i915_is_device_active(struct drm_device *dev);
+bool i915_is_device_resuming(struct drm_device *dev);
+bool i915_is_device_suspended(struct drm_device *dev);
+bool i915_is_device_suspending(struct drm_device *dev);
+
+
 #define __i915_read(x) \
 	u##x i915_read##x(struct drm_i915_private *dev_priv, u32 reg, bool trace);
 __i915_read(8)
