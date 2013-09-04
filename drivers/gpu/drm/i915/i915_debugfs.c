@@ -37,17 +37,12 @@
 #include "intel_ringbuffer.h"
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
+#include "i915_debugfs.h"
 
 #define DRM_I915_RING_DEBUG 1
 
 
 #if defined(CONFIG_DEBUG_FS)
-
-enum {
-	ACTIVE_LIST,
-	INACTIVE_LIST,
-	PINNED_LIST,
-};
 
 static const char *yesno(int v)
 {
@@ -2076,6 +2071,112 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_min_freq_fops,
 			i915_min_freq_get, i915_min_freq_set,
 			"%llu\n");
 
+static ssize_t
+i915_mmio_read_api(struct file *filp,
+		   char __user *ubuf,
+		   size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char buf[200], offset[20], operation[10], format[20], val[20];
+	int len = 0, ret;
+	int no_of_tokens;
+	long unsigned int mmio_offset, mmio_to_write;
+
+	if (INTEL_INFO(dev)->gen < 6)
+		return -ENODEV;
+
+	if (i915_debugfs_vars.mmio.mmio_input == 0)
+		return len;
+
+	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+				sizeof(operation), sizeof(offset), sizeof(val));
+
+	no_of_tokens = sscanf(i915_debugfs_vars.mmio.mmio_vars,
+					format, operation, offset, val);
+
+	if (no_of_tokens < 3)
+		return len;
+
+	len = sizeof(i915_debugfs_vars.mmio.mmio_vars);
+
+	if (strcmp(operation, READ_TOKEN) == 0) {
+
+		ret = kstrtoul(offset, 16, &mmio_offset);
+		if (ret)
+			return -EINVAL;
+
+		len = snprintf(buf, sizeof(buf),
+				"0x%x: 0x%x\n",
+				(unsigned int) mmio_offset,
+				(unsigned int) I915_READ(mmio_offset));
+	} else if (strcmp(operation, WRITE_TOKEN) == 0) {
+
+		ret = kstrtoul(offset, 16, &mmio_offset);
+		if (ret)
+			return -EINVAL;
+
+		ret = kstrtoul(val, 16, &mmio_to_write);
+		if (ret)
+			return -EINVAL;
+
+		I915_WRITE(mmio_offset, mmio_to_write);
+		len = snprintf(buf, sizeof(buf),
+				"0x%x: 0x%x\n",
+				(unsigned int) mmio_offset,
+				(unsigned int) I915_READ(mmio_offset));
+	} else
+		len = snprintf(buf, sizeof(buf), "Operation Not Supported\n");
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	i915_debugfs_vars.mmio.mmio_input = 0;
+
+	simple_read_from_buffer(ubuf, max, ppos, buf, len);
+
+	return len;
+}
+
+static ssize_t
+i915_mmio_write_api(struct file *filp,
+		  const char __user *ubuf,
+		  size_t cnt,
+		  loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+
+	if (INTEL_INFO(dev)->gen < 6)
+		return -ENODEV;
+
+	/* reset the string */
+	memset(i915_debugfs_vars.mmio.mmio_vars, 0, MAX_BUFFER_STR_LEN);
+
+	if (cnt > 0) {
+		if (cnt > sizeof(i915_debugfs_vars.mmio.mmio_vars) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(i915_debugfs_vars.mmio.mmio_vars, ubuf, cnt))
+			return -EFAULT;
+
+		i915_debugfs_vars.mmio.mmio_vars[cnt] = 0;
+
+		/* Enable Read */
+		i915_debugfs_vars.mmio.mmio_input = 1;
+	}
+
+	return cnt;
+}
+
+static const struct file_operations i915_mmio_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_mmio_read_api,
+	.write = i915_mmio_write_api,
+	.llseek = default_llseek,
+};
+
 static int
 i915_cache_sharing_get(void *data, u64 *val)
 {
@@ -2272,6 +2373,7 @@ static struct i915_debugfs_files {
 	{"i915_gem_drop_caches", &i915_drop_caches_fops},
 	{"i915_error_state", &i915_error_state_fops},
 	{"i915_next_seqno", &i915_next_seqno_fops},
+	{"i915_mmio_api", &i915_mmio_fops},
 };
 
 int i915_debugfs_init(struct drm_minor *minor)
