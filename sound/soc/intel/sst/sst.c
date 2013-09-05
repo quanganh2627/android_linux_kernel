@@ -185,18 +185,9 @@ static irqreturn_t intel_sst_irq_thread_mfld(int irq, void *context)
 {
 	struct intel_sst_drv *drv = (struct intel_sst_drv *) context;
 	union ipc_header header;
-	struct stream_info *stream;
-	unsigned int size = 0, str_id;
+	unsigned int size = 0;
 
 	header.full = sst_shim_read(drv->shim, drv->ipc_reg.ipcd);
-	if (header.part.msg_id == IPC_SST_PERIOD_ELAPSED) {
-		sst_drv_ctx->ops->clear_interrupt();
-		str_id = header.part.str_id;
-		stream = &sst_drv_ctx->streams[str_id];
-		if (stream->period_elapsed)
-			stream->period_elapsed(stream->pcm_substream);
-		return IRQ_HANDLED;
-	}
 	if (header.part.large)
 		size = header.part.data;
 	if (header.part.msg_id & REPLY_MSG) {
@@ -229,6 +220,8 @@ static irqreturn_t intel_sst_intr_mfld(int irq, void *context)
 	union interrupt_reg isr;
 	union ipc_header header;
 	irqreturn_t retval = IRQ_HANDLED;
+	struct stream_info *stream;
+	unsigned int str_id;
 
 	struct intel_sst_drv *drv = (struct intel_sst_drv *) context;
 
@@ -256,6 +249,15 @@ static irqreturn_t intel_sst_intr_mfld(int irq, void *context)
 	if (isr.part.busy_interrupt) {
 		/* Mask all interrupts till we process it in bottom half */
 		set_imr_interrupts(drv, false);
+		header.full = sst_shim_read(drv->shim, drv->ipc_reg.ipcd);
+		if (header.part.msg_id == IPC_SST_PERIOD_ELAPSED) {
+			drv->ops->clear_interrupt();
+			str_id = header.part.str_id;
+			stream = &drv->streams[str_id];
+			if (stream->period_elapsed)
+				stream->period_elapsed(stream->pcm_substream);
+			return IRQ_HANDLED;
+		}
 		retval = IRQ_WAKE_THREAD;
 	}
 	return retval;
