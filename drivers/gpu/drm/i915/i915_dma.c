@@ -1529,6 +1529,13 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 		goto put_bridge;
 	}
 
+	/* RS state has to be initialized to pull render/media power wells out
+	* of sleep. This is required before initializing gem, which touches
+	* render/media registers
+	*/
+	if (IS_VALLEYVIEW(dev))
+		vlv_rs_sleepstateinit(dev, true);
+
 	intel_uncore_early_sanitize(dev);
 
 	if (IS_HASWELL(dev) && (I915_READ(HSW_EDRAM_PRESENT) == 1)) {

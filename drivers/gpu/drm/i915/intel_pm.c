@@ -5776,6 +5776,93 @@ void intel_pm_init(struct drm_device *dev)
 			  intel_gen6_powersave_work);
 }
 
+void vlv_rs_sleepstateinit(struct drm_device *dev,
+					bool   disable_rs)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 rs_powerwell_status = 0;
+	u32 regdata = 0;
+	u32 isRenderWellFWreq = 0, isMediaWellFWreq = 0;
+
+	rs_powerwell_status = I915_READ(VLV_POWER_WELL_STATUS_REG);
+
+	/*
+	* Set allow wake bit if it is cleared. Can happen with
+	* S0ix scenarios
+	*/
+	if ((rs_powerwell_status & VLV_ALLOW_WAKE_ACK_BIT) == 0) {
+		regdata = I915_READ(VLV_GTLC_WAKE_CONTROL_REG);
+		regdata |= VLV_ALLOW_WAKE_REQ_BIT;
+
+		I915_WRITE(VLV_GTLC_WAKE_CONTROL_REG, regdata);
+
+		if (wait_for_atomic_us((I915_READ_NOTRACE(
+			VLV_POWER_WELL_STATUS_REG) & VLV_ALLOW_WAKE_ACK_BIT),
+									500)) {
+			DRM_ERROR("Not able to set ALLOW WAKE Bit\n");
+			/* Dont enable RC6 */
+			return;
+		}
+
+	}
+
+	/* Check Whether FW ack is required for render well */
+	isRenderWellFWreq = (I915_READ(VLV_POWER_WELL_STATUS_REG) &
+	VLV_RENDER_WELL_STATUS_MASK);
+
+	/* Wake up the render well */
+	I915_WRITE(VLV_RENDER_FORCE_WAKE_REG,
+				_MASKED_BIT_ENABLE(GLOBAL_FORCE_WAKE_BIT));
+
+	/* if ack is requred, then wait for it */
+	if (!isRenderWellFWreq) {
+		while ((I915_READ(VLV_RENDER_FORCE_WAKE_STATUS_REG) &
+						GLOBAL_FORCE_WAKE_BIT) == 0)
+			;
+
+	}
+
+	isMediaWellFWreq = (I915_READ(VLV_POWER_WELL_STATUS_REG) &
+						VLV_MEDIA_WELL_STATUS_MASK);
+
+	/* Wake up the media well */
+	I915_WRITE(VLV_MEDIA_FORCE_WAKE_REG,
+				_MASKED_BIT_ENABLE(GLOBAL_FORCE_WAKE_BIT));
+
+	/* if ack is requred, then wait for it */
+	if (!isMediaWellFWreq) {
+		while ((I915_READ(VLV_MEDIA_FORCE_WAKE_STATUS_REG)
+					& GLOBAL_FORCE_WAKE_BIT) == 0)
+			;
+	}
+
+	regdata = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
+
+	/*
+	 * Render and Media engines are awake at this point. Update the
+	 * FW counters to reflect the same
+	 */
+	dev_priv->uncore.fw_rendercount = dev_priv->uncore.fw_mediacount = 1;
+
+	/*
+	 * Disable HW RC if requested. Will be requested during boot as
+	 * it will be enabled at a later point
+	 */
+	if (disable_rs) {
+
+		regdata = I915_READ(VLV_RENDER_C_STATE_CONTROL_1_REG);
+		regdata &= ~(VLV_EVAL_METHOD_ENABLE_BIT |
+					VLV_EVAL_METHOD_ENABLE_BIT |
+					VLV_TIMEOUT_METHOD_ENABLE_BIT);
+
+		I915_WRITE(VLV_RENDER_C_STATE_CONTROL_1_REG, regdata);
+
+	}
+
+	return;
+}
+
+
 bool vlv_rs_initialize(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -5872,6 +5959,10 @@ void vlv_rs_setstate(struct drm_device *dev, bool enable)
 	} else {
 		/* Forcewake all engines first */
 		vlv_force_wake_get(dev_priv, FORCEWAKE_ALL);
+
+		dev_priv->uncore.fw_rendercount = 1;
+		dev_priv->uncore.fw_mediacount = 1;
+
 
 		regdata &= ~(1 << 28);
 		regdata &= ~(1 << 24);
