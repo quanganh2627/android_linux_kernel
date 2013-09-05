@@ -2634,6 +2634,12 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc, u32 buf)
 	evt->count = count;
 	evt->flags |= DWC3_EVENT_PENDING;
 
+	/* WORKAROUND: Add 4 us delay workaround to A-unit issue in A0 stepping.
+	 * Can be removed after B0.
+	 */
+	if (dwc->is_otg && dwc->revision == DWC3_REVISION_210A)
+		udelay(4);
+
 	/* Mask interrupt */
 	reg = dwc3_readl(dwc->regs, DWC3_GEVNTSIZ(buf));
 	reg |= DWC3_GEVNTSIZ_INTMASK;
