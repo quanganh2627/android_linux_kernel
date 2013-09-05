@@ -34,6 +34,38 @@
 #include "ep0.c"
 #include "gadget.c"
 
+/* FLIS register */
+#define APBFC_EXIOTG3_MISC0_REG		0xF90FF85C
+
+/**
+ * struct dwc3_dev_data - Structure holding platform related
+ *			information
+ * @flis_reg:		FLIS register
+ */
+struct dwc3_dev_data {
+	struct dwc3		*dwc;
+	void __iomem		*flis_reg;
+};
+
+static struct dwc3_dev_data	*_dev_data;
+
+/*
+ * dwc3_set_fils_reg - set FLIS register
+ *
+ * This is a workaround for OTG3 IP bug of using EP #8 for host mode
+ */
+static void dwc3_set_flis_reg(void)
+{
+	u32			reg;
+	void __iomem		*flis_reg;
+
+	flis_reg = _dev_data->flis_reg;
+
+	reg = dwc3_readl(flis_reg, DWC3_GLOBALS_REGS_START);
+	reg &= ~(1 << 3);
+	dwc3_writel(flis_reg, DWC3_GLOBALS_REGS_START, reg);
+}
+
 int dwc3_start_peripheral(struct usb_gadget *g)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
@@ -56,6 +88,7 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 
 	if (dwc->gadget_driver) {
 		dwc3_core_init(dwc);
+		dwc3_set_flis_reg();
 		dwc3_event_buffers_setup(dwc);
 		ret = dwc3_init_for_enumeration(dwc);
 		if (ret)
@@ -163,6 +196,14 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 	dwc = PTR_ALIGN(mem, DWC3_ALIGN_MASK + 1);
 	dwc->mem = mem;
 
+	_dev_data = kzalloc(sizeof(*_dev_data), GFP_KERNEL);
+	if (!_dev_data) {
+		dev_err(dev, "not enough memory\n");
+		return -ENOMEM;
+	}
+
+	_dev_data->dwc = dwc;
+
 	pdata = (struct dwc_device_par *)pdev->dev.platform_data;
 	if (!pdata) {
 		dev_err(&pdev->dev, "No platform data for %s.\n",
@@ -239,6 +280,9 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 	dwc3_cache_hwparams(dwc);
 	dwc3_core_num_eps(dwc);
 
+	_dev_data->flis_reg =
+		ioremap_nocache(APBFC_EXIOTG3_MISC0_REG, 4);
+
 	ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
 	if (ret) {
 		dev_err(dwc->dev, "failed to allocate event buffers\n");
@@ -282,9 +326,21 @@ err0:
 	return ret;
 }
 
+static int dwc3_device_intel_remove(struct platform_device *pdev)
+{
+	iounmap(_dev_data->flis_reg);
+
+	dwc3_remove(pdev);
+
+	kfree(_dev_data);
+	_dev_data = NULL;
+
+	return 0;
+}
+
 static struct platform_driver dwc3_device_intel_driver = {
 	.probe		= dwc3_device_intel_probe,
-	.remove		= dwc3_remove,
+	.remove		= dwc3_device_intel_remove,
 	.driver		= {
 		.name	= "dwc3-device",
 		.of_match_table	= of_match_ptr(of_dwc3_match),
