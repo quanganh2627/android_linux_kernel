@@ -37,6 +37,9 @@
 /* FLIS register */
 #define APBFC_EXIOTG3_MISC0_REG		0xF90FF85C
 
+/* Global User Control Register Auto Retry bit*/
+#define DWC3_GUCTL_USB_HST_IN_AUTO_RETRY_EN	(1 << 14)
+
 /* Global Configuration Register */
 #define DWC3_GRXTHRCFG_USBRXPKTCNTSEL		(1 << 29)
 #define DWC3_GRXTHRCFG_USBRXPKTCNT(n)		(n << 24)
@@ -94,6 +97,24 @@ static void dwc3_disable_multi_packet(struct dwc3 *dwc)
 	}
 }
 
+/*
+ * dwc3_enable_host_auto_retry - clear Auto Retry Enable bit
+ * for device mode
+ */
+static void dwc3_enable_host_auto_retry(struct dwc3 *dwc, bool enable)
+{
+	u32			reg;
+
+	reg = dwc3_readl(dwc->regs, DWC3_GUCTL);
+
+	if (enable)
+		reg |= DWC3_GUCTL_USB_HST_IN_AUTO_RETRY_EN;
+	else
+		reg &= ~DWC3_GUCTL_USB_HST_IN_AUTO_RETRY_EN;
+
+	dwc3_writel(dwc->regs, DWC3_GUCTL, reg);
+}
+
 int dwc3_start_peripheral(struct usb_gadget *g)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
@@ -120,6 +141,7 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 		dwc3_event_buffers_setup(dwc);
 		if (dwc->revision == DWC3_REVISION_250A)
 			dwc3_disable_multi_packet(dwc);
+		dwc3_enable_host_auto_retry(dwc, false);
 		ret = dwc3_init_for_enumeration(dwc);
 		if (ret)
 			goto err0;
@@ -180,6 +202,8 @@ int dwc3_stop_peripheral(struct usb_gadget *g)
 		dwc3_writel(dwc->regs, DWC3_GRXTHRCFG, _dev_data->grxthrcfg);
 		_dev_data->grxthrcfg = 0;
 	}
+
+	dwc3_enable_host_auto_retry(dwc, true);
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
