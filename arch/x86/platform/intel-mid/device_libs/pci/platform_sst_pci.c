@@ -64,14 +64,11 @@ static const struct sst_board_config_data sst_ctp_bdata = {
 				.frame_sync_width = 24,
 				.dma_handshake_interface_tx = 5,
 				.dma_handshake_interface_rx = 4,
-				.reserved[0] = 0xff,
-				.reserved[1] = 0xff,
-				.sst_ssp_base_add = 0xFFA23000,
+				.ssp_base_add = 0xFFA23000,
 		},
 		[SST_SSP_MODEM] = {0},
 		[SST_SSP_BT] = {0},
 		[SST_SSP_FM] = {0},
-
 	},
 };
 

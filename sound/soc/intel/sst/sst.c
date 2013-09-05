@@ -1183,14 +1183,14 @@ static const struct dev_pm_ops intel_sst_pm = {
 
 static const struct acpi_device_id sst_acpi_ids[];
 
-struct sst_probe_info *sst_get_acpi_driver_data(const char *hid)
+struct sst_platform_info *sst_get_acpi_driver_data(const char *hid)
 {
 	const struct acpi_device_id *id;
 
 	pr_debug("%s", __func__);
 	for (id = sst_acpi_ids; id->id[0]; id++)
 		if (!strncmp(id->id, hid, 16))
-			return (struct sst_probe_info *)id->driver_data;
+			return (struct sst_platform_info *)id->driver_data;
 	return NULL;
 }
 
@@ -1202,32 +1202,9 @@ static DEFINE_PCI_DEVICE_TABLE(intel_sst_ids) = {
 };
 MODULE_DEVICE_TABLE(pci, intel_sst_ids);
 
-#define SST_BYT_IRAM_START	0xff2c0000
-#define SST_BYT_IRAM_END	0xff2d4000
-#define SST_BYT_DRAM_START	0xff300000
-#define SST_BYT_DRAM_END	0xff328000
-#define SST_BYT_IMR_START	0xc0000000
-#define SST_BYT_IMR_END		0xc01fffff
-
-const struct sst_probe_info intel_byt_info = {
-	.use_elf	= true,
-	.max_streams	= 4,
-	.dma_max_len	= SST_MAX_DMA_LEN_MRFLD,
-	.iram_start	= SST_BYT_IRAM_START,
-	.iram_end	= SST_BYT_IRAM_END,
-	.iram_use	= true,
-	.dram_start	= SST_BYT_DRAM_START,
-	.dram_end	= SST_BYT_DRAM_END,
-	.dram_use	= true,
-	.imr_start	= SST_BYT_IMR_START,
-	.imr_end	= SST_BYT_IMR_END,
-	.imr_use	= true,
-	.dma_addr_ia_viewpt = false,
-};
-
 static const struct acpi_device_id sst_acpi_ids[] = {
-	{ "LPE0F28", (kernel_ulong_t) &intel_byt_info },
-	{ "LPE0F281", (kernel_ulong_t) &intel_byt_info },
+	{ "LPE0F28",  (kernel_ulong_t) &byt_ffrd10_platform_data },
+	{ "LPE0F281", (kernel_ulong_t) &byt_ffrd8_platform_data },
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, sst_acpi_ids);

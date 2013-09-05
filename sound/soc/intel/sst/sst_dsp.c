@@ -850,7 +850,7 @@ static void sst_dma_free_resources(struct sst_dma *dma)
 	dma_release_channel(dma->ch);
 }
 
-void sst_fill_config(struct intel_sst_drv *sst_ctx)
+void sst_fill_config(struct intel_sst_drv *sst_ctx, unsigned int offset)
 {
 	struct sst_fill_config sst_config;
 
@@ -862,7 +862,7 @@ void sst_fill_config(struct intel_sst_drv *sst_ctx)
 	memcpy(&sst_config.sst_pdata, sst_ctx->pdata->pdata, sizeof(struct sst_platform_config_data));
 	sst_config.shim_phy_add = sst_ctx->shim_phy_add;
 	sst_config.mailbox_add = sst_ctx->mailbox_add;
-	memcpy_toio(sst_ctx->dram, &sst_config, sizeof(sst_config));
+	memcpy_toio(sst_ctx->dram + offset, &sst_config, sizeof(sst_config));
 
 }
 
@@ -1405,8 +1405,11 @@ int sst_load_fw(void)
 	}
 
 	sst_drv_ctx->sst_state = SST_FW_LOADED;
+	/* offsets different for BYT & CTP */
 	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
-		sst_fill_config(sst_drv_ctx);
+		sst_fill_config(sst_drv_ctx, 0);
+	else if (sst_drv_ctx->pci_id == SST_BYT_PCI_ID)
+		sst_fill_config(sst_drv_ctx, 2 * sizeof(u32));
 
 	/* bring sst out of reset */
 	ret_val = sst_drv_ctx->ops->start();

@@ -76,9 +76,10 @@ struct sst_ssp_platform_cfg {
 	u8 frame_sync_width;
 	u8 dma_handshake_interface_tx;
 	u8 dma_handshake_interface_rx;
-	u8 reserved[2];
-	u32 sst_ssp_base_add;
-};
+	u8 network_mode;
+	u8 start_delay;
+	u32 ssp_base_add;
+} __packed;
 
 struct sst_board_config_data {
 	struct sst_ssp_platform_cfg ssp_platform_data[SST_MAX_SSP_PORTS];

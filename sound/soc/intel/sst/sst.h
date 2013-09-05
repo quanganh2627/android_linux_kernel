@@ -367,23 +367,6 @@ struct snd_sst_probe_bytes {
 #define PCI_DMAC_CLV_ID 0x08F0
 #define PCI_DMAC_MRFLD_ID 0x119B
 
-struct sst_probe_info {
-	u32 iram_start;
-	u32 iram_end;
-	bool iram_use;
-	u32 dram_start;
-	u32 dram_end;
-	bool dram_use;
-	u32 imr_start;
-	u32 imr_end;
-	bool imr_use;
-	bool use_elf;
-	bool dma_addr_ia_viewpt;
-	unsigned int max_streams;
-	u32 dma_max_len;
-	u8 num_probes;
-};
-
 struct sst_fw_context {
 	void *iram;
 	void *dram;
@@ -553,7 +536,7 @@ struct intel_sst_drv {
 	struct intel_sst_ops	*ops;
 	struct sst_debugfs	debugfs;
 	struct pm_qos_request	*qos;
-	struct sst_probe_info	info;
+	struct sst_info	info;
 	unsigned int		use_dma;
 	unsigned int		use_lli;
 	atomic_t		fw_clear_context;
@@ -578,6 +561,8 @@ struct intel_sst_drv {
 };
 
 extern struct intel_sst_drv *sst_drv_ctx;
+extern struct sst_platform_info byt_ffrd10_platform_data;
+extern struct sst_platform_info byt_ffrd8_platform_data;
 
 /* misc definitions */
 #define FW_DWNL_ID 0xFF
@@ -588,7 +573,7 @@ struct sst_fill_config {
 	struct sst_platform_config_data sst_pdata;
 	u32 shim_phy_add;
 	u32 mailbox_add;
-};
+} __packed;
 
 struct intel_sst_ops {
 	irqreturn_t (*interrupt) (int, void *);
@@ -693,7 +678,7 @@ void print_bytes(const void *data, size_t sz, unsigned char word_sz,
 		 unsigned char words_in_line);
 int sst_alloc_drv_context(struct device *dev);
 int sst_driver_ops(struct intel_sst_drv *sst);
-struct sst_probe_info *sst_get_acpi_driver_data(const char *hid);
+struct sst_platform_info *sst_get_acpi_driver_data(const char *hid);
 int sst_acpi_probe(struct platform_device *pdev);
 int sst_acpi_remove(struct platform_device *pdev);
 void sst_save_shim64(struct intel_sst_drv *ctx, void __iomem *shim,
