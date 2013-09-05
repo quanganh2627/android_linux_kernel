@@ -194,6 +194,8 @@ extern void hsu_early_console_init(const char *);
 
 extern void intel_scu_devices_create(void);
 extern void intel_scu_devices_destroy(void);
+extern void intel_psh_devices_create(void);
+extern void intel_psh_devices_destroy(void);
 
 /* VRTC timer */
 #define MRST_VRTC_MAP_SZ	(1024)
