@@ -323,6 +323,7 @@ struct mmc_host {
 #define MMC_CAP2_POLL_R1B_BUSY	(1 << 16)	/* host poll R1B busy*/
 #define MMC_CAP2_RPMBPART_NOACC	(1 << 17)	/* RPMB partition no access */
 #define MMC_CAP2_LED_SUPPORT	(1 << 18)	/* led support */
+#define MMC_CAP2_PWCTRL_POWER	(1 << 19)	/* power control card power */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
