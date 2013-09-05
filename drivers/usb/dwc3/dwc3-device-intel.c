@@ -37,14 +37,23 @@
 /* FLIS register */
 #define APBFC_EXIOTG3_MISC0_REG		0xF90FF85C
 
+/* Global Configuration Register */
+#define DWC3_GRXTHRCFG_USBRXPKTCNTSEL		(1 << 29)
+#define DWC3_GRXTHRCFG_USBRXPKTCNT(n)		(n << 24)
+#define DWC3_GRXTHRCFG_USBRXPKTCNT_MASK		(0xf << 24)
+#define DWC3_GRXTHRCFG_USBMAXRXBURSTSIZE(n)	(n << 19)
+#define DWC3_GRXTHRCFG_USBMAXRXBURSTSIZE_MASK	(0x1f << 19)
+
 /**
  * struct dwc3_dev_data - Structure holding platform related
  *			information
  * @flis_reg:		FLIS register
+ * @grxthrcfg:		DWC3 GRXTHCFG register
  */
 struct dwc3_dev_data {
 	struct dwc3		*dwc;
 	void __iomem		*flis_reg;
+	u32			grxthrcfg;
 };
 
 static struct dwc3_dev_data	*_dev_data;
@@ -64,6 +73,25 @@ static void dwc3_set_flis_reg(void)
 	reg = dwc3_readl(flis_reg, DWC3_GLOBALS_REGS_START);
 	reg &= ~(1 << 3);
 	dwc3_writel(flis_reg, DWC3_GLOBALS_REGS_START, reg);
+}
+
+/*
+ * dwc3_disable_multi_packet - set GRXTHRCFG register to disable
+ * reception multi-packet thresholdingfor DWC2.50a.
+ */
+static void dwc3_disable_multi_packet(struct dwc3 *dwc)
+{
+	u32			reg;
+
+	reg = dwc3_readl(dwc->regs, DWC3_GRXTHRCFG);
+	_dev_data->grxthrcfg = reg;
+	if (reg) {
+		reg &= ~DWC3_GRXTHRCFG_USBRXPKTCNTSEL;
+		reg &= ~DWC3_GRXTHRCFG_USBRXPKTCNT_MASK;
+		reg &= ~DWC3_GRXTHRCFG_USBMAXRXBURSTSIZE_MASK;
+
+		dwc3_writel(dwc->regs, DWC3_GRXTHRCFG, reg);
+	}
 }
 
 int dwc3_start_peripheral(struct usb_gadget *g)
@@ -90,6 +118,8 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 		dwc3_core_init(dwc);
 		dwc3_set_flis_reg();
 		dwc3_event_buffers_setup(dwc);
+		if (dwc->revision == DWC3_REVISION_250A)
+			dwc3_disable_multi_packet(dwc);
 		ret = dwc3_init_for_enumeration(dwc);
 		if (ret)
 			goto err0;
@@ -145,6 +175,11 @@ int dwc3_stop_peripheral(struct usb_gadget *g)
 	dwc3_gadget_disable_irq(dwc);
 
 	dwc3_event_buffers_cleanup(dwc);
+
+	if (_dev_data->grxthrcfg && dwc->revision == DWC3_REVISION_250A) {
+		dwc3_writel(dwc->regs, DWC3_GRXTHRCFG, _dev_data->grxthrcfg);
+		_dev_data->grxthrcfg = 0;
+	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
