@@ -75,6 +75,10 @@
 #include "device_libs/platform_bq24192.h"
 #include "device_libs/platform_r69001.h"
 #include "device_libs/platform_pn544.h"
+#include "device_libs/platform_l3g4200d.h"
+#include "device_libs/platform_lis3dh.h"
+#include "device_libs/platform_lsm303.h"
+#include "device_libs/platform_apds990x.h"
 
 /* SW devices */
 #include "device_libs/platform_panel.h"
@@ -126,6 +130,13 @@ struct devs_id __initconst device_ids[] = {
 	{"max17050", SFI_DEV_TYPE_I2C, 1, &max17042_platform_data, NULL},
 	{"bq24192", SFI_DEV_TYPE_I2C, 1, &bq24192_platform_data},
 	{"pn544", SFI_DEV_TYPE_I2C, 0, &pn544_platform_data, NULL},
+	{"l3gd20", SFI_DEV_TYPE_I2C, 0, &l3g4200d_platform_data, NULL},
+	{"l3g4200d", SFI_DEV_TYPE_I2C, 0, &l3g4200d_platform_data},
+	{"lps331ap", SFI_DEV_TYPE_I2C, 0, &no_platform_data},
+	{"accel", SFI_DEV_TYPE_I2C, 0, &lis3dh_platform_data, NULL},
+	{"lsm303dl", SFI_DEV_TYPE_I2C, 0, &lsm303dlhc_accel_platform_data},
+	{"lsm303cmp", SFI_DEV_TYPE_I2C, 0, &no_platform_data, NULL},
+	{"apds990x", SFI_DEV_TYPE_I2C, 0, &apds990x_platform_data},
 
 	/* MSIC subdevices */
 	{"msic_adc", SFI_DEV_TYPE_IPC, 1, &msic_adc_platform_data,
