@@ -94,9 +94,6 @@ enum sst_states {
 #define SST_CLKCTL		0x78
 #define SST_CSR2		0x80
 
-#define SST_PRH_IPCX		0x3C
-#define SST_PRH_IPCD		0x44
-
 #define SST_SHIM_BEGIN		SST_CSR
 #define SST_SHIM_END		SST_CSR2
 #define SST_SHIM_SIZE		0x88

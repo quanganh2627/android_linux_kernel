@@ -95,11 +95,17 @@ struct sst_platform_config_data {
 	u32 sst_dma_base[SST_MAX_DMA];
 } __packed;
 
+struct sst_ipc_info {
+	int ipc_offset;
+	bool use_32bit_ops;
+};
+
 struct sst_platform_info {
 	const struct sst_info *probe_data;
 	const struct sst_ssp_info *ssp_data;
 	const struct sst_board_config_data *bdata;
 	const struct sst_platform_config_data *pdata;
+	const struct sst_ipc_info *ipc_info;
 };
 
 #endif

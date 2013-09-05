@@ -89,6 +89,10 @@ static const struct sst_info ctp_sst_info = {
 	.num_probes = 1,
 };
 
+static const struct sst_ipc_info ctp_ipc_info = {
+	.use_32bit_ops = true,
+	.ipc_offset = 0,
+};
 
 static const struct sst_info mrfld_sst_info = {
 	.iram_start = 0,
@@ -105,6 +109,11 @@ static const struct sst_info mrfld_sst_info = {
 	.max_streams = MAX_NUM_STREAMS_MRFLD,
 	.dma_max_len = SST_MAX_DMA_LEN_MRFLD,
 	.num_probes = 16,
+};
+
+static const struct sst_ipc_info mrfld_ipc_info = {
+	.use_32bit_ops = false,
+	.ipc_offset = 0,
 };
 
 static int set_ctp_sst_config(struct sst_platform_info *sst_info)
@@ -124,6 +133,7 @@ static int set_ctp_sst_config(struct sst_platform_info *sst_info)
 	sst_info->pdata = &sst_ctp_pdata;
 	sst_info->bdata = &sst_ctp_bdata;
 	sst_info->probe_data = &ctp_sst_info;
+	sst_info->ipc_info = &ctp_ipc_info;
 
 	return 0;
 }
@@ -142,9 +152,10 @@ static struct sst_platform_info *get_sst_platform_data(struct pci_dev *pdev)
 		break;
 	case PCI_DEVICE_ID_INTEL_SST_MRFLD:
 		sst_data.ssp_data = NULL;
+		sst_data.probe_data = &mrfld_sst_info;
 		sst_data.pdata = NULL;
 		sst_data.bdata = NULL;
-		sst_data.probe_data = &mrfld_sst_info;
+		sst_data.ipc_info = &mrfld_ipc_info;
 		sst_pinfo = &sst_data;
 		break;
 	default:

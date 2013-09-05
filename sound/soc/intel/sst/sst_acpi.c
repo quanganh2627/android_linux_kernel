@@ -124,11 +124,17 @@ static const struct sst_info byt_fwparse_info = {
 	.dma_addr_ia_viewpt = false,
 };
 
+static const struct sst_ipc_info byt_ipc_info = {
+	.use_32bit_ops = true,
+	.ipc_offset = 4,
+};
+
 struct sst_platform_info byt_ffrd10_platform_data = {
 	.probe_data = &byt_fwparse_info,
 	.ssp_data = NULL,
 	.bdata = &sst_byt_ffrd10_bdata,
 	.pdata = &sst_byt_pdata,
+	.ipc_info = &byt_ipc_info,
 };
 
 struct sst_platform_info byt_ffrd8_platform_data = {
@@ -136,6 +142,7 @@ struct sst_platform_info byt_ffrd8_platform_data = {
 	.ssp_data = NULL,
 	.bdata = &sst_byt_ffrd8_bdata,
 	.pdata = &sst_byt_pdata,
+	.ipc_info = &byt_ipc_info,
 };
 
 int sst_workqueue_init(struct intel_sst_drv *ctx)
@@ -337,9 +344,6 @@ int sst_acpi_probe(struct platform_device *pdev)
 	if (!ctx->shim_regs64)
 		return -ENOMEM;
 
-
-	ctx->use_32bit_ops = true;
-
 	ret = sst_driver_ops(ctx);
 	if (ret != 0)
 		return -EINVAL;
@@ -358,10 +362,12 @@ int sst_acpi_probe(struct platform_device *pdev)
 	if (!ctx->pdata)
 		return -EINVAL;
 
+	ctx->use_32bit_ops = ctx->pdata->ipc_info->use_32bit_ops;
+
 	memcpy(&ctx->info, ctx->pdata->probe_data, sizeof(ctx->info));
 
-	ctx->ipc_reg.ipcx = SST_PRH_IPCX;
-	ctx->ipc_reg.ipcd = SST_PRH_IPCD;
+	ctx->ipc_reg.ipcx = SST_IPCX + ctx->pdata->ipc_info->ipc_offset;
+	ctx->ipc_reg.ipcd = SST_IPCD + ctx->pdata->ipc_info->ipc_offset;
 
 	pr_debug("Got drv data max stream %d\n",
 				ctx->info.max_streams);

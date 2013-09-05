@@ -526,13 +526,8 @@ static int intel_sst_probe(struct pci_dev *pci,
 		return -EINVAL;
 	memcpy(&sst_drv_ctx->info, sst_drv_ctx->pdata->probe_data,
 					sizeof(sst_drv_ctx->info));
-	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
-		sst_drv_ctx->use_32bit_ops = true;
-	/* This is work around and needs to be removed once we
-		have SPID for PRh - Appplies to all occurances */
-#ifdef CONFIG_PRH_TEMP_WA_FOR_SPID
-	sst_drv_ctx->use_32bit_ops = true;
-#endif
+
+	sst_drv_ctx->use_32bit_ops = sst_drv_ctx->pdata->ipc_info->use_32bit_ops;
 
 	if (0 != sst_driver_ops(sst_drv_ctx))
 		return -EINVAL;
@@ -583,15 +578,8 @@ static int intel_sst_probe(struct pci_dev *pci,
 	spin_lock_init(&sst_drv_ctx->block_lock);
 	spin_lock_init(&sst_drv_ctx->pvt_id_lock);
 
-#ifdef CONFIG_PRH_TEMP_WA_FOR_SPID
-	sst_drv_ctx->ipc_reg.ipcx = SST_PRH_IPCX;
-	sst_drv_ctx->ipc_reg.ipcd = SST_PRH_IPCD;
-	/* overwrite max_streams for Merr PRh */
-	sst_drv_ctx->info.max_streams = 5;
-#else
-	sst_drv_ctx->ipc_reg.ipcx = SST_IPCX;
-	sst_drv_ctx->ipc_reg.ipcd = SST_IPCD;
-#endif
+	sst_drv_ctx->ipc_reg.ipcx = SST_IPCX + sst_drv_ctx->pdata->ipc_info->ipc_offset;
+	sst_drv_ctx->ipc_reg.ipcd = SST_IPCD + sst_drv_ctx->pdata->ipc_info->ipc_offset;
 	pr_debug("ipcx 0x%x ipxd 0x%x", sst_drv_ctx->ipc_reg.ipcx,
 					sst_drv_ctx->ipc_reg.ipcd);
 
