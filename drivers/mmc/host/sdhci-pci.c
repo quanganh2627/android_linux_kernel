@@ -637,7 +637,9 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 			!INTEL_MID_BOARDV3(TABLET, BYT, BLK, ENG, RVP3))
 			slot->host->mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
 	case PCI_DEVICE_ID_INTEL_BYT_EMMC:
-		sdhci_alloc_panic_host(slot->host);
+		if (!INTEL_MID_BOARDV2(TABLET, BYT, BLB, PRO) &&
+				!INTEL_MID_BOARDV2(TABLET, BYT, BLB, ENG))
+			sdhci_alloc_panic_host(slot->host);
 		slot->host->mmc->caps |= MMC_CAP_1_8V_DDR;
 		slot->host->mmc->caps2 |= MMC_CAP2_INIT_CARD_SYNC |
 			MMC_CAP2_CACHE_CTRL;
@@ -708,6 +710,11 @@ static int byt_sd_probe_slot(struct sdhci_pci_slot *slot)
 		slot->host->quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
 
 	slot->host->mmc->caps2 |= MMC_CAP2_PWCTRL_POWER;
+
+	/* On BYT-M, SD card is using to store ipanic as a W/A */
+	if (INTEL_MID_BOARDV2(TABLET, BYT, BLB, PRO) ||
+			INTEL_MID_BOARDV2(TABLET, BYT, BLB, ENG))
+		sdhci_alloc_panic_host(slot->host);
 
 	return 0;
 }
