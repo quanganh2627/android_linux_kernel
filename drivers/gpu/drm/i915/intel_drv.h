@@ -758,6 +758,8 @@ extern int intel_sprite_get_colorkey(struct drm_device *dev, void *data,
 
 /* Power-related functions, located in intel_pm.c */
 extern void intel_init_pm(struct drm_device *dev);
+extern bool vlv_rs_initialize(struct drm_device *dev);
+extern void vlv_rs_setstate(struct drm_device *dev, bool enable);
 /* FBC */
 extern bool intel_fbc_enabled(struct drm_device *dev);
 extern void intel_update_fbc(struct drm_device *dev);
