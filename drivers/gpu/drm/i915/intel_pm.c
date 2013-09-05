@@ -183,7 +183,10 @@ static void sandybridge_blit_fbc_update(struct drm_device *dev)
 	u32 blt_ecoskpd;
 
 	/* Make sure blitter notifies FBC of writes */
-	gen6_gt_force_wake_get(dev_priv);
+
+	/*Blitter is part of Media powerwell on VLV. No impact of
+	this param in other platforms for now*/
+	gen6_gt_force_wake_get(dev_priv, FORCEWAKE_MEDIA);
 	blt_ecoskpd = I915_READ(GEN6_BLITTER_ECOSKPD);
 	blt_ecoskpd |= GEN6_BLITTER_FBC_NOTIFY <<
 		GEN6_BLITTER_LOCK_SHIFT;
@@ -194,7 +197,10 @@ static void sandybridge_blit_fbc_update(struct drm_device *dev)
 			 GEN6_BLITTER_LOCK_SHIFT);
 	I915_WRITE(GEN6_BLITTER_ECOSKPD, blt_ecoskpd);
 	POSTING_READ(GEN6_BLITTER_ECOSKPD);
-	gen6_gt_force_wake_put(dev_priv);
+
+	/*Blitter is part of Media powerwell on VLV. No impact of
+	this param in other platforms for now*/
+	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_MEDIA);
 }
 
 static void ironlake_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
@@ -3637,7 +3643,7 @@ static void gen6_enable_rps(struct drm_device *dev)
 		I915_WRITE(GTFIFODBG, gtfifodbg);
 	}
 
-	gen6_gt_force_wake_get(dev_priv);
+	gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
 
 	rp_state_cap = I915_READ(GEN6_RP_STATE_CAP);
 	gt_perf_status = I915_READ(GEN6_GT_PERF_STATUS);
@@ -3757,7 +3763,7 @@ static void gen6_enable_rps(struct drm_device *dev)
 			DRM_ERROR("Couldn't fix incorrect rc6 voltage\n");
 	}
 
-	gen6_gt_force_wake_put(dev_priv);
+	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 }
 
 void gen6_update_ring_freq(struct drm_device *dev)
@@ -5829,6 +5835,9 @@ bool vlv_rs_initialize(struct drm_device *dev)
 
 	I915_WRITE(VLV_RENDER_C_STATE_CONTROL_1_REG, regdata);
 
+	/* Let the engines go to RC6 by clearing FW */
+	vlv_force_wake_put(dev_priv, FORCEWAKE_ALL);
+
 	DRM_DEBUG_DRIVER("RC6 is enabled\n");
 
 	return 1;
@@ -5855,9 +5864,14 @@ void vlv_rs_setstate(struct drm_device *dev, bool enable)
 		/* Enable RC6 in control register */
 		I915_WRITE(VLV_RENDER_C_STATE_CONTROL_1_REG, regdata);
 
+		/* Let engines go into RS by disabling FW */
+		vlv_force_wake_put(dev_priv, FORCEWAKE_ALL);
+
 		DRM_DEBUG_DRIVER("RC6 feature is enabled\n");
 
 	} else {
+		/* Forcewake all engines first */
+		vlv_force_wake_get(dev_priv, FORCEWAKE_ALL);
 
 		regdata &= ~(1 << 28);
 		regdata &= ~(1 << 24);

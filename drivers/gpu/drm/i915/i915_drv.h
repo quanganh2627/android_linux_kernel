@@ -392,8 +392,10 @@ struct drm_i915_display_funcs {
 };
 
 struct intel_uncore_funcs {
-	void (*force_wake_get)(struct drm_i915_private *dev_priv);
-	void (*force_wake_put)(struct drm_i915_private *dev_priv);
+	void (*force_wake_get)(struct drm_i915_private *dev_priv,
+								int fw_engine);
+	void (*force_wake_put)(struct drm_i915_private *dev_priv,
+								int fw_engine);
 };
 
 struct intel_uncore {
@@ -401,8 +403,14 @@ struct intel_uncore {
 
 	struct intel_uncore_funcs funcs;
 
-	unsigned fifo_count;
-	unsigned forcewake_count;
+	unsigned int fifo_count;
+	unsigned int forcewake_count;
+
+	unsigned int gt_fifo_count;
+
+	/*VLV specific FW counters. Clean this later*/
+	unsigned int fw_rendercount;
+	unsigned int fw_mediacount;
 };
 
 #define DEV_INFO_FOR_EACH_FLAG(func, sep) \
@@ -2247,11 +2255,29 @@ extern void intel_display_print_error_state(struct drm_i915_error_state_buf *e,
  * must be set to prevent GT core from power down and stale values being
  * returned.
  */
-void gen6_gt_force_wake_get(struct drm_i915_private *dev_priv);
-void gen6_gt_force_wake_put(struct drm_i915_private *dev_priv);
+void gen6_gt_force_wake_get(struct drm_i915_private *dev_priv, int fw_engine);
+void gen6_gt_force_wake_put(struct drm_i915_private *dev_priv, int fw_engine);
 
 int sandybridge_pcode_read(struct drm_i915_private *dev_priv, u8 mbox, u32 *val);
 int sandybridge_pcode_write(struct drm_i915_private *dev_priv, u8 mbox, u32 val);
+
+void vlv_force_wake_get(struct drm_i915_private *dev_priv, int fw_engine);
+void vlv_force_wake_put(struct drm_i915_private *dev_priv, int fw_engine);
+
+#define FORCEWAKE_VLV_RENDER_RANGE_OFFSET(MmioOffset) \
+	((MmioOffset >= 0x2000 && MmioOffset < 0x4000) ||\
+	(MmioOffset >= 0x5000 && MmioOffset < 0x8000) ||\
+	(MmioOffset >= 0xB000 && MmioOffset < 0x12000) ||\
+	(MmioOffset >= 0x2E000 && MmioOffset < 0x30000))
+
+#define FORCEWAKE_VLV_MEDIA_RANGE_OFFSET(MmioOffset)\
+	((MmioOffset >= 0x12000 && MmioOffset < 0x14000) ||\
+	(MmioOffset >= 0x22000 && MmioOffset < 0x24000) ||\
+	(MmioOffset >= 0x30000 && MmioOffset < 0x40000))
+
+#define FORCEWAKE_RENDER		(1 << 0)
+#define FORCEWAKE_MEDIA			(1 << 1)
+#define FORCEWAKE_ALL		(FORCEWAKE_RENDER | FORCEWAKE_MEDIA)
 
 /* intel_sideband.c */
 u32 vlv_punit_read(struct drm_i915_private *dev_priv, u8 addr);

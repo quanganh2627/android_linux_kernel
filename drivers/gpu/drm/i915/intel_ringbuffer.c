@@ -399,7 +399,7 @@ static int init_ring_common(struct intel_ring_buffer *ring)
 	u32 head;
 
 	if (HAS_FORCE_WAKE(dev))
-		gen6_gt_force_wake_get(dev_priv);
+		gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
 
 	if (I915_NEED_GFX_HWS(dev))
 		intel_ring_setup_status_page(ring);
@@ -473,7 +473,7 @@ static int init_ring_common(struct intel_ring_buffer *ring)
 
 out:
 	if (HAS_FORCE_WAKE(dev))
-		gen6_gt_force_wake_put(dev_priv);
+		gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 
 	return ret;
 }
@@ -1012,7 +1012,7 @@ gen6_ring_get_irq(struct intel_ring_buffer *ring)
 	/* It looks like we need to prevent the gt from suspending while waiting
 	 * for an notifiy irq, otherwise irqs seem to get lost on at least the
 	 * blt/bsd rings on ivb. */
-	gen6_gt_force_wake_get(dev_priv);
+	gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
 
 	spin_lock_irqsave(&dev_priv->irq_lock, flags);
 	if (ring->irq_refcount++ == 0) {
@@ -1047,7 +1047,7 @@ gen6_ring_put_irq(struct intel_ring_buffer *ring)
 	}
 	spin_unlock_irqrestore(&dev_priv->irq_lock, flags);
 
-	gen6_gt_force_wake_put(dev_priv);
+	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 }
 
 static bool
