@@ -27,6 +27,9 @@
 #define SST_CTP_DRAM_START	0x400000
 #define SST_CTP_DRAM_END	0x480000
 
+#define SST_V1_MAILBOX_RECV	0x800
+#define SST_V2_MAILBOX_RECV	0x400
+
 struct sst_platform_info sst_data;
 
 static struct sst_ssp_info ssp_inf = {
@@ -92,6 +95,7 @@ static const struct sst_info ctp_sst_info = {
 static const struct sst_ipc_info ctp_ipc_info = {
 	.use_32bit_ops = true,
 	.ipc_offset = 0,
+	.mbox_recv_off = SST_V1_MAILBOX_RECV,
 };
 
 static const struct sst_info mrfld_sst_info = {
@@ -114,6 +118,7 @@ static const struct sst_info mrfld_sst_info = {
 static const struct sst_ipc_info mrfld_ipc_info = {
 	.use_32bit_ops = false,
 	.ipc_offset = 0,
+	.mbox_recv_off = SST_V2_MAILBOX_RECV,
 };
 
 static int set_ctp_sst_config(struct sst_platform_info *sst_info)

@@ -98,6 +98,7 @@ struct sst_platform_config_data {
 struct sst_ipc_info {
 	int ipc_offset;
 	bool use_32bit_ops;
+	unsigned int mbox_recv_off;
 };
 
 struct sst_platform_info {

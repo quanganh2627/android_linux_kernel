@@ -127,6 +127,7 @@ static const struct sst_info byt_fwparse_info = {
 static const struct sst_ipc_info byt_ipc_info = {
 	.use_32bit_ops = true,
 	.ipc_offset = 4,
+	.mbox_recv_off = 0x400,
 };
 
 struct sst_platform_info byt_ffrd10_platform_data = {
@@ -363,6 +364,7 @@ int sst_acpi_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	ctx->use_32bit_ops = ctx->pdata->ipc_info->use_32bit_ops;
+	ctx->mailbox_recv_offset = ctx->pdata->ipc_info->mbox_recv_off;
 
 	memcpy(&ctx->info, ctx->pdata->probe_data, sizeof(ctx->info));
 

@@ -494,6 +494,7 @@ struct intel_sst_drv {
 	unsigned int		dram_end;
 	unsigned int		ddr_end;
 	unsigned int		ddr_base;
+	unsigned int		mailbox_recv_offset;
 	atomic_t		pm_usage_count;
 	struct sst_shim_regs64	*shim_regs64;
 	struct list_head        block_list;

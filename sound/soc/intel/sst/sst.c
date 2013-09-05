@@ -140,7 +140,7 @@ static irqreturn_t intel_sst_irq_thread_mrfld(int irq, void *context)
 		size = header.p.header_low_payload;
 	sst_drv_ctx->ipc_process_reply.mrfld_header = header;
 	memcpy_fromio(sst_drv_ctx->ipc_process_reply.mailbox,
-		      drv->mailbox + SST_MAILBOX_RCV_MRFLD, size);
+		      drv->mailbox + drv->mailbox_recv_offset, size);
 	queue_work(sst_drv_ctx->process_reply_wq,
 			&sst_drv_ctx->ipc_process_reply.wq);
 	return IRQ_HANDLED;
@@ -193,13 +193,13 @@ static irqreturn_t intel_sst_irq_thread_mfld(int irq, void *context)
 	if (header.part.msg_id & REPLY_MSG) {
 		sst_drv_ctx->ipc_process_msg.header = header;
 		memcpy_fromio(sst_drv_ctx->ipc_process_msg.mailbox,
-			drv->mailbox + SST_MAILBOX_RCV + 4, size);
+			drv->mailbox + drv->mailbox_recv_offset + 4, size);
 		queue_work(sst_drv_ctx->process_msg_wq,
 				&sst_drv_ctx->ipc_process_msg.wq);
 	} else {
 		sst_drv_ctx->ipc_process_reply.header = header;
 		memcpy_fromio(sst_drv_ctx->ipc_process_reply.mailbox,
-			drv->mailbox + SST_MAILBOX_RCV + 4, size);
+			drv->mailbox + drv->mailbox_recv_offset + 4, size);
 		queue_work(sst_drv_ctx->process_reply_wq,
 				&sst_drv_ctx->ipc_process_reply.wq);
 	}
@@ -528,6 +528,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 					sizeof(sst_drv_ctx->info));
 
 	sst_drv_ctx->use_32bit_ops = sst_drv_ctx->pdata->ipc_info->use_32bit_ops;
+	sst_drv_ctx->mailbox_recv_offset = sst_drv_ctx->pdata->ipc_info->mbox_recv_off;
 
 	if (0 != sst_driver_ops(sst_drv_ctx))
 		return -EINVAL;
