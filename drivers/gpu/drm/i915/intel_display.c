@@ -7865,6 +7865,8 @@ static int intel_gen7_queue_flip(struct drm_device *dev,
 	if (ret)
 		goto err_unpin;
 
+	if (IS_VALLEYVIEW(dev))
+		i9xx_update_plane(crtc, fb, 0, 0);
 	intel_ring_emit(ring, MI_DISPLAY_FLIP_I915 | plane_bit);
 	intel_ring_emit(ring, (fb->pitches[0] | obj->tiling_mode));
 	intel_ring_emit(ring, i915_gem_obj_ggtt_offset(obj) + intel_crtc->dspaddr_offset);
@@ -7900,10 +7902,17 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	struct intel_unpin_work *work;
 	unsigned long flags;
 	int ret;
+	struct intel_framebuffer *intel_fb, *intel_new_fb;
+	intel_fb = to_intel_framebuffer(crtc->fb);
+	intel_new_fb = to_intel_framebuffer(fb);
 
 	/* Can't change pixel format via MI display flips. */
-	if (fb->pixel_format != crtc->fb->pixel_format)
-		return -EINVAL;
+	if (fb->pixel_format != crtc->fb->pixel_format) {
+		if (IS_VALLEYVIEW(dev))
+			DRM_DEBUG("Allow dynamic pixel format for vlv\n");
+		else
+			return -EINVAL;
+	}
 
 	/*
 	 * TILEOFF/LINOFF registers can't be changed via MI display flips.
@@ -7911,8 +7920,15 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	 */
 	if (INTEL_INFO(dev)->gen > 3 &&
 	    (fb->offsets[0] != crtc->fb->offsets[0] ||
-	     fb->pitches[0] != crtc->fb->pitches[0]))
-		return -EINVAL;
+	     fb->pitches[0] != crtc->fb->pitches[0] ||
+	    fb->depth != crtc->fb->depth ||
+	    fb->bits_per_pixel != crtc->fb->bits_per_pixel ||
+		intel_new_fb->obj->tiling_mode != intel_fb->obj->tiling_mode)) {
+		if (IS_VALLEYVIEW(dev))
+			DRM_DEBUG("Allow dynamic pixel format for vlv\n");
+		else
+			return -EINVAL;
+	}
 
 	work = kzalloc(sizeof *work, GFP_KERNEL);
 	if (work == NULL)
