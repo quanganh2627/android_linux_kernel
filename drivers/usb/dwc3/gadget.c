@@ -2075,6 +2075,10 @@ static void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum)
 
 	dep = dwc->eps[epnum];
 
+	if (usb_endpoint_xfer_isoc(dep->endpoint.desc))
+		dep->resource_index = dwc3_gadget_ep_get_transfer_index(dwc,
+				dep->number);
+
 	if (!dep->resource_index)
 		return;
 
