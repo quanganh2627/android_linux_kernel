@@ -639,7 +639,8 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 	case PCI_DEVICE_ID_INTEL_BYT_EMMC:
 		sdhci_alloc_panic_host(slot->host);
 		slot->host->mmc->caps |= MMC_CAP_1_8V_DDR;
-		slot->host->mmc->caps2 |= MMC_CAP2_INIT_CARD_SYNC;
+		slot->host->mmc->caps2 |= MMC_CAP2_INIT_CARD_SYNC |
+			MMC_CAP2_CACHE_CTRL;
 		slot->host->mmc->qos = kzalloc(sizeof(struct pm_qos_request),
 				GFP_KERNEL);
 		break;
