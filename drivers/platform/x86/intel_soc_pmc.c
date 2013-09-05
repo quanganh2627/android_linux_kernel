@@ -315,7 +315,7 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 
 static int devices_state_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, pmc_devices_state_show, NULL);
+	return single_open(file, pmc_devices_state_show, inode->i_private);
 }
 
 static const struct file_operations devices_state_operations = {
@@ -367,7 +367,7 @@ static ssize_t nc_set_power_write(struct file *file,
 
 static int nc_set_power_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, nc_set_power_show, NULL);
+	return single_open(file, nc_set_power_show, inode->i_private);
 }
 
 static const struct file_operations nc_set_power_operations = {
@@ -462,7 +462,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 
 	/* /sys/kernel/debug/pmc_states */
 	d = debugfs_create_file("pmc_states", S_IFREG | S_IRUGO,
-				NULL, NULL, &devices_state_operations);
+				NULL, pmc_cxt, &devices_state_operations);
 	if (!d) {
 		dev_err(&pdev->dev, "Can not create a debug file\n");
 		error = -ENOMEM;
@@ -471,7 +471,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 
 	/* /sys/kernel/debug/pmc_states */
 	d1 = debugfs_create_file("nc_set_power", S_IFREG | S_IRUGO,
-				NULL, NULL, &nc_set_power_operations);
+				NULL, pmc_cxt, &nc_set_power_operations);
 
 	if (!d) {
 		dev_err(&pdev->dev, "Can not create a debug file\n");
