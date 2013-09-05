@@ -540,7 +540,8 @@ static int sst_dma_firmware(struct sst_dma *dma, struct sst_sg_list *sg_list)
 	/* BY default PIMR is unsmasked
 	 * FW gets unmaksed dma intr too, so mask it for FW to execute on mrfld
 	 */
-	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID)
+	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID ||
+	    sst_drv_ctx->pci_id == SST_BYT_PCI_ID)
 		sst_shim_write(sst_drv_ctx->shim, SST_PIMR, 0xFFFF0034);
 
 	if (sst_drv_ctx->use_lli) {
