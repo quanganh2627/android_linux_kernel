@@ -33,6 +33,7 @@
 #include <linux/vlv2_plat_clock.h>
 #include <linux/acpi_gpio.h>
 #include <linux/extcon-mid.h>
+#include <asm/intel-mid.h>
 #include <asm/platform_byt_audio.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -330,6 +331,12 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	/* Set codec bias level */
 	byt_set_bias_level(card, dapm, SND_SOC_BIAS_OFF);
 	card->dapm.idle_bias_off = true;
+
+	/* FFRD8 uses codec's JD1 for jack detection */
+	if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||
+	    INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1))
+		snd_soc_update_bits(codec, RT5640_JD_CTRL,
+				    RT5640_JD_MASK, RT5640_JD_JD1_IN4P);
 
 	ret = snd_soc_jack_new(codec, "Intel MID Audio Jack",
 			       SND_JACK_HEADSET | SND_JACK_HEADPHONE | SND_JACK_BTN_0,
