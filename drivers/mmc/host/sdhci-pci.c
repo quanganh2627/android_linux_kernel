@@ -640,11 +640,25 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 		sdhci_alloc_panic_host(slot->host);
 		slot->host->mmc->caps |= MMC_CAP_1_8V_DDR;
 		slot->host->mmc->caps2 |= MMC_CAP2_INIT_CARD_SYNC;
+		slot->host->mmc->qos = kzalloc(sizeof(struct pm_qos_request),
+				GFP_KERNEL);
 		break;
 	default:
 		break;
 	}
+	if (slot->host->mmc->qos)
+		pm_qos_add_request(slot->host->mmc->qos, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
+
 	return 0;
+}
+
+static void byt_emmc_remove_slot(struct sdhci_pci_slot *slot, int dead)
+{
+	if (slot->host->mmc->qos) {
+		pm_qos_remove_request(slot->host->mmc->qos);
+		kfree(slot->host->mmc->qos);
+	}
 }
 
 #define BYT_SD_WP	7
@@ -710,6 +724,7 @@ static const struct sdhci_pci_fixes sdhci_intel_byt_emmc = {
 	.quirks2	= SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.allow_runtime_pm = true,
 	.probe_slot	= byt_emmc_probe_slot,
+	.remove_slot	= byt_emmc_remove_slot,
 };
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_sdio = {
