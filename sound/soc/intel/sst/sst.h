@@ -518,7 +518,7 @@ struct intel_sst_drv {
 	struct sst_shim_regs64	*shim_regs64;
 	struct list_head        block_list;
 	struct list_head	ipc_dispatch_list;
-	struct sst_pci_info     *pdata;
+	struct sst_platform_info *pdata;
 	struct work_struct	ipc_post_msg_wq;
 	struct sst_ipc_msg_wq	ipc_process_msg;
 	struct sst_ipc_msg_wq	ipc_process_reply;
@@ -811,7 +811,7 @@ static inline void sst_init_stream(struct stream_info *stream,
 	stream->ops = ops;
 }
 
-static inline void sst_set_gpio_conf(struct sst_gpio_config *gpio_conf)
+static inline void sst_set_gpio_conf(const struct sst_gpio_config *gpio_conf)
 {
 	lnw_gpio_set_alt(gpio_conf->i2s_rx_alt, gpio_conf->alt_function);
 	lnw_gpio_set_alt(gpio_conf->i2s_tx_alt, gpio_conf->alt_function);

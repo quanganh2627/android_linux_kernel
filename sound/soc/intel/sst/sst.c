@@ -505,7 +505,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 {
 	int i, ret = 0;
 	struct intel_sst_ops *ops;
-	struct sst_pci_info *sst_pdata = pci->dev.platform_data;
+	struct sst_platform_info *sst_pdata = pci->dev.platform_data;
 	int ddr_base;
 
 	pr_debug("Probe for DID %x\n", pci->device);

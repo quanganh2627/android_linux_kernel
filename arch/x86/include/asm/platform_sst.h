@@ -87,18 +87,18 @@ struct sst_board_config_data {
 	u8 board_id;
 	u8 ihf_num_chan;
 	u32 osc_clk_freq;
-};
+} __packed;
 
 struct sst_platform_config_data {
 	u32 sst_sram_buff_base;
 	u32 sst_dma_base[SST_MAX_DMA];
-};
+} __packed;
 
-struct sst_pci_info {
-	struct sst_info *probe_data;
-	struct sst_ssp_info *ssp_data;
-	struct sst_board_config_data *bdata;
-	struct sst_platform_config_data *pdata;
+struct sst_platform_info {
+	const struct sst_info *probe_data;
+	const struct sst_ssp_info *ssp_data;
+	const struct sst_board_config_data *bdata;
+	const struct sst_platform_config_data *pdata;
 };
 
 #endif

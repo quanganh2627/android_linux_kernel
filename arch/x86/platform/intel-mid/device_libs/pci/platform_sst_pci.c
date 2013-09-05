@@ -27,22 +27,22 @@
 #define SST_CTP_DRAM_START	0x400000
 #define SST_CTP_DRAM_END	0x480000
 
-struct sst_pci_info sst_data;
+struct sst_platform_info sst_data;
 
-struct sst_ssp_info ssp_inf = {
+static struct sst_ssp_info ssp_inf = {
 	.gpio = {
 		.alt_function = LNW_ALT_2,
 	},
 	.in_use = true,
 };
 
-static struct sst_platform_config_data sst_ctp_pdata = {
+static const struct sst_platform_config_data sst_ctp_pdata = {
 	.sst_sram_buff_base = 0xfffc0000,
 	.sst_dma_base[0] = CTP_DMA_BASE,
 	.sst_dma_base[1] = 0x0,
 };
 
-static struct sst_board_config_data sst_ctp_bdata = {
+static const struct sst_board_config_data sst_ctp_bdata = {
 	.active_ssp_ports = 4,
 	.platform_id = 2,/*FIXME: Once the firmware fix is available*/
 	.board_id = 1,/*FIXME: Once the firmware fix is available*/
@@ -75,7 +75,7 @@ static struct sst_board_config_data sst_ctp_bdata = {
 	},
 };
 
-struct sst_info ctp_sst_info = {
+static const struct sst_info ctp_sst_info = {
 	.iram_start = SST_CTP_IRAM_START,
 	.iram_end = SST_CTP_IRAM_END,
 	.iram_use = true,
@@ -93,7 +93,7 @@ struct sst_info ctp_sst_info = {
 };
 
 
-struct sst_info mrfld_sst_info = {
+static const struct sst_info mrfld_sst_info = {
 	.iram_start = 0,
 	.iram_end = 0,
 	.iram_use = false,
@@ -110,7 +110,7 @@ struct sst_info mrfld_sst_info = {
 	.num_probes = 16,
 };
 
-static int set_ctp_sst_config(struct sst_pci_info *sst_info)
+static int set_ctp_sst_config(struct sst_platform_info *sst_info)
 {
 	unsigned int conf_len;
 
@@ -131,10 +131,10 @@ static int set_ctp_sst_config(struct sst_pci_info *sst_info)
 	return 0;
 }
 
-static struct sst_pci_info *get_sst_platform_data(struct pci_dev *pdev)
+static struct sst_platform_info *get_sst_platform_data(struct pci_dev *pdev)
 {
 	int ret;
-	struct sst_pci_info *sst_pinfo = NULL;
+	struct sst_platform_info *sst_pinfo = NULL;
 
 	switch (pdev->device) {
 	case PCI_DEVICE_ID_INTEL_SST_CLV:
