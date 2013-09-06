@@ -34,8 +34,21 @@
 #define READ_TOKEN	        "READ"
 #define WRITE_TOKEN	        "WRITE"
 
+#define STATUS_TOKEN		"STATUS"
+#define ENABLE_TOKEN		"ENABLE"
+#define DISABLE_TOKEN		"DISABLE"
+#define DETAILS_TOKEN		"DETAILS"
+
 #define IOSF_FUSE_TOKEN	"FUSE"
 #define IOSF_PUNIT_TOKEN	"PUNIT"
+
+/* RC6 Operations */
+#define RC6_POWER_TOKEN	"PWRWELLS"
+#define RC6_SINGLETHREAD_TOKEN	"SINGLETHREAD"
+#define MULTITHREAD_TOKEN	"MULTITHREAD"
+#define READ_COUNTER_0_TOKEN	"COUNTER_0"
+#define READ_COUNTER_1_TOKEN	"COUNTER_1"
+#define READ_COUNTER_6_TOKEN	"COUNTER_6"
 
 /* DebugFS Variable declaration */
 struct debugfs_mmio_vars {
@@ -48,9 +61,15 @@ struct debugfs_iosf_vars {
 	u32 iosf_input;
 };
 
+struct debugfs_rc6_vars {
+	char rc6_vars[MAX_BUFFER_STR_LEN];
+	u32 rc6_input;
+};
+
 union {
 	struct debugfs_mmio_vars mmio;
 	struct debugfs_iosf_vars iosf;
+	struct debugfs_rc6_vars rc6;
 } i915_debugfs_vars;
 
 enum {

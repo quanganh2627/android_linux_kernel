@@ -1948,6 +1948,7 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_drop_caches_fops,
 			i915_drop_caches_get, i915_drop_caches_set,
 			"0x%08llx\n");
 
+
 static int
 i915_max_freq_get(void *data, u64 *val)
 {
@@ -1962,7 +1963,7 @@ i915_max_freq_get(void *data, u64 *val)
 	if (ret)
 		return ret;
 
-	if (IS_VALLEYVIEW(dev))
+	if (!(IS_VALLEYVIEW(dev)))
 		*val = vlv_gpu_freq(dev_priv->mem_freq,
 				    dev_priv->rps.max_delay);
 	else
@@ -1991,7 +1992,7 @@ i915_max_freq_set(void *data, u64 val)
 	/*
 	 * Turbo will still be enabled, but won't go above the set value.
 	 */
-	if (IS_VALLEYVIEW(dev)) {
+	if (!IS_VALLEYVIEW(dev)) {
 		val = vlv_freq_opcode(dev_priv->mem_freq, val);
 		dev_priv->rps.max_delay = val;
 		gen6_set_rps(dev, val);
@@ -2024,7 +2025,7 @@ i915_min_freq_get(void *data, u64 *val)
 	if (ret)
 		return ret;
 
-	if (IS_VALLEYVIEW(dev))
+	if (!(IS_VALLEYVIEW(dev)))
 		*val = vlv_gpu_freq(dev_priv->mem_freq,
 				    dev_priv->rps.min_delay);
 	else
@@ -2053,7 +2054,7 @@ i915_min_freq_set(void *data, u64 val)
 	/*
 	 * Turbo will still be enabled, but won't go below the set value.
 	 */
-	if (IS_VALLEYVIEW(dev)) {
+	if (!(IS_VALLEYVIEW(dev))) {
 		val = vlv_freq_opcode(dev_priv->mem_freq, val);
 		dev_priv->rps.min_delay = val;
 		valleyview_set_rps(dev, val);
@@ -2070,6 +2071,271 @@ i915_min_freq_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(i915_min_freq_fops,
 			i915_min_freq_get, i915_min_freq_set,
 			"%llu\n");
+
+/* Debugfs rc6 apis implementation */
+
+static int
+rc6_status(struct drm_device *dev, char *buf, int *len)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	*len = snprintf(buf, MAX_BUFFER_STR_LEN,
+			"RC6 ENABLED: %s\n",
+			yesno(I915_READ(VLV_RENDER_C_STATE_CONTROL_1_REG)
+					& (VLV_EVAL_METHOD_ENABLE_BIT
+					| VLV_TIMEOUT_METHOD_ENABLE_BIT)));
+	return 0;
+}
+
+static int
+rc6_enable_disable(struct drm_device *dev, long unsigned int val)
+{
+	int ret;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	ret = mutex_lock_interruptible(&dev->struct_mutex);
+	if (ret)
+		return ret;
+
+	vlv_rs_setstate(dev, (val > 0 ? true : false));
+	mutex_unlock(&dev->struct_mutex);
+	DRM_DEBUG_DRIVER("RC6 feature status is %ld\n", val);
+
+	return 0;
+}
+
+
+static int
+i915_read_rc6_api(struct file *filp,
+		   char __user *ubuf,
+		   size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char buf[200], control[10], operation[20], format[20];
+	int len = 0, ret, no_of_tokens;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (i915_debugfs_vars.rc6.rc6_input == 0)
+		return len;
+
+	snprintf(format, sizeof(format), "%%%ds %%%ds",
+				sizeof(control), sizeof(operation));
+
+	no_of_tokens = sscanf(i915_debugfs_vars.rc6.rc6_vars,
+					format, control, operation);
+
+	if (no_of_tokens < 2)
+		return len;
+
+	len = sizeof(i915_debugfs_vars.rc6.rc6_vars);
+
+	if (strcmp(operation, STATUS_TOKEN) == 0) {
+		rc6_status(dev, buf, &len);
+
+	} else if (strcmp(operation, ENABLE_TOKEN) == 0) {
+		/*
+		* 1=> Enable RC6, else disable.
+		*/
+		ret = rc6_enable_disable(dev, 1);
+		if (ret)
+			return ret;
+
+		rc6_status(dev, buf, &len);
+
+	} else if (strcmp(operation, DISABLE_TOKEN) == 0) {
+		/*
+		* 1=> Enable RC6, else disable.
+		*/
+		ret = rc6_enable_disable(dev, 0);
+		if (ret)
+			return ret;
+
+		rc6_status(dev, buf, &len);
+
+	} else if (strcmp(operation, RC6_POWER_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf),
+				"RENDER WELL: %s & MEDIA WELL: %s\n",
+				(I915_READ(VLV_POWER_WELL_STATUS_REG) &
+					VLV_RENDER_WELL_STATUS_MASK)
+					? "UP" : "DOWN",
+				(I915_READ(VLV_POWER_WELL_STATUS_REG) &
+					VLV_MEDIA_WELL_STATUS_MASK)
+					? "UP" : "DOWN");
+
+	} else if (strcmp(operation, READ_COUNTER_0_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf),
+				"RENDER WELL C0 COUNTER: 0x%x & ",
+				(unsigned int) I915_READ(GEN6_GT_GFX_RC6));
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"MEDIA WELL C1 COUNTER: 0x%x\n",
+				(unsigned int) I915_READ(GEN6_GT_GFX_RC6p));
+
+	} else if (strcmp(operation, READ_COUNTER_1_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf),
+				"RENDER WELL C1 COUNTER: 0x%x & ",
+				(unsigned int)I915_READ(GEN6_GT_GFX_RC6pp));
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"MEDIA WELL C1 COUNTER: 0x%x\n",
+				(unsigned int)
+					I915_READ(VLV_MEDIA_C1_COUNT_REG));
+
+	} else if (strcmp(operation, READ_COUNTER_6_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf),
+				"RENDER WELL C6 COUNTER: 0x%x & ",
+				(unsigned int)
+					I915_READ(VLV_RENDER_C0_COUNT_REG));
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"MEDIA WELL C6 COUNTER: 0x%x\n",
+				(unsigned int)
+					I915_READ(VLV_MEDIA_C0_COUNT_REG));
+
+	} else if (strcmp(operation, MULTITHREAD_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
+
+	} else if (strcmp(operation, RC6_SINGLETHREAD_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf),
+			"SINGLE THREAD ENABLED: Yes\n");
+	} else
+		len = snprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	i915_debugfs_vars.rc6.rc6_input = 0;
+	simple_read_from_buffer(ubuf, max, ppos, buf, len);
+
+	return len;
+}
+
+static ssize_t
+i915_write_rc6_api(struct file *filp,
+		  const char __user *ubuf,
+		  size_t cnt,
+		  loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	/* reset the string */
+	memset(i915_debugfs_vars.rc6.rc6_vars, 0, MAX_BUFFER_STR_LEN);
+
+	if (cnt > 0) {
+		if (cnt > sizeof(i915_debugfs_vars.rc6.rc6_vars) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(i915_debugfs_vars.rc6.rc6_vars, ubuf, cnt))
+			return -EFAULT;
+
+		i915_debugfs_vars.rc6.rc6_vars[cnt] = 0;
+
+		/* Enable read */
+		i915_debugfs_vars.rc6.rc6_input = 1;
+	}
+
+	return cnt;
+}
+
+static const struct file_operations i915_rc6_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_read_rc6_api,
+	.write = i915_write_rc6_api,
+	.llseek = default_llseek,
+};
+
+
+static int
+i915_read_rc6_status(struct file *filp,
+		   char __user *ubuf,
+		   size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char buf[80];
+	int len = 0;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	len = snprintf(buf, sizeof(buf),
+		"RC6 is %s\n",
+		(I915_READ(VLV_RENDER_C_STATE_CONTROL_1_REG)
+			& (VLV_EVAL_METHOD_ENABLE_BIT
+			| VLV_TIMEOUT_METHOD_ENABLE_BIT)) ?
+				"enabled" : "disabled");
+
+	len += snprintf(&buf[len], (sizeof(buf) - len),
+		"Render well is %s & Media well is %s\n",
+		(I915_READ(VLV_POWER_WELL_STATUS_REG) &
+			VLV_RENDER_WELL_STATUS_MASK) ? "UP" : "DOWN",
+		(I915_READ(VLV_POWER_WELL_STATUS_REG) &
+			VLV_MEDIA_WELL_STATUS_MASK) ? "UP" : "DOWN");
+
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
+}
+
+static ssize_t
+i915_write_rc6_status(struct file *filp,
+		  const char __user *ubuf,
+		  size_t cnt,
+		  loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	char buf[20];
+	int ret = 0;
+	long unsigned int val = 0;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (cnt > 0) {
+		if (cnt > sizeof(buf) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(buf, ubuf, cnt))
+			return -EFAULT;
+		buf[cnt] = 0;
+
+		ret = kstrtoul(buf, 0, (unsigned long *)&val);
+		if (ret)
+			return -EINVAL;
+	}
+
+
+
+	/*
+	* 1=> Enable RC6, else disable.
+	*/
+	ret = rc6_enable_disable(dev, val);
+	if (ret)
+		return ret;
+
+	return cnt;
+}
+
+static const struct file_operations i915_rc6_status_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_read_rc6_status,
+	.write = i915_write_rc6_status,
+	.llseek = default_llseek,
+};
+
+
+
 
 static ssize_t
 i915_mmio_read_api(struct file *filp,
@@ -2474,6 +2740,8 @@ static struct i915_debugfs_files {
 	{"i915_next_seqno", &i915_next_seqno_fops},
 	{"i915_mmio_api", &i915_mmio_fops},
 	{"i915_iosf_api", &i915_iosf_fops},
+	{"i915_rc6_api", &i915_rc6_fops},
+	{"i915_rc6_status", &i915_rc6_status_fops},
 };
 
 int i915_debugfs_init(struct drm_minor *minor)

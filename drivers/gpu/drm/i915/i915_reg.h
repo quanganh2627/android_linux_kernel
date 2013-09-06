@@ -388,7 +388,7 @@
 #define PUNIT_REG_GPU_FREQ_STS			0xd8
 #define   GENFREQSTATUS				(1<<0)
 #define PUNIT_REG_MEDIA_TURBO_FREQ_REQ		0xdc
-
+#define PUNIT_REG_CZ_TIMESTAMP			0xce
 #define PUNIT_FUSE_BUS2				0xf6 /* bits 47:40 */
 #define PUNIT_FUSE_BUS1				0xf5 /* bits 55:48 */
 
@@ -4768,6 +4768,11 @@ EDP_PSR_SW_TIMER
 #define   GEN6_AGGRESSIVE_TURBO			(0<<15)
 #define GEN6_RC_VIDEO_FREQ			0xA00C
 #define GEN6_RC_CONTROL				0xA090
+
+#define VLV_MEDIA_C1_COUNT_REG                  0x138114
+#define VLV_RENDER_C0_COUNT_REG			0x138118
+#define VLV_MEDIA_C0_COUNT_REG			0x13811C
+
 #define   GEN6_RC_CTL_RC6pp_ENABLE		(1<<16)
 #define   GEN6_RC_CTL_RC6p_ENABLE		(1<<17)
 #define   GEN6_RC_CTL_RC6_ENABLE		(1<<18)
