@@ -96,6 +96,7 @@ static void populate_spid_cmdline(void)
 	} else
 		pr_err("SPID not found in kernel command line.\n");
 }
+
 static ssize_t customer_id_show(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
 {
@@ -313,10 +314,12 @@ int __init sfi_handle_spid(struct sfi_table_header *table)
 	/* Populate command line with SPID values */
 	populate_spid_cmdline();
 
+	return 0;
+
 err_sfi_oemb_tbl:
 	sysfs_remove_group(spid_kobj, &spid_attr_group);
 err_sfi_sysfs_spid:
 	kobject_put(spid_kobj);
 
-	return 0;
+	return ret;
 }
