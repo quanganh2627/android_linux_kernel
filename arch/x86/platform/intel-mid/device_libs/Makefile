@@ -18,6 +18,8 @@ obj-$(subst m,y,$(CONFIG_GPIO_INTEL_PMIC)) += platform_pmic_gpio.o
 obj-$(subst m,y,$(CONFIG_INTEL_MFLD_THERMAL)) += platform_msic_thermal.o
 obj-$(subst m,y,$(CONFIG_SENSORS_MID_VDD)) += platform_msic_vdd.o
 obj-$(subst m,y,$(CONFIG_SENSORS_MRFL_OCD)) += platform_mrfl_ocd.o
+obj-$(subst m,y,$(CONFIG_PMIC_CCSM)) += platform_mrfl_pmic.o
+obj-$(subst m,y,$(CONFIG_I2C_PMIC)) += platform_mrfl_pmic_i2c.o
 obj-$(subst m,y,$(CONFIG_VLV2_PLAT_CLK)) += platform_vlv2_plat_clk.o
 # I2C Devices
 obj-$(subst m,y,$(CONFIG_I2C_DESIGNWARE_PCI_FORK)) += platform_dw_i2c.o
@@ -27,6 +29,7 @@ obj-$(subst m,y,$(CONFIG_GPIO_PCA953X)) += platform_max7315.o
 obj-$(subst m,y,$(CONFIG_SENSORS_MPU3050)) += platform_mpu3050.o
 obj-$(subst m,y,$(CONFIG_GPIO_PCA953X)) += platform_tca6416.o
 obj-$(subst m,y,$(CONFIG_CHARGER_BQ24192)) += platform_bq24192.o
+obj-$(subst m,y,$(CONFIG_BQ24261_CHARGER)) += platform_bq24261.o
 obj-$(subst m,y,$(CONFIG_SND_SOC_CS42L73)) += platform_cs42l73.o
 obj-$(subst m,y,$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4_FORK)) += platform_rmi4.o
 obj-$(subst m,y,$(CONFIG_TOUCHSCREEN_R69001_I2C)) += platform_r69001.o
