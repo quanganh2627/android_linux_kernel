@@ -3797,6 +3797,13 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 			encoder->post_disable(encoder);
 
 	i9xx_disable_pll(dev_priv, pipe);
+	/*Reset lane for VLV platform*/
+	if (IS_VALLEYVIEW(dev)) {
+		if (intel_pipe_has_type(crtc, INTEL_OUTPUT_HDMI)) {
+			vlv_dpio_write(dev_priv, 0x8200, 0x00000000);
+			vlv_dpio_write(dev_priv, 0x8204, 0x00e00060);
+		}
+	}
 
 	intel_crtc->active = false;
 	intel_update_fbc(dev);
