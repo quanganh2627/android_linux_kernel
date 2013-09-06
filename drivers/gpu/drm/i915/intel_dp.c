@@ -2016,9 +2016,108 @@ static uint32_t intel_vlv_signal_levels(struct intel_dp *intel_dp)
 	return 0;
 }
 
+static
+void Set_Vswing_Preemphasis(struct intel_dp *intel_dp, uint8_t v, uint8_t p)
+{
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	bool ret = true;
+	unsigned long Demph_reg_value, Preemph_reg_value;
+	unsigned long Uniqtranscale_reg_value;
+	switch (p) {
+	case DP_TRAIN_PRE_EMPHASIS_0:
+		Preemph_reg_value = 0x0004000;
+		switch (v) {
+		case DP_TRAIN_VOLTAGE_SWING_400:
+			Demph_reg_value = 0x2B405555;
+			Uniqtranscale_reg_value = 0x552AB83A;
+			break;
+		case DP_TRAIN_VOLTAGE_SWING_600:
+			Demph_reg_value = 0x2B404040;
+			Uniqtranscale_reg_value = 0x5548B83A;
+			break;
+		case DP_TRAIN_VOLTAGE_SWING_800:
+			Demph_reg_value = 0x2B245555;
+			Uniqtranscale_reg_value = 0x5560B83A;
+			break;
+		case DP_TRAIN_VOLTAGE_SWING_1200:
+			Demph_reg_value = 0x2B405555;
+			Uniqtranscale_reg_value = 0x5598DA3A;
+			break;
+		default:
+			ret = false;
+			break;
+		}
+		break;
+	case DP_TRAIN_PRE_EMPHASIS_3_5:
+		Preemph_reg_value = 0x0002000;
+		switch (v) {
+		case DP_TRAIN_VOLTAGE_SWING_400:
+			Demph_reg_value = 0x2B404040;
+			Uniqtranscale_reg_value = 0x5552B83A;
+			break;
+		case DP_TRAIN_VOLTAGE_SWING_600:
+			Demph_reg_value = 0x2B404848;
+			Uniqtranscale_reg_value = 0x5580B83A;
+			break;
+		case DP_TRAIN_VOLTAGE_SWING_800:
+			Demph_reg_value = 0x2B404040;
+			Uniqtranscale_reg_value = 0x55ADDA3A;
+			break;
+		default:
+			ret = false;
+			break;
+		}
+		break;
+	case DP_TRAIN_PRE_EMPHASIS_6:
+		Preemph_reg_value = 0x0000000;
+		switch (v) {
+		case DP_TRAIN_VOLTAGE_SWING_400:
+			Demph_reg_value = 0x2B305555;
+			Uniqtranscale_reg_value = 0x5570B83A;
+			break;
+		case DP_TRAIN_VOLTAGE_SWING_600:
+			Demph_reg_value = 0x2B2B4040;
+			Uniqtranscale_reg_value = 0x55ADDA3A;
+			break;
+		default:
+			ret = false;
+			break;
+		}
+		break;
+	case DP_TRAIN_PRE_EMPHASIS_9_5:
+		Preemph_reg_value = 0x0006000;
+		switch (v) {
+		case DP_TRAIN_VOLTAGE_SWING_400:
+			Demph_reg_value = 0x1B405555;
+			Uniqtranscale_reg_value = 0x55ADDA3A;
+			break;
+		default:
+			ret = false;
+			break;
+		}
+			break;
+	default:
+		ret = false;
+		break;
+	}
+
+	if (ret) {
+		vlv_dpio_write(dev_priv, 0x8494, 0x00000000);
+		vlv_dpio_write(dev_priv, 0x8490, Demph_reg_value);
+		vlv_dpio_write(dev_priv, 0x8488, Uniqtranscale_reg_value);
+		vlv_dpio_write(dev_priv, 0x848c, 0x0C782040);
+		vlv_dpio_write(dev_priv, 0x842c, 0x00030000);
+		vlv_dpio_write(dev_priv, 0x8424, Preemph_reg_value);
+		vlv_dpio_write(dev_priv, 0x8494, 0x80000000);
+
+	}
+}
+
 static void
 intel_get_adjust_train(struct intel_dp *intel_dp, uint8_t link_status[DP_LINK_STATUS_SIZE])
 {
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
 	uint8_t v = 0;
 	uint8_t p = 0;
 	int lane;
@@ -2042,6 +2141,9 @@ intel_get_adjust_train(struct intel_dp *intel_dp, uint8_t link_status[DP_LINK_ST
 	preemph_max = intel_dp_pre_emphasis_max(intel_dp, v);
 	if (p >= preemph_max)
 		p = preemph_max | DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
+
+	if (IS_VALLEYVIEW(dev))
+		Set_Vswing_Preemphasis(intel_dp, v, p);
 
 	for (lane = 0; lane < 4; lane++)
 		intel_dp->train_set[lane] = v | p;
