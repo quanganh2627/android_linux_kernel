@@ -4546,7 +4546,8 @@ static void vlv_update_pll(struct intel_crtc *crtc)
 		<< DPLL_MD_UDI_MULTIPLIER_SHIFT;
 	crtc->config.dpll_hw_state.dpll_md = dpll_md;
 
-	if (crtc->config.has_dp_encoder)
+	if (crtc->config.has_dp_encoder ||
+		intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_EDP))
 		intel_dp_set_m_n(crtc);
 
 	mutex_unlock(&dev_priv->dpio_lock);
