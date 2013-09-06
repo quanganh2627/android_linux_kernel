@@ -54,6 +54,8 @@
 #include "device_libs/platform_msic_power_btn.h"
 #include "device_libs/platform_msic_ocd.h"
 #include "device_libs/platform_msic_vdd.h"
+#include "device_libs/platform_mrfl_pmic.h"
+#include "device_libs/platform_mrfl_pmic_i2c.h"
 #include "device_libs/platform_mrfl_ocd.h"
 #include "device_libs/platform_msic_thermal.h"
 #include "device_libs/platform_msic_adc.h"
@@ -73,6 +75,7 @@
 #include "device_libs/platform_tc35876x.h"
 #include "device_libs/platform_rmi4.h"
 #include "device_libs/platform_bq24192.h"
+#include "device_libs/platform_bq24261.h"
 #include "device_libs/platform_r69001.h"
 #include "device_libs/platform_pn544.h"
 #include "device_libs/platform_l3g4200d.h"
@@ -129,6 +132,7 @@ struct devs_id __initconst device_ids[] = {
 	{"max17047", SFI_DEV_TYPE_I2C, 1, &max17042_platform_data, NULL},
 	{"max17050", SFI_DEV_TYPE_I2C, 1, &max17042_platform_data, NULL},
 	{"bq24192", SFI_DEV_TYPE_I2C, 1, &bq24192_platform_data},
+	{"bq24261_charger", SFI_DEV_TYPE_I2C, 1, &bq24261_platform_data, NULL},
 	{"pn544", SFI_DEV_TYPE_I2C, 0, &pn544_platform_data, NULL},
 	{"l3gd20", SFI_DEV_TYPE_I2C, 0, &l3g4200d_platform_data, NULL},
 	{"l3g4200d", SFI_DEV_TYPE_I2C, 0, &l3g4200d_platform_data},
@@ -172,6 +176,10 @@ struct devs_id __initconst device_ids[] = {
 
 	/* IPC devices */
 	{"pmic_charger", SFI_DEV_TYPE_IPC, 1, &no_platform_data, NULL},
+	{"pmic_ccsm", SFI_DEV_TYPE_IPC, 1, &mrfl_pmic_ccsm_platform_data,
+						&ipc_device_handler},
+	{"i2c_pmic_adap", SFI_DEV_TYPE_IPC, 1, &mrfl_pmic_i2c_platform_data,
+						&ipc_device_handler},
 
 	/* IPC devices */
 	{"ctp_rhb_cs42l73", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
