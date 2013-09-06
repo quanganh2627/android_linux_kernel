@@ -40,35 +40,6 @@ struct max17042_config_data {
 	* configuration has been loaded in that case
 	* we need to perform complete init of chip
 	*/
-	/* A/D measurement */
-	u16	tgain;		/* 0x2C */
-	u16	toff;		/* 0x2D */
-	u16	cgain;		/* 0x2E */
-	u16	coff;		/* 0x2F */
-	/* Alert / Status */
-	u16	valrt_thresh;	/* 0x01 */
-	u16	talrt_thresh;	/* 0x02 */
-	u16	soc_alrt_thresh;	/* 0x03 */
-	u16	config;		/* 0x01D */
-	u16	shdntimer;	/* 0x03F */
-	/* MG3 config */
-	u16	at_rate;	/* 0x04 */
-	u16	misc_cfg;	/* 0x2B */
-	u16	masksoc;	/* 0x32 */
-
-	/* MG3 save and restore */
-	u16	fullcap;	/* 0x10 */
-	u16	fullcapnom;	/* 0x23 */
-	u16	socempty;	/* 0x33 */
-	u16	lavg_empty;	/* 0x36 */
-	u16	dqacc;		/* 0x45 */
-	u16	dpacc;		/* 0x46 */
-	/* Cell Data */
-	u16	temp_nom;	/* 0x24 */
-	u16	temp_lim;	/* 0x25 */
-	u16	fctc;		/* 0x37 */
-	u16	tcompc0;	/* 0x39 */
-	u16	empty_tempco;	/* 0x3A */
 
 	u8	table_type;
 	u16	size;
@@ -106,8 +77,6 @@ struct max17042_config_data {
 } __packed;
 
 struct max17042_platform_data {
-
-	struct max17042_config_data *config_data;
 	bool enable_current_sense;
 	bool is_init_done;
 	bool is_volt_shutdown;

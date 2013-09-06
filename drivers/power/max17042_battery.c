@@ -39,7 +39,6 @@
 #include <linux/notifier.h>
 #include <linux/miscdevice.h>
 #include <linux/atomic.h>
-#include <linux/of.h>
 
 /* Status register bits */
 #define STATUS_POR_BIT		(1 << 1)
@@ -196,7 +195,6 @@ enum max17042_register {
 	MAX17042_CGAIN		= 0x2E,
 	MAX17042_COFF		= 0x2F,
 
-	MAX17042_MaskSOC	= 0x32,
 	MAX17042_SOCempty	= 0x33,
 	MAX17042_T_empty	= 0x34,
 	MAX17042_FullCAP0	= 0x35,
@@ -575,64 +573,7 @@ static int max17042_write_verify_reg(struct i2c_client *client,
 
 	return ret;
 }
-static inline void max17042_override_por(
-	struct i2c_client *client, u8 reg, u16 value)
-{
-	if (value)
-		max17042_write_reg(client, reg, value);
-}
-static inline void max17042_override_por_values(struct max17042_chip *chip)
-{
-	struct i2c_client *client = chip->client;
-	struct max17042_config_data *config = chip->pdata->config_data;
 
-	max17042_override_por(client, MAX17042_TGAIN, config->tgain);
-	max17042_override_por(client, MAx17042_TOFF, config->toff);
-	max17042_override_por(client, MAX17042_CGAIN, config->cgain);
-	max17042_override_por(client, MAX17042_COFF, config->coff);
-
-	max17042_override_por(client, MAX17042_VALRT_Th, config->valrt_thresh);
-	max17042_override_por(client, MAX17042_TALRT_Th, config->talrt_thresh);
-	max17042_override_por(client, MAX17042_SALRT_Th,
-			config->soc_alrt_thresh);
-	max17042_override_por(client, MAX17042_CONFIG, config->config);
-	max17042_override_por(client, MAX17042_SHDNTIMER, config->shdntimer);
-
-	max17042_override_por(client, MAX17042_DesignCap, config->design_cap);
-	max17042_override_por(client, MAX17042_ICHGTerm, config->ichgt_term);
-
-	max17042_override_por(client, MAX17042_AtRate, config->at_rate);
-	max17042_override_por(client, MAX17042_LearnCFG, config->learn_cfg);
-	max17042_override_por(client, MAX17042_SHFTCFG, config->filter_cfg);
-	max17042_override_por(client, MAX17042_RelaxCFG, config->relax_cfg);
-	max17042_override_por(client, MAX17042_MiscCFG, config->misc_cfg);
-	max17042_override_por(client, MAX17042_MaskSOC, config->masksoc);
-
-	max17042_override_por(client, MAX17042_FullCAP, config->fullcap);
-	max17042_override_por(client, MAX17042_FullCAPNom, config->fullcapnom);
-	if (chip->chip_type == MAX17042)
-		max17042_override_por(client, MAX17042_SOCempty,
-						config->socempty);
-	max17042_override_por(client, MAX17042_LAvg_empty, config->lavg_empty);
-	max17042_override_por(client, MAX17042_dQacc, config->dqacc);
-	max17042_override_por(client, MAX17042_dPacc, config->dpacc);
-
-	if (chip->chip_type == MAX17042)
-		max17042_override_por(client, MAX17042_V_empty, config->vempty);
-	else
-		max17042_override_por(client, MAX17050_V_empty, config->vempty);
-	max17042_override_por(client, MAX17042_TempNom, config->temp_nom);
-	max17042_override_por(client, MAX17042_TempCold, config->temp_lim);
-	max17042_override_por(client, MAX17042_FCTC, config->fctc);
-	max17042_override_por(client, MAX17042_RCOMP0, config->rcomp0);
-	max17042_override_por(client, MAX17042_TempCo, config->tcompc0);
-	if (chip->chip_type) {
-		max17042_override_por(client, MAX17042_ETC,
-					config->empty_tempco);
-		max17042_override_por(client, MAX17042_K_empty0,
-					config->kempty0);
-	}
-}
 static int max17042_reg_read_modify(struct i2c_client *client, u8 reg,
 							u16 val, int bit_set)
 {
@@ -1359,7 +1300,7 @@ static void save_runtime_params(struct max17042_chip *chip)
 	dev_dbg(&chip->client->dev, "%s\n", __func__);
 
 	if (!chip->pdata->save_config_data || !chip->pdata->is_init_done)
-		return;
+		return ;
 
 	update_runtime_params(chip);
 
@@ -1367,7 +1308,7 @@ static void save_runtime_params(struct max17042_chip *chip)
 	retval = chip->pdata->save_config_data(DRV_NAME, fg_conf_data, size);
 	if (retval < 0) {
 		dev_err(&chip->client->dev, "%s failed\n", __func__);
-		return;
+		return ;
 	}
 
 }
@@ -1538,7 +1479,7 @@ static void set_soc_intr_thresholds_s0(struct max17042_chip *chip, int offset)
 	if (ret < 0) {
 		dev_err(&chip->client->dev,
 			"maxim RepSOC read failed:%d\n", ret);
-		return;
+		return ;
 	}
 	soc = ret >> 8;
 
@@ -1575,7 +1516,7 @@ static void set_soc_intr_thresholds_s3(struct max17042_chip *chip)
 	if (ret < 0) {
 		dev_err(&chip->client->dev,
 			"maxim RepSOC read failed:%d\n", ret);
-		return;
+		return ;
 	}
 	val = ret;
 	soc = val >> 8;
@@ -1757,7 +1698,7 @@ static void max17042_create_debugfs(struct max17042_chip *chip)
 	max17042_dbgfs_root = debugfs_create_dir(DRV_NAME, NULL);
 	if (IS_ERR(max17042_dbgfs_root)) {
 		dev_warn(&chip->client->dev, "DEBUGFS DIR create failed\n");
-		return;
+		return ;
 	}
 
 	for (i = 0; i < MAX17042_MAX_MEM; i++) {
@@ -1773,7 +1714,7 @@ static void max17042_create_debugfs(struct max17042_chip *chip)
 			max17042_dbgfs_root = NULL;
 			dev_warn(&chip->client->dev,
 					"DEBUGFS entry Create failed\n");
-			return;
+			return ;
 		}
 	}
 }
@@ -1994,14 +1935,13 @@ static int max17042_probe(struct i2c_client *client,
 		return -EIO;
 	}
 
-	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
+	chip = kzalloc(sizeof(*chip), GFP_KERNEL);
 	if (!chip) {
 		dev_err(&client->dev, "mem alloc failed\n");
 		return -ENOMEM;
 	}
 
-	fg_conf_data = devm_kzalloc(&client->dev,
-				sizeof(*fg_conf_data), GFP_KERNEL);
+	fg_conf_data = kzalloc(sizeof(*fg_conf_data), GFP_KERNEL);
 	if (!fg_conf_data) {
 		dev_err(&client->dev, "mem alloc failed\n");
 		kfree(chip);
@@ -2147,7 +2087,7 @@ static int max17042_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int  max17042_remove(struct i2c_client *client)
+static int max17042_remove(struct i2c_client *client)
 {
 	struct max17042_chip *chip = i2c_get_clientdata(client);
 
