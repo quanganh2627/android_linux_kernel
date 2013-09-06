@@ -48,6 +48,14 @@ obj-$(subst m,y,$(CONFIG_A1026)) += platform_a1026.o
 
 # SPI Devices
 obj-$(subst m,y,$(CONFIG_SERIAL_MRST_MAX3110)) += platform_max3111.o
+# HSI Devices
+obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_hsi_modem.o
+obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_ffl_modem.o
+obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_edlp_modem.o
+obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_edlp_fast.o
+obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_logical_modem.o
+# Modem control Device
+obj-y									+= platform_modem_ctrl.o
 # MISC Devices
 obj-$(subst m,y,$(CONFIG_KEYBOARD_GPIO)) += platform_gpio_keys.o
 # ADC

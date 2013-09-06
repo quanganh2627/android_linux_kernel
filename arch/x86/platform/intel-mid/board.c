@@ -113,6 +113,16 @@
 #include "device_libs/platform_max3111.h"
 #include "device_libs/platform_max17042.h"
 
+/* HSI devices */
+#include "device_libs/platform_hsi_modem.h"
+#include "device_libs/platform_ffl_modem.h"
+#include "device_libs/platform_edlp_modem.h"
+#include "device_libs/platform_edlp_fast.h"
+#include "device_libs/platform_logical_modem.h"
+
+/* SW devices */
+#include "device_libs/platform_modem_ctrl.h"
+
 /* WIFI devices */
 #include "device_libs/platform_wl12xx.h"
 #include "device_libs/platform_wifi.h"
@@ -250,5 +260,36 @@ struct devs_id __initconst device_ids[] = {
 	{"wm8958", SFI_DEV_TYPE_I2C, 0, &wm8994_platform_data, NULL},
 	{"lm49453_codec", SFI_DEV_TYPE_I2C, 1, &no_platform_data, NULL},
 	{"cs42l73", SFI_DEV_TYPE_I2C, 1, &cs42l73_platform_data, NULL},
+#ifndef CONFIG_HSI_NO_MODEM
+	{"hsi_ifx_modem", SFI_DEV_TYPE_HSI, 0, &hsi_modem_platform_data, NULL},
+	{"hsi_ffl_modem", SFI_DEV_TYPE_HSI, 0, &ffl_modem_platform_data, NULL},
+	{"hsi_edlp_modem", SFI_DEV_TYPE_HSI, 0, &edlp_modem_platform_data,
+						NULL},
+	{"hsi_edlp_fast", SFI_DEV_TYPE_HSI, 0, &edlp_fast_platform_data, NULL},
+#endif
+	{"XMM_6260", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"XMM_6268", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"XMM_6360", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"XMM_7160_REV1", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"XMM_7160_REV3", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"XMM_7160_REV3_5", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"XMM_7160_REV4", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"RMC_CYGNUS", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"CYGNUS_FFRD_EU", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"CYGNUS_FFRD_NA", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"RMC_CYGNUS_PCI", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"RMC_PEGASUS", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
 	{},
 };
