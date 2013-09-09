@@ -116,7 +116,6 @@ static struct gpio_keys_button lesskey_button_non_repeat[] = {
 };
 
 static struct gpio_keys_button lesskey_button_auto_repeat[] = {
-	{KEY_HOME,		-1, 1, "home_btn",	EV_KEY, .acpi_idx = 1},
 	{KEY_VOLUMEUP,		-1, 1, "volume_up",	EV_KEY, .acpi_idx = 2},
 	{KEY_VOLUMEDOWN,	-1, 1, "volume_down",	EV_KEY, .acpi_idx = 3},
 	{KEY_RO,		-1, 1, "rotationlock",	EV_KEY, .acpi_idx = 4},
