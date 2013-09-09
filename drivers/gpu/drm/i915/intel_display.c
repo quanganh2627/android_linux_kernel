@@ -2121,10 +2121,16 @@ int i915_rotation_ffrd(const struct drm_device *dev,
 	if (i915_rotation) {
 		val |= DISPPLANE_180_ROTATION_ENABLE;
 		I915_WRITE(reg, val);
-		sprctla |= DISPPLANE_180_ROTATION_ENABLE;
-		I915_WRITE(SPCNTR(pipe, 0), sprctla);
-		sprctlb |= DISPPLANE_180_ROTATION_ENABLE;
-		I915_WRITE(SPCNTR(pipe, 1), sprctlb);
+
+		if (!(sprctla & DISPPLANE_180_ROTATION_ENABLE)) {
+			sprctla |= DISPPLANE_180_ROTATION_ENABLE;
+			I915_WRITE(SPCNTR(pipe, 0), sprctla);
+		}
+
+		if (!(sprctlb & DISPPLANE_180_ROTATION_ENABLE)) {
+			sprctlb |= DISPPLANE_180_ROTATION_ENABLE;
+			I915_WRITE(SPCNTR(pipe, 1), sprctlb);
+		}
 	}
 
 	return 0;
