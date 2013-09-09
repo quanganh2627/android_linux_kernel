@@ -53,7 +53,7 @@ endchoice
 
 config INTEL_MFLD_THERMAL
 	tristate "Thermal driver for Intel Medfield platform"
-	depends on MFD_INTEL_MSIC && THERMAL
+	depends on MFD_INTEL_MSIC && THERMAL && MSIC_GPADC
 	help
 	  Say Y here to enable thermal driver support for the  Intel Medfield
 	   platform.
