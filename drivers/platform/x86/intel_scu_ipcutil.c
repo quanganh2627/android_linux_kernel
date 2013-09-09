@@ -2483,6 +2483,133 @@ static void intel_mid_scu_ipc_cmd_debugfs_exit(void)
 {
 	debugfs_remove_recursive(scu_ipc_cmd_dir);
 }
+
+#ifdef DUMP_OSNIB
+
+static ssize_t intel_scu_ipc_osnib_read_reset_event(
+	struct file *file, char __user *buf,
+	size_t count, loff_t *ppos)
+{
+	loff_t pos = *ppos;
+	u8 rev[1] = {0};
+	int ret, i;
+
+	if (pos > 0)
+		return 0;
+
+	for (i = 0; i < ARRAY_SIZE(chip_reset_events); i++) {
+		if (chip_reset_events[i].id == oshob_info->platform_type) {
+			if (strcmp(
+				file->f_path.dentry->d_name.name,
+				chip_reset_events[i].reset_ev1_name) == 0)
+				ret = intel_scu_ipc_read_osnib_reset_ev1(rev);
+			else
+				ret = intel_scu_ipc_read_osnib_reset_ev2(rev);
+
+			if (ret != 0) {
+				pr_err("%s: cannot read %s, ret=%d",
+					__func__,
+					file->f_path.dentry->d_name.name,
+					ret);
+				return ret;
+			}
+
+			/*
+			*  buf is allocated by the kernel (4ko) and we will
+			*  never write more than 6 bytes so no need to check
+			*/
+			ret = sprintf(buf, "0x%x\n", rev[0]);
+			if (ret < 0) {
+				pr_err(
+					"%s: cannot convert the value, ret = %d",
+					__func__,
+					ret);
+				return ret;
+			}
+
+			*ppos += ret;
+			return ret;
+		}
+	}
+
+	pr_err("%s: param not found\n", __func__);
+	return -EFAULT;
+}
+
+/* Attach the debugfs operations methods */
+static const struct file_operations scu_ipc_osnib_fops = {
+	.owner = THIS_MODULE,
+	.read  = intel_scu_ipc_osnib_read_reset_event,
+};
+
+static struct dentry *scu_ipc_osnib_dir;
+static struct dentry *scu_ipc_osnib_file_reset_ev1;
+static struct dentry *scu_ipc_osnib_file_reset_ev2;
+
+/*
+*	debugfs interface: init interface.
+*/
+static int intel_mid_scu_ipc_osnib_debugfs_init(void)
+{
+	int i;
+
+	/* Create debugfs directory /sys/kernel/debug/intel_scu_osnib */
+	scu_ipc_osnib_dir = debugfs_create_dir("intel_scu_osnib", NULL);
+
+	if (!scu_ipc_osnib_dir) {
+		pr_err("%s: cannot create OSNIB debugfs directory\n", __func__);
+		return -1;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(chip_reset_events); i++) {
+		if (chip_reset_events[i].id == oshob_info->platform_type) {
+
+			scu_ipc_osnib_file_reset_ev1 = debugfs_create_file(
+					chip_reset_events[i].reset_ev1_name,
+					S_IFREG | S_IRUGO,
+					scu_ipc_osnib_dir,
+					NULL, &scu_ipc_osnib_fops);
+
+			if (!scu_ipc_osnib_file_reset_ev1) {
+				pr_err("%s: cannot create %s debugfs file\n",
+					__func__,
+					chip_reset_events[i].reset_ev1_name);
+				debugfs_remove(scu_ipc_osnib_dir);
+				return -1;
+			}
+
+			scu_ipc_osnib_file_reset_ev2 = debugfs_create_file(
+					chip_reset_events[i].reset_ev2_name,
+					S_IFREG | S_IRUGO,
+					scu_ipc_osnib_dir,
+					NULL, &scu_ipc_osnib_fops);
+
+			if (!scu_ipc_osnib_file_reset_ev2) {
+				pr_err("%s: cannot create %s debugfs file\n",
+					__func__,
+					chip_reset_events[i].reset_ev1_name);
+				debugfs_remove_recursive(scu_ipc_osnib_dir);
+				return -1;
+			}
+
+			return 0;
+		}
+	}
+
+	pr_err("%s: param not found\n", __func__);
+	return -EFAULT;
+}
+
+/*
+*	debugfs interface: exit interface.
+*/
+static void intel_mid_scu_ipc_osnib_debugfs_exit(void)
+{
+	debugfs_remove_recursive(scu_ipc_osnib_dir);
+}
+
+#endif /* DUMP_OSNIB */
+
 #endif /* CONFIG_DEBUG_FS */
 
 static const struct file_operations scu_ipc_fops = {
@@ -2696,6 +2823,14 @@ static int oshob_init(void)
 		goto exit;
 	}
 
+#ifdef DUMP_OSNIB
+	ret = intel_mid_scu_ipc_osnib_debugfs_init();
+	if (ret != 0) {
+		pr_err("Cannot register OSNIB interface to debugfs\n");
+		goto exit;
+	} else
+		pr_info("OSNIB interface registered to debugfs\n");
+#endif /* DUMP_OSNIB */
 #endif /* CONFIG_DEBUG_FS */
 
 exit:
@@ -2759,6 +2894,10 @@ static void ipcutil_rpmsg_remove(struct rpmsg_channel *rpdev)
 		intel_mid_scu_ipc_oemnib_debugfs_exit();
 	}
 	intel_mid_scu_ipc_cmd_debugfs_exit();
+
+#ifdef DUMP_OSNIB
+	intel_mid_scu_ipc_osnib_debugfs_exit();
+#endif /* DUMP_OSNIB */
 #endif /* CONFIG_DEBUG_FS */
 
 	kfree(oshob_info);
