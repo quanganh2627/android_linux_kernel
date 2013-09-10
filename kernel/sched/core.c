@@ -7733,8 +7733,9 @@ cpu_cgroup_allow_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
 	cgroup_taskset_for_each(task, cgrp, tset) {
 		tcred = __task_cred(task);
 
-		if ((current != task) && !capable(CAP_SYS_NICE) &&
-		    cred->euid != tcred->uid && cred->euid != tcred->suid)
+		if ((current != task) && !capable(CAP_SYS_NICE)
+			&& __kuid_val(cred->euid) != __kuid_val(tcred->uid)
+			&& __kuid_val(cred->euid) != __kuid_val(tcred->suid))
 			return -EACCES;
 	}
 
