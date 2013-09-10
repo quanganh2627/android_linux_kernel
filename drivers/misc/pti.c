@@ -30,7 +30,7 @@
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
 #include <linux/pci.h>
-#include <linux/mutex.h>
+#include <linux/spinlock.h>
 #include <linux/miscdevice.h>
 #include <linux/pti.h>
 #include <linux/slab.h>
@@ -121,7 +121,7 @@ struct pti_dev {
  * which keeps track of channels allocated in
  * an aperture write id.
  */
-static DEFINE_MUTEX(alloclock);
+static DEFINE_SPINLOCK(cid_lock);
 
 static struct tty_driver *pti_tty_driver;
 static struct pti_dev *drv_data;
@@ -272,7 +272,7 @@ static void pti_write_full_frame_to_aperture(struct pti_masterchannel *mc,
  *
  * @id_array:    an array of bits representing what channel
  *               id's are allocated for writing.
- * @max_ids:     The max amount of available write IDs to use.
+ * @array_size:  array size in bytes
  * @base_id:     The starting SW channel ID, based on the Intel
  *               PTI arch.
  * @thread_name: The thread name associated with the master / channel or
@@ -287,37 +287,40 @@ static void pti_write_full_frame_to_aperture(struct pti_masterchannel *mc,
  * every master there are 128 channel id's.
  */
 static struct pti_masterchannel *get_id(u8 *id_array,
-					int max_ids,
+					int array_size,
 					int base_id,
 					const char *thread_name)
 {
 	struct pti_masterchannel *mc;
-	int i, j, mask;
+	unsigned long flags;
+	unsigned long *addr = (unsigned long *)id_array;
+	unsigned long num_bits = array_size*8, n;
 
-	mc = kmalloc(sizeof(struct pti_masterchannel), GFP_KERNEL);
+	/* Allocate memory with GFP_ATOMIC flag because this API
+	 * can be called in interrupt context.
+	 */
+	mc = kmalloc(sizeof(struct pti_masterchannel), GFP_ATOMIC);
 	if (mc == NULL)
 		return NULL;
 
-	/* look for a byte with a free bit */
-	for (i = 0; i < max_ids; i++)
-		if (id_array[i] != 0xff)
-			break;
-	if (i == max_ids) {
+	/* Find the first available channel ID (first zero bit) in the
+	 * bitdfield and toggle the corresponding bit to reserve it.
+	 * This must be done under spinlock with interrupts disabled
+	 * to ensure there is no concurrent access to the bitfield.
+	 */
+	spin_lock_irqsave(&cid_lock, flags);
+	n = find_first_zero_bit(addr, num_bits);
+	if (n >= num_bits) {
 		kfree(mc);
+		spin_unlock_irqrestore(&cid_lock, flags);
 		return NULL;
 	}
-	/* find the bit in the 128 possible channel opportunities */
-	mask = 0x80;
-	for (j = 0; j < 8; j++) {
-		if ((id_array[i] & mask) == 0)
-			break;
-		mask >>= 1;
-	}
+	change_bit(n, addr);
+	spin_unlock_irqrestore(&cid_lock, flags);
 
-	/* grab it */
-	id_array[i] |= mask;
 	mc->master  = base_id;
-	mc->channel = ((i & 0xf)<<3) + j;
+	mc->channel = n;
+
 	/* write new master Id / channel Id allocation to channel control */
 	pti_control_frame_built_and_sent(mc, thread_name);
 	return mc;
@@ -357,8 +360,6 @@ struct pti_masterchannel *pti_request_masterchannel(u8 type,
 	if (drv_data == NULL)
 		return NULL;
 
-	mutex_lock(&alloclock);
-
 	switch (type) {
 
 	case 0:
@@ -379,7 +380,6 @@ struct pti_masterchannel *pti_request_masterchannel(u8 type,
 		mc = NULL;
 	}
 
-	mutex_unlock(&alloclock);
 	return mc;
 }
 EXPORT_SYMBOL_GPL(pti_request_masterchannel);
@@ -394,29 +394,41 @@ EXPORT_SYMBOL_GPL(pti_request_masterchannel);
  */
 void pti_release_masterchannel(struct pti_masterchannel *mc)
 {
-	u8 master, channel, i;
-
-	mutex_lock(&alloclock);
+	u8 master, channel;
 
 	if (mc) {
 		master = mc->master;
 		channel = mc->channel;
 
-		if (master == APP_BASE_ID) {
-			i = channel >> 3;
-			drv_data->ia_app[i] &=  ~(0x80>>(channel & 0x7));
-		} else if (master == OS_BASE_ID) {
-			i = channel >> 3;
-			drv_data->ia_os[i] &= ~(0x80>>(channel & 0x7));
-		} else {
-			i = channel >> 3;
-			drv_data->ia_modem[i] &= ~(0x80>>(channel & 0x7));
+		switch (master) {
+
+		/* Note that clear_bit is atomic, so there is no need
+		 * to use cid_lock here to protect the bitfield
+		 */
+
+		case APP_BASE_ID:
+			clear_bit(mc->channel,
+				  (unsigned long *)drv_data->ia_app);
+			break;
+
+		case OS_BASE_ID:
+			clear_bit(mc->channel,
+				  (unsigned long *)drv_data->ia_os);
+			break;
+
+		case MODEM_BASE_ID:
+			clear_bit(mc->channel,
+				  (unsigned long *)drv_data->ia_modem);
+			break;
+
+		default:
+			pr_err("%s(%d) : Invalid master ID!\n",
+			       __func__, __LINE__);
+			break;
 		}
 
 		kfree(mc);
 	}
-
-	mutex_unlock(&alloclock);
 }
 EXPORT_SYMBOL_GPL(pti_release_masterchannel);
 
