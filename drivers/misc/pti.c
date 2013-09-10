@@ -137,6 +137,8 @@ static unsigned int pti_control_channel;
  *  @buf: Data being written to the HW that will ultimately be seen
  *        in a debugging tool (Fido, Lauterbach).
  *  @len: Size of buffer.
+ *  @eom: End Of Message indication. If true, DTS shall be used for
+ *        the last bytes of the message.
  *
  *  Since each aperture is specified by a unique
  *  master/channel ID, no two processes will be writing
@@ -148,7 +150,8 @@ static unsigned int pti_control_channel;
  */
 static void pti_write_to_aperture(struct pti_masterchannel *mc,
 				  u8 *buf,
-				  int len)
+				  int len,
+				  bool eom)
 {
 	int dwordcnt;
 	int final;
@@ -177,7 +180,7 @@ static void pti_write_to_aperture(struct pti_masterchannel *mc,
 		iowrite32(ptiword, aperture);
 	}
 
-	aperture += PTI_LASTDWORD_DTS;	/* adding DTS signals that is EOM */
+	aperture += eom ? PTI_LASTDWORD_DTS : 0; /* DTS signals EOM */
 
 	ptiword = 0;
 	for (i = 0; i < final; i++)
@@ -238,7 +241,8 @@ static void pti_control_frame_built_and_sent(struct pti_masterchannel *mc,
 
 	snprintf(control_frame, CONTROL_FRAME_LEN, control_format, mc->master,
 		mc->channel, thread_name_p);
-	pti_write_to_aperture(&mccontrol, control_frame, strlen(control_frame));
+	pti_write_to_aperture(&mccontrol, control_frame,
+			      strlen(control_frame), true);
 }
 
 /**
@@ -260,7 +264,7 @@ static void pti_write_full_frame_to_aperture(struct pti_masterchannel *mc,
 						int len)
 {
 	pti_control_frame_built_and_sent(mc, NULL);
-	pti_write_to_aperture(mc, (u8 *)buf, len);
+	pti_write_to_aperture(mc, (u8 *)buf, len, true);
 }
 
 /**
@@ -426,8 +430,10 @@ EXPORT_SYMBOL_GPL(pti_release_masterchannel);
  *         Null value will return with no write occurring.
  * @count: Size of buf. Value of 0 or a negative number will
  *         return with no write occuring.
+ * @eom:   End Of Message indication. If true, DTS shall be used
+ *         for last bytes of the message.
  */
-void pti_writedata(struct pti_masterchannel *mc, u8 *buf, int count)
+void pti_writedata(struct pti_masterchannel *mc, u8 *buf, int count, bool eom)
 {
 	/*
 	 * since this function is exported, this is treated like an
@@ -435,7 +441,7 @@ void pti_writedata(struct pti_masterchannel *mc, u8 *buf, int count)
 	 * be checked for validity.
 	 */
 	if ((mc != NULL) && (buf != NULL) && (count > 0))
-		pti_write_to_aperture(mc, buf, count);
+		pti_write_to_aperture(mc, buf, count, eom);
 	return;
 }
 EXPORT_SYMBOL_GPL(pti_writedata);
@@ -565,7 +571,7 @@ static int pti_tty_driver_write(struct tty_struct *tty,
 {
 	struct pti_tty *pti_tty_data = tty->driver_data;
 	if ((pti_tty_data != NULL) && (pti_tty_data->mc != NULL)) {
-		pti_write_to_aperture(pti_tty_data->mc, (u8 *)buf, len);
+		pti_write_to_aperture(pti_tty_data->mc, (u8 *)buf, len, true);
 		return len;
 	}
 	/*
@@ -683,7 +689,7 @@ static ssize_t pti_char_write(struct file *filp, const char __user *data,
 			return n ? n : -EFAULT;
 		}
 
-		pti_write_to_aperture(mc, kbuf, size);
+		pti_write_to_aperture(mc, kbuf, size, true);
 		n  += size;
 		tmp += size;
 
