@@ -1673,6 +1673,32 @@ static int dwc3_gadget_stop(struct usb_gadget *g,
 	return 0;
 }
 
+static int __dwc3_vbus_draw(struct dwc3 *dwc, unsigned ma)
+{
+	int		ret;
+	struct usb_phy	*usb_phy;
+
+	usb_phy = usb_get_phy(USB_PHY_TYPE_USB2);
+	if (!usb_phy) {
+		dev_err(dwc->dev, "OTG driver not available\n");
+		return -ENODEV;
+	}
+
+	ret = usb_phy_set_power(usb_phy, ma);
+	usb_put_phy(usb_phy);
+
+	return ret;
+}
+
+static int dwc3_vbus_draw(struct usb_gadget *g, unsigned ma)
+{
+	struct dwc3	*dwc = gadget_to_dwc(g);
+
+	dev_dbg(dwc->dev, "otg_set_power: %d mA\n", ma);
+
+	return __dwc3_vbus_draw(dwc, ma);
+}
+
 static const struct usb_gadget_ops dwc3_gadget_ops = {
 	.get_frame		= dwc3_gadget_get_frame,
 	.wakeup			= dwc3_gadget_wakeup,
@@ -2197,6 +2223,17 @@ static void dwc3_gadget_usb2_phy_suspend(struct dwc3 *dwc, int suspend)
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
 }
 
+static void link_state_change_work(struct work_struct *data)
+{
+	struct dwc3 *dwc = container_of((struct delayed_work *)data,
+			struct dwc3, link_work);
+
+	if (dwc->link_state == DWC3_LINK_STATE_U3) {
+		dev_info(dwc->dev, "device suspended; notify OTG\n");
+		__dwc3_vbus_draw(dwc, OTG_DEVICE_SUSPEND);
+	}
+}
+
 static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 {
 	u32			reg;
@@ -2409,6 +2446,9 @@ static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 {
 	dev_vdbg(dwc->dev, "%s\n", __func__);
 
+	dev_info(dwc->dev, "device resumed; notify OTG\n");
+	__dwc3_vbus_draw(dwc, OTG_DEVICE_RESUME);
+
 	/*
 	 * TODO take core out of low power mode when that's
 	 * implemented.
@@ -2497,6 +2537,10 @@ static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
 	}
 
 	dwc->link_state = next;
+
+	if (next ==  DWC3_LINK_STATE_U3)
+		schedule_delayed_work(
+			&dwc->link_work, msecs_to_jiffies(1000));
 
 	dev_vdbg(dwc->dev, "%s link %d\n", __func__, dwc->link_state);
 }
@@ -2725,6 +2769,8 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	dwc->gadget.speed		= USB_SPEED_UNKNOWN;
 	dwc->gadget.sg_supported	= true;
 	dwc->gadget.name		= "dwc3-gadget";
+
+	INIT_DELAYED_WORK(&dwc->link_work, link_state_change_work);
 
 	/*
 	 * REVISIT: Here we should clear all pending IRQs to be

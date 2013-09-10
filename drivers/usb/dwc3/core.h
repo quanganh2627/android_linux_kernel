@@ -764,6 +764,9 @@ struct dwc3 {
 
 	u8			test_mode;
 	u8			test_mode_nr;
+
+	/* delayed work for handling Link State Change */
+	struct delayed_work	link_work;
 };
 
 /* -------------------------------------------------------------------------- */

@@ -240,26 +240,6 @@ int dwc3_stop_peripheral(struct usb_gadget *g)
 	return 0;
 }
 
-int dwc3_vbus_draw(struct usb_gadget *g, unsigned ma)
-{
-	struct dwc3         *dwc = gadget_to_dwc(g);
-	struct usb_phy      *usb_phy;
-	int             ret;
-
-	dev_dbg(dwc->dev, "otg_set_power: %d ma\n", ma);
-
-	usb_phy = usb_get_phy(USB_PHY_TYPE_USB2);
-	if (!usb_phy) {
-		dev_err(dwc->dev, "OTG driver not available\n");
-		return -ENODEV;
-	}
-
-	ret = usb_phy_set_power(usb_phy, ma);
-	usb_put_phy(usb_phy);
-
-	return ret;
-}
-
 static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
@@ -328,6 +308,7 @@ static const struct usb_gadget_ops dwc3_device_gadget_ops = {
 	.pullup			= dwc3_device_gadget_pullup,
 	.udc_start		= dwc3_gadget_start,
 	.udc_stop		= dwc3_gadget_stop,
+	.vbus_draw		= dwc3_vbus_draw,
 };
 
 static int dwc3_device_intel_probe(struct platform_device *pdev)
