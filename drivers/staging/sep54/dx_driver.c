@@ -4792,8 +4792,7 @@ static int sep_suspend(struct device *dev)
 	if (count >= SEP_TIMEOUT) {
 		dev_err(dev,
 			"SEP: timed out waiting for chaabi_powerdown_en\n");
-		WARN_ON(1);
-		/*Let's continue to suspend as chaabi is not stable*/
+		return -EBUSY;
 	}
 
 	disable_irq(pdev->irq);
