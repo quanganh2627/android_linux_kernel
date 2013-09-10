@@ -990,14 +990,17 @@ static void print_saved_record(struct saved_nc_power_history *record)
 	}
 }
 
+#ifndef CONFIG_64BIT
 int verify_stack_ok(unsigned int *good_ebp, unsigned int *_ebp)
 {
 	return ((unsigned int)_ebp & 0xffffe000) ==
 		((unsigned int)good_ebp & 0xffffe000);
 }
+#endif
 
 size_t backtrace_safe(void **array, size_t max_size)
 {
+#ifndef CONFIG_64BIT
 	unsigned int *_ebp, *base_ebp;
 	unsigned int *caller;
 	unsigned int i;
@@ -1020,6 +1023,12 @@ size_t backtrace_safe(void **array, size_t max_size)
 	}
 
 	return i + 1;
+#else
+	unsigned int i;
+	for (i = 0; i < max_size; i++)
+		array[i] = 0;
+	return 0;
+#endif
 }
 
 void dump_nc_power_history(void)
