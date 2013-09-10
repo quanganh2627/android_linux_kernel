@@ -1726,7 +1726,7 @@ static int serial_hsu_probe(struct pci_dev *pdev,
 			goto err_disable;
 
 		if (cfg->hw_init)
-			cfg->hw_init(index);
+			cfg->hw_init(pdev->device, index);
 
 		uport->dev = &pdev->dev;
 		uport->port.type = PORT_MFD;
@@ -1797,7 +1797,7 @@ static int serial_hsu_probe(struct pci_dev *pdev,
 			else
 				alt_uport->use_dma = 0;
 			if (alt_cfg->hw_init)
-				alt_cfg->hw_init(alt_index);
+				alt_cfg->hw_init(pdev->device, alt_index);
 			alt_uport->workqueue =
 				create_singlethread_workqueue(alt_uport->name);
 			INIT_WORK(&alt_uport->work, serial_hsu_work);
