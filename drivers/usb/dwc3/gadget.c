@@ -1692,11 +1692,30 @@ static int __dwc3_vbus_draw(struct dwc3 *dwc, unsigned ma)
 
 static int dwc3_vbus_draw(struct usb_gadget *g, unsigned ma)
 {
+	unsigned	ma_otg = 0;
 	struct dwc3	*dwc = gadget_to_dwc(g);
 
 	dev_dbg(dwc->dev, "otg_set_power: %d mA\n", ma);
 
-	return __dwc3_vbus_draw(dwc, ma);
+	switch (ma) {
+	case USB3_I_MAX_OTG:
+		ma_otg = OTG_USB3_900MA;
+		break;
+	case USB3_I_UNIT_OTG:
+		ma_otg = OTG_USB3_150MA;
+		break;
+	case USB2_I_MAX_OTG:
+		ma_otg = OTG_USB2_500MA;
+		break;
+	case USB2_I_UNIT_OTG:
+		ma_otg = OTG_USB2_100MA;
+		break;
+	default:
+		dev_err(dwc->dev,
+			"wrong charging current reported: %dmA\n", ma);
+	}
+
+	return __dwc3_vbus_draw(dwc, ma_otg);
 }
 
 static const struct usb_gadget_ops dwc3_gadget_ops = {
@@ -2374,22 +2393,26 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 		dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(512);
 		dwc->gadget.ep0->maxpacket = 512;
 		dwc->gadget.speed = USB_SPEED_SUPER;
+		__dwc3_vbus_draw(dwc, OTG_USB3_150MA);
 		break;
 	case DWC3_DCFG_HIGHSPEED:
 		dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
 		dwc->gadget.ep0->maxpacket = 64;
 		dwc->gadget.speed = USB_SPEED_HIGH;
+		__dwc3_vbus_draw(dwc, OTG_USB2_100MA);
 		break;
 	case DWC3_DCFG_FULLSPEED2:
 	case DWC3_DCFG_FULLSPEED1:
 		dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
 		dwc->gadget.ep0->maxpacket = 64;
 		dwc->gadget.speed = USB_SPEED_FULL;
+		__dwc3_vbus_draw(dwc, OTG_USB2_100MA);
 		break;
 	case DWC3_DCFG_LOWSPEED:
 		dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(8);
 		dwc->gadget.ep0->maxpacket = 8;
 		dwc->gadget.speed = USB_SPEED_LOW;
+		__dwc3_vbus_draw(dwc, OTG_USB2_100MA);
 		break;
 	}
 
