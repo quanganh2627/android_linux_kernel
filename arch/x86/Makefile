@@ -55,7 +55,7 @@ else
         CHECKFLAGS += -D__x86_64__ -m64
 
         KBUILD_AFLAGS += -m64
-        KBUILD_CFLAGS += -m64
+        KBUILD_CFLAGS += -m64 -fno-pic
 
 	# Use -mpreferred-stack-boundary=3 if supported.
 	KBUILD_CFLAGS += $(call cc-option,-mno-sse -mpreferred-stack-boundary=3)
