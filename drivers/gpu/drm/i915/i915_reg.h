@@ -1954,8 +1954,11 @@ EDP_PSR_SW_TIMER
 
 /* Hotplug control (945+ only) */
 #define PORT_HOTPLUG_EN		(dev_priv->info->display_mmio_offset + 0x61110)
+#define   HDMIB_HOTPLUG_INT_EN                  (1 << 29)
 #define   PORTB_HOTPLUG_INT_EN			(1 << 29)
+#define   HDMIC_HOTPLUG_INT_EN                  (1 << 28)
 #define   PORTC_HOTPLUG_INT_EN			(1 << 28)
+#define   HDMID_HOTPLUG_INT_EN                  (1 << 27)
 #define   PORTD_HOTPLUG_INT_EN			(1 << 27)
 #define   SDVOB_HOTPLUG_INT_EN			(1 << 26)
 #define   SDVOC_HOTPLUG_INT_EN			(1 << 25)
