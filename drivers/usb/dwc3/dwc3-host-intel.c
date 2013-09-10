@@ -642,8 +642,7 @@ static struct platform_driver dwc3_xhci_driver = {
 	.driver = {
 		.name = "dwc3-host",
 #ifdef CONFIG_PM
-		/* Disable pm now. Will enable PM with other patches */
-		/*.pm = &dwc_usb_hcd_pm_ops */
+		.pm = &dwc_usb_hcd_pm_ops,
 #endif
 	},
 };
