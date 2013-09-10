@@ -293,7 +293,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	if (obj->tiling_mode != I915_TILING_NONE) {
 		if (rotate) {
 			I915_WRITE(SPTILEOFF(pipe, plane),
-				(((crtc_h + 1) << 16) | (crtc_w + 1)));
+				((y + crtc_h) << 16) | (x + crtc_w));
 		} else
 			I915_WRITE(SPTILEOFF(pipe, plane), (y << 16) | x);
 	} else {
