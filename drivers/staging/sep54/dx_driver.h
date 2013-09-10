@@ -409,7 +409,7 @@ static inline u64 alloc_crypto_ctx_id(struct sep_client_ctx
 	 * Someone would laugh (or cry) on this one day */
 #ifdef DEBUG
 	if (atomic_read(&client_ctx->uid_cntr) == 0xFFFFFFFF) {
-		SEP_LOG_ERR("uid_cntr overflow for client_ctx=%p\n",
+		pr_err("uid_cntr overflow for client_ctx=%p\n",
 			    client_ctx);
 		BUG();
 	}
@@ -431,7 +431,7 @@ static inline void op_ctx_init(struct sep_op_ctx *op_ctx,
 	int i;
 	struct client_crypto_ctx_info *ctx_info_p = &(op_ctx->ctx_info);
 
-	SEP_LOG_DEBUG("op_ctx=%p\n", op_ctx);
+	pr_debug("op_ctx=%p\n", op_ctx);
 	memset(op_ctx, 0, sizeof(struct sep_op_ctx));
 	op_ctx->client_ctx = client_ctx;
 	op_ctx->ctx_info_num = 1;	/*assume a signle context operation */
@@ -452,7 +452,7 @@ static inline void op_ctx_init(struct sep_op_ctx *op_ctx,
  */
 static inline void op_ctx_fini(struct sep_op_ctx *op_ctx)
 {
-	SEP_LOG_DEBUG("op_ctx=%p\n", op_ctx);
+	pr_debug("op_ctx=%p\n", op_ctx);
 	if (op_ctx->spad_buf_p != NULL)
 		dma_pool_free(op_ctx->client_ctx->drv_data->sep_data->
 			      spad_buf_pool, op_ctx->spad_buf_p,

@@ -116,7 +116,7 @@ static size_t get_sep_ctx_offset(enum crypto_alg_class alg_class)
 	case ALG_CLASS_HASH:
 		return offsetof(struct host_crypto_ctx_hash, sep_ctx);
 	default:
-		SEP_LOG_ERR("Invalid algorith class = %d\n", alg_class);
+		pr_err("Invalid algorith class = %d\n", alg_class);
 		return 0;
 	}
 
@@ -143,7 +143,7 @@ static u32 get_hash_digest_size(enum sep_hash_mode hash_mode)
 	case SEP_HASH_SHA512:
 		return 512 >> 3;
 	default:
-		SEP_LOG_ERR("Unknown hash mode %d\n", hash_mode);
+		pr_err("Unknown hash mode %d\n", hash_mode);
 	}
 	return 0;
 }
@@ -153,7 +153,7 @@ static u16 get_hash_block_size(enum dxdi_hash_type hash_type)
 
 	switch (hash_type) {
 	case DXDI_HASH_MD5:
-		SEP_LOG_ERR("MD5 not supported\n");
+		pr_err("MD5 not supported\n");
 		break;
 	case DXDI_HASH_SHA1:
 	case DXDI_HASH_SHA224:
@@ -163,7 +163,7 @@ static u16 get_hash_block_size(enum dxdi_hash_type hash_type)
 	case DXDI_HASH_SHA512:
 		return 1024 >> 3;
 	default:
-		SEP_LOG_ERR("Invalid hash type %d", hash_type);
+		pr_err("Invalid hash type %d", hash_type);
 	}
 	return 0;
 }
@@ -172,7 +172,7 @@ enum sep_hash_mode get_sep_hash_mode(enum dxdi_hash_type hash_type)
 {
 	switch (hash_type) {
 	case DXDI_HASH_MD5:
-		SEP_LOG_ERR("MD5 not supported\n");
+		pr_err("MD5 not supported\n");
 		return SEP_HASH_NULL;
 	case DXDI_HASH_SHA1:
 		return SEP_HASH_SHA1;
@@ -185,7 +185,7 @@ enum sep_hash_mode get_sep_hash_mode(enum dxdi_hash_type hash_type)
 	case DXDI_HASH_SHA512:
 		return SEP_HASH_SHA512;
 	default:
-		SEP_LOG_ERR("Invalid hash type=%d\n", hash_type);
+		pr_err("Invalid hash type=%d\n", hash_type);
 		return SEP_HASH_NULL;
 	}
 }
@@ -216,7 +216,7 @@ int ctxmgr_map_user_ctx(struct client_crypto_ctx_info *ctx_info,
 
 #ifdef DEBUG
 	if (ctx_info->user_ptr != NULL) {
-		SEP_LOG_ERR("User context already mapped to 0x%p\n",
+		pr_err("User context already mapped to 0x%p\n",
 			    ctx_info->user_ptr);
 		return -EINVAL;
 	}
@@ -227,7 +227,7 @@ int ctxmgr_map_user_ctx(struct client_crypto_ctx_info *ctx_info,
 	/* (so we can access the alg_class field in it) */
 	ctx_size = (ctx_size == 0) ? sizeof(struct host_crypto_ctx) : ctx_size;
 	if (dist_from_page_end < ctx_size) {
-		SEP_LOG_ERR("Given user context that crosses a page (0x%p)\n",
+		pr_err("Given user context that crosses a page (0x%p)\n",
 			    user_ctx_ptr);
 		return -EINVAL;
 	}
@@ -238,7 +238,7 @@ int ctxmgr_map_user_ctx(struct client_crypto_ctx_info *ctx_info,
 				      &ctx_info->ctx_page, 0);
 	up_read(&current->mm->mmap_sem);
 	if (pages_mapped < 1) {
-		SEP_LOG_ERR("Failed getting user page\n");
+		pr_err("Failed getting user page\n");
 		return -ENOMEM;
 	}
 
@@ -258,7 +258,7 @@ int ctxmgr_map_user_ctx(struct client_crypto_ctx_info *ctx_info,
 		/* Copy common header to get the alg class */
 		if (copy_from_user(ctx_info->ctx_kptr,
 				user_ctx_ptr, host_ctx_size)) {
-			SEP_LOG_ERR("Copy from user failed\n");
+			pr_err("Copy from user failed\n");
 			rc = -EINVAL;
 			goto copy_from_user_failed;
 		}
@@ -266,12 +266,12 @@ int ctxmgr_map_user_ctx(struct client_crypto_ctx_info *ctx_info,
 		alg_class = ctx_info->ctx_kptr->alg_class;
 		ctx_size = ctxmgr_get_ctx_size(alg_class);
 		if (ctx_size == 0) {	/* Unknown class */
-			SEP_LOG_ERR("Unknown alg class\n");
+			pr_err("Unknown alg class\n");
 			rc = -EINVAL;
 			goto unknown_alg_class;
 		}
 		if (dist_from_page_end < ctx_size) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Given user context that crosses a page (0x%p)\n",
 				    user_ctx_ptr);
 			rc = -EINVAL;
@@ -281,7 +281,7 @@ int ctxmgr_map_user_ctx(struct client_crypto_ctx_info *ctx_info,
 		if (copy_from_user((u8 *)ctx_info->ctx_kptr + host_ctx_size,
 				(u8 *)user_ctx_ptr + host_ctx_size,
 				ctx_size - host_ctx_size)) {
-			SEP_LOG_ERR("Copy from user failed\n");
+			pr_err("Copy from user failed\n");
 			rc = -EINVAL;
 			goto copy_from_user_failed;
 		}
@@ -298,7 +298,7 @@ int ctxmgr_map_user_ctx(struct client_crypto_ctx_info *ctx_info,
 							   sep_ctx_cache_entry),
 						    DMA_BIDIRECTIONAL);
 	if (dma_mapping_error(mydev, ctx_info->sep_ctx_dma_addr)) {
-		SEP_LOG_ERR("Mapping sep_ctx for DMA failed");
+		pr_err("Mapping sep_ctx for DMA failed");
 		rc = -ENOMEM;
 		goto sep_ctx_dma_map_failed;
 	}
@@ -331,7 +331,7 @@ void ctxmgr_unmap_user_ctx(struct client_crypto_ctx_info *ctx_info)
 	if (ctx_info->ctx_kptr == NULL) {
 		/* This is a valid case since we invoke this function in some
 		   error cases without knowing if context was mapped or not */
-		SEP_LOG_DEBUG("Context not mapped\n");
+		pr_debug("Context not mapped\n");
 		return;
 	}
 
@@ -342,7 +342,7 @@ void ctxmgr_unmap_user_ctx(struct client_crypto_ctx_info *ctx_info)
 	ctx_info->sep_ctx_dma_addr = 0;
 
 	if (copy_to_user(ctx_info->user_ptr, ctx_info->ctx_kptr, ctx_size))
-		SEP_LOG_ERR("Copy to user failed\n");
+		pr_err("Copy to user failed\n");
 
 	kfree(ctx_info->ctx_kptr);
 	ctx_info->ctx_kptr = NULL;
@@ -394,7 +394,7 @@ int ctxmgr_map_kernel_ctx(struct client_crypto_ctx_info *ctx_info,
 	if (sep_ctx_p == NULL)	/* Default context is the one inside */
 		sep_ctx_p = embedded_sep_ctx_p;
 
-	SEP_LOG_DEBUG("kernel_ctx_p=%p\n", kernel_ctx_p);
+	pr_debug("kernel_ctx_p=%p\n", kernel_ctx_p);
 
 	ctx_info->dev = mydev;
 	/* These fields are only relevant for user space context mapping */
@@ -408,7 +408,7 @@ int ctxmgr_map_kernel_ctx(struct client_crypto_ctx_info *ctx_info,
 	   contiguous for SeP DMA access) */
 	if ((((unsigned long)sep_ctx_p + sizeof(struct sep_ctx_cache_entry))
 	     >> PAGE_SHIFT) != ((unsigned long)sep_ctx_p >> PAGE_SHIFT)) {
-		SEP_LOG_ERR(
+		pr_err(
 			    "SeP context cross page boundary (start=0x%08lX len=0x%04X\n",
 			    (unsigned long)sep_ctx_p,
 			    sizeof(struct sep_ctx_cache_entry));
@@ -424,7 +424,7 @@ int ctxmgr_map_kernel_ctx(struct client_crypto_ctx_info *ctx_info,
 						      sep_ctx_cache_entry),
 					       DMA_BIDIRECTIONAL);
 		if (dma_mapping_error(mydev, ctx_info->sep_ctx_dma_addr)) {
-			SEP_LOG_ERR("Mapping sep_ctx for DMA failed");
+			pr_err("Mapping sep_ctx for DMA failed");
 			rc = -ENOMEM;
 		}
 	} else {
@@ -449,7 +449,7 @@ void ctxmgr_unmap_kernel_ctx(struct client_crypto_ctx_info *ctx_info)
 	size_t embedded_sep_ctx_offset;
 
 	if (ctx_info == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		return;
 	}
 
@@ -457,7 +457,7 @@ void ctxmgr_unmap_kernel_ctx(struct client_crypto_ctx_info *ctx_info)
 	if (ctx_info->ctx_kptr == NULL) {
 		/* This is a valid case since we invoke this function in some
 		   error cases without knowing if context was mapped or not */
-		SEP_LOG_DEBUG("Context not mapped\n");
+		pr_debug("Context not mapped\n");
 		return;
 	}
 #endif
@@ -467,12 +467,12 @@ void ctxmgr_unmap_kernel_ctx(struct client_crypto_ctx_info *ctx_info)
 
 #ifdef DEBUG
 	if (embedded_sep_ctx_offset == 0) {
-		SEP_LOG_ERR("Invalid algorithm class\n");
+		pr_err("Invalid algorithm class\n");
 		return;
 	}
 #endif
 
-	SEP_LOG_DEBUG("kernel_ctx_ptr=%p\n", ctx_info->ctx_kptr);
+	pr_debug("kernel_ctx_ptr=%p\n", ctx_info->ctx_kptr);
 	embedded_sep_ctx_p = (struct sep_ctx_cache_entry *)
 	    (((unsigned long)ctx_info->ctx_kptr) + embedded_sep_ctx_offset);
 
@@ -508,12 +508,12 @@ static struct hash_block_remainder *get_blk_rem_buf(struct
 
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 	if ((hash_ctx_p->alg_class != ALG_CLASS_HASH) &&
 	    ctxmgr_get_mac_type(ctx_info) != DXDI_MAC_HMAC) {
-		SEP_LOG_ERR("Not a hash/HMAC context\n");
+		pr_err("Not a hash/HMAC context\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -547,7 +547,7 @@ int ctxmgr_map2dev_hash_tail(struct client_crypto_ctx_info *ctx_info,
 							      blk_rem_p->size,
 							      DMA_TO_DEVICE);
 		if (dma_mapping_error(mydev, ctx_info->hash_tail_dma_addr)) {
-			SEP_LOG_ERR("Mapping hash_tail for DMA failed");
+			pr_err("Mapping hash_tail for DMA failed");
 			return -ENOMEM;
 		}
 	}
@@ -585,7 +585,7 @@ void ctxmgr_set_ctx_state(struct client_crypto_ctx_info *ctx_info,
 
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -604,7 +604,7 @@ enum host_ctx_state ctxmgr_get_ctx_state(const struct client_crypto_ctx_info
 
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -625,10 +625,10 @@ void ctxmgr_set_ctx_id(struct client_crypto_ctx_info *ctx_info,
 
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
-	SEP_LOG_DEBUG("ctx_id=0x%16llX for ctx@0x%p\n",
+	pr_debug("ctx_id=0x%16llX for ctx@0x%p\n",
 		      ctx_id, (ctx_info->user_ptr == NULL) ?
 		      (void *)ctx_info->ctx_kptr : (void *)ctx_info->user_ptr);
 #endif
@@ -646,7 +646,7 @@ u64 ctxmgr_get_ctx_id(struct client_crypto_ctx_info *ctx_info)
 
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -666,7 +666,7 @@ u32 ctxmgr_get_session_id(struct client_crypto_ctx_info *ctx_info)
 {
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -686,7 +686,7 @@ enum crypto_alg_class ctxmgr_get_alg_class(const struct client_crypto_ctx_info
 
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -705,7 +705,7 @@ u32 ctxmgr_get_crypto_blk_size(struct client_crypto_ctx_info *ctx_info)
 	u32 cblk_size = 0;
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -729,7 +729,7 @@ u32 ctxmgr_get_crypto_blk_size(struct client_crypto_ctx_info *ctx_info)
 				/* DES and C2 have the same block size */
 				cblk_size = SEP_DES_BLOCK_SIZE;
 			} else {
-				SEP_LOG_ERR("Invalid sym.cipher type %d",
+				pr_err("Invalid sym.cipher type %d",
 					    cipher_type);
 			}
 			break;	/*ALG_CLASS_SYM_CIPHER */
@@ -742,7 +742,7 @@ u32 ctxmgr_get_crypto_blk_size(struct client_crypto_ctx_info *ctx_info)
 			if (ae_type == DXDI_AUTHENC_AES_CCM)
 				cblk_size = SEP_AES_BLOCK_SIZE;
 			else
-				SEP_LOG_ERR("Invalid auth.enc. type %d",
+				pr_err("Invalid auth.enc. type %d",
 					    ae_type);
 			break;
 		}
@@ -765,7 +765,7 @@ u32 ctxmgr_get_crypto_blk_size(struct client_crypto_ctx_info *ctx_info)
 				cblk_size = SEP_AES_BLOCK_SIZE;
 				break;
 			default:
-				SEP_LOG_ERR("Invalid MAC type %d\n",
+				pr_err("Invalid MAC type %d\n",
 					    ctx_p->props.mac_type);
 			}
 			break;	/* ALG_CLASS_MAC */
@@ -780,7 +780,7 @@ u32 ctxmgr_get_crypto_blk_size(struct client_crypto_ctx_info *ctx_info)
 		}
 
 	default:
-		SEP_LOG_ERR("Invalid algorithm class %d\n",
+		pr_err("Invalid algorithm class %d\n",
 			    ctx_info->ctx_kptr->alg_class);
 
 	}			/*switch alg_class */
@@ -827,7 +827,7 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 {
 	if (!is_finalize && (data_unit_size == 0)) {
 		/* None allow 0 data for intermediate processing blocks */
-		SEP_LOG_ERR("Given 0 B for intermediate processing!");
+		pr_err("Given 0 B for intermediate processing!");
 		return false;
 	}
 
@@ -846,7 +846,7 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 				/* Initialize on first data unit if not
 				   provided by the user */
 				if (data_unit_size < 32) {
-					SEP_LOG_ERR(
+					pr_err(
 						"AES-XTS data unit size too small (%lu). Must be at least 32B\n",
 						data_unit_size);
 					return false;
@@ -869,7 +869,7 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 				if (host_ctx_p->props.
 				    alg_specific.aes_xts.
 				    data_unit_size != data_unit_size) {
-					SEP_LOG_ERR(
+					pr_err(
 						"Data unit mismatch. was %lu. now %lu.\n",
 						host_ctx_p->props.alg_specific.
 						aes_xts.
@@ -883,7 +883,7 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 			if (!is_finalize) {	/* !finalize */
 				if (!IS_MULT_OF(data_unit_size,
 						SEP_AES_BLOCK_SIZE)) {
-					SEP_LOG_ERR(
+					pr_err(
 						"Data unit size (%lu) is not AES block multiple\n",
 						data_unit_size);
 					return false;
@@ -894,7 +894,7 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 		case DXDI_SYMCIPHER_AES_CBC:
 			if (!IS_MULT_OF
 			    (data_unit_size, SEP_AES_BLOCK_SIZE)) {
-				SEP_LOG_ERR(
+				pr_err(
 					"Data unit size (%lu) is not AES block multiple\n",
 					data_unit_size);
 				return false;
@@ -904,7 +904,7 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 		case DXDI_SYMCIPHER_DES_CBC:
 			if (!IS_MULT_OF
 			    (data_unit_size, SEP_DES_BLOCK_SIZE)) {
-				SEP_LOG_ERR(
+				pr_err(
 					"Data unit size (%lu) is not DES block multiple\n",
 					data_unit_size);
 				return false;
@@ -914,14 +914,14 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 		case DXDI_SYMCIPHER_C2_CBC:
 			if (!IS_MULT_OF
 			    (data_unit_size, SEP_C2_BLOCK_SIZE)) {
-				SEP_LOG_ERR(
+				pr_err(
 					"Data unit size (%lu) is not C2 block multiple\n",
 					data_unit_size);
 				return false;
 			}
 			break;
 		default:
-			SEP_LOG_ERR("Invalid cipher type %d\n",
+			pr_err("Invalid cipher type %d\n",
 				    host_ctx_p->props.cipher_type);
 			return false;
 		}
@@ -937,14 +937,14 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 			if (!is_finalize) {	/* !finalize */
 				if (!IS_MULT_OF(data_unit_size,
 						SEP_AES_BLOCK_SIZE)) {
-					SEP_LOG_ERR(
+					pr_err(
 						    "Data unit size (%lu) is not AES block multiple\n",
 						    data_unit_size);
 					return false;
 				}
 			}
 		} else {
-			SEP_LOG_ERR("Invalid auth.enc. type %d",
+			pr_err("Invalid auth.enc. type %d",
 				    ae_type);
 			return false;
 		}
@@ -964,7 +964,7 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 			if (!is_finalize) {
 				if (!IS_MULT_OF(data_unit_size,
 						SEP_AES_BLOCK_SIZE)) {
-					SEP_LOG_ERR(
+					pr_err(
 						    "Data unit size (%lu) is not AES block multiple\n",
 						    data_unit_size);
 					return false;
@@ -974,14 +974,14 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 		case DXDI_MAC_AES_MAC:
 			if (!IS_MULT_OF
 			    (data_unit_size, SEP_AES_BLOCK_SIZE)) {
-				SEP_LOG_ERR(
+				pr_err(
 					    "Data unit size (%lu) is not AES block multiple\n",
 					    data_unit_size);
 				return false;
 			}
 			break;
 		default:
-			SEP_LOG_ERR("Invalid MAC type %d\n",
+			pr_err("Invalid MAC type %d\n",
 				    ctx_p->props.mac_type);
 		}
 
@@ -994,7 +994,7 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 	}
 
 	default:
-		SEP_LOG_ERR("Invalid algorithm class %d\n",
+		pr_err("Invalid algorithm class %d\n",
 			    ctx_info->ctx_kptr->alg_class);
 
 	}			/*switch alg_class */
@@ -1014,7 +1014,7 @@ enum dxdi_sym_cipher_type ctxmgr_get_sym_cipher_type(const struct
 {
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -1036,7 +1036,7 @@ enum dxdi_mac_type ctxmgr_get_mac_type(const struct client_crypto_ctx_info
 	    (struct host_crypto_ctx_mac *)ctx_info->ctx_kptr;
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -1058,7 +1058,7 @@ enum dxdi_hash_type ctxmgr_get_hash_type(const struct client_crypto_ctx_info
 {
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -1093,11 +1093,11 @@ int ctxmgr_save_hash_blk_remainder(struct client_crypto_ctx_info *ctx_info,
 						   copy_offset);
 	if (likely(rc >= 0)) {	/* rc is the num. of bytes copied */
 		blk_rem_p->size = copy_offset + rc;
-		SEP_LOG_DEBUG("Accumalted %u B at offset %u\n",
+		pr_debug("Accumalted %u B at offset %u\n",
 			      rc, copy_offset);
 		rc = 0;	/* Caller of this function expects 0 on success */
 	} else {
-		SEP_LOG_ERR("Failed copying hash block tail from user\n");
+		pr_err("Failed copying hash block tail from user\n");
 	}
 	return rc;
 }
@@ -1160,7 +1160,7 @@ u32 ctxmgr_get_digest_or_mac_ptr(struct client_crypto_ctx_info *ctx_info,
 
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -1203,7 +1203,7 @@ u32 ctxmgr_get_digest_or_mac_ptr(struct client_crypto_ctx_info *ctx_info,
 			    le32_to_cpu(aead_ctx_p->tag_size);
 			*digest_or_mac_pp = aead_ctx_p->mac_state;
 		} else {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Invalid mode (%d) for SEP_CRYPTO_ALG_AEAD\n",
 				    le32_to_cpu(aead_ctx_p->mode));
 		}
@@ -1224,7 +1224,7 @@ static int set_sep_ctx_alg_mode(struct client_crypto_ctx_info *ctx_info,
 	struct sep_ctx_c2 *c2_ctx_p;
 
 	if (ctx_info == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		return -EINVAL;
 	}
 
@@ -1308,7 +1308,7 @@ int ctxmgr_set_symcipher_iv_user(u32 __user *user_ctx_ptr,
 	/* Copy cypher type from user context */
 	if (copy_from_user(&cipher_type, &host_ctx_p->props.cipher_type,
 			   sizeof(enum dxdi_sym_cipher_type))) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -1321,7 +1321,7 @@ int ctxmgr_set_symcipher_iv_user(u32 __user *user_ctx_ptr,
 	if (copy_to_user(aes_ctx_p->block_state, iv_ptr, SEP_AES_IV_SIZE) ||
 	    copy_to_user(host_ctx_p->props.alg_specific.aes_cbc.iv, iv_ptr,
 		     SEP_AES_IV_SIZE)) {
-		SEP_LOG_ERR("Failed writing input parameters");
+		pr_err("Failed writing input parameters");
 		return -EFAULT;
 	}
 
@@ -1349,7 +1349,7 @@ int ctxmgr_get_symcipher_iv_user(u32 __user *user_ctx_ptr,
 	/* Copy cypher type from user context */
 	if (copy_from_user(&cipher_type, &host_ctx_p->props.cipher_type,
 			   sizeof(enum dxdi_sym_cipher_type))) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -1360,7 +1360,7 @@ int ctxmgr_get_symcipher_iv_user(u32 __user *user_ctx_ptr,
 	}
 
 	if (copy_from_user(iv_ptr, aes_ctx_p->block_state, SEP_AES_IV_SIZE)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -1506,7 +1506,7 @@ int ctxmgr_set_symcipher_direction(struct client_crypto_ctx_info *ctx_info,
 	} else if (dxdi_direction == DXDI_CDIR_DEC) {
 		sep_direction = SEP_CRYPTO_DIRECTION_DECRYPT;
 	} else {
-		SEP_LOG_ERR("Invalid direction=%d\n", dxdi_direction);
+		pr_err("Invalid direction=%d\n", dxdi_direction);
 		return -EINVAL;
 	}
 
@@ -1532,10 +1532,10 @@ int ctxmgr_set_symcipher_direction(struct client_crypto_ctx_info *ctx_info,
 		break;
 
 	case DXDI_SYMCIPHER_RC4:
-		SEP_LOG_ERR("Invoked for RC4!\n");
+		pr_err("Invoked for RC4!\n");
 		return -ENOSYS;	/* Not supported via this API (only RPC) */
 	default:
-		SEP_LOG_ERR("Invalid symcipher type %d\n",
+		pr_err("Invalid symcipher type %d\n",
 			    host_ctx_p->props.cipher_type);
 		return -EINVAL;
 	}
@@ -1586,10 +1586,10 @@ enum dxdi_cipher_direction ctxmgr_get_symcipher_direction(struct
 		break;
 
 	case DXDI_SYMCIPHER_RC4:
-		SEP_LOG_ERR("Invoked for RC4!\n");
+		pr_err("Invoked for RC4!\n");
 		return -ENOSYS;	/* Not supported via this API (only RPC) */
 	default:
-		SEP_LOG_ERR("Invalid symcipher type %d\n",
+		pr_err("Invalid symcipher type %d\n",
 			    host_ctx_p->props.cipher_type);
 		return -EINVAL;
 	}
@@ -1600,7 +1600,7 @@ enum dxdi_cipher_direction ctxmgr_get_symcipher_direction(struct
 	} else if (sep_direction == SEP_CRYPTO_DIRECTION_DECRYPT) {
 		dxdi_direction = DXDI_CDIR_DEC;
 	} else {
-		SEP_LOG_ERR("Invalid (sep) direction=%d\n", sep_direction);
+		pr_err("Invalid (sep) direction=%d\n", sep_direction);
 		dxdi_direction = -EINVAL;
 	}
 
@@ -1713,7 +1713,7 @@ int ctxmgr_set_symcipher_key(struct client_crypto_ctx_info *ctx_info,
 		if (props->cipher_type == DXDI_SYMCIPHER_AES_XTS) {
 			/* XTS has two keys of either 128b or 256b */
 			if ((key_size != 32) && (key_size != 64)) {
-				SEP_LOG_ERR(
+				pr_err(
 					"Invalid key size for AES-XTS (%u bits)\n",
 					key_size * 8);
 				return -EINVAL;
@@ -1731,7 +1731,7 @@ int ctxmgr_set_symcipher_key(struct client_crypto_ctx_info *ctx_info,
 		} else {	/* AES engine support 128b/192b/256b keys */
 			if ((key_size != 16) &&
 			    (key_size != 24) && (key_size != 32)) {
-				SEP_LOG_ERR(
+				pr_err(
 					"Invalid key size for AES (%u bits)\n",
 					key_size * 8);
 				return -EINVAL;
@@ -1744,14 +1744,14 @@ int ctxmgr_set_symcipher_key(struct client_crypto_ctx_info *ctx_info,
 	case DXDI_SYMCIPHER_DES_ECB:
 	case DXDI_SYMCIPHER_DES_CBC:
 		if (is_weak_des_key(key, key_size)) {
-			SEP_LOG_INFO("Weak DES key.\n");
+			pr_info("Weak DES key.\n");
 			return -EPERM;
 		}
 		des_ctx_p = (struct sep_ctx_cipher *)ctx_info->sep_ctx_kptr;
 		des_ctx_p->key_size = cpu_to_le32(key_size);
 		if ((key_size != 8) && (key_size != 16) && (key_size != 24)) {
 			/* Avoid copying a key too large */
-			SEP_LOG_ERR("Invalid key size for DES (%u bits)\n",
+			pr_err("Invalid key size for DES (%u bits)\n",
 				    key_size * 8);
 			return -EINVAL;
 		}
@@ -1764,7 +1764,7 @@ int ctxmgr_set_symcipher_key(struct client_crypto_ctx_info *ctx_info,
 		c2_ctx_p->key_size = cpu_to_le32(key_size);
 		if (key_size != SEP_C2_KEY_SIZE_MAX) {
 			/* Avoid copying a key too large */
-			SEP_LOG_ERR("Invalid key size for C2 (%u bits)\n",
+			pr_err("Invalid key size for C2 (%u bits)\n",
 				    key_size * 8);
 			return -EINVAL;
 		}
@@ -1838,7 +1838,7 @@ int ctxmgr_init_symcipher_ctx(struct client_crypto_ctx_info *ctx_info,
 
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -1938,7 +1938,7 @@ int ctxmgr_init_auth_enc_ctx(struct client_crypto_ctx_info *ctx_info,
 
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -1960,7 +1960,7 @@ int ctxmgr_init_auth_enc_ctx(struct client_crypto_ctx_info *ctx_info,
 	} else if (props->direction == DXDI_CDIR_DEC) {
 		direction = SEP_CRYPTO_DIRECTION_DECRYPT;
 	} else {
-		SEP_LOG_ERR("Invalid direction=%d\n", props->direction);
+		pr_err("Invalid direction=%d\n", props->direction);
 		*error_info = DXDI_ERROR_INVAL_DIRECTION;
 		return -EINVAL;
 	}
@@ -1971,14 +1971,14 @@ int ctxmgr_init_auth_enc_ctx(struct client_crypto_ctx_info *ctx_info,
 	aead_ctx_p->direction = cpu_to_le32(direction);
 	aead_ctx_p->header_size = cpu_to_le32(props->adata_size);
 	if (props->nonce_size > SEP_AES_BLOCK_SIZE) {
-		SEP_LOG_ERR("Invalid nonce size=%u\n", aead_ctx_p->nonce_size);
+		pr_err("Invalid nonce size=%u\n", aead_ctx_p->nonce_size);
 		*error_info = DXDI_ERROR_INVAL_NONCE_SIZE;
 		return -EINVAL;
 	}
 	aead_ctx_p->nonce_size = cpu_to_le32(props->nonce_size);
 	memcpy(aead_ctx_p->nonce, props->nonce, props->nonce_size);
 	if (props->tag_size > SEP_AES_BLOCK_SIZE) {
-		SEP_LOG_ERR("Invalid tag_size size=%u\n", aead_ctx_p->tag_size);
+		pr_err("Invalid tag_size size=%u\n", aead_ctx_p->tag_size);
 		*error_info = DXDI_ERROR_INVAL_TAG_SIZE;
 		return -EINVAL;
 	}
@@ -1986,7 +1986,7 @@ int ctxmgr_init_auth_enc_ctx(struct client_crypto_ctx_info *ctx_info,
 	aead_ctx_p->text_size = cpu_to_le32(props->text_size);
 	if ((props->key_size != 16) &&
 	    (props->key_size != 24) && (props->key_size != 32)) {
-		SEP_LOG_ERR("Invalid key size for AEAD (%u bits)\n",
+		pr_err("Invalid key size for AEAD (%u bits)\n",
 			    props->key_size * 8);
 		*error_info = DXDI_ERROR_INVAL_KEY_SIZE;
 		return -EINVAL;
@@ -2030,7 +2030,7 @@ int ctxmgr_init_mac_ctx(struct client_crypto_ctx_info *ctx_info,
 
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -2059,7 +2059,7 @@ int ctxmgr_init_mac_ctx(struct client_crypto_ctx_info *ctx_info,
 			return -EINVAL;
 		}
 		if (get_hash_block_size(hash_type) > SEP_HMAC_BLOCK_SIZE_MAX) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Given hash type (%d) is not supported for HMAC\n",
 				    hash_type);
 			*error_info = DXDI_ERROR_UNSUP;
@@ -2068,7 +2068,7 @@ int ctxmgr_init_mac_ctx(struct client_crypto_ctx_info *ctx_info,
 		hmac_ctx_p->mode = cpu_to_le32(hash_mode);
 		hmac_ctx_p->k0_size = cpu_to_le32(props->key_size);
 		if (props->key_size > SEP_HMAC_BLOCK_SIZE_MAX) {
-			SEP_LOG_ERR("Invalid key size %u bits\n",
+			pr_err("Invalid key size %u bits\n",
 				    props->key_size * 8);
 			*error_info = DXDI_ERROR_INVAL_KEY_SIZE;
 			return -EINVAL;
@@ -2088,7 +2088,7 @@ int ctxmgr_init_mac_ctx(struct client_crypto_ctx_info *ctx_info,
 		    ((props->mac_type == DXDI_MAC_AES_XCBC_MAC) &&
 		     (props->key_size != SEP_AES_128_BIT_KEY_SIZE))) {
 			/* Avoid copying a key too large */
-			SEP_LOG_ERR("Invalid key size for MAC (%u bits)\n",
+			pr_err("Invalid key size for MAC (%u bits)\n",
 				    props->key_size * 8);
 			*error_info = DXDI_ERROR_INVAL_KEY_SIZE;
 			return -EINVAL;
@@ -2140,7 +2140,7 @@ int ctxmgr_init_hash_ctx(struct client_crypto_ctx_info *ctx_info,
 
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -2151,7 +2151,7 @@ int ctxmgr_init_hash_ctx(struct client_crypto_ctx_info *ctx_info,
 	if ((hash_type != DXDI_HASH_SHA1) &&
 	    (hash_type != DXDI_HASH_SHA224) &&
 	    (hash_type != DXDI_HASH_SHA256)) {
-		SEP_LOG_ERR("Unsupported hash type %d\n", hash_type);
+		pr_err("Unsupported hash type %d\n", hash_type);
 		*error_info = DXDI_ERROR_UNSUP;
 		return -ENOSYS;
 	}
@@ -2190,7 +2190,7 @@ void ctxmgr_set_sep_cache_idx(struct client_crypto_ctx_info *ctx_info,
 {
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -2207,7 +2207,7 @@ int ctxmgr_get_sep_cache_idx(struct client_crypto_ctx_info *ctx_info)
 {
 #ifdef DEBUG
 	if (ctx_info->ctx_kptr == NULL) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -2217,7 +2217,7 @@ int ctxmgr_get_sep_cache_idx(struct client_crypto_ctx_info *ctx_info)
 #ifdef DEBUG
 static void dump_sep_aes_ctx(struct sep_ctx_cipher *ctx_p)
 {
-	SEP_LOG_DEBUG("Alg.=AES , Mode=%d , Direction=%d , Key size=%d\n",
+	pr_debug("Alg.=AES , Mode=%d , Direction=%d , Key size=%d\n",
 		      le32_to_cpu(ctx_p->mode),
 		      le32_to_cpu(ctx_p->direction),
 		      le32_to_cpu(ctx_p->key_size));
@@ -2225,7 +2225,7 @@ static void dump_sep_aes_ctx(struct sep_ctx_cipher *ctx_p)
 	dump_byte_array("block_state",
 			ctx_p->block_state, sizeof(ctx_p->block_state));
 	if (le32_to_cpu(ctx_p->mode) == SEP_CIPHER_XTS) {
-		SEP_LOG_DEBUG("data_unit_size=%u\n",
+		pr_debug("data_unit_size=%u\n",
 			      le32_to_cpu(ctx_p->data_unit_size));
 		dump_byte_array("XEX-Key",
 				ctx_p->xex_key, le32_to_cpu(ctx_p->key_size));
@@ -2234,7 +2234,7 @@ static void dump_sep_aes_ctx(struct sep_ctx_cipher *ctx_p)
 
 static void dump_sep_aead_ctx(struct sep_ctx_aead *ctx_p)
 {
-	SEP_LOG_DEBUG(
+	pr_debug(
 		      "Alg.=AEAD, Mode=%d, Direction=%d, Key size=%d, header size=%d, nonce size=%d, tag size=%d, text size=%d\n",
 		      le32_to_cpu(ctx_p->mode),
 		      le32_to_cpu(ctx_p->direction),
@@ -2253,7 +2253,7 @@ static void dump_sep_aead_ctx(struct sep_ctx_aead *ctx_p)
 
 static void dump_sep_des_ctx(struct sep_ctx_cipher *ctx_p)
 {
-	SEP_LOG_DEBUG("Alg.=DES, Mode=%d, Direction=%d, Key size=%d\n",
+	pr_debug("Alg.=DES, Mode=%d, Direction=%d, Key size=%d\n",
 		      le32_to_cpu(ctx_p->mode),
 		      le32_to_cpu(ctx_p->direction),
 		      le32_to_cpu(ctx_p->key_size));
@@ -2263,7 +2263,7 @@ static void dump_sep_des_ctx(struct sep_ctx_cipher *ctx_p)
 
 static void dump_sep_c2_ctx(struct sep_ctx_c2 *ctx_p)
 {
-	SEP_LOG_DEBUG("Alg.=C2, Mode=%d, Direction=%d, KeySz=%d, ResetInt.=%d",
+	pr_debug("Alg.=C2, Mode=%d, Direction=%d, KeySz=%d, ResetInt.=%d",
 		      le32_to_cpu(ctx_p->mode),
 		      le32_to_cpu(ctx_p->direction),
 		      le32_to_cpu(ctx_p->key_size),
@@ -2291,16 +2291,16 @@ static const char *hash_mode_str(enum sep_hash_mode mode)
 
 static void dump_sep_hash_ctx(struct sep_ctx_hash *ctx_p)
 {
-	SEP_LOG_DEBUG("Alg.=Hash , Mode=%s\n",
+	pr_debug("Alg.=Hash , Mode=%s\n",
 		      hash_mode_str(le32_to_cpu(ctx_p->mode)));
 }
 
 static void dump_sep_hmac_ctx(struct sep_ctx_hmac *ctx_p)
 {
 	/* Alg./Mode of HMAC is identical to HASH */
-	SEP_LOG_DEBUG("Alg.=HMAC , Mode=%s\n",
+	pr_debug("Alg.=HMAC , Mode=%s\n",
 		      hash_mode_str(le32_to_cpu(ctx_p->mode)));
-	SEP_LOG_DEBUG("K0 size = %u B\n", le32_to_cpu(ctx_p->k0_size));
+	pr_debug("K0 size = %u B\n", le32_to_cpu(ctx_p->k0_size));
 	dump_byte_array("K0", ctx_p->k0, le32_to_cpu(ctx_p->k0_size));
 }
 
@@ -2326,7 +2326,7 @@ void ctxmgr_dump_sep_ctx(const struct client_crypto_ctx_info *ctx_info)
 
 	alg = (enum sep_crypto_alg)le32_to_cpu(sep_ctx_p->alg);
 
-	SEP_LOG_DEBUG("SeP crypto context at %p: Algorithm=%d\n",
+	pr_debug("SeP crypto context at %p: Algorithm=%d\n",
 		      sep_ctx_p, alg);
 	switch (alg) {
 	case SEP_CRYPTO_ALG_NULL:
@@ -2350,7 +2350,7 @@ void ctxmgr_dump_sep_ctx(const struct client_crypto_ctx_info *ctx_info)
 		dump_sep_hmac_ctx((struct sep_ctx_hmac *)sep_ctx_p);
 		break;
 	default:
-		SEP_LOG_DEBUG("(Unsupported algorithm dump - %d)\n", alg);
+		pr_debug("(Unsupported algorithm dump - %d)\n", alg);
 	}
 
 }
@@ -2374,11 +2374,11 @@ void ctxmgr_sync_sep_ctx(const struct client_crypto_ctx_info *ctx_info,
 
 #ifdef DEBUG
 	if (ctx_info->sep_ctx_dma_addr == 0) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 	if (embedded_sep_ctx_offset == 0)
-		SEP_LOG_ERR("Invalid alg. class for algorithm\n");
+		pr_err("Invalid alg. class for algorithm\n");
 #endif
 
 	/* Only the embedded SeP context requires sync (it is in user memory)
@@ -2401,7 +2401,7 @@ dma_addr_t ctxmgr_get_sep_ctx_dma_addr(const struct client_crypto_ctx_info
 {
 #ifdef DEBUG
 	if (ctx_info->sep_ctx_dma_addr == 0) {
-		SEP_LOG_ERR("Context not mapped\n");
+		pr_err("Context not mapped\n");
 		SEP_DRIVER_BUG();
 	}
 #endif
@@ -2426,7 +2426,7 @@ void *ctxmgr_sep_cache_create(int num_of_entries)
 			    (num_of_entries - 1) *
 			    sizeof(struct ctxmgr_cache_entry), GFP_KERNEL);
 	if (new_cache == NULL) {
-		SEP_LOG_ERR("Failed allocating SeP cache of %d entries\n",
+		pr_err("Failed allocating SeP cache of %d entries\n",
 			    num_of_entries);
 		return NULL;
 	}
@@ -2512,7 +2512,7 @@ int ctxmgr_sep_cache_alloc(void *sep_cache,
 
 #ifdef DEBUG
 	if (this_cache->lru_clk == 0xFFFFFFFF) {
-		SEP_LOG_ERR("Reached lru_clk limit!\n");
+		pr_err("Reached lru_clk limit!\n");
 		SEP_DRIVER_BUG();
 		/* If this limit is found to be a practical real life
 		   case, a few workarounds may be used:

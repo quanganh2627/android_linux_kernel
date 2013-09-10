@@ -115,7 +115,7 @@ void sysfs_update_drv_stats(unsigned int qid, unsigned int ioctl_cmd_type,
 {
 	if ((qid >= SEP_MAX_NUM_OF_DESC_Q) ||
 	    (ioctl_cmd_type > DXDI_IOC_NR_MAX)) {
-		SEP_LOG_ERR("IDs out of range: qid=%d , ioctl_cmd=%d\n",
+		pr_err("IDs out of range: qid=%d , ioctl_cmd=%d\n",
 			    qid, ioctl_cmd_type);
 		return;
 	}
@@ -128,7 +128,7 @@ void sysfs_update_sep_stats(unsigned int qid, enum sep_sw_desc_type desc_type,
 			    unsigned long long end_ns)
 {
 	if ((qid >= SEP_MAX_NUM_OF_DESC_Q) || (desc_type >= DESC_TYPE_NUM)) {
-		SEP_LOG_ERR("IDs out of range: qid=%d , descriptor_type=%d\n",
+		pr_err("IDs out of range: qid=%d , descriptor_type=%d\n",
 			    qid, desc_type);
 		return;
 	}
@@ -203,7 +203,7 @@ static ssize_t sys_queue_stats_drv_lat_show(struct kobject *kobj,
 			       "ioctl#\tmin[us]\tavg[us]\tmax[us]\t#samples\n");
 
 	if (qid >= SEP_MAX_NUM_OF_DESC_Q) {
-		SEP_LOG_ERR("ID out of range: qid=%d\n", qid);
+		pr_err("ID out of range: qid=%d\n", qid);
 		return 0;
 	}
 
@@ -247,14 +247,14 @@ static ssize_t sys_queue_stats_sep_lat_show(struct kobject *kobj,
 	qid = sys_get_queue_num(kobj, (struct sys_dir *)&sys_queue_dirs);
 
 	if (qid >= SEP_MAX_NUM_OF_DESC_Q) {
-		SEP_LOG_ERR("ID out of range: qid=%d\n", qid);
+		pr_err("ID out of range: qid=%d\n", qid);
 		return 0;
 	}
 
 	line = kzalloc(256 * sizeof(char), GFP_KERNEL);
 
 	if (line == NULL) {
-		SEP_LOG_ERR("Memory allocation failed\n");
+		pr_err("Memory allocation failed\n");
 		return -ENOMEM;
 	}
 
@@ -383,7 +383,7 @@ int sep_setup_sysfs(struct kobject *sys_dev_kobj, struct sep_drvdata *drvdata)
 	int retval = 0, i, j;
 	char queue_name[MAX_QUEUE_NAME_LEN];
 
-	SEP_LOG_DEBUG("setup sysfs under %s\n", sys_dev_kobj->name);
+	pr_debug("setup sysfs under %s\n", sys_dev_kobj->name);
 	/* reset statistics */
 	memset(drv_lat_stats, 0, sizeof(drv_lat_stats));
 	memset(sep_lat_stats, 0, sizeof(sep_lat_stats));

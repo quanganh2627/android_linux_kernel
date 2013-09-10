@@ -163,7 +163,7 @@ void *desc_q_create(int qid, struct queue_drvdata *drvdata)
 
 	new_q_p = kzalloc(sizeof(struct desc_q), GFP_KERNEL);
 	if (unlikely(new_q_p == NULL)) {
-		SEP_LOG_ERR("Q%d: Failed allocating %d B for new_q\n",
+		pr_err("Q%d: Failed allocating %d B for new_q\n",
 			    qid, sizeof(struct desc_q));
 		goto desc_q_create_failed;
 	}
@@ -182,7 +182,7 @@ void *desc_q_create(int qid, struct queue_drvdata *drvdata)
 					       &new_q_p->q_base_dma,
 					       GFP_KERNEL);
 	if (unlikely(new_q_p->q_base_p == NULL)) {
-		SEP_LOG_ERR("Q%d: Failed allocating %d B for desc buffer\n",
+		pr_err("Q%d: Failed allocating %d B for desc buffer\n",
 			    qid, SEP_SW_DESC_Q_MEM_SIZE);
 		goto desc_q_create_failed;
 	}
@@ -190,12 +190,12 @@ void *desc_q_create(int qid, struct queue_drvdata *drvdata)
 	new_q_p->enqueue_time = kmalloc(SEP_DESC_Q_ENTRIES_NUM *
 					sizeof(unsigned long long), GFP_KERNEL);
 	if (new_q_p->enqueue_time == NULL) {
-		SEP_LOG_ERR("Q%d: Failed allocating time stats array\n", qid);
+		pr_err("Q%d: Failed allocating time stats array\n", qid);
 		goto desc_q_create_failed;
 	}
 
 	if (backlog_q_init(new_q_p) != 0) {
-		SEP_LOG_ERR("Q%d: Failed creating backlog queue\n", qid);
+		pr_err("Q%d: Failed creating backlog queue\n", qid);
 		goto desc_q_create_failed;
 	}
 	INIT_WORK(&new_q_p->backlog_work, backlog_q_process);
@@ -233,7 +233,7 @@ void desc_q_destroy(void *q_h)
 	struct device *dev = q_p->drvdata->sep_data->dev;
 
 	if (q_p->sent_cntr != q_p->completed_cntr) {
-		SEP_LOG_ERR(
+		pr_err(
 			    "Q%d: destroyed while there are outstanding descriptors\n",
 			    q_p->qid);
 	}
@@ -257,7 +257,7 @@ int desc_q_set_state(void *q_h, enum desc_q_state state)
 
 #ifdef DEBUG
 	if ((q_p->qstate != DESC_Q_ACTIVE) && (q_p->qstate != DESC_Q_ASLEEP)) {
-		SEP_LOG_ERR("Q%d is in invalid state: %d\n",
+		pr_err("Q%d is in invalid state: %d\n",
 			    q_p->qid, q_p->qstate);
 		return -EINVAL;
 	}
@@ -284,7 +284,7 @@ int desc_q_set_state(void *q_h, enum desc_q_state state)
 		}		/* else: already active */
 		break;
 	default:
-		SEP_LOG_ERR("Invalid requested state: %d\n", state);
+		pr_err("Invalid requested state: %d\n", state);
 		rc = -EINVAL;
 	}
 	mutex_unlock(&q_p->qlock);
@@ -335,7 +335,7 @@ int desc_q_reset(void *q_h)
 		q_p->sent_cntr = 0;
 		q_p->completed_cntr = 0;
 	} else {
-		SEP_LOG_ERR("Invoked when queue is not ASLEEP\n");
+		pr_err("Invoked when queue is not ASLEEP\n");
 		rc = -EBUSY;
 	}
 	mutex_unlock(&q_p->qlock);
@@ -389,7 +389,7 @@ int desc_q_enqueue_sleep_req(void *q_h, struct sep_op_ctx *op_ctx)
 		/* In ASLEEP state the queue assumed to be empty... */
 		dispatch_sw_desc(q_p, &desc);
 		WRITE_REGISTER(q_p->gpr_to_sep, q_p->sent_cntr);
-		SEP_LOG_DEBUG("Sent SLEEP_REQ\n");
+		pr_debug("Sent SLEEP_REQ\n");
 	} else {
 		rc = -EBUSY;
 	}
@@ -410,7 +410,7 @@ static int backlog_q_init(struct desc_q *q_p)
 			      sizeof(struct descs_backlog_item),
 			      sizeof(u32), 0, NULL);
 	if (unlikely(backlog_q_p->backlog_items_pool == NULL)) {
-		SEP_LOG_ERR("Q%d: Failed allocating backlog_items_pool\n",
+		pr_err("Q%d: Failed allocating backlog_items_pool\n",
 			    q_p->qid);
 		rc = -ENOMEM;
 	} else {
@@ -425,7 +425,7 @@ static void backlog_q_cleanup(struct desc_q *q_p)
 	struct descs_backlog_queue *backlog_q_p = &q_p->backlog_q;
 
 	if (backlog_q_p->cur_q_len > 0) {
-		SEP_LOG_ERR("Q%d: Cleanup while have %u pending items!",
+		pr_err("Q%d: Cleanup while have %u pending items!",
 			    q_p->qid, backlog_q_p->cur_q_len);
 		/* TODO: Handle freeing of pending items? */
 	}
@@ -449,13 +449,13 @@ static int backlog_q_enqueue(struct desc_q *q_p, struct sep_sw_desc *desc_p)
 	    (struct sep_op_ctx *)SEP_SW_DESC_GET(desc_p, COOKIE);
 	struct descs_backlog_item *new_q_item;
 
-	SEP_LOG_DEBUG("->backlog(op_ctx=%p):\n", op_ctx);
+	pr_debug("->backlog(op_ctx=%p):\n", op_ctx);
 	dump_desc(desc_p);
 
 	new_q_item =
 	    kmem_cache_alloc(backlog_q_p->backlog_items_pool, GFP_KERNEL);
 	if (unlikely(new_q_item == NULL)) {
-		SEP_LOG_ERR("Failed allocating descs_queue_item");
+		pr_err("Failed allocating descs_queue_item");
 		op_ctx->op_state = USER_OP_NOP;
 		return -ENOMEM;
 	}
@@ -496,10 +496,10 @@ static int backlog_q_dequeue(struct desc_q *q_p)
 	dump_desc(desc_p);
 	op_ctx = (struct sep_op_ctx *)SEP_SW_DESC_GET(desc_p, COOKIE);
 	if (unlikely(op_ctx == NULL)) {
-		SEP_LOG_ERR("Invalid desc - COOKIE is NULL\n");
+		pr_err("Invalid desc - COOKIE is NULL\n");
 		return -EINVAL;
 	}
-	SEP_LOG_DEBUG("backlog(op_ctx=%p)->descQ:\n", op_ctx);
+	pr_debug("backlog(op_ctx=%p)->descQ:\n", op_ctx);
 	dispatch_sw_desc(q_p, desc_p);
 	op_ctx->backlog_descs_cntr--;
 	/* Now we can free the list item */
@@ -536,7 +536,7 @@ static void backlog_q_process(struct work_struct *work)
 		/* Not more than pending descriptors */
 		if (descs_to_enqueue > q_p->backlog_q.cur_q_len)
 			descs_to_enqueue = q_p->backlog_q.cur_q_len;
-		SEP_LOG_DEBUG("Q%d: Dispatching %d descs. from pendQ\n",
+		pr_debug("Q%d: Dispatching %d descs. from pendQ\n",
 			      q_p->qid, descs_to_enqueue);
 		while (descs_to_enqueue > 0) {
 			/* From backlog queue to SW descriptors queue */
@@ -597,12 +597,12 @@ int desc_q_enqueue(void *q_h, struct sep_sw_desc *desc_p, bool may_backlog)
 	    (q_p->backlog_q.cur_q_len > 0) ||	/* or already have pending d. */
 	    (q_p->qstate == DESC_Q_ASLEEP)) {	/* or in sleep state */
 		if (may_backlog) {
-			SEP_LOG_DEBUG("Enqueuing desc. to queue@%s\n",
+			pr_debug("Enqueuing desc. to queue@%s\n",
 				      q_p->qstate == DESC_Q_ASLEEP ?
 				      "ASLEEP" : "FULL");
 			rc = backlog_q_enqueue(q_p, desc_p);
 			if (unlikely(rc != 0)) {
-				SEP_LOG_ERR(
+				pr_err(
 					    "Failed enqueuing desc. to queue@%s\n",
 					    q_p->qstate == DESC_Q_ASLEEP ?
 					    "ASLEEP" : "FULL");
@@ -610,7 +610,7 @@ int desc_q_enqueue(void *q_h, struct sep_sw_desc *desc_p, bool may_backlog)
 				rc = -EBUSY;
 			}
 		} else {
-			SEP_LOG_DEBUG("Q%d: %s and may not backlog.\n",
+			pr_debug("Q%d: %s and may not backlog.\n",
 				      q_p->qid,
 				      q_p->qstate == DESC_Q_ASLEEP ?
 				      "ASLEEP" : "FULL");
@@ -622,7 +622,7 @@ int desc_q_enqueue(void *q_h, struct sep_sw_desc *desc_p, bool may_backlog)
 		dispatch_sw_desc(q_p, desc_p);
 		/* Signal SeP of new descriptors */
 		WRITE_REGISTER(q_p->gpr_to_sep, q_p->sent_cntr);
-		SEP_LOG_DEBUG("Q#%d: Sent SwDesc #%u (op_ctx=%p)\n",
+		pr_debug("Q#%d: Sent SwDesc #%u (op_ctx=%p)\n",
 			      q_p->qid, q_p->sent_cntr, op_ctx);
 		rc = -EINPROGRESS;
 	}
@@ -665,7 +665,7 @@ void desc_q_mark_invalid_cookie(void *q_h, u32 cookie)
 			SEP_SW_DESC_SET(&desc, COOKIE, 0);	/* Invalidate */
 			SEP_SW_DESC_COPY_TO_SEP(GET_DESC_PTR(q_p, cur_desc_idx),
 						&desc);
-			SEP_LOG_DEBUG("Invalidated desc at desc_cnt=%u\n",
+			pr_debug("Invalidated desc at desc_cnt=%u\n",
 				      cur_desc_idx);
 			drop_cnt++;
 		}
@@ -674,7 +674,7 @@ void desc_q_mark_invalid_cookie(void *q_h, u32 cookie)
 	mutex_unlock(&q_p->qlock);
 
 	if (drop_cnt > 0)
-		SEP_LOG_WARN("Invalidated %u descriptors of cookie=0x%08X\n",
+		pr_warn("Invalidated %u descriptors of cookie=0x%08X\n",
 			     drop_cnt, cookie);
 
 }
@@ -706,7 +706,7 @@ void desc_q_process_completed(void *q_h)
 	if ((q_p->sent_cntr - new_completed_cntr) >
 	    (q_p->sent_cntr - q_p->completed_cntr)) {
 		/* More completions than outstanding descriptors ?! */
-		SEP_LOG_ERR(
+		pr_err(
 			    "sent_cntr=0x%08X completed_cntr=0x%08X gpr=0x%08X\n",
 			    q_p->sent_cntr, q_p->completed_cntr,
 			    new_completed_cntr);
@@ -738,11 +738,11 @@ void desc_q_process_completed(void *q_h)
 				       q_p->enqueue_time[desc_idx],
 				       sched_clock());
 		q_p->completed_cntr++;	/* prepare for next */
-		SEP_LOG_DEBUG("type=%u retcode=0x%08X cookie=0x%08X",
+		pr_debug("type=%u retcode=0x%08X cookie=0x%08X",
 			      desc_type, ret_code, cookie);
 		if (cookie == 0) {
 			/* Probably late completion on invalidated cookie */
-			SEP_LOG_ERR("Got completion with NULL cookie\n");
+			pr_err("Got completion with NULL cookie\n");
 			continue;
 		}
 		op_ctx = (struct sep_op_ctx *)cookie;
@@ -757,7 +757,7 @@ void desc_q_process_completed(void *q_h)
 		}
 #ifdef DEBUG
 		if (op_ctx->pending_descs_cntr > MAX_PENDING_DESCS)
-			SEP_LOG_ERR("Invalid num of pending descs %d\n",
+			pr_err("Invalid num of pending descs %d\n",
 				    op_ctx->pending_descs_cntr);
 #endif
 		/* pending descriptors counter (apply for transactions composed
@@ -963,7 +963,7 @@ void desc_q_pack_rpc_desc(struct sep_sw_desc *desc_p,
 #ifdef DEBUG
 	/* Verify that given agent_id is not too large for AGENT_ID field */
 	if (agent_id >= (1 << SEP_SW_DESC_RPC_MSG_AGENT_ID_BIT_SIZE)) {
-		SEP_LOG_ERR(
+		pr_err(
 			    "Given agent_id=%d is too large for AGENT_ID field. Value truncated!",
 			    agent_id);
 	}
@@ -1024,13 +1024,13 @@ const char *crypto_proc_mode_to_str(enum sep_proc_mode proc_mode)
 #ifdef DEBUG
 static void dump_crypto_op_desc(const struct sep_sw_desc *desc_p)
 {
-	SEP_LOG_DEBUG("CRYPTO_OP::%s (type=%lu,cookie=0x%08lX)\n",
+	pr_debug("CRYPTO_OP::%s (type=%lu,cookie=0x%08lX)\n",
 		      crypto_proc_mode_to_str(SEP_SW_DESC_GET4TYPE
 					      (desc_p, CRYPTO_OP, PROC_MODE)),
 		      SEP_SW_DESC_GET(desc_p, TYPE), SEP_SW_DESC_GET(desc_p,
 								     COOKIE));
 
-	SEP_LOG_DEBUG("HCB=0x%08lX @ FwIdx=%lu %s%s\n",
+	pr_debug("HCB=0x%08lX @ FwIdx=%lu %s%s\n",
 		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, HCB_ADDR),
 		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, FW_CACHE_IDX),
 		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, L) ?
@@ -1038,17 +1038,17 @@ static void dump_crypto_op_desc(const struct sep_sw_desc *desc_p)
 		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, I) ?
 		      "(init)" : "");
 
-	SEP_LOG_DEBUG("IFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
+	pr_debug("IFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
 		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, IFT_ADDR),
 		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, IFT_SIZE),
 		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, IFT_NUM));
 
-	SEP_LOG_DEBUG("OFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
+	pr_debug("OFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
 		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, OFT_ADDR),
 		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, OFT_SIZE),
 		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, OFT_NUM));
 
-	SEP_LOG_DEBUG(
+	pr_debug(
 		"0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X\n",
 		((u32 *)desc_p)[0], ((u32 *)desc_p)[1],
 		((u32 *)desc_p)[2], ((u32 *)desc_p)[3],
@@ -1062,7 +1062,7 @@ static void dump_load_op_desc(const struct sep_sw_desc *desc_p)
 	u32 hcb, cache_idx, is_load;
 	int idx;
 
-	SEP_LOG_DEBUG("LOAD_OP (type=%lu,cookie=0x%08lX)\n",
+	pr_debug("LOAD_OP (type=%lu,cookie=0x%08lX)\n",
 		      SEP_SW_DESC_GET(desc_p, TYPE),
 		      SEP_SW_DESC_GET(desc_p, COOKIE));
 
@@ -1086,7 +1086,7 @@ static void dump_load_op_desc(const struct sep_sw_desc *desc_p)
 				 SEP_SW_DESC_LOAD_OP_L_BIT_OFFSET,
 				 SEP_SW_DESC_LOAD_OP_L_BIT_SIZE);
 
-		SEP_LOG_DEBUG("[%d] HCB=0x%08X FwIdx=%u %s\n",
+		pr_debug("[%d] HCB=0x%08X FwIdx=%u %s\n",
 			      idx, hcb, cache_idx,
 			      is_load ? "(load)" : "(do not load)");
 	}
@@ -1094,25 +1094,25 @@ static void dump_load_op_desc(const struct sep_sw_desc *desc_p)
 
 static void dump_combined_op_desc(const struct sep_sw_desc *desc_p)
 {
-	SEP_LOG_DEBUG("COMBINED_OP::%s (type=%lu,cookie=0x%08lX)\n",
+	pr_debug("COMBINED_OP::%s (type=%lu,cookie=0x%08lX)\n",
 		      crypto_proc_mode_to_str(SEP_SW_DESC_GET4TYPE
 					      (desc_p, COMBINED_OP, PROC_MODE)),
 		      SEP_SW_DESC_GET(desc_p, TYPE), SEP_SW_DESC_GET(desc_p,
 								     COOKIE));
 
-	SEP_LOG_DEBUG("SCHEME=0x%08lX %s%s\n",
+	pr_debug("SCHEME=0x%08lX %s%s\n",
 		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, CONFIG_SCHEME),
 		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, L) ?
 		      "(load)" : "",
 		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, I) ?
 		      "(init)" : "");
 
-	SEP_LOG_DEBUG("IFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
+	pr_debug("IFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
 		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, IFT_ADDR),
 		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, IFT_SIZE),
 		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, IFT_NUM));
 
-	SEP_LOG_DEBUG("OFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
+	pr_debug("OFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
 		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, OFT_ADDR),
 		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, OFT_SIZE),
 		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, OFT_NUM));
@@ -1120,7 +1120,7 @@ static void dump_combined_op_desc(const struct sep_sw_desc *desc_p)
 
 static void dump_rpc_msg_desc(const struct sep_sw_desc *desc_p)
 {
-	SEP_LOG_DEBUG(
+	pr_debug(
 		      "RPC_MSG: agentId=%lu, funcId=%lu, HmbAddr=0x%08lX, HmbSize=%lu\n",
 		      SEP_SW_DESC_GET4TYPE(desc_p, RPC_MSG, AGENT_ID),
 		      SEP_SW_DESC_GET4TYPE(desc_p, RPC_MSG, FUNC_ID),
@@ -1130,7 +1130,7 @@ static void dump_rpc_msg_desc(const struct sep_sw_desc *desc_p)
 
 static void dump_app_req_desc(const struct sep_sw_desc *desc_p)
 {
-	SEP_LOG_DEBUG(
+	pr_debug(
 		      "APP_REQ: reqType=%lu, sessionId=%lu, InParamsAddr=0x%08lX\n",
 		      SEP_SW_DESC_GET4TYPE(desc_p, APP_REQ, REQ_TYPE),
 		      SEP_SW_DESC_GET4TYPE(desc_p, APP_REQ, SESSION_ID),
@@ -1141,7 +1141,7 @@ static void dump_desc(const struct sep_sw_desc *desc_p)
 {				/* dump descriptor based on its type */
 	switch (SEP_SW_DESC_GET(desc_p, TYPE)) {
 	case SEP_SW_DESC_TYPE_NULL:
-		SEP_LOG_DEBUG("NULL descriptor type.\n");
+		pr_debug("NULL descriptor type.\n");
 		break;
 	case SEP_SW_DESC_TYPE_CRYPTO_OP:
 		dump_crypto_op_desc(desc_p);
@@ -1159,10 +1159,10 @@ static void dump_desc(const struct sep_sw_desc *desc_p)
 		dump_app_req_desc(desc_p);
 		break;
 	case SEP_SW_DESC_TYPE_DEBUG:
-		SEP_LOG_DEBUG("DEBUG descriptor type.\n");
+		pr_debug("DEBUG descriptor type.\n");
 		break;
 	default:
-		SEP_LOG_WARN("Unknown descriptor type = %lu\n",
+		pr_warn("Unknown descriptor type = %lu\n",
 			     SEP_SW_DESC_GET(desc_p, TYPE));
 	}
 }

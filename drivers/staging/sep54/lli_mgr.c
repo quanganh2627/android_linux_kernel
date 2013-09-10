@@ -179,7 +179,7 @@ void *llimgr_create(struct device *dev, unsigned long mlli_table_size)
 						   mlli_table_size,
 						   L1_CACHE_BYTES, 0);
 	if (new_llimgr_p->mlli_cache == NULL) {
-		SEP_LOG_ERR("Failed creating DMA pool for MLLI tables\n");
+		pr_err("Failed creating DMA pool for MLLI tables\n");
 		goto create_failed_mlli_pool;
 	}
 
@@ -190,7 +190,7 @@ void *llimgr_create(struct device *dev, unsigned long mlli_table_size)
 						       EDGE_BUFS_POOL_ITEM_SIZE,
 						       0);
 	if (new_llimgr_p->edge_bufs_pool == NULL) {
-		SEP_LOG_ERR("Failed creating DMA pool for edge buffers\n");
+		pr_err("Failed creating DMA pool for edge buffers\n");
 		goto create_failed_edge_bufs_pool;
 	}
 
@@ -212,7 +212,7 @@ void *llimgr_create(struct device *dev, unsigned long mlli_table_size)
 						       DLLI_AUX_BUF_LIMIT,
 						       DLLI_AUX_BUF_LIMIT, 0);
 	if (new_llimgr_p->dlli_bufs_pool == NULL) {
-		SEP_LOG_ERR("Failed creating DMA pool for DLLI buffers\n");
+		pr_err("Failed creating DMA pool for DLLI buffers\n");
 		goto create_failed_dlli_bufs_pool;
 	}
 #endif
@@ -305,12 +305,12 @@ static void calc_aux_bufs_size(const unsigned long buf_start,
 	if (((*end_aux_buf_size_p + *start_aux_buf_size_p) > buf_size) ||
 	    (*start_aux_buf_size_p > EDGE_BUFS_POOL_ITEM_SIZE) ||
 	    (*end_aux_buf_size_p > EDGE_BUFS_POOL_ITEM_SIZE)) {
-		SEP_LOG_ERR(
+		pr_err(
 			    "Invalid aux. buffer sizes: buf_size=%lu B, start_aux=%lu B, end_aux=%lu B\n",
 			    buf_size, *start_aux_buf_size_p,
 			    *end_aux_buf_size_p);
 	} else {
-		SEP_LOG_DEBUG
+		pr_debug
 		    ("buf_size=%lu B, start_aux=%lu B, end_aux=%lu B\n",
 		     buf_size, *start_aux_buf_size_p, *end_aux_buf_size_p);
 	}
@@ -325,56 +325,56 @@ static void dump_client_buf_pages(const struct client_dma_buffer
 	struct scatterlist *sgentry;
 
 	if (client_dma_buf_p->user_buf_ptr != NULL) {
-		SEP_LOG_DEBUG(
+		pr_debug(
 			      "Client DMA buffer %p maps %lu B over %d pages at user_ptr=0x%p (dma_dir=%d):\n",
 			      client_dma_buf_p, client_dma_buf_p->buf_size,
 			      client_dma_buf_p->num_of_pages,
 			      client_dma_buf_p->user_buf_ptr,
 			      client_dma_buf_p->dma_direction);
 	} else {
-		SEP_LOG_DEBUG("Client DMA buffer %p maps %lu B (dma_dir=%d):\n",
+		pr_debug("Client DMA buffer %p maps %lu B (dma_dir=%d):\n",
 			      client_dma_buf_p, client_dma_buf_p->buf_size,
 			      client_dma_buf_p->dma_direction);
 	}
 
 	if (client_dma_buf_p->user_pages != NULL) {
-		SEP_LOG_DEBUG("%d user_pages:\n",
+		pr_debug("%d user_pages:\n",
 			      client_dma_buf_p->num_of_pages);
 		for (i = 0; i < client_dma_buf_p->num_of_pages; i++) {
-			SEP_LOG_DEBUG("%d. phys_addr=0x%08lX\n", i,
+			pr_debug("%d. phys_addr=0x%08lX\n", i,
 				      page_to_pfn(client_dma_buf_p->
 						  user_pages[i]) << PAGE_SHIFT);
 		}
 	}
 #if 0
-	SEP_LOG_DEBUG("sg_head:\n");
+	pr_debug("sg_head:\n");
 	i = 0;
 	for_each_valid_sg(client_dma_buf_p->sg_head, sgentry) {
-		SEP_LOG_DEBUG("%d. phys_addr=0x%08llX len=0x%08X\n", i,
+		pr_debug("%d. phys_addr=0x%08llX len=0x%08X\n", i,
 			      sg_phys(sgentry), sgentry->length);
 		i++;
 	}
 #endif
-	SEP_LOG_DEBUG("sg_main:\n");
+	pr_debug("sg_main:\n");
 	i = 0;
 	for_each_valid_sg(client_dma_buf_p->sg_main, sgentry) {
-		SEP_LOG_DEBUG("%d. dma_addr=0x%08llX len=0x%08X\n", i,
+		pr_debug("%d. dma_addr=0x%08llX len=0x%08X\n", i,
 			(long long unsigned int)sg_dma_address(sgentry),
 			sg_dma_len(sgentry));
 		i++;
 	}
-	SEP_LOG_DEBUG("sg_tail:\n");
+	pr_debug("sg_tail:\n");
 	i = 0;
 	for_each_valid_sg(client_dma_buf_p->sg_tail, sgentry) {
-		SEP_LOG_DEBUG("%d. phys_addr=0x%08llX len=0x%08X\n", i,
+		pr_debug("%d. phys_addr=0x%08llX len=0x%08X\n", i,
 				(long long unsigned int)sg_phys(sgentry),
 				sgentry->length);
 		i++;
 	}
-	SEP_LOG_DEBUG("sg_save4next:\n");
+	pr_debug("sg_save4next:\n");
 	i = 0;
 	for_each_valid_sg(client_dma_buf_p->sg_save4next, sgentry) {
-		SEP_LOG_DEBUG("%d. phys_addr=0x%08llX len=0x%08X\n", i,
+		pr_debug("%d. phys_addr=0x%08llX len=0x%08X\n", i,
 				(long long unsigned int)sg_phys(sgentry),
 				sgentry->length);
 		i++;
@@ -422,7 +422,7 @@ static int create_sg_list(struct page **pages_array,
 	*new_sg_list_p =
 	    kmalloc(sizeof(struct scatterlist) * num_of_sg_ents, GFP_KERNEL);
 	if (unlikely(*new_sg_list_p == NULL)) {
-		SEP_LOG_ERR("Failed allocating sglist array for %lu entries\n",
+		pr_err("Failed allocating sglist array for %lu entries\n",
 			    num_of_sg_ents);
 		return -ENOMEM;
 	}
@@ -442,7 +442,7 @@ static int create_sg_list(struct page **pages_array,
 	for (i = 1; i < (num_of_sg_ents - 1); i++) {
 		cur_sge = sg_next(cur_sge);
 		if (unlikely(cur_sge == NULL)) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Reached end of sgl before (%d) num_of_sg_ents (%lu)\n",
 				    i, num_of_sg_ents);
 			kfree(*new_sg_list_p);
@@ -456,7 +456,7 @@ static int create_sg_list(struct page **pages_array,
 		/* only if was not handled already as first */
 		cur_sge = sg_next(cur_sge);
 		if (unlikely(cur_sge == NULL)) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Cannot put last page in given num_of_sg_ents (%lu)\n",
 				    num_of_sg_ents);
 			kfree(*new_sg_list_p);
@@ -515,7 +515,7 @@ static int split_sg_list(struct scatterlist *sgl_to_split,
 		*split_sg_list =
 		    kmalloc(sizeof(struct scatterlist) * 2, GFP_KERNEL);
 		if (*split_sg_list == NULL) {
-			SEP_LOG_ERR("Failed allocating SGE for split entry\n");
+			pr_err("Failed allocating SGE for split entry\n");
 			return -ENOMEM;
 		}
 		sg_init_table(*split_sg_list, 2);
@@ -753,19 +753,19 @@ static int user_buf_to_client_dma_buf(struct llimgr_obj *llimgr_p,
 
 	/* Verify permissions */
 	if (is_inbuf && !access_ok(ACCESS_READ, user_buf_ptr, buf_size)) {
-		SEP_LOG_ERR("No read access to data buffer at %p\n",
+		pr_err("No read access to data buffer at %p\n",
 			    user_buf_ptr);
 		return -EFAULT;
 	}
 	if (is_outbuf && !access_ok(ACCESS_WRITE, user_buf_ptr, buf_size)) {
-		SEP_LOG_ERR("No write access to data buffer at %p\n",
+		pr_err("No write access to data buffer at %p\n",
 			    user_buf_ptr);
 		return -EFAULT;
 	}
 	client_dma_buf_p->user_pages =
 	    kmalloc(sizeof(struct page *)*num_of_pages, GFP_KERNEL);
 	if (unlikely(client_dma_buf_p->user_pages == NULL)) {
-		SEP_LOG_ERR("Failed allocating user_pages array for %d pages\n",
+		pr_err("Failed allocating user_pages array for %d pages\n",
 			    num_of_pages);
 		return -ENOMEM;
 	}
@@ -777,7 +777,7 @@ static int user_buf_to_client_dma_buf(struct llimgr_obj *llimgr_p,
 							     client_dma_buf_p->
 							     user_pages);
 	if (client_dma_buf_p->num_of_pages != num_of_pages) {
-		SEP_LOG_WARN(
+		pr_warn(
 			     "Failed to lock all user pages (locked %d, requested lock = %d)\n",
 			     client_dma_buf_p->num_of_pages, num_of_pages);
 		rc = -ENOMEM;
@@ -802,7 +802,7 @@ static int user_buf_to_client_dma_buf(struct llimgr_obj *llimgr_p,
 			   is_pages_phys_contig(client_dma_buf_p->user_pages,
 						client_dma_buf_p->
 						num_of_pages)) {
-			SEP_LOG_DEBUG(
+			pr_debug(
 				      "Mapping user buffer @%p (0x%08lX B) to DLLI directly\n",
 				      client_dma_buf_p->user_buf_ptr, buf_size);
 			main_buf_size = buf_size;/* Leave 0 for tail_buf_size */
@@ -810,7 +810,7 @@ static int user_buf_to_client_dma_buf(struct llimgr_obj *llimgr_p,
 			 * optimization, because in any other case there must
 			 * be some data in the tail buffer (if buf_size>0) */
 		} else if (buf_size <= DLLI_AUX_BUF_LIMIT) {
-			SEP_LOG_DEBUG(
+			pr_debug(
 				      "Mapping user buffer @%p (0x%08lX B) to DLLI via aux. buffer\n",
 				      client_dma_buf_p->user_buf_ptr, buf_size);
 			tail_buf_size = buf_size;
@@ -896,7 +896,7 @@ static int client_sgl_to_client_dma_buf(struct llimgr_obj *llimgr_p,
 	struct scatterlist *last_sgl = NULL;	/* sgl to split of save4next */
 	int rc;
 
-	SEP_LOG_DEBUG("sgl=%p nbytes=%lu save4next=%lu client_dma_buf=%p\n",
+	pr_debug("sgl=%p nbytes=%lu save4next=%lu client_dma_buf=%p\n",
 		      sgl, client_dma_buf_p->buf_size,
 		      client_dma_buf_p->save4next_size, client_dma_buf_p);
 
@@ -920,7 +920,7 @@ static int client_sgl_to_client_dma_buf(struct llimgr_obj *llimgr_p,
 			     CACHE_LINE_MASK) == 0) &&
 #endif
 			   is_sgl_phys_contig(sgl, &sgl_phys_contig_size)) {
-			SEP_LOG_DEBUG(
+			pr_debug(
 				      "Mapping sgl buffer (0x%08lX B) to DLLI directly\n",
 				      buf_size);
 			main_buf_size = buf_size;
@@ -930,7 +930,7 @@ static int client_sgl_to_client_dma_buf(struct llimgr_obj *llimgr_p,
 			 * be some data in the tail buffer (if buf_size>0)
 			 */
 		} else if (buf_size <= DLLI_AUX_BUF_LIMIT) {
-			SEP_LOG_DEBUG(
+			pr_debug(
 				      "Mapping sgl buffer (0x%08lX B) to DLLI via aux. buffer\n",
 				      buf_size);
 			tail_buf_size = buf_size;
@@ -955,7 +955,7 @@ static int client_sgl_to_client_dma_buf(struct llimgr_obj *llimgr_p,
 		rc = split_sg_list(client_dma_buf_p->sg_head,
 				   &client_dma_buf_p->sg_main, head_buf_size);
 		if (unlikely(rc != 0)) {
-			SEP_LOG_ERR("Failed splitting sg_head-sg_main\n");
+			pr_err("Failed splitting sg_head-sg_main\n");
 			cleanup_client_dma_buf(llimgr_p, client_dma_buf_p);
 			return rc;
 		}
@@ -972,7 +972,7 @@ static int client_sgl_to_client_dma_buf(struct llimgr_obj *llimgr_p,
 					   &client_dma_buf_p->sg_tail,
 					   main_buf_size);
 			if (unlikely(rc != 0)) {
-				SEP_LOG_ERR("Fail:splitting sg_main-sg_tail\n");
+				pr_err("Fail:splitting sg_main-sg_tail\n");
 				cleanup_client_dma_buf(llimgr_p,
 						       client_dma_buf_p);
 				return rc;
@@ -1000,7 +1000,7 @@ static int client_sgl_to_client_dma_buf(struct llimgr_obj *llimgr_p,
 					   &client_dma_buf_p->sg_save4next,
 					   last_sgl_size);
 			if (unlikely(rc != 0)) {
-				SEP_LOG_ERR("Failed splitting sg_save4next\n");
+				pr_err("Failed splitting sg_save4next\n");
 				cleanup_client_dma_buf(llimgr_p,
 						       client_dma_buf_p);
 				return rc;
@@ -1045,16 +1045,16 @@ int llimgr_register_client_dma_buf(void *llimgr,
 	CLEAN_DMA_BUFFER_INFO(client_dma_buf_p);
 
 	if (buf_size == 0) {	/* Handle empty buffer */
-		SEP_LOG_DEBUG("buf_size == 0\n");
+		pr_debug("buf_size == 0\n");
 		return 0;
 	}
 
 	if ((user_buf_ptr == NULL) && (sgl == NULL)) {
-		SEP_LOG_ERR("NULL user_buf_ptr/sgl\n");
+		pr_err("NULL user_buf_ptr/sgl\n");
 		return -EINVAL;
 	}
 	if ((user_buf_ptr != NULL) && (sgl != NULL)) {
-		SEP_LOG_ERR("Provided with dual buffer info (both user+sgl)\n");
+		pr_err("Provided with dual buffer info (both user+sgl)\n");
 		return -EINVAL;
 	}
 
@@ -1087,10 +1087,10 @@ int llimgr_register_client_dma_buf(void *llimgr,
 		    dma_pool_alloc(llimgr_p->edge_bufs_pool, GFP_KERNEL,
 				   &client_dma_buf_p->buf_start_aux_buf_dma);
 		if (unlikely(client_dma_buf_p->buf_start_aux_buf_va == NULL)) {
-			SEP_LOG_ERR("Fail alloc from edge_bufs_pool, head\n");
+			pr_err("Fail alloc from edge_bufs_pool, head\n");
 			rc = -ENOMEM;
 		} else {
-			SEP_LOG_DEBUG("start_aux: va=%p dma=0x%08llX\n",
+			pr_debug("start_aux: va=%p dma=0x%08llX\n",
 				      client_dma_buf_p->buf_start_aux_buf_va,
 				      client_dma_buf_p->buf_start_aux_buf_dma);
 		}
@@ -1100,7 +1100,7 @@ int llimgr_register_client_dma_buf(void *llimgr,
 #ifdef DEBUG
 		if (client_dma_buf_p->buf_end_aux_buf_size >
 				DLLI_AUX_BUF_LIMIT) {
-			SEP_LOG_ERR("end_aux_buf size too large = 0x%08lX\n",
+			pr_err("end_aux_buf size too large = 0x%08lX\n",
 				    client_dma_buf_p->buf_end_aux_buf_size);
 			return -EINVAL;
 		}
@@ -1119,10 +1119,10 @@ int llimgr_register_client_dma_buf(void *llimgr,
 					   buf_end_aux_buf_dma);
 		}
 		if (unlikely(client_dma_buf_p->buf_end_aux_buf_va == NULL)) {
-			SEP_LOG_ERR("Fail:allocating from aux. buf for tail\n");
+			pr_err("Fail:allocating from aux. buf for tail\n");
 			rc = -ENOMEM;
 		} else {
-			SEP_LOG_DEBUG("end_aux: va=%p dma=0x%08llX\n",
+			pr_debug("end_aux: va=%p dma=0x%08llX\n",
 				client_dma_buf_p->buf_end_aux_buf_va,
 				(long long unsigned int)
 				client_dma_buf_p->buf_end_aux_buf_dma);
@@ -1135,7 +1135,7 @@ int llimgr_register_client_dma_buf(void *llimgr,
 				 client_dma_buf_p->sg_main_nents,
 				 dma_direction);
 		if (unlikely(tmp == 0)) {
-			SEP_LOG_ERR("dma_map_sg failed\n");
+			pr_err("dma_map_sg failed\n");
 			rc = -ENOMEM;
 		}
 	}
@@ -1212,7 +1212,7 @@ static inline int copy_to_from_aux_buf(bool to_buf,
 		copied_cnt = sg_copy_from_buffer(sgl, nents, buf_p, buf_len);
 
 	if (copied_cnt < buf_len) {
-		SEP_LOG_ERR("Failed copying %s buf of %u B\n",
+		pr_err("Failed copying %s buf of %u B\n",
 			    to_buf ? "to" : "from", buf_len);
 		return -ENOMEM;
 	}
@@ -1241,7 +1241,7 @@ static int sync_client_dma_buf(struct device *dev,
 				   (dma_direction == DMA_TO_DEVICE));
 	int rc;
 
-	SEP_LOG_DEBUG("DMA buf %p (0x%08lX B) for %s\n",
+	pr_debug("DMA buf %p (0x%08lX B) for %s\n",
 		      client_dma_buf_p, client_dma_buf_p->buf_size,
 		      for_device ? "device" : "cpu");
 
@@ -1335,7 +1335,7 @@ int llimgr_copy_from_client_buf_save4next(struct client_dma_buffer
 	unsigned int nents;
 
 	if (buf_len < client_dma_buf_p->save4next_size) {
-		SEP_LOG_ERR("Invoked for copying %lu B to a buffer of %lu B\n",
+		pr_err("Invoked for copying %lu B to a buffer of %lu B\n",
 			    client_dma_buf_p->save4next_size, buf_len);
 		copied_cnt = -ENOMEM;
 	} else {
@@ -1365,7 +1365,7 @@ static void dump_mlli_table(u32 *table_start_p, dma_addr_t dma_addr,
 	u32 *cur_entry_p;
 	unsigned int num_of_entries = table_size / SEP_LLI_ENTRY_BYTE_SIZE;
 
-	SEP_LOG_DEBUG("MLLI table at %p (dma_addr=0x%08X) with %u ent.:\n",
+	pr_debug("MLLI table at %p (dma_addr=0x%08X) with %u ent.:\n",
 		      table_start_p, (unsigned int)dma_addr, num_of_entries);
 
 	for (i = 0, cur_entry_p = table_start_p + SEP_LLI_ENTRY_WORD_SIZE;
@@ -1373,11 +1373,11 @@ static void dump_mlli_table(u32 *table_start_p, dma_addr_t dma_addr,
 		/* LE to BE... */
 		SEP_LLI_COPY_FROM_SEP(lli_spad, cur_entry_p);
 		/*
-		 * SEP_LOG_DEBUG("%02d: addr=0x%08lX , size=0x%08lX\n  %s\n", i,
+		 * pr_debug("%02d: addr=0x%08lX , size=0x%08lX\n  %s\n", i,
 		 * SEP_LLI_GET(lli_spad, ADDR),
 		 * SEP_LLI_GET(lli_spad, SIZE),
 		 */
-		SEP_LOG_DEBUG("%02d: [0x%08X,0x%08X] %s\n", i,
+		pr_debug("%02d: [0x%08X,0x%08X] %s\n", i,
 			      lli_spad[0], lli_spad[1],
 			      i == 0 ? "(next table)" : "");
 	}
@@ -1405,7 +1405,7 @@ void llimgr_dump_mlli_tables_list(struct mlli_tables_list *mlli_tables_list_p)
 	     cur_table_p != NULL; cur_table_p = next_table_p, table_count++) {
 
 		if (table_count > mlli_tables_list_p->table_count) {
-			SEP_LOG_ERR(
+			pr_err(
 				"MLLI tables list has more tables than table_cnt=%u. Stopping dump.\n",
 				mlli_tables_list_p->table_count);
 			break;
@@ -1548,7 +1548,7 @@ static int alloc_next_mlli(struct llimgr_obj *llimgr_p,
 	    dma_pool_alloc(llimgr_p->mlli_cache, GFP_KERNEL,
 			   &mlli_iter_p->cur_mlli_dma_addr);
 	if (mlli_iter_p->cur_mlli_table_p == NULL) {
-		SEP_LOG_ERR("Failed allocating MLLI table\n");
+		pr_err("Failed allocating MLLI table\n");
 		return -ENOMEM;
 	}
 
@@ -1620,7 +1620,7 @@ static int append_data_to_mlli(struct llimgr_obj *llimgr_p,
 
 #ifdef DEBUG
 	if (data_size > llimgr_p->max_data_per_mlli) {
-		SEP_LOG_ERR(
+		pr_err(
 			    "Given data size (%uB) is too large for MLLI (%luB)\n",
 			    data_size, llimgr_p->max_data_per_mlli);
 		return -EINVAL;
@@ -1643,7 +1643,7 @@ static int append_data_to_mlli(struct llimgr_obj *llimgr_p,
 			/* Add to this table first "half" of the chunk */
 			append_lli_to_mlli(mlli_iter_p, data_dma_addr,
 					   remaining_data_for_mlli);
-			SEP_LOG_DEBUG("Splitting SG of %uB to %uB+%uB\n",
+			pr_debug("Splitting SG of %uB to %uB+%uB\n",
 				      data_size, remaining_data_for_mlli,
 				      data_size - remaining_data_for_mlli);
 			/* Set the remainder to be pushed in the new table */
@@ -1690,7 +1690,7 @@ static int init_mlli_tables_list(struct llimgr_obj *llimgr_p,
 #ifdef DEBUG
 	/* Verify that given MLLI tables list is "clean" */
 	if (mlli_tables_list_p->user_memref != NULL) {
-		SEP_LOG_ERR("Got \"dirty\" MLLI tables list!\n");
+		pr_err("Got \"dirty\" MLLI tables list!\n");
 		return -EINVAL;
 	}
 #endif	 /*DEBUG*/
@@ -1698,13 +1698,13 @@ static int init_mlli_tables_list(struct llimgr_obj *llimgr_p,
 	if (client_memref->buf_size > 0) {
 		/* Validate buffer access permissions */
 		if (is_inbuf && !is_memref_inbuf) {
-			SEP_LOG_ERR("No read access (%d) to user buffer @ %p\n",
+			pr_err("No read access (%d) to user buffer @ %p\n",
 				    client_memref->dma_direction,
 				    client_memref->user_buf_ptr);
 			return -EFAULT;
 		}
 		if (is_outbuf && !is_memref_outbuf) {
-			SEP_LOG_ERR("No write access (%d), data buffer @ %p\n",
+			pr_err("No write access (%d), data buffer @ %p\n",
 				    client_memref->dma_direction,
 				    client_memref->user_buf_ptr);
 			return -EFAULT;
@@ -1743,7 +1743,7 @@ static void cleanup_mlli_tables_list(struct llimgr_obj *llimgr_p,
 	u32 *link_entry_p;
 	u32 lli_spad[SEP_LLI_ENTRY_WORD_SIZE];
 
-	SEP_LOG_DEBUG("mlli_tables_list_p=%p user_memref=%p table_count=%u\n",
+	pr_debug("mlli_tables_list_p=%p user_memref=%p table_count=%u\n",
 		      mlli_tables_list_p, mlli_tables_list_p->user_memref,
 		      mlli_tables_list_p->table_count);
 	/* Initialize to the first MLLI table */
@@ -1767,7 +1767,7 @@ static void cleanup_mlli_tables_list(struct llimgr_obj *llimgr_p,
 
 	/* Cleanup MLLI tables */
 	while (cur_mlli_p != NULL) {
-		SEP_LOG_DEBUG("Freeing MLLI table buffer at %p (%08llX)\n",
+		pr_debug("Freeing MLLI table buffer at %p (%08llX)\n",
 			cur_mlli_p, (long long unsigned int)cur_mlli_dma_addr);
 		/* The link entry follows the first entry that holds next VA */
 		link_entry_p = cur_mlli_p + SEP_LLI_ENTRY_WORD_SIZE;
@@ -1879,7 +1879,7 @@ int llimgr_create_mlli(void *llimgr,
 	/* client_memref must exist even if no user data (buf_size == 0), i.e.,
 	 * just prepend_data. */
 	if (client_memref == NULL) {
-		SEP_LOG_ERR("Client memref is NULL.\n");
+		pr_err("Client memref is NULL.\n");
 		return -EINVAL;
 	}
 
@@ -1914,7 +1914,7 @@ int llimgr_create_mlli(void *llimgr,
 		rc = append_data_to_mlli(llimgr_p, mlli_tables_p, &mlli_iter,
 					 prepend_data, prepend_data_size);
 		if (unlikely(rc != 0)) {
-			SEP_LOG_ERR("Fail: add LLI entry for prepend_data\n");
+			pr_err("Fail: add LLI entry for prepend_data\n");
 			goto mlli_create_exit;	/* do cleanup */
 		}
 	}
@@ -1924,7 +1924,7 @@ int llimgr_create_mlli(void *llimgr,
 					 client_memref->buf_start_aux_buf_dma,
 					 client_memref->buf_start_aux_buf_size);
 		if (unlikely(rc != 0)) {
-			SEP_LOG_ERR("Fail: add LLI entry for start_aux_buf\n");
+			pr_err("Fail: add LLI entry for start_aux_buf\n");
 			goto mlli_create_exit;	/* do cleanup */
 		}
 	}
@@ -1972,7 +1972,7 @@ int llimgr_create_mlli(void *llimgr,
 						 &mlli_iter, cur_sge_addr,
 						 remaining_main_data);
 			if (unlikely(rc != 0)) {
-				SEP_LOG_ERR(
+				pr_err(
 					    "Failed adding LLI entry for sg_main (last).\n");
 				goto mlli_create_exit;	/* do cleanup */
 			}
@@ -1982,7 +1982,7 @@ int llimgr_create_mlli(void *llimgr,
 			rc = alloc_next_mlli(llimgr_p, mlli_tables_p,
 					     &mlli_iter);
 			if (unlikely(rc != 0)) {
-				SEP_LOG_ERR("Fail add MLLI table for tail.\n");
+				pr_err("Fail add MLLI table for tail.\n");
 				goto mlli_create_exit;	/* do cleanup */
 			}
 		}
@@ -1994,14 +1994,14 @@ int llimgr_create_mlli(void *llimgr,
 						 &mlli_iter, cur_sge_addr,
 						 cur_sge_len);
 			if (unlikely(rc != 0)) {
-				SEP_LOG_ERR("Fail add LLI entry for sg_main\n");
+				pr_err("Fail add LLI entry for sg_main\n");
 				goto mlli_create_exit;	/* do cleanup */
 			}
 		}
 	}			/*for */
 
 	if (remaining_main_sg_ents > 0) {
-		SEP_LOG_ERR("Remaining sg_ents>0 after end of S/G list!\n");
+		pr_err("Remaining sg_ents>0 after end of S/G list!\n");
 		rc = -EINVAL;
 		goto mlli_create_exit;	/* do cleanup */
 	}
@@ -2012,13 +2012,13 @@ int llimgr_create_mlli(void *llimgr,
 					 client_memref->buf_end_aux_buf_dma,
 					 client_memref->buf_end_aux_buf_size);
 		if (unlikely(rc != 0)) {
-			SEP_LOG_ERR("Fail: add LLI entry for end_aux_buf\n");
+			pr_err("Fail: add LLI entry for end_aux_buf\n");
 			goto mlli_create_exit;	/* do cleanup */
 		}
 	}
 
 	terminate_mlli_tables_list(&mlli_iter);
-	SEP_LOG_DEBUG("MLLI %u tables (rc=%d):\n",
+	pr_debug("MLLI %u tables (rc=%d):\n",
 		      mlli_tables_p->table_count, rc);
 	llimgr_dump_mlli_tables_list(mlli_tables_p);
 

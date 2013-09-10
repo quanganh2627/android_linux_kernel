@@ -185,13 +185,13 @@ void dump_byte_array(const char *name, const u8 *the_array,
 					sizeof(line_buf) - line_offset,
 					"%02X ", *cur_byte);
 		if (line_offset > 75) {	/* Cut before line end */
-			SEP_LOG_DEBUG("%s\n", line_buf);
+			pr_debug("%s\n", line_buf);
 			line_offset = 0;
 		}
 	}
 
 	if (line_offset > 0)	/* Dump remainding line */
-		SEP_LOG_DEBUG("%s\n", line_buf);
+		pr_debug("%s\n", line_buf);
 
 }
 
@@ -212,13 +212,13 @@ void dump_word_array(const char *name, const u32 *the_array,
 					sizeof(line_buf) - line_offset,
 					"%08X ", *cur_word);
 		if (line_offset > 70) {	/* Cut before line end */
-			SEP_LOG_DEBUG("%s\n", line_buf);
+			pr_debug("%s\n", line_buf);
 			line_offset = 0;
 		}
 	}
 
 	if (line_offset > 0)	/* Dump remainding line */
-		SEP_LOG_DEBUG("%s\n", line_buf);
+		pr_debug("%s\n", line_buf);
 }
 
 #endif /*DEBUG*/
@@ -333,7 +333,7 @@ int register_client_memref(struct sep_client_ctx *client_ctx,
 	struct registered_memref *regmem_p;
 
 	if (unlikely((user_buf_ptr != NULL) && (sgl != NULL))) {
-		SEP_LOG_ERR("Both user_buf_ptr and sgl are given!\n");
+		pr_err("Both user_buf_ptr and sgl are given!\n");
 		return -EINVAL;
 	}
 
@@ -347,10 +347,10 @@ int register_client_memref(struct sep_client_ctx *client_ctx,
 		mutex_unlock(&regmem_p->buf_lock);
 	}
 	if (unlikely(free_memref_idx == MAX_REG_MEMREF_PER_CLIENT_CTX)) {
-		SEP_LOG_WARN("No free entry for user memory registration\n");
+		pr_warn("No free entry for user memory registration\n");
 		free_memref_idx = -ENOMEM;/* Negative error code as index */
 	} else {
-		SEP_LOG_DEBUG("Allocated memref_idx=%d (regmem_p=%p)\n",
+		pr_debug("Allocated memref_idx=%d (regmem_p=%p)\n",
 			      free_memref_idx, regmem_p);
 		regmem_p->ref_cnt = 1;	/* Capture entry */
 		/* Lock user pages for DMA and save pages info.
@@ -390,7 +390,7 @@ int free_client_memref(struct sep_client_ctx *client_ctx,
 	int rc = 0;
 
 	if (!IS_VALID_MEMREF_IDX(memref_idx)) {
-		SEP_LOG_ERR("Invalid memref ID %d\n", memref_idx);
+		pr_err("Invalid memref ID %d\n", memref_idx);
 		return -EINVAL;
 	}
 
@@ -403,10 +403,10 @@ int free_client_memref(struct sep_client_ctx *client_ctx,
 						 &regmem_p->dma_obj);
 		regmem_p->ref_cnt = 0;
 	} else if (unlikely(regmem_p->ref_cnt == 0)) {
-		SEP_LOG_ERR("Invoked for free memref ID=%d\n", memref_idx);
+		pr_err("Invoked for free memref ID=%d\n", memref_idx);
 		rc = -EINVAL;
 	} else {		/* ref_cnt > 1 */
-		SEP_LOG_ERR(
+		pr_err(
 			    "BUSY/Invalid memref to release: ref_cnt=%d, user_buf_ptr=%p\n",
 			    regmem_p->ref_cnt, regmem_p->dma_obj.user_buf_ptr);
 		rc = -EBUSY;
@@ -436,13 +436,13 @@ struct client_dma_buffer *acquire_dma_obj(struct sep_client_ctx *client_ctx,
 	struct client_dma_buffer *rc;
 
 	if (!IS_VALID_MEMREF_IDX(memref_idx)) {
-		SEP_LOG_ERR("Invalid memref ID %d\n", memref_idx);
+		pr_err("Invalid memref ID %d\n", memref_idx);
 		return NULL;
 	}
 
 	mutex_lock(&regmem_p->buf_lock);
 	if (regmem_p->ref_cnt < 1) {
-		SEP_LOG_ERR("Invalid memref (ID=%d, ref_cnt=%d)\n",
+		pr_err("Invalid memref (ID=%d, ref_cnt=%d)\n",
 			    memref_idx, regmem_p->ref_cnt);
 		rc = NULL;
 	} else {
@@ -473,14 +473,14 @@ void release_dma_obj(struct sep_client_ctx *client_ctx,
 	/* Verify valid container */
 	memref_idx = DMA_OBJ_TO_MEMREF_IDX(client_ctx, dma_obj);
 	if (!IS_VALID_MEMREF_IDX(memref_idx)) {
-		SEP_LOG_ERR("Given DMA object is not registered\n");
+		pr_err("Given DMA object is not registered\n");
 		return;
 	}
 	/* Get container */
 	regmem_p = &client_ctx->reg_memrefs[memref_idx];
 	mutex_lock(&regmem_p->buf_lock);
 	if (regmem_p->ref_cnt < 2) {
-		SEP_LOG_ERR("Invalid memref (ref_cnt=%d, user_buf_ptr=%p)\n",
+		pr_err("Invalid memref (ref_cnt=%d, user_buf_ptr=%p)\n",
 			    regmem_p->ref_cnt, regmem_p->dma_obj.user_buf_ptr);
 	} else {
 		regmem_p->ref_cnt--;
@@ -578,7 +578,7 @@ int wait_for_sep_op_result(struct sep_op_ctx *op_ctx)
 {
 #ifdef DEBUG
 	if (unlikely(op_ctx->op_state == USER_OP_NOP)) {
-		SEP_LOG_ERR("Operation context is inactive!\n");
+		pr_err("Operation context is inactive!\n");
 		op_ctx->error_info = DXDI_ERROR_FATAL;
 		return -EINVAL;
 	}
@@ -592,7 +592,7 @@ int wait_for_sep_op_result(struct sep_op_ctx *op_ctx)
 	wait_for_completion(&(op_ctx->ioctl_op_compl));
 #ifdef DEBUG
 	if (unlikely(op_ctx->op_state != USER_OP_COMPLETED)) {
-		SEP_LOG_ERR(
+		pr_err(
 			    "Op. state is not COMPLETED after getting completion event (op_ctx=0x%p, op_state=%d)\n",
 			    op_ctx, op_ctx->op_state);
 		dump_stack();	/*SEP_DRIVER_BUG(); */
@@ -686,7 +686,7 @@ static u32 format_sep_combined_cfg_scheme(struct dxdi_combined_props
 					     SEP_CRYPTO_DIRECTION_DECRYPT &&
 					     (dir ==
 					      SEP_CRYPTO_DIRECTION_ENCRYPT))) {
-						SEP_LOG_ERR(
+						pr_err(
 						    "Invalid direction combination %s->%s\n",
 						    prev_direction ==
 						    SEP_CRYPTO_DIRECTION_DECRYPT
@@ -780,7 +780,7 @@ static int init_crypto_context(struct sep_op_ctx *op_ctx,
 					  &op_ctx->error_info);
 		break;
 	default:
-		SEP_LOG_ERR("Invalid algorithm class %d\n", alg_class);
+		pr_err("Invalid algorithm class %d\n", alg_class);
 		op_ctx->error_info = DXDI_ERROR_UNSUP;
 		rc = -EINVAL;
 	}
@@ -796,7 +796,7 @@ static int init_crypto_context(struct sep_op_ctx *op_ctx,
 	/* If not all the init. information is available at this time
 	 * we postpone INIT in SeP to processing phase */
 	if (postpone_init) {
-		SEP_LOG_DEBUG("Init. postponed to processing phase\n");
+		pr_debug("Init. postponed to processing phase\n");
 		ctxmgr_unmap_user_ctx(&op_ctx->ctx_info);
 		/* must be valid on "success" */
 		op_ctx->error_info = DXDI_ERROR_NULL;
@@ -809,7 +809,7 @@ static int init_crypto_context(struct sep_op_ctx *op_ctx,
 	 * cache allocation must be coupled to descriptor enqueue */
 	rc = mutex_lock_interruptible(&drvdata->desc_queue_sequencer);
 	if (rc != 0) {
-		SEP_LOG_ERR("Failed locking descQ sequencer[%u]\n",
+		pr_err("Failed locking descQ sequencer[%u]\n",
 			    op_ctx->client_ctx->qid);
 		op_ctx->error_info = DXDI_ERROR_NO_RESOURCE;
 		goto ctx_init_exit;
@@ -820,7 +820,7 @@ static int init_crypto_context(struct sep_op_ctx *op_ctx,
 							(&op_ctx->ctx_info),
 							&sep_cache_load_req));
 	if (!sep_cache_load_req)
-		SEP_LOG_ERR("New context already in SeP cache?!");
+		pr_err("New context already in SeP cache?!");
 	rc = send_crypto_op_desc(op_ctx,
 				 1 /*always load on init */ , 1 /*INIT*/,
 				 SEP_PROC_MODE_NOP);
@@ -859,11 +859,11 @@ static int map_ctx_for_proc(struct sep_client_ctx *client_ctx,
 	rc = ctxmgr_map_user_ctx(ctx_info, drvdata->sep_data->dev,
 				 ALG_CLASS_NONE, context_buf);
 	if (rc != 0) {
-		SEP_LOG_ERR("Failed mapping context\n");
+		pr_err("Failed mapping context\n");
 		return rc;
 	}
 	if (ctxmgr_get_session_id(ctx_info) != (u32) client_ctx) {
-		SEP_LOG_ERR("Context ID is not associated with this session\n");
+		pr_err("Context ID is not associated with this session\n");
 		rc = -EINVAL;
 	}
 	if (rc == 0)
@@ -921,7 +921,7 @@ static int init_combined_context(struct sep_op_ctx *op_ctx,
 
 		/* context must be initialzed */
 		if (ctx_state != CTX_STATE_INITIALIZED) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Given context [%d] in invalid state for processing -%d\n",
 				    ctx_idx, ctx_state);
 			op_ctx->error_info = DXDI_ERROR_BAD_CTX;
@@ -953,7 +953,7 @@ static int init_combined_context(struct sep_op_ctx *op_ctx,
 
 		mutex_unlock(&drvdata->desc_queue_sequencer);
 	} else {
-		SEP_LOG_ERR("Failed locking descQ sequencer[%u]\n",
+		pr_err("Failed locking descQ sequencer[%u]\n",
 			    op_ctx->client_ctx->qid);
 		op_ctx->error_info = DXDI_ERROR_NO_RESOURCE;
 	}
@@ -994,7 +994,7 @@ static inline int prepare_adata_for_sep(struct sep_op_ctx *op_ctx,
 	int rc = 0;
 
 	if (adata_in == NULL) {	/*data_out required for this alg_class */
-		SEP_LOG_ERR("adata_in==NULL for authentication\n");
+		pr_err("adata_in==NULL for authentication\n");
 		op_ctx->error_info = DXDI_ERROR_INVAL_DIN_PTR;
 		return -EINVAL;
 	}
@@ -1003,7 +1003,7 @@ static inline int prepare_adata_for_sep(struct sep_op_ctx *op_ctx,
 					    GFP_KERNEL,
 					    &op_ctx->spad_buf_dma_addr);
 	if (unlikely(op_ctx->spad_buf_p == NULL)) {
-		SEP_LOG_ERR("Failed allocating from spad_buf_pool for A0\n");
+		pr_err("Failed allocating from spad_buf_pool for A0\n");
 		return -ENOMEM;
 	}
 	a0_buf_p = op_ctx->spad_buf_p;
@@ -1076,7 +1076,7 @@ static inline int prepare_cipher_data_for_sep(struct sep_op_ctx *op_ctx,
 	}
 	if ((data_out == NULL) && (sgl_out == NULL)) {
 		/* data_out required for this alg_class */
-		SEP_LOG_ERR("data_out/sgl_out==NULL for enc/decryption\n");
+		pr_err("data_out/sgl_out==NULL for enc/decryption\n");
 		op_ctx->error_info = DXDI_ERROR_INVAL_DOUT_PTR;
 		return -EINVAL;
 	}
@@ -1088,7 +1088,7 @@ static inline int prepare_cipher_data_for_sep(struct sep_op_ctx *op_ctx,
 			     ((data_in + data_in_size) > data_out)) ||
 			    ((data_out < data_in) &&
 			     ((data_out + data_in_size) > data_in))) {
-				SEP_LOG_ERR("Buffers partially overlap!\n");
+				pr_err("Buffers partially overlap!\n");
 				op_ctx->error_info =
 				    DXDI_ERROR_DIN_DOUT_OVERLAP;
 				return -EINVAL;
@@ -1168,7 +1168,7 @@ static int prepare_hash_data_for_sep(struct sep_op_ctx *op_ctx,
 	int rc;
 
 	if ((data_in != NULL) && (sgl_in != NULL)) {
-		SEP_LOG_ERR("Given valid data_in+sgl_in!\n");
+		pr_err("Given valid data_in+sgl_in!\n");
 		return -EINVAL;
 	}
 
@@ -1183,7 +1183,7 @@ static int prepare_hash_data_for_sep(struct sep_op_ctx *op_ctx,
 	rc = ctxmgr_map2dev_hash_tail(&op_ctx->ctx_info,
 				      drvdata->sep_data->dev);
 	if (rc != 0) {
-		SEP_LOG_ERR("Failed mapping hash data tail buffer\n");
+		pr_err("Failed mapping hash data tail buffer\n");
 		return rc;
 	}
 	last_hash_blk_tail_size =
@@ -1203,7 +1203,7 @@ static int prepare_hash_data_for_sep(struct sep_op_ctx *op_ctx,
 					    data_in_save4next, DMA_TO_DEVICE,
 					    &op_ctx->din_dma_obj);
 	if (unlikely(rc != 0)) {
-		SEP_LOG_ERR("Failed registering client buffer (rc=%d)\n", rc);
+		pr_err("Failed registering client buffer (rc=%d)\n", rc);
 	} else {
 		if ((!is_finalize) && (data_size4hash == 0)) {
 			/* Not enough for even one hash block
@@ -1319,11 +1319,11 @@ int prepare_data_for_sep(struct sep_op_ctx *op_ctx,
 		}
 	}
 
-	SEP_LOG_DEBUG("data_in=0x%p/0x%p data_out=0x%p/0x%p data_in_size=%uB\n",
+	pr_debug("data_in=0x%p/0x%p data_out=0x%p/0x%p data_in_size=%uB\n",
 		      data_in, sgl_in, data_out, sgl_out, data_in_size);
 
 	alg_class = ctxmgr_get_alg_class(&op_ctx->ctx_info);
-	SEP_LOG_DEBUG("alg_class = %d\n", alg_class);
+	pr_debug("alg_class = %d\n", alg_class);
 	switch (alg_class) {
 	case ALG_CLASS_SYM_CIPHER:
 		rc = prepare_cipher_data_for_sep(op_ctx,
@@ -1368,7 +1368,7 @@ int prepare_data_for_sep(struct sep_op_ctx *op_ctx,
 			/* ignore checking the user out pointer due to crys api
 			 * limitation */
 			if (data_out != NULL) {
-				SEP_LOG_ERR("data_out!=NULL for MAC\n");
+				pr_err("data_out!=NULL for MAC\n");
 				return -EINVAL;
 			}
 #endif
@@ -1385,7 +1385,7 @@ int prepare_data_for_sep(struct sep_op_ctx *op_ctx,
 		break;
 
 	default:
-		SEP_LOG_ERR("Invalid algorithm class %d in context\n",
+		pr_err("Invalid algorithm class %d in context\n",
 			    alg_class);
 		/* probably context was corrupted since init. phase */
 		op_ctx->error_info = DXDI_ERROR_BAD_CTX;
@@ -1418,7 +1418,7 @@ static int prepare_combined_data_for_sep(struct sep_op_ctx *op_ctx,
 	if (data_intent == CRYPTO_DATA_TEXT) {
 		/* restrict data unit size to the max block size multiple */
 		if (!IS_MULT_OF(data_in_size, SEP_HASH_BLOCK_SIZE_MAX)) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Data unit size (%u) is not HASH block multiple\n",
 				    data_in_size);
 			op_ctx->error_info = DXDI_ERROR_INVAL_DATA_SIZE;
@@ -1427,18 +1427,18 @@ static int prepare_combined_data_for_sep(struct sep_op_ctx *op_ctx,
 	} else if (data_intent == CRYPTO_DATA_TEXT_FINALIZE) {
 		/* user may finalize with zero or AES block size multiple */
 		if (!IS_MULT_OF(data_in_size, SEP_AES_BLOCK_SIZE)) {
-			SEP_LOG_ERR("Data size (%u), not AES block multiple\n",
+			pr_err("Data size (%u), not AES block multiple\n",
 				    data_in_size);
 			op_ctx->error_info = DXDI_ERROR_INVAL_DATA_SIZE;
 			return -EINVAL;
 		}
 	}
 
-	SEP_LOG_DEBUG("data_in=0x%08lX data_out=0x%08lX data_in_size=%uB\n",
+	pr_debug("data_in=0x%08lX data_out=0x%08lX data_in_size=%uB\n",
 		      (unsigned long)data_in, (unsigned long)data_out,
 		      data_in_size);
 
-	SEP_LOG_DEBUG("alg_class = COMBINED\n");
+	pr_debug("alg_class = COMBINED\n");
 	if (data_out == NULL)
 		rc = prepare_mac_data_for_sep(op_ctx,
 					      data_in, NULL, data_in_size);
@@ -1475,7 +1475,7 @@ static int sep_proc_dblk(struct sep_op_ctx *op_ctx,
 	enum host_ctx_state ctx_state;
 
 	if (data_in_size == 0) {
-		SEP_LOG_ERR("Got empty data_in\n");
+		pr_err("Got empty data_in\n");
 		op_ctx->error_info = DXDI_ERROR_INVAL_DATA_SIZE;
 		return -EINVAL;
 	}
@@ -1492,7 +1492,7 @@ static int sep_proc_dblk(struct sep_op_ctx *op_ctx,
 		sep_ctx_init_required = 1;
 		op_ctx->op_type |= SEP_OP_CRYPTO_INIT;
 	} else if (ctx_state != CTX_STATE_INITIALIZED) {
-		SEP_LOG_ERR("Context in invalid state for processing %d\n",
+		pr_err("Context in invalid state for processing %d\n",
 			    ctx_state);
 		op_ctx->error_info = DXDI_ERROR_BAD_CTX;
 		rc = -EINVAL;
@@ -1544,7 +1544,7 @@ static int sep_proc_dblk(struct sep_op_ctx *op_ctx,
 					  SEP_PROC_MODE_PROC_A));
 		mutex_unlock(&drvdata->desc_queue_sequencer);
 	} else {
-		SEP_LOG_ERR("Failed locking descQ sequencer[%u]\n",
+		pr_err("Failed locking descQ sequencer[%u]\n",
 			    op_ctx->client_ctx->qid);
 		op_ctx->error_info = DXDI_ERROR_NO_RESOURCE;
 	}
@@ -1596,7 +1596,7 @@ static int sep_fin_proc(struct sep_op_ctx *op_ctx,
 		/* case of postponed sep context init. */
 		sep_ctx_init_required = 1;
 	} else if (ctx_state != CTX_STATE_INITIALIZED) {
-		SEP_LOG_ERR("Context in invalid state for finalizing %d\n",
+		pr_err("Context in invalid state for finalizing %d\n",
 			    ctx_state);
 		op_ctx->error_info = DXDI_ERROR_BAD_CTX;
 		rc = -EINVAL;
@@ -1633,7 +1633,7 @@ static int sep_fin_proc(struct sep_op_ctx *op_ctx,
 					 SEP_PROC_MODE_FIN);
 		mutex_unlock(&drvdata->desc_queue_sequencer);
 	} else {
-		SEP_LOG_ERR("Failed locking descQ sequencer[%u]\n",
+		pr_err("Failed locking descQ sequencer[%u]\n",
 			    op_ctx->client_ctx->qid);
 		op_ctx->error_info = DXDI_ERROR_NO_RESOURCE;
 	}
@@ -1685,7 +1685,7 @@ static int sep_combined_proc_dblk(struct sep_op_ctx *op_ctx,
 	u32 cfg_scheme;
 
 	if (data_in_size == 0) {
-		SEP_LOG_ERR("Got empty data_in\n");
+		pr_err("Got empty data_in\n");
 		op_ctx->error_info = DXDI_ERROR_INVAL_DATA_SIZE;
 		return -EINVAL;
 	}
@@ -1713,7 +1713,7 @@ static int sep_combined_proc_dblk(struct sep_op_ctx *op_ctx,
 
 		/* context must be initialzed */
 		if (ctx_state != CTX_STATE_INITIALIZED) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Given context [%d] in invalid state for processing -%d\n",
 				    ctx_idx, ctx_state);
 			op_ctx->error_info = DXDI_ERROR_BAD_CTX;
@@ -1726,7 +1726,7 @@ static int sep_combined_proc_dblk(struct sep_op_ctx *op_ctx,
 
 	/* Construct SeP combined scheme */
 	cfg_scheme = format_sep_combined_cfg_scheme(config, op_ctx);
-	SEP_LOG_DEBUG("SeP Config. Scheme: 0x%08X\n", cfg_scheme);
+	pr_debug("SeP Config. Scheme: 0x%08X\n", cfg_scheme);
 
 	rc = prepare_combined_data_for_sep(op_ctx, data_in, data_out,
 					   data_in_size, CRYPTO_DATA_TEXT);
@@ -1758,7 +1758,7 @@ static int sep_combined_proc_dblk(struct sep_op_ctx *op_ctx,
 					   SEP_PROC_MODE_PROC_T, cfg_scheme);
 		mutex_unlock(&drvdata->desc_queue_sequencer);
 	} else {
-		SEP_LOG_ERR("Failed locking descQ sequencer[%u]\n",
+		pr_err("Failed locking descQ sequencer[%u]\n",
 			    op_ctx->client_ctx->qid);
 		op_ctx->error_info = DXDI_ERROR_NO_RESOURCE;
 	}
@@ -1828,7 +1828,7 @@ static int sep_combined_fin_proc(struct sep_op_ctx *op_ctx,
 
 		/* context must be initialzed */
 		if (ctx_state != CTX_STATE_INITIALIZED) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Given context [%d] in invalid state for processing -%d\n",
 				    ctx_idx, ctx_state);
 			rc = -EINVAL;
@@ -1841,7 +1841,7 @@ static int sep_combined_fin_proc(struct sep_op_ctx *op_ctx,
 
 	/* Construct SeP combined scheme */
 	cfg_scheme = format_sep_combined_cfg_scheme(config, op_ctx);
-	SEP_LOG_DEBUG("SeP Config. Scheme: 0x%08X\n", cfg_scheme);
+	pr_debug("SeP Config. Scheme: 0x%08X\n", cfg_scheme);
 
 	rc = prepare_combined_data_for_sep(op_ctx, data_in, data_out,
 					   data_in_size,
@@ -1870,7 +1870,7 @@ static int sep_combined_fin_proc(struct sep_op_ctx *op_ctx,
 
 		mutex_unlock(&drvdata->desc_queue_sequencer);
 	} else {
-		SEP_LOG_ERR("Failed locking descQ sequencer[%u]\n",
+		pr_err("Failed locking descQ sequencer[%u]\n",
 			    op_ctx->client_ctx->qid);
 		op_ctx->error_info = DXDI_ERROR_NO_RESOURCE;
 	}
@@ -1953,7 +1953,7 @@ static int process_combined_integrated(struct sep_op_ctx *op_ctx,
 		ctx_mapped_n++;	/*ctx mapped successfully */
 
 		if (ctx_state != CTX_STATE_INITIALIZED) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Given context [%d] in invalid state for processing 0x%08X\n",
 				    ctx_idx, ctx_state);
 			op_ctx->error_info = DXDI_ERROR_BAD_CTX;
@@ -1965,7 +1965,7 @@ static int process_combined_integrated(struct sep_op_ctx *op_ctx,
 	op_ctx->op_type = SEP_OP_CRYPTO_FINI;
 	/* reconstruct combined scheme */
 	cfg_scheme = format_sep_combined_cfg_scheme(config, op_ctx);
-	SEP_LOG_DEBUG("SeP Config. Scheme: 0x%08X\n", cfg_scheme);
+	pr_debug("SeP Config. Scheme: 0x%08X\n", cfg_scheme);
 
 	rc = prepare_combined_data_for_sep(op_ctx, data_in, data_out,
 					   data_in_size,
@@ -1995,7 +1995,7 @@ static int process_combined_integrated(struct sep_op_ctx *op_ctx,
 
 		mutex_unlock(&drvdata->desc_queue_sequencer);
 	} else {
-		SEP_LOG_ERR("Failed locking descQ sequencer[%u]\n",
+		pr_err("Failed locking descQ sequencer[%u]\n",
 			    op_ctx->client_ctx->qid);
 		op_ctx->error_info = DXDI_ERROR_NO_RESOURCE;
 	}
@@ -2094,7 +2094,7 @@ static int process_integrated(struct sep_op_ctx *op_ctx,
 					  &op_ctx->error_info);
 		break;
 	default:
-		SEP_LOG_ERR("Invalid algorithm class %d\n", alg_class);
+		pr_err("Invalid algorithm class %d\n", alg_class);
 		op_ctx->error_info = DXDI_ERROR_UNSUP;
 		rc = -EINVAL;
 	}
@@ -2125,14 +2125,14 @@ static int process_integrated(struct sep_op_ctx *op_ctx,
 					ctxmgr_get_ctx_id(&op_ctx->ctx_info),
 					&sep_cache_load_required));
 		if (!sep_cache_load_required)
-			SEP_LOG_ERR("New context already in SeP cache?!");
+			pr_err("New context already in SeP cache?!");
 		/* Send descriptor with combined load+init+fin */
 		rc = send_crypto_op_desc(op_ctx, 1 /*load */ , 1 /*INIT*/,
 					 SEP_PROC_MODE_FIN);
 		mutex_unlock(&drvdata->desc_queue_sequencer);
 
 	} else {		/* failed acquiring mutex */
-		SEP_LOG_ERR("Failed locking descQ sequencer[%u]\n",
+		pr_err("Failed locking descQ sequencer[%u]\n",
 			    op_ctx->client_ctx->qid);
 		op_ctx->error_info = DXDI_ERROR_NO_RESOURCE;
 	}
@@ -2243,14 +2243,14 @@ static int process_integrated_auth_enc(struct sep_op_ctx *op_ctx,
 					ctxmgr_get_ctx_id(&op_ctx->ctx_info),
 					&sep_cache_load_required));
 		if (!sep_cache_load_required)
-			SEP_LOG_ERR("New context already in SeP cache?!");
+			pr_err("New context already in SeP cache?!");
 		/* Send descriptor with combined load+init+fin */
 		rc = send_crypto_op_desc(op_ctx, 1 /*load */ , 1 /*INIT*/,
 					 SEP_PROC_MODE_PROC_A);
 		mutex_unlock(&drvdata->desc_queue_sequencer);
 
 	} else {		/* failed acquiring mutex */
-		SEP_LOG_ERR("Failed locking descQ sequencer[%u]\n",
+		pr_err("Failed locking descQ sequencer[%u]\n",
 			    op_ctx->client_ctx->qid);
 		op_ctx->error_info = DXDI_ERROR_NO_RESOURCE;
 	}
@@ -2328,7 +2328,7 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 
 	/* Verify RPC message size */
 	if (unlikely(SEP_RPC_MAX_MSG_SIZE < rpc_params_size)) {
-		SEP_LOG_ERR("Given rpc_params is too big (%lu B)\n",
+		pr_err("Given rpc_params is too big (%lu B)\n",
 			    rpc_params_size);
 		return -EINVAL;
 	}
@@ -2337,7 +2337,7 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 					    GFP_KERNEL,
 					    &op_ctx->spad_buf_dma_addr);
 	if (unlikely(op_ctx->spad_buf_p == NULL)) {
-		SEP_LOG_ERR("Fail: alloc from spad_buf_pool for RPC message\n");
+		pr_err("Fail: alloc from spad_buf_pool for RPC message\n");
 		return -ENOMEM;
 	}
 	rpc_msg_p = (struct seprpc_params *)op_ctx->spad_buf_p;
@@ -2345,7 +2345,7 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 	/* Copy params to DMA buffer of message */
 	rc = copy_from_user(rpc_msg_p, rpc_params, rpc_params_size);
 	if (rc) {
-		SEP_LOG_ERR("Fail: copy RPC message from user at 0x%p, rc=%d\n",
+		pr_err("Fail: copy RPC message from user at 0x%p, rc=%d\n",
 			    rpc_params, rc);
 		return -EFAULT;
 	}
@@ -2354,7 +2354,7 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 
 	/* Handle user memory references - prepare DMA buffers */
 	if (unlikely(num_of_mem_refs > SEP_RPC_MAX_MEMREF_PER_FUNC)) {
-		SEP_LOG_ERR("agent_id=%d func_id=%d: Invalid # of memref %u\n",
+		pr_err("agent_id=%d func_id=%d: Invalid # of memref %u\n",
 			    agent_id, func_id, num_of_mem_refs);
 		return -EINVAL;
 	}
@@ -2364,7 +2364,7 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 		local_dma_objs[i] = NULL;
 	}
 	for (i = 0; i < num_of_mem_refs; i++) {
-		SEP_LOG_DEBUG(
+		pr_debug(
 			"memref[%d]: id=%d dma_dir=%d start/offset 0x%08lX size %lu\n",
 			i, mem_refs[i].ref_id, mem_refs[i].dma_direction,
 			mem_refs[i].start_or_offset, mem_refs[i].size);
@@ -2373,7 +2373,7 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 		dma_dir =
 		    dxdi_data_dir_to_dma_data_dir(mem_refs[i].dma_direction);
 		if (unlikely(dma_dir == DMA_NONE)) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "agent_id=%d func_id=%d: Invalid DMA direction (%d) for memref %d\n",
 				    agent_id, func_id,
 				    mem_refs[i].dma_direction, i);
@@ -2384,7 +2384,7 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 		if (IS_VALID_MEMREF_IDX(mem_refs[i].ref_id)) {
 			memref_idx = mem_refs[i].ref_id;
 			if (unlikely(mem_refs[i].start_or_offset != 0)) {
-				SEP_LOG_ERR(
+				pr_err(
 					    "Offset in memref is not supported for RPC.\n");
 				rc = -EINVAL;
 				break;
@@ -2398,7 +2398,7 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 							    mem_refs[i].size,
 							    dma_dir);
 			if (unlikely(!IS_VALID_MEMREF_IDX(memref_idx))) {
-				SEP_LOG_ERR("Fail: temp memory registration\n");
+				pr_err("Fail: temp memory registration\n");
 				rc = -ENOMEM;
 				break;
 			}
@@ -2406,12 +2406,12 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 		/* MLLI table creation */
 		local_dma_objs[i] = acquire_dma_obj(client_ctx, memref_idx);
 		if (unlikely(local_dma_objs[i] == NULL)) {
-			SEP_LOG_ERR("Failed acquiring DMA objects.\n");
+			pr_err("Failed acquiring DMA objects.\n");
 			rc = -ENOMEM;
 			break;
 		}
 		if (unlikely(local_dma_objs[i]->buf_size != mem_refs[i].size)) {
-			SEP_LOG_ERR("RPC: Partial memory ref not supported.\n");
+			pr_err("RPC: Partial memory ref not supported.\n");
 			rc = -EINVAL;
 			break;
 		}
@@ -2447,7 +2447,7 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 		/* Copy back RPC message buffer */
 		rc = copy_to_user(rpc_params, rpc_msg_p, rpc_params_size);
 		if (rc) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Failed copying back RPC parameters/message to user at 0x%p (rc=%d)\n",
 				    rpc_params, rc);
 			rc = -EFAULT;
@@ -2498,7 +2498,7 @@ void sep_printf_handler(struct sep_drvdata *drvdata)
 		WRITE_REGISTER(drvdata->cc_base + SEP_PRINTF_H2S_GPR_OFFSET,
 			       cur_ack_cntr);
 #if 0
-		SEP_LOG_DEBUG("%d. GPR=0x%08X (cur_ack=0x%08X , last=0x%08X)\n",
+		pr_debug("%d. GPR=0x%08X (cur_ack=0x%08X , last=0x%08X)\n",
 			      i, gpr_val, cur_ack_cntr, drvdata->last_ack_cntr);
 #endif
 		if (cur_ack_cntr == drvdata->last_ack_cntr)
@@ -2553,11 +2553,11 @@ static int sep_interrupt_process(struct sep_drvdata *drvdata)
 				  DX_CC_REG_OFFSET(HOST, IRR));
 
 	if (cause_reg == 0) {
-		/* SEP_LOG_DEBUG("Got interrupt with empty cause_reg\n"); */
+		/* pr_debug("Got interrupt with empty cause_reg\n"); */
 		return IRQ_NONE;
 	}
 #if 0
-	SEP_LOG_DEBUG("cause_reg=0x%08X gpr5=0x%08X\n", cause_reg,
+	pr_debug("cause_reg=0x%08X gpr5=0x%08X\n", cause_reg,
 		      READ_REGISTER(drvdata->cc_base +
 				    SEP_PRINTF_S2H_GPR_OFFSET));
 #endif
@@ -2664,10 +2664,10 @@ static int sep_ioctl_get_sym_cipher_ctx_size(unsigned long arg)
 	    ((sym_cipher_type >= _DXDI_SYMCIPHER_C2_FIRST) &&
 	     (sym_cipher_type <= _DXDI_SYMCIPHER_C2_LAST))
 	    ) {
-		SEP_LOG_DEBUG("sym_cipher_type=%u\n", sym_cipher_type);
+		pr_debug("sym_cipher_type=%u\n", sym_cipher_type);
 		return __put_user(ctx_size, &(user_params->ctx_size));
 	} else {
-		SEP_LOG_ERR("Invalid cipher type=%u\n", sym_cipher_type);
+		pr_err("Invalid cipher type=%u\n", sym_cipher_type);
 		return -EINVAL;
 	}
 }
@@ -2685,11 +2685,11 @@ static int sep_ioctl_get_auth_enc_ctx_size(unsigned long arg)
 		return err;
 
 	if ((ae_type == DXDI_AUTHENC_NONE) || (ae_type > DXDI_AUTHENC_MAX)) {
-		SEP_LOG_ERR("Invalid auth-enc. type=%u\n", ae_type);
+		pr_err("Invalid auth-enc. type=%u\n", ae_type);
 		return -EINVAL;
 	}
 
-	SEP_LOG_DEBUG("A.E. type=%u\n", ae_type);
+	pr_debug("A.E. type=%u\n", ae_type);
 	return __put_user(ctx_size, &(user_params->ctx_size));
 }
 
@@ -2706,11 +2706,11 @@ static int sep_ioctl_get_mac_ctx_size(unsigned long arg)
 		return err;
 
 	if ((mac_type == DXDI_MAC_NONE) || (mac_type > DXDI_MAC_MAX)) {
-		SEP_LOG_ERR("Invalid MAC type=%u\n", mac_type);
+		pr_err("Invalid MAC type=%u\n", mac_type);
 		return -EINVAL;
 	}
 
-	SEP_LOG_DEBUG("MAC type=%u\n", mac_type);
+	pr_debug("MAC type=%u\n", mac_type);
 	return __put_user(ctx_size, &(user_params->ctx_size));
 }
 
@@ -2727,11 +2727,11 @@ static int sep_ioctl_get_hash_ctx_size(unsigned long arg)
 		return err;
 
 	if ((hash_type == DXDI_HASH_NONE) || (hash_type > DXDI_HASH_MAX)) {
-		SEP_LOG_ERR("Invalid hash type=%u\n", hash_type);
+		pr_err("Invalid hash type=%u\n", hash_type);
 		return -EINVAL;
 	}
 
-	SEP_LOG_DEBUG("hash type=%u\n", hash_type);
+	pr_debug("hash type=%u\n", hash_type);
 	return __put_user(ctx_size, &(user_params->ctx_size));
 }
 
@@ -2749,7 +2749,7 @@ static int sep_ioctl_sym_cipher_init(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&init_params, user_init_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -2779,7 +2779,7 @@ static int sep_ioctl_auth_enc_init(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&init_params, user_init_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -2809,7 +2809,7 @@ static int sep_ioctl_mac_init(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&init_params, user_init_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -2839,7 +2839,7 @@ static int sep_ioctl_hash_init(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&init_params, user_init_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -2869,7 +2869,7 @@ static int sep_ioctl_proc_dblk(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&dblk_params, user_dblk_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -2901,7 +2901,7 @@ static int sep_ioctl_fin_proc(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&fin_params, user_fin_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -2933,7 +2933,7 @@ static int sep_ioctl_fin_proc(struct sep_client_ctx *client_ctx,
 					    fin_params.digest_or_mac,
 					    fin_params.digest_or_mac_size);
 		} else {	/* Invalid digest/mac size! */
-			SEP_LOG_ERR("Got invalid digest/MAC size = %u",
+			pr_err("Got invalid digest/MAC size = %u",
 				    fin_params.digest_or_mac_size);
 			op_ctx.error_info = DXDI_ERROR_INVAL_DATA_SIZE;
 			rc = -EINVAL;
@@ -2963,7 +2963,7 @@ static int sep_ioctl_combined_init(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&init_params, user_init_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -2992,7 +2992,7 @@ static int sep_ioctl_combined_proc_dblk(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&dblk_params, user_dblk_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -3023,7 +3023,7 @@ static int sep_ioctl_combined_fin_proc(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&fin_params, user_fin_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -3080,7 +3080,7 @@ static int sep_ioctl_combined_proc(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&params, user_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -3135,7 +3135,7 @@ static int sep_ioctl_sym_cipher_proc(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&params, user_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -3169,7 +3169,7 @@ static int sep_ioctl_auth_enc_proc(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&params, user_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -3198,7 +3198,7 @@ static int sep_ioctl_auth_enc_proc(struct sep_client_ctx *client_ctx,
 	}
 
 	if ((rc == 0) && (tag_size != params.props.tag_size)) {
-		SEP_LOG_WARN(
+		pr_warn(
 			"Tag result size different than requested (%u != %u)\n",
 			tag_size, params.props.tag_size);
 	}
@@ -3209,7 +3209,7 @@ static int sep_ioctl_auth_enc_proc(struct sep_client_ctx *client_ctx,
 			rc = __copy_to_user(&(user_params->tag), params.tag,
 					    tag_size);
 		} else {	/* Invalid digest/mac size! */
-			SEP_LOG_ERR("Got invalid tag size = %u", tag_size);
+			pr_err("Got invalid tag size = %u", tag_size);
 			op_ctx.error_info = DXDI_ERROR_INVAL_DATA_SIZE;
 			rc = -EINVAL;
 		}
@@ -3238,7 +3238,7 @@ static int sep_ioctl_mac_proc(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&params, user_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -3267,7 +3267,7 @@ static int sep_ioctl_mac_proc(struct sep_client_ctx *client_ctx,
 			rc = __copy_to_user(&(user_params->mac), params.mac,
 					    params.mac_size);
 		} else {	/* Invalid mac size! */
-			SEP_LOG_ERR("Got invalid MAC size = %u",
+			pr_err("Got invalid MAC size = %u",
 				    params.mac_size);
 			op_ctx.error_info = DXDI_ERROR_INVAL_DATA_SIZE;
 			rc = -EINVAL;
@@ -3297,7 +3297,7 @@ static int sep_ioctl_hash_proc(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&params, user_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -3326,7 +3326,7 @@ static int sep_ioctl_hash_proc(struct sep_client_ctx *client_ctx,
 			rc = __copy_to_user(&(user_params->digest),
 					    params.digest, params.digest_size);
 		} else {	/* Invalid digest size! */
-			SEP_LOG_ERR("Got invalid digest size = %u",
+			pr_err("Got invalid digest size = %u",
 				    params.digest_size);
 			op_ctx.error_info = DXDI_ERROR_INVAL_DATA_SIZE;
 			rc = -EINVAL;
@@ -3357,7 +3357,7 @@ static int sep_ioctl_sep_rpc(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&params, user_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -3389,14 +3389,14 @@ static int sep_ioctl_register_mem4dma(struct sep_client_ctx *client_ctx,
 
 	/* access permissions to arg was already checked in sep_ioctl */
 	if (__copy_from_user(&params, user_params, input_size)) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
 	/* convert DMA direction to enum dma_data_direction */
 	dma_dir = dxdi_data_dir_to_dma_data_dir(params.memref.dma_direction);
 	if (unlikely(dma_dir == DMA_NONE)) {
-		SEP_LOG_ERR("Invalid DMA direction (%d)\n",
+		pr_err("Invalid DMA direction (%d)\n",
 			    params.memref.dma_direction);
 		rc = -EINVAL;
 	} else {
@@ -3431,7 +3431,7 @@ static int sep_ioctl_free_mem4dma(struct sep_client_ctx *client_ctx,
 	/* access permissions to arg was already checked in sep_ioctl */
 	err = __get_user(memref_id, &user_params->memref_id);
 	if (err) {
-		SEP_LOG_ERR("Failed reading input parameter\n");
+		pr_err("Failed reading input parameter\n");
 		return -EFAULT;
 	}
 
@@ -3453,14 +3453,14 @@ static int sep_ioctl_set_iv(struct sep_client_ctx *client_ctx,
 	/* Copy ctx uid from user context */
 	if (copy_from_user(&uid, &host_context->uid,
 			   sizeof(u64))) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
 	/* Copy IV from user context */
 	if (__copy_from_user(&params, user_params,
 			     sizeof(struct dxdi_aes_iv_params))) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 	err =
@@ -3485,7 +3485,7 @@ static int sep_ioctl_get_iv(struct sep_client_ctx *client_ctx,
 
 	/* copy context ptr from user */
 	if (__copy_from_user(&params, user_params, sizeof(u32))) {
-		SEP_LOG_ERR("Failed reading input parameters");
+		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
 
@@ -3497,7 +3497,7 @@ static int sep_ioctl_get_iv(struct sep_client_ctx *client_ctx,
 
 	if (__copy_to_user(user_params, &params,
 	    sizeof(struct dxdi_aes_iv_params))) {
-		SEP_LOG_ERR("Failed writing input parameters");
+		pr_err("Failed writing input parameters");
 		return -EFAULT;
 	}
 
@@ -3555,24 +3555,24 @@ static int sep_open(struct inode *inode, struct file *file)
 	drvdata = container_of(inode->i_cdev, struct queue_drvdata, cdev);
 
 	if (imajor(inode) != MAJOR(drvdata->sep_data->devt_base)) {
-		SEP_LOG_ERR("Invalid major device num=%d\n", imajor(inode));
+		pr_err("Invalid major device num=%d\n", imajor(inode));
 		return -ENOENT;
 	}
 	qid = iminor(inode) - MINOR(drvdata->sep_data->devt_base);
 	if (qid >= drvdata->sep_data->num_of_desc_queues) {
-		SEP_LOG_ERR("Invalid minor device num=%d\n", iminor(inode));
+		pr_err("Invalid minor device num=%d\n", iminor(inode));
 		return -ENOENT;
 	}
 #ifdef DEBUG
 	/* The qid based on the minor device number must match the offset
 	 * of given drvdata in the queues array of the sep_data context */
 	if (qid != (drvdata - (drvdata->sep_data->queue))) {
-		SEP_LOG_ERR("qid=%d but drvdata index is %d\n",
+		pr_err("qid=%d but drvdata index is %d\n",
 			    qid, (drvdata - (drvdata->sep_data->queue)));
 		return -EINVAL;
 	}
 #endif
-	SEP_LOG_DEBUG("qid=%d\n", qid);
+	pr_debug("qid=%d\n", qid);
 
 	client_ctx = kzalloc(sizeof(*client_ctx), GFP_KERNEL);
 	if (client_ctx == NULL)
@@ -3598,7 +3598,7 @@ void cleanup_client_ctx(struct queue_drvdata *drvdata,
 	     session_id++) {
 		if (IS_VALID_SESSION_CTX
 		    (&client_ctx->sepapp_sessions[session_id])) {
-			SEP_LOG_DEBUG("Closing session ID=%d\n", session_id);
+			pr_debug("Closing session ID=%d\n", session_id);
 			op_ctx_init(&op_ctx, client_ctx);
 			sepapp_session_close(&op_ctx, session_id);
 			/* Note: There is never a problem with the session's
@@ -3615,7 +3615,7 @@ void cleanup_client_ctx(struct queue_drvdata *drvdata,
 	for (memref_id = 0; memref_id < MAX_REG_MEMREF_PER_CLIENT_CTX;
 	     memref_id++) {
 		if (client_ctx->reg_memrefs[memref_id].ref_cnt > 0) {
-			SEP_LOG_DEBUG("Freeing user memref ID=%d\n", memref_id);
+			pr_debug("Freeing user memref ID=%d\n", memref_id);
 			(void)free_client_memref(client_ctx, memref_id);
 		}
 		/* There is no problem with memref ref_cnt because when
@@ -3653,7 +3653,7 @@ static int sep_release(struct inode *inode, struct file *file)
 static ssize_t
 sep_read(struct file *filp, char __user *buf, size_t count, loff_t *ppos)
 {
-	SEP_LOG_DEBUG("Invoked for %u bytes", count);
+	pr_debug("Invoked for %u bytes", count);
 	return -ENOSYS;		/* nothing to read... IOCTL only */
 }
 
@@ -3687,9 +3687,9 @@ sep_write(struct file *filp, const char __user *buf, size_t count, loff_t *ppos)
 	memcpy(tmp_buf, buf, count);	/* Copy to NULL terminate */
 	tmp_buf[count] = 0;	/* NULL terminate */
 
-	/*SEP_LOG_DEBUG("Invoked for %u bytes", count); */
+	/*pr_debug("Invoked for %u bytes", count); */
 	sscanf(buf, "%u", &loop_times);
-	SEP_LOG_DEBUG("Loopback X %u...\n", loop_times);
+	pr_debug("Loopback X %u...\n", loop_times);
 
 	op_ctx_init(&op_ctx, client_ctx);
 	/* prepare loopback descriptor */
@@ -3701,12 +3701,12 @@ sep_write(struct file *filp, const char __user *buf, size_t count, loff_t *ppos)
 		rc = desc_q_enqueue(client_ctx->drv_data->desc_queue, &desc,
 				    true);
 		if (unlikely(IS_DESCQ_ENQUEUE_ERR(rc))) {
-			SEP_LOG_ERR("Failed sending desc. %u\n", i);
+			pr_err("Failed sending desc. %u\n", i);
 			break;
 		}
 		rc = wait_for_sep_op_result(&op_ctx);
 		if (rc != 0) {
-			SEP_LOG_ERR("Failed completion of desc. %u\n", i);
+			pr_err("Failed completion of desc. %u\n", i);
 			break;
 		}
 		op_ctx.op_state = USER_OP_NOP;
@@ -3714,11 +3714,11 @@ sep_write(struct file *filp, const char __user *buf, size_t count, loff_t *ppos)
 
 	op_ctx_fini(&op_ctx);
 
-	SEP_LOG_DEBUG("Completed loopback of %u desc.\n", i);
+	pr_debug("Completed loopback of %u desc.\n", i);
 
 	return count;		/* Noting to write for this device... */
 #else /* DEBUG */
-	SEP_LOG_DEBUG("Invoked for %u bytes", count);
+	pr_debug("Invoked for %u bytes", count);
 	return -ENOSYS;		/* nothing to write... IOCTL only */
 #endif /* DEBUG */
 }
@@ -3751,11 +3751,11 @@ static long sep_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	/* Verify IOCTL command: magic + number */
 	if (_IOC_TYPE(cmd) != DXDI_IOC_MAGIC) {
-		SEP_LOG_ERR("Invalid IOCTL type=%u", _IOC_TYPE(cmd));
+		pr_err("Invalid IOCTL type=%u", _IOC_TYPE(cmd));
 		return -ENOTTY;
 	}
 	if (_IOC_NR(cmd) > DXDI_IOC_NR_MAX) {
-		SEP_LOG_ERR("IOCTL NR=%u out of range for ABI ver.=%u.%u",
+		pr_err("IOCTL NR=%u out of range for ABI ver.=%u.%u",
 			    _IOC_NR(cmd), DXDI_VER_MAJOR, DXDI_VER_MINOR);
 		return -ENOTTY;
 	}
@@ -3777,87 +3777,87 @@ static long sep_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	switch (_IOC_NR(cmd)) {
 		/* Version info. commands */
 	case DXDI_IOC_NR_GET_VER_MAJOR:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_GET_VER_MAJOR\n");
+		pr_debug("DXDI_IOC_NR_GET_VER_MAJOR\n");
 		err = sep_ioctl_get_ver_major(arg);
 		break;
 	case DXDI_IOC_NR_GET_VER_MINOR:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_GET_VER_MINOR\n");
+		pr_debug("DXDI_IOC_NR_GET_VER_MINOR\n");
 		err = sep_ioctl_get_ver_minor(arg);
 		break;
 		/* Context size queries */
 	case DXDI_IOC_NR_GET_SYMCIPHER_CTX_SIZE:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_GET_SYMCIPHER_CTX_SIZE\n");
+		pr_debug("DXDI_IOC_NR_GET_SYMCIPHER_CTX_SIZE\n");
 		err = sep_ioctl_get_sym_cipher_ctx_size(arg);
 		break;
 	case DXDI_IOC_NR_GET_AUTH_ENC_CTX_SIZE:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_GET_AUTH_ENC_CTX_SIZE\n");
+		pr_debug("DXDI_IOC_NR_GET_AUTH_ENC_CTX_SIZE\n");
 		err = sep_ioctl_get_auth_enc_ctx_size(arg);
 		break;
 	case DXDI_IOC_NR_GET_MAC_CTX_SIZE:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_GET_MAC_CTX_SIZE\n");
+		pr_debug("DXDI_IOC_NR_GET_MAC_CTX_SIZE\n");
 		err = sep_ioctl_get_mac_ctx_size(arg);
 		break;
 	case DXDI_IOC_NR_GET_HASH_CTX_SIZE:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_GET_HASH_CTX_SIZE\n");
+		pr_debug("DXDI_IOC_NR_GET_HASH_CTX_SIZE\n");
 		err = sep_ioctl_get_hash_ctx_size(arg);
 		break;
 		/* Init context commands */
 	case DXDI_IOC_NR_SYMCIPHER_INIT:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_SYMCIPHER_INIT\n");
+		pr_debug("DXDI_IOC_NR_SYMCIPHER_INIT\n");
 		err = sep_ioctl_sym_cipher_init(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_AUTH_ENC_INIT:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_AUTH_ENC_INIT\n");
+		pr_debug("DXDI_IOC_NR_AUTH_ENC_INIT\n");
 		err = sep_ioctl_auth_enc_init(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_MAC_INIT:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_MAC_INIT\n");
+		pr_debug("DXDI_IOC_NR_MAC_INIT\n");
 		err = sep_ioctl_mac_init(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_HASH_INIT:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_HASH_INIT\n");
+		pr_debug("DXDI_IOC_NR_HASH_INIT\n");
 		err = sep_ioctl_hash_init(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_COMBINED_INIT:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_COMBINED_INIT\n");
+		pr_debug("DXDI_IOC_NR_COMBINED_INIT\n");
 		err = sep_ioctl_combined_init(client_ctx, arg);
 		break;
 		/* Processing commands */
 	case DXDI_IOC_NR_PROC_DBLK:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_PROC_DBLK\n");
+		pr_debug("DXDI_IOC_NR_PROC_DBLK\n");
 		err = sep_ioctl_proc_dblk(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_COMBINED_PROC_DBLK:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_COMBINED_PROC_DBLK\n");
+		pr_debug("DXDI_IOC_NR_COMBINED_PROC_DBLK\n");
 		err = sep_ioctl_combined_proc_dblk(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_FIN_PROC:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_FIN_PROC\n");
+		pr_debug("DXDI_IOC_NR_FIN_PROC\n");
 		err = sep_ioctl_fin_proc(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_COMBINED_PROC_FIN:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_COMBINED_PROC_FIN\n");
+		pr_debug("DXDI_IOC_NR_COMBINED_PROC_FIN\n");
 		err = sep_ioctl_combined_fin_proc(client_ctx, arg);
 		break;
 		/* "Integrated" processing operations */
 	case DXDI_IOC_NR_SYMCIPHER_PROC:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_SYMCIPHER_PROC\n");
+		pr_debug("DXDI_IOC_NR_SYMCIPHER_PROC\n");
 		err = sep_ioctl_sym_cipher_proc(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_AUTH_ENC_PROC:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_AUTH_ENC_PROC\n");
+		pr_debug("DXDI_IOC_NR_AUTH_ENC_PROC\n");
 		err = sep_ioctl_auth_enc_proc(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_MAC_PROC:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_MAC_PROC\n");
+		pr_debug("DXDI_IOC_NR_MAC_PROC\n");
 		err = sep_ioctl_mac_proc(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_HASH_PROC:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_HASH_PROC\n");
+		pr_debug("DXDI_IOC_NR_HASH_PROC\n");
 		err = sep_ioctl_hash_proc(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_COMBINED_PROC:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_COMBINED_PROC\n");
+		pr_debug("DXDI_IOC_NR_COMBINED_PROC\n");
 		err = sep_ioctl_combined_proc(client_ctx, arg);
 		break;
 		/* SeP RPC */
@@ -3867,40 +3867,40 @@ static long sep_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #if MAX_SEPAPP_SESSION_PER_CLIENT_CTX > 0
 		/* Memory registation */
 	case DXDI_IOC_NR_REGISTER_MEM4DMA:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_REGISTER_MEM4DMA\n");
+		pr_debug("DXDI_IOC_NR_REGISTER_MEM4DMA\n");
 		err = sep_ioctl_register_mem4dma(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_ALLOC_MEM4DMA:
-		SEP_LOG_ERR("DXDI_IOC_NR_ALLOC_MEM4DMA: Not supported, yet");
+		pr_err("DXDI_IOC_NR_ALLOC_MEM4DMA: Not supported, yet");
 		err = -ENOTTY;
 		break;
 	case DXDI_IOC_NR_FREE_MEM4DMA:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_FREE_MEM4DMA\n");
+		pr_debug("DXDI_IOC_NR_FREE_MEM4DMA\n");
 		err = sep_ioctl_free_mem4dma(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_SEPAPP_SESSION_OPEN:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_SEPAPP_SESSION_OPEN\n");
+		pr_debug("DXDI_IOC_NR_SEPAPP_SESSION_OPEN\n");
 		err = sep_ioctl_sepapp_session_open(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_SEPAPP_SESSION_CLOSE:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_SEPAPP_SESSION_CLOSE\n");
+		pr_debug("DXDI_IOC_NR_SEPAPP_SESSION_CLOSE\n");
 		err = sep_ioctl_sepapp_session_close(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_SEPAPP_COMMAND_INVOKE:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_SEPAPP_COMMAND_INVOKE\n");
+		pr_debug("DXDI_IOC_NR_SEPAPP_COMMAND_INVOKE\n");
 		err = sep_ioctl_sepapp_command_invoke(client_ctx, arg);
 		break;
 #endif
 	case DXDI_IOC_NR_SET_IV:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_SET_IV\n");
+		pr_debug("DXDI_IOC_NR_SET_IV\n");
 		err = sep_ioctl_set_iv(client_ctx, arg);
 		break;
 	case DXDI_IOC_NR_GET_IV:
-		SEP_LOG_DEBUG("DXDI_IOC_NR_GET_IV\n");
+		pr_debug("DXDI_IOC_NR_GET_IV\n");
 		err = sep_ioctl_get_iv(client_ctx, arg);
 		break;
 	default:/* Not supposed to happen - we already tested for NR range */
-		SEP_LOG_ERR("bad IOCTL cmd 0x%08X\n", cmd);
+		pr_err("bad IOCTL cmd 0x%08X\n", cmd);
 		err = -ENOTTY;
 	}
 
@@ -3979,14 +3979,14 @@ static int alloc_host_mem_for_sep(struct sep_drvdata *drvdata)
 	int i;
 	const int icache_sizes_enum2log[] = DX_CC_ICACHE_SIZE_ENUM2LOG;
 
-	SEP_LOG_DEBUG("icache_size=%uKB dcache_size=%uKB\n",
+	pr_debug("icache_size=%uKB dcache_size=%uKB\n",
 		      1 << (icache_size_log2 - 10),
 		      1 << (dcache_size_log2 - 10));
 
 	/* Verify validity of chosen cache memory sizes */
 	if ((dcache_size_log2 > DX_CC_INIT_D_CACHE_MAX_SIZE_LOG2) ||
 	    (dcache_size_log2 < DX_CC_INIT_D_CACHE_MIN_SIZE_LOG2)) {
-		SEP_LOG_ERR("Requested Dcache size (%uKB) is invalid\n",
+		pr_err("Requested Dcache size (%uKB) is invalid\n",
 			    1 << (dcache_size_log2 - 10));
 		return -EINVAL;
 	}
@@ -3997,7 +3997,7 @@ static int alloc_host_mem_for_sep(struct sep_drvdata *drvdata)
 			/* Found valid value */
 			break;
 	if (unlikely(i == sizeof(icache_sizes_enum2log))) {
-		SEP_LOG_ERR("Requested Icache size (%uKB) is invalid\n",
+		pr_err("Requested Icache size (%uKB) is invalid\n",
 			    1 << (icache_size_log2 - 10));
 	}
 	drvdata->icache_size_log2 = icache_size_log2;
@@ -4005,7 +4005,7 @@ static int alloc_host_mem_for_sep(struct sep_drvdata *drvdata)
 	drvdata->icache_pages = alloc_pages(GFP_KERNEL | GFP_DMA32 | __GFP_COLD,
 					    icache_size_log2 - PAGE_SHIFT);
 	if (drvdata->icache_pages == NULL) {
-		SEP_LOG_ERR("Failed allocating %uKB for Icache\n",
+		pr_err("Failed allocating %uKB for Icache\n",
 			    1 << (icache_size_log2 - 10));
 		return -ENOMEM;
 	}
@@ -4014,7 +4014,7 @@ static int alloc_host_mem_for_sep(struct sep_drvdata *drvdata)
 	drvdata->dcache_pages = alloc_pages(GFP_KERNEL | GFP_DMA32 | __GFP_COLD,
 					    dcache_size_log2 - PAGE_SHIFT);
 	if (drvdata->dcache_pages == NULL) {
-		SEP_LOG_ERR("Failed allocating %uKB for Dcache\n",
+		pr_err("Failed allocating %uKB for Dcache\n",
 			    1 << (dcache_size_log2 - 10));
 		__free_pages(drvdata->icache_pages,
 			     drvdata->icache_size_log2 - PAGE_SHIFT);
@@ -4027,7 +4027,7 @@ static int alloc_host_mem_for_sep(struct sep_drvdata *drvdata)
 						    GFP_KERNEL | GFP_DMA32 |
 						    __GFP_COLD);
 	if (unlikely(drvdata->sep_backup_buf == NULL)) {
-		SEP_LOG_ERR("Failed allocating %d B for SEP backup buffer\n",
+		pr_err("Failed allocating %d B for SEP backup buffer\n",
 			    SEP_BACKUP_BUF_SIZE);
 		return -ENOMEM;
 	}
@@ -4083,7 +4083,7 @@ static int mmc_blk_rpmb_req_handle(struct mmc_ioc_rpmb_req *req)
 
 	emmc = class_find_device(&block_class, NULL, EMMC_BLK_NAME, emmc_match);
 	if (!emmc) {
-		SEP_LOG_ERR("eMMC reg failed\n");
+		pr_err("eMMC reg failed\n");
 		return -ENODEV;
 	}
 
@@ -4130,30 +4130,30 @@ static int rpmb_agent(void *unused)
 
 	ret = dx_sep_req_register_agent(RPMB_AGENT_ID, &max_buf_size);
 	if (ret) {
-		SEP_LOG_ERR("REG FAIL %d\n", ret);
+		pr_err("REG FAIL %d\n", ret);
 		return -EINVAL;
 	}
 
 	out_buf = kmalloc(RPMB_FRAME_LENGTH, GFP_KERNEL);
 	if (!out_buf) {
-		SEP_LOG_ERR("MALLOC FAIL\n");
+		pr_err("MALLOC FAIL\n");
 		return -ENOMEM;
 	}
 
 	while (1) {
 		/* Block until called by SEP */
 		do {
-			SEP_LOG_INFO("RPMB AGENT BLOCKED\n");
+			pr_info("RPMB AGENT BLOCKED\n");
 			ret = dx_sep_req_wait_for_request(RPMB_AGENT_ID,
 					in_buf, &in_buf_size, timeout);
 		} while (ret == -EAGAIN);
 
 		if (ret) {
-			SEP_LOG_ERR("WAIT FAILED %d\n", ret);
+			pr_err("WAIT FAILED %d\n", ret);
 			break;
 		}
 
-		SEP_LOG_INFO("RPMB AGENT UNBLOCKED\n");
+		pr_info("RPMB AGENT UNBLOCKED\n");
 
 		/* Process request */
 		memset(&req2emmc, 0x00, sizeof(struct mmc_ioc_rpmb_req));
@@ -4176,7 +4176,7 @@ static int rpmb_agent(void *unused)
 		/* Send request to eMMC driver */
 		ret = mmc_blk_rpmb_req_handle(&req2emmc);
 		if (ret) {
-			SEP_LOG_ERR("mmc_blk_rpmb_req_handle fail %d", ret);
+			pr_err("mmc_blk_rpmb_req_handle fail %d", ret);
 			/* If access to eMMC driver failed send back
 			 * artificial error */
 			req2emmc.type = 0x0008;
@@ -4186,7 +4186,7 @@ static int rpmb_agent(void *unused)
 		memset(out_buf, 0, RPMB_FRAME_LENGTH);
 
 		if (req2emmc.type == AUTH_DAT_RD_REQ) {
-			SEP_LOG_INFO("READ OPERATION RETURN\n");
+			pr_info("READ OPERATION RETURN\n");
 			memcpy(out_buf+RPMB_DATA_OFFSET,
 					req2emmc.data,  RPMB_DATA_LENGTH);
 			memcpy(out_buf+RPMB_NONCE_OFFSET,
@@ -4195,7 +4195,7 @@ static int rpmb_agent(void *unused)
 			out_buf[RPMB_BLKCNT_OFFSET]   = req2emmc.blk_cnt >> 8;
 			out_buf[RPMB_BLKCNT_OFFSET+1] = req2emmc.blk_cnt;
 		} else {
-			SEP_LOG_INFO("WRITE OPERATION RETURN\n");
+			pr_info("WRITE OPERATION RETURN\n");
 			memcpy(&tmp, req2emmc.wc, RPMB_COUNTER_LENGTH);
 			tmp = cpu_to_be32(tmp);
 			memcpy(out_buf+RPMB_COUNTER_OFFSET,
@@ -4216,7 +4216,7 @@ static int rpmb_agent(void *unused)
 		ret = dx_sep_req_send_response(RPMB_AGENT_ID,
 				out_buf, RPMB_FRAME_LENGTH);
 		if (ret) {
-			SEP_LOG_ERR("dx_sep_req_send_response fail %d", ret);
+			pr_err("dx_sep_req_send_response fail %d", ret);
 			break;
 		}
 	}
@@ -4243,24 +4243,24 @@ static int sep_setup(struct device *dev,
 	struct sep_client_ctx *sctx = NULL;
 	u8 uuid[16] = DEFAULT_APP_UUID;
 
-	SEP_LOG_INFO("Discretix %s Driver initializing...\n", DRIVER_NAME);
+	pr_info("Discretix %s Driver initializing...\n", DRIVER_NAME);
 
 	drvdata = kzalloc(sizeof(struct sep_drvdata), GFP_KERNEL);
 	if (unlikely(drvdata == NULL)) {
-		SEP_LOG_ERR("Unable to allocate device private record\n");
+		pr_err("Unable to allocate device private record\n");
 		rc = -ENOMEM;
 		goto failed0;
 	}
 	dev_set_drvdata(dev, (void *)drvdata);
 
 	if (!regs_res) {
-		SEP_LOG_ERR("Couldn't get registers resource\n");
+		pr_err("Couldn't get registers resource\n");
 		rc = -EFAULT;
 		goto failed1;
 	}
 
 	if (q_num > SEP_MAX_NUM_OF_DESC_Q) {
-		SEP_LOG_ERR(
+		pr_err(
 			    "Requested number of queues (%u) is out of range must be no more than %u\n",
 			    q_num, SEP_MAX_NUM_OF_DESC_Q);
 		rc = -EINVAL;
@@ -4280,7 +4280,7 @@ static int sep_setup(struct device *dev,
 
 	if (!request_mem_region(drvdata->mem_start,
 				drvdata->mem_size, DRIVER_NAME)) {
-		SEP_LOG_ERR("Couldn't lock memory region at %Lx\n",
+		pr_err("Couldn't lock memory region at %Lx\n",
 			    (unsigned long long)regs_res->start);
 		rc = -EBUSY;
 		goto failed1;
@@ -4289,16 +4289,16 @@ static int sep_setup(struct device *dev,
 	drvdata->dev = dev;
 	drvdata->cc_base = ioremap(drvdata->mem_start, drvdata->mem_size);
 	if (drvdata->cc_base == NULL) {
-		SEP_LOG_ERR("ioremap() failed\n");
+		pr_err("ioremap() failed\n");
 		goto failed2;
 	}
 
-	SEP_LOG_INFO("regbase_phys=0x%08X..0x%08X\n",
+	pr_info("regbase_phys=0x%08X..0x%08X\n",
 		     (u32) drvdata->mem_start, (u32) drvdata->mem_end);
-	SEP_LOG_INFO("regbase_virt=0x%08X\n", (u32) drvdata->cc_base);
+	pr_info("regbase_virt=0x%08X\n", (u32) drvdata->cc_base);
 
 #ifdef DX_BASE_ENV_REGS
-	SEP_LOG_INFO("FPGA ver. = 0x%08X\n",
+	pr_info("FPGA ver. = 0x%08X\n",
 		     READ_REGISTER(DX_ENV_REG_ADDR(drvdata->cc_base, VERSION)));
 	/* TODO: verify FPGA version against expected version */
 #endif
@@ -4335,10 +4335,10 @@ static int sep_setup(struct device *dev,
 	rc = request_irq(drvdata->irq, sep_interrupt,
 			 IRQF_SHARED, DRIVER_NAME, drvdata->dev);
 	if (unlikely(rc != 0)) {
-		SEP_LOG_ERR("Could not allocate interrupt %d\n", drvdata->irq);
+		pr_err("Could not allocate interrupt %d\n", drvdata->irq);
 		goto failed3;
 	}
-	SEP_LOG_INFO("%s at 0x%08X mapped to interrupt %d\n",
+	pr_info("%s at 0x%08X mapped to interrupt %d\n",
 		     DRIVER_NAME, (unsigned int)drvdata->cc_base, drvdata->irq);
 
 #endif				/*SEP_INTERRUPT_BY_TIMER */
@@ -4347,7 +4347,7 @@ static int sep_setup(struct device *dev,
 	/* Cold boot before creating descQ objects */
 	sep_state = GET_SEP_STATE(drvdata);
 	if (sep_state != DX_SEP_STATE_DONE_COLD_BOOT) {
-		SEP_LOG_DEBUG("sep_state=0x%08X\n", sep_state);
+		pr_debug("sep_state=0x%08X\n", sep_state);
 		/* If INIT_CC was not done externally, take care of it here */
 		rc = alloc_host_mem_for_sep(drvdata);
 		if (unlikely(rc != 0))
@@ -4358,7 +4358,7 @@ static int sep_setup(struct device *dev,
 	}
 	sepinit_get_fw_props(drvdata);
 	if (drvdata->fw_ver != EXPECTED_FW_VER) {
-		SEP_LOG_WARN("Expected FW version %u.%u.%u but got %u.%u.%u\n",
+		pr_warn("Expected FW version %u.%u.%u but got %u.%u.%u\n",
 			     VER_MAJOR(EXPECTED_FW_VER),
 			     VER_MINOR(EXPECTED_FW_VER),
 			     VER_PATCH(EXPECTED_FW_VER),
@@ -4368,7 +4368,7 @@ static int sep_setup(struct device *dev,
 	}
 
 	if (q_num > drvdata->num_of_desc_queues) {
-		SEP_LOG_ERR(
+		pr_err(
 			    "Requested number of queues (%u) is greater than SEP could support (%u)\n",
 			    q_num, drvdata->num_of_desc_queues);
 		rc = -EINVAL;
@@ -4377,7 +4377,7 @@ static int sep_setup(struct device *dev,
 
 	if (q_num == 0) {
 		if (drvdata->num_of_desc_queues > SEP_MAX_NUM_OF_DESC_Q) {
-			SEP_LOG_INFO(
+			pr_info(
 				     "The SEP number of queues (%u) is greater than the driver could support (%u)\n",
 				     drvdata->num_of_desc_queues,
 				     SEP_MAX_NUM_OF_DESC_Q);
@@ -4388,7 +4388,7 @@ static int sep_setup(struct device *dev,
 	}
 	drvdata->num_of_desc_queues = q_num;
 
-	SEP_LOG_INFO("q_num=%d\n", drvdata->num_of_desc_queues);
+	pr_info("q_num=%d\n", drvdata->num_of_desc_queues);
 
 	rc = dx_sep_req_init(drvdata);
 	if (unlikely(rc != 0))
@@ -4402,7 +4402,7 @@ static int sep_setup(struct device *dev,
 		drvdata->queue[i].desc_queue =
 		    desc_q_create(i, &drvdata->queue[i]);
 		if (drvdata->queue[i].desc_queue == DESC_Q_INVALID_HANDLE) {
-			SEP_LOG_ERR("Unable to allocate desc_q object (%d)\n",
+			pr_err("Unable to allocate desc_q object (%d)\n",
 				    i);
 			rc = -ENOMEM;
 			goto failed7;
@@ -4413,7 +4413,7 @@ static int sep_setup(struct device *dev,
 	for (i = 0; i < drvdata->num_of_desc_queues; i++) {
 		const int num_of_cache_entries = get_q_cache_size(drvdata, i);
 		if (num_of_cache_entries < 1) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "No SeP cache entries were assigned for qid=%d",
 				    i);
 			rc = -ENOMEM;
@@ -4422,7 +4422,7 @@ static int sep_setup(struct device *dev,
 		drvdata->queue[i].sep_cache =
 		    ctxmgr_sep_cache_create(num_of_cache_entries);
 		if (drvdata->queue[i].sep_cache == SEP_CTX_CACHE_NULL_HANDLE) {
-			SEP_LOG_ERR(
+			pr_err(
 				    "Unable to allocate SeP cache object (%d)\n",
 				    i);
 			rc = -ENOMEM;
@@ -4436,7 +4436,7 @@ static int sep_setup(struct device *dev,
 
 	drvdata->llimgr = llimgr_create(drvdata->dev, drvdata->mlli_table_size);
 	if (drvdata->llimgr == LLIMGR_NULL_HANDLE) {
-		SEP_LOG_ERR("Failed creating LLI-manager object\n");
+		pr_err("Failed creating LLI-manager object\n");
 		rc = -ENOMEM;
 		goto failed7;
 	}
@@ -4445,7 +4445,7 @@ static int sep_setup(struct device *dev,
 						 USER_SPAD_SIZE,
 						 L1_CACHE_BYTES, 0);
 	if (drvdata->spad_buf_pool == NULL) {
-		SEP_LOG_ERR("Failed allocating DMA pool for RPC messages\n");
+		pr_err("Failed allocating DMA pool for RPC messages\n");
 		rc = -ENOMEM;
 		goto failed8;
 	}
@@ -4455,7 +4455,7 @@ static int sep_setup(struct device *dev,
 				 DRIVER_NAME);
 	if (unlikely(rc != 0))
 		goto failed9;
-	SEP_LOG_DEBUG("Allocated %u chrdevs at %u:%u\n", SEP_DEVICES,
+	pr_debug("Allocated %u chrdevs at %u:%u\n", SEP_DEVICES,
 		      MAJOR(drvdata->devt_base), MINOR(drvdata->devt_base));
 	for (i = 0; i < drvdata->num_of_desc_queues; i++) {
 		devt =
@@ -4465,7 +4465,7 @@ static int sep_setup(struct device *dev,
 		drvdata->queue[i].cdev.owner = THIS_MODULE;
 		rc = cdev_add(&drvdata->queue[i].cdev, devt, 1);
 		if (unlikely(rc != 0)) {
-			SEP_LOG_ERR("cdev_add() failed for q%d\n", i);
+			pr_err("cdev_add() failed for q%d\n", i);
 			goto failed9;
 		}
 		drvdata->queue[i].dev = device_create(sep_class, dev, devt,
@@ -4500,7 +4500,7 @@ static int sep_setup(struct device *dev,
 
 	rpmb_thread = kthread_create(rpmb_agent, NULL, thread_name);
 	if (!rpmb_thread) {
-		SEP_LOG_ERR("RPMB agent thread create fail");
+		pr_err("RPMB agent thread create fail");
 		goto failed10;
 	} else {
 		wake_up_process(rpmb_thread);
@@ -4722,7 +4722,7 @@ static int sep_runtime_suspend(struct device *dev)
 
 	ret = dx_sep_power_state_set(DX_SEP_POWER_HIBERNATED);
 	if (ret) {
-		SEP_LOG_ERR("%s failed! ret = %d\n", __func__, ret);
+		pr_err("%s failed! ret = %d\n", __func__, ret);
 		return ret;
 	}
 
@@ -4777,7 +4777,7 @@ static int sep_suspend(struct device *dev)
 
 	ret = dx_sep_power_state_set(DX_SEP_POWER_HIBERNATED);
 	if (ret) {
-		SEP_LOG_ERR("%s failed! ret = %d\n", __func__, ret);
+		pr_err("%s failed! ret = %d\n", __func__, ret);
 		return ret;
 	}
 
