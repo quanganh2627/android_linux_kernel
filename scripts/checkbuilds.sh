@@ -2,6 +2,7 @@
 
 ALLDEFCONFIGS="`ls arch/x86/configs/i386_*_defconfig`"
 NJOBS=`cat /proc/cpuinfo | grep processor | wc -l`
+OUTPUT_DIR=".tmp_kernel_build"
 
 usage()
 {
@@ -12,6 +13,7 @@ usage()
 failed()
 {
 	make mrproper
+	rm -fr $OUTPUT_DIR
 	echo
 	echo "Build failed!"
 	exit 1
@@ -31,6 +33,9 @@ while getopts "i" OPTION; do
 	esac
 done
 
+rm -fr $OUTPUT_DIR
+make mrproper
+mkdir $OUTPUT_DIR
 for conf in $ALLDEFCONFIGS; do
 	echo -n "Check $conf: "
 	if [ "$ALL" != "1" ]; then
@@ -39,7 +44,7 @@ for conf in $ALLDEFCONFIGS; do
 	else
 		echo
 	fi
-	cp $conf .config
+	cp $conf $OUTPUT_DIR/.config
 
 	if [ "$ANSWER" = "a" ]; then
 		ALL=1
@@ -49,11 +54,13 @@ for conf in $ALLDEFCONFIGS; do
 	echo
 	echo "Building..."
 	echo
-	make ARCH=i386 clean
-	make ARCH=i386 -j$NJOBS bzImage modules || failed
+	make ARCH=i386 O=$OUTPUT_DIR oldconfig
+	make ARCH=i386 O=$OUTPUT_DIR clean
+	make ARCH=i386 O=$OUTPUT_DIR -j$NJOBS bzImage modules || failed $conf
 done;
 
 make mrproper
+rm -fr $OUTPUT_DIR
 
 echo
 echo "All builds successfully done!"
