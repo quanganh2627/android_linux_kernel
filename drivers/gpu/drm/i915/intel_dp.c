@@ -3984,3 +3984,16 @@ void intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
 			intel_edp_disable_psr(intel_dp, EDP_PSR_MODE);
 	}
 }
+
+void intel_edp_get_psr_support(struct drm_device *device, void *data,
+							struct drm_file *file)
+{
+	struct intel_dp *intel_dp = intel_dev_to_dp(device);
+	bool *support = (bool *)data;
+
+	*support = false;
+	if (intel_dp == NULL)
+		DRM_ERROR("Intel Dp  = NULL");
+	else
+		*support = is_edp_psr(intel_dp);
+}
