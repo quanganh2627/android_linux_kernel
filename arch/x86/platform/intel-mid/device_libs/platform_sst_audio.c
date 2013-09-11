@@ -50,10 +50,10 @@ static struct sst_dev_stream_map merr_bb_strm_map[] = {
 };
 
 static struct sst_dev_stream_map byt_bl_strm_map[] = {
-	{0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, /* Reserved, not in use */
-	{BYT_AUD_AIF1, 0, SNDRV_PCM_STREAM_PLAYBACK, SST_PCM_OUT0, SST_DEV_MAP_IN_USE},
-	{BYT_AUD_AIF1, 1, SNDRV_PCM_STREAM_PLAYBACK, SST_PCM_OUT1, SST_DEV_MAP_IN_USE},
-	{BYT_AUD_AIF1, 0, SNDRV_PCM_STREAM_CAPTURE, SST_CAPTURE_IN, SST_DEV_MAP_IN_USE},
+	{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, /* Reserved, not in use */
+	{BYT_AUD_AIF1, 0, SNDRV_PCM_STREAM_PLAYBACK, SST_PCM_OUT0, SST_TASK_ID_NONE, SST_DEV_MAP_IN_USE},
+	{BYT_AUD_AIF1, 1, SNDRV_PCM_STREAM_PLAYBACK, SST_PCM_OUT1, SST_TASK_ID_NONE, SST_DEV_MAP_IN_USE},
+	{BYT_AUD_AIF1, 0, SNDRV_PCM_STREAM_CAPTURE, SST_CAPTURE_IN, SST_TASK_ID_NONE, SST_DEV_MAP_IN_USE},
 };
 
 static struct sst_dev_stream_map mrfld_strm_map[] = {
