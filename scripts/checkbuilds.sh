@@ -15,7 +15,7 @@ failed()
 	make mrproper
 	rm -fr $OUTPUT_DIR
 	echo
-	echo "Build failed!"
+	echo "Build failed: $1"
 	exit 1
 }
 
