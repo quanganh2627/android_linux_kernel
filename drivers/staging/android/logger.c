@@ -869,6 +869,8 @@ static void __exit logger_exit(void)
 device_initcall(logger_init);
 module_exit(logger_exit);
 
+#include "logger_kernel.c"
+
 /**
  * @logger_add_plugin() - adds a plugin to a given log
  *
