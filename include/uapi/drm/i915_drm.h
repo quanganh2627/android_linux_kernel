@@ -243,6 +243,7 @@ typedef struct _drm_i915_sarea {
 #define DRM_I915_EDP_PSR_CTL            0x33
 #define DRM_I915_EDP_PSR_EXIT           0x34
 #define DRM_I915_DISP_SCREEN_CONTROL	0x35
+#define DRM_I915_SET_PLANE_180_ROTATION 0x36
 #define DRM_I915_SET_RESERVED_REG_BIT_2	0x37
 #define DRM_I915_SET_CSC                0x39
 #define DRM_I915_GET_PSR_SUPPORT	0X3a
@@ -312,6 +313,9 @@ typedef struct _drm_i915_sarea {
 		struct CSC_Coeff)
 #define DRM_IOCTL_I915_GET_PSR_SUPPORT	DRM_IOR(DRM_COMMAND_BASE + \
 						DRM_I915_GET_PSR_SUPPORT, bool)
+#define DRM_IOCTL_I915_SET_PLANE_180_ROTATION  \
+		DRM_IOW(DRM_COMMAND_BASE + DRM_I915_SET_PLANE_180_ROTATION, \
+		struct drm_i915_plane_180_rotation)
 
 /* Allow drivers to submit batchbuffers directly to hardware, relying
  * on the security mechanisms provided by hardware.
@@ -1089,5 +1093,10 @@ struct drm_i915_disp_screen_control {
 struct drm_i915_reserved_reg_bit_2 {
 	__u32 enable;
 	int plane;
+};
+
+struct drm_i915_plane_180_rotation {
+	__u32 crtc_id;
+	__u32 rotate;
 };
 #endif /* _UAPI_I915_DRM_H_ */

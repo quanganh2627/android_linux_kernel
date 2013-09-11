@@ -205,6 +205,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	int pipe = intel_plane->pipe;
 	int plane = intel_plane->plane;
 	u32 sprctl;
+	bool rotate = false;
 	unsigned long sprsurf_offset, linear_offset;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 
@@ -265,6 +266,9 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size, true,
 				       src_w != crtc_w || src_h != crtc_h);
 
+	if (sprctl & DISPPLANE_180_ROTATION_ENABLE)
+		rotate = true;
+
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
@@ -272,7 +276,12 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	crtc_h--;
 
 	I915_WRITE(SPSTRIDE(pipe, plane), fb->pitches[0]);
-	I915_WRITE(SPPOS(pipe, plane), (crtc_y << 16) | crtc_x);
+	if (rotate)
+		I915_WRITE(SPPOS(pipe, plane), ((rot_mode.vdisplay -
+			(crtc_y + crtc_h + 1)) << 16) |
+				(rot_mode.hdisplay - (crtc_x + crtc_w + 1)));
+	else
+		I915_WRITE(SPPOS(pipe, plane), (crtc_y << 16) | crtc_x);
 
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	sprsurf_offset = intel_gen4_compute_page_offset(&x, &y,
@@ -281,12 +290,24 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 							fb->pitches[0]);
 	linear_offset -= sprsurf_offset;
 
-	if (obj->tiling_mode != I915_TILING_NONE)
-		I915_WRITE(SPTILEOFF(pipe, plane), (y << 16) | x);
-	else
-		I915_WRITE(SPLINOFF(pipe, plane), linear_offset);
-
+	if (obj->tiling_mode != I915_TILING_NONE) {
+		if (rotate) {
+			I915_WRITE(SPTILEOFF(pipe, plane),
+				(((crtc_h + 1) << 16) | (crtc_w + 1)));
+		} else
+			I915_WRITE(SPTILEOFF(pipe, plane), (y << 16) | x);
+	} else {
+		if (rotate) {
+			I915_WRITE(SPLINOFF(pipe, plane),
+				(((crtc_h + 1) * (crtc_w + 1) *
+				pixel_size)) - pixel_size);
+		} else
+			I915_WRITE(SPLINOFF(pipe, plane), linear_offset);
+	}
 	I915_WRITE(SPSIZE(pipe, plane), (crtc_h << 16) | crtc_w);
+	if (rotate)
+		sprctl |= DISPPLANE_180_ROTATION_ENABLE;
+
 	I915_WRITE(SPCNTR(pipe, plane), sprctl);
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), i915_gem_obj_ggtt_offset(obj) +
 			     sprsurf_offset);

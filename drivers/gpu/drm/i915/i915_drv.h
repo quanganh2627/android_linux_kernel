@@ -1691,6 +1691,7 @@ struct drm_i915_file_private {
 #define INTEL_RC6pp_ENABLE			(1<<2)
 
 extern struct drm_ioctl_desc i915_ioctls[];
+extern struct drm_display_mode rot_mode;
 extern int i915_max_ioctl;
 extern unsigned int i915_fbpercrtc __always_unused;
 extern int i915_panel_ignore_lid __read_mostly;
@@ -2227,8 +2228,10 @@ int i915_reg_read_ioctl(struct drm_device *dev, void *data,
 			struct drm_file *file);
 int i915_set_plane_zorder(struct drm_device *dev, void *data,
 			  struct drm_file *file);
+int i915_set_plane_180_rotation(struct drm_device *dev, void *data,
+		struct drm_file *file);
 int i915_disp_screen_control(struct drm_device *dev, void *data,
-			struct drm_file *file);
+		struct drm_file *file);
 
 /* overlay */
 extern struct intel_overlay_error_state *intel_overlay_capture_error_state(struct drm_device *dev);

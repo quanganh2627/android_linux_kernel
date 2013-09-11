@@ -3465,6 +3465,7 @@ EDP_PSR_SW_TIMER
 #define   DISPPLANE_STEREO_POLARITY_SECOND	(1<<18)
 #define   DISPPLANE_TRICKLE_FEED_DISABLE	(1<<14) /* Ironlake */
 #define   DISPPLANE_TILED			(1<<10)
+#define   DISPPLANE_180_ROTATION_ENABLE		(1<<15)
 #define _DSPAADDR		(dev_priv->info->display_mmio_offset + 0x70184)
 #define _DSPASTRIDE		(dev_priv->info->display_mmio_offset + 0x70188)
 #define _DSPAPOS		(dev_priv->info->display_mmio_offset + 0x7018C) /* reserved */
