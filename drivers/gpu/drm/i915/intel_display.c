@@ -4559,10 +4559,6 @@ static void i9xx_update_pll_dividers(struct intel_crtc *crtc,
 	int pipe = crtc->pipe;
 	u32 fp, fp2 = 0;
 
-	/* Disable FP0 register programming for VLV X0 */
-	if (IS_VALLEYVIEW(dev))
-		return;
-
 	if (IS_PINEVIEW(dev)) {
 		fp = pnv_dpll_compute_fp(&crtc->config.dpll);
 		if (reduced_clock)
@@ -7754,7 +7750,6 @@ void intel_release_load_detect_pipe(struct drm_connector *connector,
 static void i9xx_crtc_clock_get(struct intel_crtc *crtc,
 				struct intel_crtc_config *pipe_config)
 {
-	return 400000; /* FIXME */
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int pipe = pipe_config->cpu_transcoder;
@@ -8474,8 +8469,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 		kfree(work);
 		drm_vblank_put(dev, intel_crtc->pipe);
-		/* Temp W/A to address initial flip failures on K3.10 */
-		intel_crtc->unpin_work = NULL;
+
 		DRM_DEBUG_DRIVER("flip queue: crtc already busy\n");
 		return -EBUSY;
 	}
@@ -10137,7 +10131,7 @@ static void intel_setup_outputs(struct drm_device *dev)
 
 	intel_lvds_init(dev);
 
-	if (!IS_ULT(dev) && !IS_VALLEYVIEW(dev))
+	if (!IS_ULT(dev))
 		intel_crt_init(dev);
 
 	if (HAS_DDI(dev)) {
@@ -10187,11 +10181,6 @@ static void intel_setup_outputs(struct drm_device *dev)
 		if (I915_READ(PCH_DP_D) & DP_DETECTED)
 			intel_dp_init(dev, PCH_DP_D, PORT_D);
 	} else if (IS_VALLEYVIEW(dev)) {
-		/* Strap bits are not working correctly. Disbaling the logic
-		 * for now. Initializing both EDP and HDMI based on pre known
-		 * port configuration.
-		 */
-		#if 0
 		/* Check for built-in panel first. Shares lanes with HDMI on SDVOC */
 		if (I915_READ(VLV_DISPLAY_BASE + GEN4_HDMIC) & SDVO_DETECTED) {
 			intel_hdmi_init(dev, VLV_DISPLAY_BASE + GEN4_HDMIC,
@@ -10206,11 +10195,7 @@ static void intel_setup_outputs(struct drm_device *dev)
 					PORT_B);
 			if (I915_READ(VLV_DISPLAY_BASE + DP_B) & DP_DETECTED)
 				intel_dp_init(dev, VLV_DISPLAY_BASE + DP_B, PORT_B);
-		#endif
-			intel_dp_init(dev, VLV_DISPLAY_BASE + DP_C,
-					      PORT_C);
-			intel_hdmi_init(dev, VLV_DISPLAY_BASE + GEN4_HDMIB,
-					PORT_B);
+		}
 	} else if (SUPPORTS_DIGITAL_OUTPUTS(dev)) {
 		bool found = false;
 
