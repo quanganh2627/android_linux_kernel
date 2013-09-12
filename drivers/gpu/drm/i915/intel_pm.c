@@ -3100,15 +3100,21 @@ static void sandybridge_update_sprite_wm(struct drm_plane *plane,
 	I915_WRITE(WM3S_LP_IVB, sprite_wm);
 }
 
-static void valleyview_update_sprite_wm(struct drm_device *dev, int pipe,
-					uint32_t sprite_width,
-					int pixel_size)
+static void valleyview_update_sprite_wm(struct drm_plane *plane,
+					struct drm_crtc *crtc,
+					uint32_t sprite_width, int pixel_size,
+					bool enabled, bool scaled)
 {
+	struct drm_device *dev = plane->dev;
+	int pipe = to_intel_plane(plane)->pipe;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int sprite_prec = 0, sprite_dl = 0;
 	int sprite_prec_mult = 0;
 	struct vlv_MA_component_enabled enable;
 	u32 val;
+
+	if (!enabled)
+		return;
 
 	/* Sprite A */
 	enable.EnSprite = is_sprite_enabled(dev_priv, 0, 0);
