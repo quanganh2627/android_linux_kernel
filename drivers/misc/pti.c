@@ -74,21 +74,25 @@
 struct pti_device_info {
 	u8 pci_bar;
 	u8 scu_secure_mode:1;
+	u8 has_d8_d16_support:1;
 };
 
 static const struct pti_device_info intel_pti_pnw_info = {
 	.pci_bar = 1,
 	.scu_secure_mode = 0,
+	.has_d8_d16_support = 0,
 };
 
 static const struct pti_device_info intel_pti_clv_info = {
 	.pci_bar = 1,
 	.scu_secure_mode = 1,
+	.has_d8_d16_support = 0,
 };
 
 static const struct pti_device_info intel_pti_tng_info = {
 	.pci_bar = 2,
 	.scu_secure_mode = 0,
+	.has_d8_d16_support = 1,
 };
 
 static DEFINE_PCI_DEVICE_TABLE(pci_ids) = {
@@ -100,6 +104,7 @@ static DEFINE_PCI_DEVICE_TABLE(pci_ids) = {
 
 #define GET_PCI_BAR(pti_dev) (pti_dev->pti_dev_info->pci_bar)
 #define HAS_SCU_SECURE_MODE(pti_dev) (pti_dev->pti_dev_info->scu_secure_mode)
+#define HAS_D8_D16_SUPPORT(pti_dev) (pti_dev->pti_dev_info->has_d8_d16_support)
 
 struct pti_tty {
 	struct pti_masterchannel *mc;
@@ -157,6 +162,8 @@ static void pti_write_to_aperture(struct pti_masterchannel *mc,
 	int final;
 	int i;
 	u32 ptiword;
+	u16 ptishort;
+	u8  ptibyte;
 	u32 __iomem *aperture;
 	u8 *p = buf;
 
@@ -180,13 +187,40 @@ static void pti_write_to_aperture(struct pti_masterchannel *mc,
 		iowrite32(ptiword, aperture);
 	}
 
-	aperture += eom ? PTI_LASTDWORD_DTS : 0; /* DTS signals EOM */
+	if (!HAS_D8_D16_SUPPORT(drv_data)) {
+		aperture += eom ? PTI_LASTDWORD_DTS : 0; /* DTS signals EOM */
+		ptiword = 0;
+		for (i = 0; i < final; i++)
+			ptiword |= *p++ << (24-(8*i));
+		iowrite32(ptiword, aperture);
+	} else {
+		switch (final) {
 
-	ptiword = 0;
-	for (i = 0; i < final; i++)
-		ptiword |= *p++ << (24-(8*i));
+		case 3:
+			ptishort = be16_to_cpu(*(u16 *)p);
+			p += 2;
+			iowrite16(ptishort, aperture);
+			/* fall-through */
+		case 1:
+			ptibyte = *(u8 *)p;
+			aperture += eom ? PTI_LASTDWORD_DTS : 0;
+			iowrite8(ptibyte, aperture);
+			break;
+		case 2:
+			ptishort = be16_to_cpu(*(u16 *)p);
+			aperture += eom ? PTI_LASTDWORD_DTS : 0;
+			iowrite16(ptishort, aperture);
+			break;
+		case 4:
+			ptiword = be32_to_cpu(*(u32 *)p);
+			aperture += eom ? PTI_LASTDWORD_DTS : 0;
+			iowrite32(ptiword, aperture);
+			break;
+		default:
+			break;
+		}
+	}
 
-	iowrite32(ptiword, aperture);
 	return;
 }
 
