@@ -316,6 +316,19 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 
 			pm_runtime_set_active(&pdev->dev);
 #endif
+		} else if (pdev->device == 0x119D) {
+			ehci_info(ehci, "Detected HSIC HC\n");
+			hcd->has_tt = 1;
+			ehci->has_hostpc = 1;
+
+			hcd->has_wakeup_irq = 1;
+
+			hcd->has_sram = 1;
+			hcd->sram_no_payload = 1;
+			sram_init(hcd);
+
+			device_set_wakeup_enable(&pdev->dev, true);
+			pm_runtime_set_active(&pdev->dev);
 		}
 		break;
 	case PCI_VENDOR_ID_TDI:
@@ -692,6 +705,11 @@ static struct pci_driver ehci_pci_driver = {
 #define INTEL_MID_OTG_HOST_DRIVER	ehci_otg_driver
 #endif
 
+#ifdef CONFIG_USB_HCD_HSIC
+#include "ehci-tangier-hsic-pci.c"
+#define INTEL_MID_HSIC_HOST_DRIVER	ehci_hsic_driver
+#endif
+
 static int __init ehci_pci_init(void)
 {
 	int		retval;
@@ -709,6 +727,12 @@ static int __init ehci_pci_init(void)
 
 	/* Need to use seprate ehci_stop since need to hanlde sram */
 	ehci_pci_hc_driver.stop = ehci_pci_stop;
+
+#ifdef CONFIG_USB_HCD_HSIC
+	retval = pci_register_driver(&INTEL_MID_HSIC_HOST_DRIVER);
+	if (retval < 0)
+		goto clean0;
+#endif
 
 #ifdef INTEL_MID_OTG_HOST_DRIVER
 	retval = intel_mid_ehci_driver_register(&INTEL_MID_OTG_HOST_DRIVER);
@@ -737,6 +761,7 @@ static int __init ehci_pci_init(void)
 		goto clean3;
 	}
 	return retval;
+
 clean3:
 	pci_unregister_driver(&ehci_pci_driver);
 
@@ -750,6 +775,10 @@ clean1:
 	intel_mid_ehci_driver_unregister(&INTEL_MID_OTG_HOST_DRIVER);
 #endif
 
+#ifdef CONFIG_USB_HCD_HSIC
+clean0:
+	pci_unregister_driver(&INTEL_MID_HSIC_HOST_DRIVER);
+#endif
 	return retval;
 }
 module_init(ehci_pci_init);
@@ -764,6 +793,11 @@ static void __exit ehci_pci_cleanup(void)
 	if (sph_enabled())
 		pci_unregister_driver(&INTEL_MID_SPH_HOST_DRIVER);
 #endif
+
+#ifdef CONFIG_USB_HCD_HSIC
+	pci_unregister_driver(&INTEL_MID_HSIC_HOST_DRIVER);
+#endif
+
 	pci_unregister_driver(&ehci_pci_driver);
 }
 module_exit(ehci_pci_cleanup);

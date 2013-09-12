@@ -33,6 +33,10 @@
 
 #include "hub.h"
 
+#ifdef CONFIG_USB_HCD_HSIC
+#include <linux/usb/ehci-tangier-hsic-pci.h>
+#endif
+
 /* if we are in debug mode, always announce new devices */
 #ifdef DEBUG
 #ifndef CONFIG_USB_ANNOUNCE_NEW_DEVICES
@@ -1987,6 +1991,24 @@ static void hub_free_dev(struct usb_device *udev)
 		hcd->driver->free_dev(hcd, udev);
 }
 
+#ifdef CONFIG_USB_HCD_HSIC
+
+static void hsic_notify(struct usb_device *udev, unsigned action)
+{
+	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
+
+	if (hcd->hsic_notify)
+		hcd->hsic_notify(udev, action);
+}
+
+#else
+
+static inline void hsic_notify(struct usb_device *udev, unsigned action)
+{
+}
+
+#endif
+
 /**
  * usb_disconnect - disconnect a device (usbcore-internal)
  * @pdev: pointer to device being disconnected
@@ -2054,6 +2076,7 @@ void usb_disconnect(struct usb_device **pdev)
 	 * notifier chain (used by usbfs and possibly others).
 	 */
 	device_del(&udev->dev);
+	hsic_notify(udev, USB_DEVICE_REMOVE);
 
 	/* Free the device number and delete the parent's children[]
 	 * (or root_hub) pointer.
@@ -2334,6 +2357,7 @@ int usb_new_device(struct usb_device *udev)
 	 * notifier chain (used by usbfs and possibly others).
 	 */
 	err = device_add(&udev->dev);
+	hsic_notify(udev, USB_DEVICE_ADD);
 	if (err) {
 		dev_err(&udev->dev, "can't device_add, error %d\n", err);
 		goto fail;
