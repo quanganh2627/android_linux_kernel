@@ -24,6 +24,9 @@
 
 struct intel_dwc_otg_pdata {
 	int is_hvp;
+	int charger_detect_enable;
+	int gpio_cs;
+	int gpio_reset;
 	int charging_compliance;
 };
 

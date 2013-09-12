@@ -1,12 +1,15 @@
 ccflags-$(CONFIG_USB_DWC3_DEBUG)	:= -DDEBUG
 ccflags-$(CONFIG_USB_DWC3_VERBOSE)	+= -DVERBOSE_DEBUG
 
-obj-$(CONFIG_USB_DWC3_INTEL_MRFL)		+= dwc3-intel-mrfl.o dwc3-device-intel.o
+
+obj-$(CONFIG_USB_DWC3_DEVICE_INTEL)		+= dwc3-device-intel.o
+obj-$(CONFIG_USB_DWC3_INTEL_MRFL)		+= dwc3-intel-mrfl.o
+obj-$(CONFIG_USB_DWC3_INTEL_BYT)		+= dwc3-intel-byt.o
 ifneq ($(CONFIG_DEBUG_FS),)
-	obj-$(CONFIG_USB_DWC3_INTEL_MRFL)	+= debugfs.o
+	obj-$(CONFIG_USB_DWC3_DEVICE_INTEL)	+= debugfs.o
 endif
 
-ifeq ($(CONFIG_USB_DWC3_INTEL_MRFL),)
+ifeq ($(CONFIG_USB_DWC3_DEVICE_INTEL),)
 obj-$(CONFIG_USB_DWC3)			+= dwc3.o
 
 dwc3-y					:= core.o
