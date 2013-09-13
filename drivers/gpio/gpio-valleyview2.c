@@ -904,6 +904,7 @@ err:
 
 static const struct pnp_device_id vlv_gpio_pnp_match[] = {
 	{ "INT33B2", 0 },
+	{ "INT33FC", 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(pnp, vlv_gpio_pnp_match);
