@@ -3322,6 +3322,7 @@ CONFIG_EEEPC_LAPTOP=y
 # CONFIG_SAMSUNG_Q10 is not set
 # CONFIG_APPLE_GMUX is not set
 # CONFIG_PVPANIC is not set
+CONFIG_INTEL_SOC_PMC=y
 
 #
 # Hardware Spinlock drivers
