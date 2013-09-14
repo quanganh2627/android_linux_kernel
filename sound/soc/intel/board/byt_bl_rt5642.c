@@ -48,6 +48,7 @@
 #define BYT_HS_REMOVE_DET_DELAY         500
 #define BYT_BUTTON_DET_DELAY            100
 #define BYT_HS_DET_POLL_INTRVL          300
+#define BYT_BUTTON_EN_DELAY             1500
 
 #define BYT_HS_DET_RETRY_COUNT          3
 
@@ -57,10 +58,14 @@ struct byt_mc_private {
 	struct delayed_work hs_remove_work;
 	struct delayed_work hs_button_work;
 	struct mutex jack_mlock;
+	/* To enable button press interrupts after a delay after HS detection.
+	   This is to avoid spurious button press events during slow HS insertion */
+	struct delayed_work hs_button_en_work;
 	int intr_debounce;
 	int hs_insert_det_delay;
 	int hs_remove_det_delay;
 	int button_det_delay;
+	int button_en_delay;
 	int hs_det_poll_intrvl;
 	int hs_det_retry;
 	bool process_button_events;
@@ -120,6 +125,9 @@ static int byt_check_jack_type(void)
 		else if (status == RT5640_HEADSET_DET) {
 			jack_type = SND_JACK_HEADSET;
 			ctx->process_button_events = true;
+			/* If headset is detected, enable button interrupts after a delay */
+			schedule_delayed_work(&ctx->hs_button_en_work,
+					msecs_to_jiffies(ctx->button_en_delay));
 		} else /* RT5640_NO_JACK */
 			jack_type = 0;
 
@@ -262,6 +270,7 @@ static void byt_check_hs_remove_status(struct work_struct *work)
 		if (status) { /* jd status high implies accessory disconnected */
 			pr_debug("Jack remove event");
 			ctx->process_button_events = false;
+			cancel_delayed_work_sync(&ctx->hs_button_en_work);
 			status = rt5640_detect_hs_type(codec, false);
 			jack_type = 0;
 			byt_set_mic_bias_ldo(codec, false);
@@ -334,6 +343,17 @@ static void byt_check_hs_button_status(struct work_struct *work)
 	snd_soc_jack_report(jack, jack_type, gpio->report);
 	pr_debug("Exit:%s", __func__);
 	mutex_unlock(&ctx->jack_mlock);
+}
+
+/* Delayed work for enabling the overcurrent detection circuit and interrupt
+   for generating button events */
+static void byt_enable_hs_button_events(struct work_struct *work)
+{
+	struct snd_soc_jack_gpio *gpio = &hs_gpio;
+	struct snd_soc_jack *jack = gpio->jack;
+	struct snd_soc_codec *codec = jack->codec;
+
+	rt5640_enable_ovcd_interrupt(codec, true);
 }
 
 static inline struct snd_soc_codec *byt_get_codec(struct snd_soc_card *card)
@@ -674,12 +694,15 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 	drv->button_det_delay = BYT_BUTTON_DET_DELAY;
 	drv->hs_det_poll_intrvl = BYT_HS_DET_POLL_INTRVL;
 	drv->hs_det_retry = BYT_HS_DET_RETRY_COUNT;
+	drv->button_en_delay = BYT_BUTTON_EN_DELAY;
 	drv->process_button_events = false;
 
 	INIT_DELAYED_WORK(&drv->hs_insert_work, byt_check_hs_insert_status);
 	INIT_DELAYED_WORK(&drv->hs_remove_work, byt_check_hs_remove_status);
 	INIT_DELAYED_WORK(&drv->hs_button_work, byt_check_hs_button_status);
+	INIT_DELAYED_WORK(&drv->hs_button_en_work, byt_enable_hs_button_events);
 	mutex_init(&drv->jack_mlock);
+
 	/* register the soc card */
 	snd_soc_card_byt.dev = &pdev->dev;
 	snd_soc_card_set_drvdata(&snd_soc_card_byt, drv);
@@ -699,6 +722,7 @@ static void snd_byt_unregister_jack(struct byt_mc_private *ctx)
 	   delayed work will not be scheduled.*/
 	ctx->process_button_events = false;
 	cancel_delayed_work_sync(&ctx->hs_insert_work);
+	cancel_delayed_work_sync(&ctx->hs_button_en_work);
 	cancel_delayed_work_sync(&ctx->hs_button_work);
 	cancel_delayed_work_sync(&ctx->hs_remove_work);
 	snd_soc_jack_free_gpios(&ctx->jack, 1, &hs_gpio);

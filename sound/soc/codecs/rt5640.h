@@ -2075,6 +2075,7 @@ enum {
 int rt5640_detect_hs_type(struct snd_soc_codec *codec, int jack_insert);
 int rt5640_check_jd_status(struct snd_soc_codec *codec);
 int rt5640_check_bp_status(struct snd_soc_codec *codec);
+void rt5640_enable_ovcd_interrupt(struct snd_soc_codec *codec, bool enable);
 
 /* System Clock Source */
 enum {

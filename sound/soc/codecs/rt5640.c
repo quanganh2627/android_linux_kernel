@@ -45,13 +45,6 @@
 /*#define USE_EQ*/
 #define USE_ASRC
 #define VERSION "0.8.4 alsa 1.0.25"
-/* Delay in ms for enabling over current detection and interrupt for button
-   press. A long delay is used to avoid spurious button press events during
-   slow HS insertion */
-static int delay_work = 1500;
-module_param(delay_work, int, 0644);
-struct delayed_work enable_push_button_int_work;
-struct snd_soc_codec *rt5640_codec;
 
 struct rt5640_init_reg {
 	u8 reg;
@@ -534,6 +527,30 @@ int rt5640_check_bp_status(struct snd_soc_codec *codec)
 }
 EXPORT_SYMBOL(rt5640_check_bp_status);
 
+/* Function to enable/disable overcurrent detection(OVCD) and button
+   press interrupts (based on OVCD) in the codec*/
+void rt5640_enable_ovcd_interrupt(struct snd_soc_codec *codec,
+							bool enable)
+{
+	unsigned int ovcd_en; /* OVCD circuit enable/disable */
+	unsigned int bp_en;/* Button interrupt enable/disable*/
+	if (enable) {
+		pr_debug("enabling ovc detection and button intr");
+		ovcd_en = RT5640_MIC1_OVCD_EN;
+		bp_en = RT5640_IRQ_MB1_OC_NOR;
+	} else {
+		pr_debug("disabling ovc detection and button intr");
+		ovcd_en = RT5640_MIC1_OVCD_DIS;
+		bp_en = RT5640_IRQ_MB1_OC_BP;
+	}
+	snd_soc_update_bits(codec, RT5640_MICBIAS,
+			RT5640_MIC1_OVCD_MASK, ovcd_en);
+	snd_soc_update_bits(codec, RT5640_IRQ_CTRL2,
+			RT5640_IRQ_MB1_OC_MASK, bp_en);
+	return;
+}
+EXPORT_SYMBOL(rt5640_enable_ovcd_interrupt);
+
 /**
  * rt5640_detect_hs_type - Detect accessory as headset/headphone/none .
  * @codec: SoC audio codec device.
@@ -569,16 +586,11 @@ int rt5640_detect_hs_type(struct snd_soc_codec *codec, int jack_insert)
 				/*Over current detected;i.e there is a  short between mic and
 				  ground ring. i.e the accessory does not have mic. i.e accessory
 				  is Headphone*/
-				snd_soc_update_bits(codec, RT5640_IRQ_CTRL2,
-						RT5640_IRQ_MB1_OC_MASK, RT5640_IRQ_MB1_OC_BP);
 				rt5640->jack_type = RT5640_HEADPHO_DET;
 				pr_debug("%s:detected headphone", __func__);
 			} else {
 				rt5640->jack_type = RT5640_HEADSET_DET;
-				schedule_delayed_work(&enable_push_button_int_work,
-						msecs_to_jiffies(delay_work));
-				pr_debug("%s:detected headset:enable button after %dmsec",
-						__func__, delay_work);
+				pr_debug("%s:detected headset", __func__);
 			}
 		} else {
 			pr_debug("%s:NO Jack detected", __func__);
@@ -587,23 +599,11 @@ int rt5640_detect_hs_type(struct snd_soc_codec *codec, int jack_insert)
 		snd_soc_update_bits(codec, RT5640_IRQ_CTRL2,
 				    RT5640_MB1_OC_CLR, 0);
 
-		/* Disable overcurrent detection. If headset was detected,
-		   overcurrent detection will be enabled in the delayed work
-		   along with the OVCD interrupt. This will avoid the possibility
-		   of any polling after HS detection reporting Button press events
-		   before OVCD interrupt is enabled */
-		snd_soc_update_bits(codec, RT5640_MICBIAS,
-				RT5640_MIC1_OVCD_MASK,
-				RT5640_MIC1_OVCD_DIS);
+		/* Disable overcurrent detection. If headset was detected, let the
+		   machine driver enable the overcurrent detection for button events */
+		rt5640_enable_ovcd_interrupt(codec, false);
 	} else {
-		cancel_delayed_work_sync(&enable_push_button_int_work);
-
-		snd_soc_update_bits(codec, RT5640_MICBIAS,
-				RT5640_MIC1_OVCD_MASK,
-				RT5640_MIC1_OVCD_DIS);
-		snd_soc_update_bits(codec, RT5640_IRQ_CTRL2,
-				RT5640_IRQ_MB1_OC_MASK,
-				RT5640_IRQ_MB1_OC_BP);
+		rt5640_enable_ovcd_interrupt(codec, false);
 		pr_debug("%s:NO Jack detected", __func__);
 		rt5640->jack_type = RT5640_NO_JACK;
 	}
@@ -3174,16 +3174,6 @@ static int rt5640_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
-static void do_enable_push_button_int(struct work_struct *work)
-{
-	pr_debug("enabling ovc detection push button intr");
-	snd_soc_update_bits(rt5640_codec, RT5640_MICBIAS,
-			RT5640_MIC1_OVCD_MASK,
-			RT5640_MIC1_OVCD_EN);
-	snd_soc_update_bits(rt5640_codec, RT5640_IRQ_CTRL2,
-			RT5640_IRQ_MB1_OC_MASK, RT5640_IRQ_MB1_OC_NOR);
-}
-
 static int rt5640_probe(struct snd_soc_codec *codec)
 {
 	struct rt5640_priv *rt5640 = snd_soc_codec_get_drvdata(codec);
@@ -3273,16 +3263,11 @@ static int rt5640_probe(struct snd_soc_codec *codec)
 		return ret;
 	}
 
-	rt5640_codec = codec;
-	INIT_DELAYED_WORK(&enable_push_button_int_work,
-					do_enable_push_button_int);
-
 	return 0;
 }
 
 static int rt5640_remove(struct snd_soc_codec *codec)
 {
-	cancel_delayed_work_sync(&enable_push_button_int_work);
 	rt5640_set_bias_level(codec, SND_SOC_BIAS_OFF);
 #if IS_ENABLED(CONFIG_SND_SOC_RT5642)
 	rt5640_dsp_remove(codec);
