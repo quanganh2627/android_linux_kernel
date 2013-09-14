@@ -537,6 +537,11 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	/* Set codec bias level */
 	byt_set_bias_level(card, dapm, SND_SOC_BIAS_OFF);
 	card->dapm.idle_bias_off = true;
+	/* Set overcurrent detection threshold base and scale factor
+	   for jack type identification and button events. */
+	/* Threshold base = 2000uA; scale factor = 0.5 =>
+	   effective threshold of 1000uA */
+	rt5640_config_ovcd_thld(codec, RT5640_MIC1_OVTH_2000UA, RT5640_MIC_OVCD_SF_0P5);
 
 	/* FFRD8 uses codec's JD1 for jack detection */
 	if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||

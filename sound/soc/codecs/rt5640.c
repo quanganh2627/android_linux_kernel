@@ -115,7 +115,7 @@ static struct rt5640_init_reg init_list[] = {
 	{RT5640_DSP_PATH2, 0x0c00},
 #endif
 #if RT5640_DET_EXT_MIC
-	{RT5640_MICBIAS, 0x3c10},	/* enable MICBIAS short current;
+	{RT5640_MICBIAS, 0x3410},	/* disable MICBIAS short current;
 					 chopper(b5) circuit disabled */
 	{RT5640_GPIO_CTRL1, 0x8400},	/* set GPIO1 to IRQ */
 	{RT5640_GPIO_CTRL3, 0x0004},	/* set GPIO1 output */
@@ -551,6 +551,18 @@ void rt5640_enable_ovcd_interrupt(struct snd_soc_codec *codec,
 }
 EXPORT_SYMBOL(rt5640_enable_ovcd_interrupt);
 
+/* Function to set the overcurrent detection threshold base and scale
+   factor. The codec uses these values to set an internal value of
+   effective threshold = threshold base * scale factor*/
+void rt5640_config_ovcd_thld(struct snd_soc_codec *codec,
+				int base, int scale_factor)
+{
+	struct rt5640_priv *rt5640 = snd_soc_codec_get_drvdata(codec);
+	rt5640->ovcd_th_base = base;
+	rt5640->ovcd_th_sf = scale_factor;
+}
+EXPORT_SYMBOL(rt5640_config_ovcd_thld);
+
 /**
  * rt5640_detect_hs_type - Detect accessory as headset/headphone/none .
  * @codec: SoC audio codec device.
@@ -561,11 +573,16 @@ EXPORT_SYMBOL(rt5640_enable_ovcd_interrupt);
 int rt5640_detect_hs_type(struct snd_soc_codec *codec, int jack_insert)
 {
 	struct rt5640_priv *rt5640 = snd_soc_codec_get_drvdata(codec);
+	unsigned int ovcd_th_base;
+	unsigned int ovcd_th_sf;
 	if (jack_insert) {
 		if (SND_SOC_BIAS_OFF == codec->dapm.bias_level)
 			snd_soc_write(codec, RT5640_PWR_ANLG1, 0xa814);
-
-		rt5640_index_write(codec, RT5640_BIAS_CUR4, 0xa800);
+		/* Use the ovcd threshold base and scale factor from context
+		   stucture to configure the threshold */
+		ovcd_th_base = rt5640->ovcd_th_base & RT5640_MIC1_OVTH_MASK;
+		ovcd_th_sf =  rt5640->ovcd_th_sf & RT5640_MIC_OVCD_SF_MASK;
+		rt5640_index_write(codec, RT5640_BIAS_CUR4, 0xa800 | ovcd_th_sf);
 
 		snd_soc_update_bits(codec, RT5640_PWR_ANLG1,
 			RT5640_PWR_LDO2, RT5640_PWR_LDO2);
@@ -574,7 +591,7 @@ int rt5640_detect_hs_type(struct snd_soc_codec *codec, int jack_insert)
 		snd_soc_update_bits(codec, RT5640_MICBIAS,
 				    RT5640_MIC1_OVCD_MASK | RT5640_MIC1_OVTH_MASK
 				    | RT5640_PWR_CLK25M_MASK,
-				    RT5640_MIC1_OVCD_EN | RT5640_MIC1_OVTH_2000UA
+				    RT5640_MIC1_OVCD_EN | ovcd_th_base
 				    | RT5640_PWR_CLK25M_PU);
 		snd_soc_update_bits(codec, RT5640_GEN_CTRL1, 0x1, 0x1);
 		/* After turning on over current detection, wait for a while before
