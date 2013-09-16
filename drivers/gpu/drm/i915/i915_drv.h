@@ -849,6 +849,16 @@ struct intel_gen6_power_mgmt {
 	u8 rp_up_masked;
 	u8 rp_down_masked;
 
+	u32 cz_freq;
+	u32 ei_interrupt_count;
+
+	u32 cz_ts_up_ei;
+	u32 render_up_EI_C0;
+	u32 media_up_EI_C0;
+	u32 cz_ts_down_ei;
+	u32 render_down_EI_C0;
+	u32 media_down_EI_C0;
+
 	struct delayed_work delayed_resume_work;
 
 	/*
@@ -1300,6 +1310,9 @@ typedef struct drm_i915_private {
 
 	/* Cannot be determined by PCIID. You must always read a register. */
 	size_t ellc_size;
+
+	/* Adding this to fallback to normal Turbo logic */
+	bool use_RC0_residency_for_turbo;
 
 	struct {
 		atomic_t up_threshold;

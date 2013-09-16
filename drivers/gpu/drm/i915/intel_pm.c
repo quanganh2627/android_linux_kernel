@@ -4018,6 +4018,14 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 val;
+	unsigned long flags;
+
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
+	/* Setting RC0 mode by default on VLV. Make this
+	* to fall back to normla turbo mode
+	*/
+	dev_priv->use_RC0_residency_for_turbo = 1;
 
 	I915_WRITE(GEN6_RP_UP_THRESHOLD, 59400);
 	I915_WRITE(GEN6_RP_DOWN_THRESHOLD, 245000);
@@ -4045,14 +4053,17 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 	case 1:
 		dev_priv->mem_freq = 800;
 		dev_priv->rps.lowest_delay = VLV_LOWEST_FREQ_GPLL_DDR_MODE_800;
+		dev_priv->rps.cz_freq = VLV_CZ_CLOCK_FREQ_DDR_MODE_800;
 		break;
 	case 2:
 		dev_priv->mem_freq = 1066;
 		dev_priv->rps.lowest_delay = VLV_LOWEST_FREQ_GPLL_DDR_MODE_1066;
+		dev_priv->rps.cz_freq = VLV_CZ_CLOCK_FREQ_DDR_MODE_1066;
 		break;
 	case 3:
 		dev_priv->mem_freq = 1333;
 		dev_priv->rps.lowest_delay = VLV_LOWEST_FREQ_GPLL_DDR_MODE_1333;
+		dev_priv->rps.cz_freq = VLV_CZ_CLOCK_FREQ_DDR_MODE_1333;
 		break;
 	}
 	DRM_DEBUG_DRIVER("DDR speed: %d MHz", dev_priv->mem_freq);
@@ -4105,7 +4116,22 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 
 	valleyview_set_rps(dev_priv->dev, dev_priv->rps.rpe_delay);
 
-	gen6_enable_rps_interrupts(dev);
+	/* Clear out any stale interrupts first */
+	spin_lock_irqsave(&dev_priv->rps.lock, flags);
+	WARN_ON(dev_priv->rps.pm_iir != 0);
+	I915_WRITE(GEN6_PMIIR, I915_READ(GEN6_PMIIR));
+	I915_WRITE(GEN6_PMIMR, 0);
+	spin_unlock_irqrestore(&dev_priv->rps.lock, flags);
+
+	/* Use RC0 residency method for rps control as WA */
+	if (dev_priv->use_RC0_residency_for_turbo) {
+		I915_WRITE(GEN6_PMIER, VLV_PM_DEFERRED_EVENTS);
+		I915_WRITE(GEN6_PMINTRMSK, ~VLV_PM_DEFERRED_EVENTS);
+	} else {
+		I915_WRITE(GEN6_PMIER, GEN6_PM_RPS_EVENTS);
+		I915_WRITE(GEN6_PMINTRMSK, ~GEN6_PM_RPS_EVENTS);
+	}
+
 	return 1;
 }
 
