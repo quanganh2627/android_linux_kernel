@@ -988,7 +988,7 @@ static int i915_getparam(struct drm_device *dev, void *data,
 	case I915_PARAM_HAS_SEMAPHORES:
 		value = i915_semaphore_is_enabled(dev);
 		break;
-	case I915_PARAM_HAS_PRIME_VMAP_FLUSH:
+	case I915_PARAM_HAS_VMAP:
 		value = 1;
 		break;
 	case I915_PARAM_HAS_SECURE_BATCHES:
@@ -1956,6 +1956,8 @@ struct drm_ioctl_desc i915_ioctls[] = {
 								DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(I915_GEM_ACCESS_DATATYPE, i915_gem_access_datatype,
 							DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(I915_GEM_USERPTR, i915_gem_userptr_ioctl,
+						DRM_UNLOCKED),
 };
 
 int i915_max_ioctl = DRM_ARRAY_SIZE(i915_ioctls);

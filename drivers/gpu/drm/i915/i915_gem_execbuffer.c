@@ -310,8 +310,11 @@ i915_gem_execbuffer_relocate_entry(struct drm_i915_gem_object *obj,
 		return -EFAULT;
 
 	reloc->delta += target_offset;
-	if (use_cpu_reloc(obj))
+	if (use_cpu_reloc(obj)) {
+		if (i915_gem_is_userptr_object(obj))
+			reloc->offset += i915_gem_userptr_obj_pageoffset(obj);
 		ret = relocate_entry_cpu(obj, reloc);
+	}
 	else
 		ret = relocate_entry_gtt(obj, reloc);
 

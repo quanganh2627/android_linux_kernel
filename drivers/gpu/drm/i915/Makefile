@@ -8,6 +8,7 @@ i915-y := i915_drv.o i915_dma.o i915_irq.o \
 	  i915_gpu_error.o \
           i915_suspend.o \
 	  i915_gem.o \
+	  i915_gem_userptr.o \
 	  i915_gem_context.o \
 	  i915_gem_debug.o \
 	  i915_gem_evict.o \

@@ -245,6 +245,7 @@ typedef struct _drm_i915_sarea {
 #define DRM_I915_DISP_SCREEN_CONTROL	0x35
 #define DRM_I915_SET_PLANE_180_ROTATION 0x36
 #define DRM_I915_SET_RESERVED_REG_BIT_2	0x37
+#define DRM_I915_GEM_USERPTR		0x38
 #define DRM_I915_SET_CSC                0x39
 #define DRM_I915_GET_PSR_SUPPORT	0X3a
 #define DRM_I915_GEM_ACCESS_DATATYPE	0x3e
@@ -320,6 +321,9 @@ typedef struct _drm_i915_sarea {
 #define DRM_IOCTL_I915_GEM_ACCESS_DATATYPE  \
 		DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_GEM_ACCESS_DATATYPE, \
 		struct drm_i915_gem_access_datatype)
+#define DRM_IOCTL_I915_GEM_USERPTR  \
+		DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_GEM_USERPTR, \
+		struct drm_i915_gem_userptr)
 
 /* Allow drivers to submit batchbuffers directly to hardware, relying
  * on the security mechanisms provided by hardware.
@@ -382,7 +386,7 @@ struct drm_i915_edp_psr_ctl {
 #define I915_PARAM_HAS_ALIASING_PPGTT	 18
 #define I915_PARAM_HAS_WAIT_TIMEOUT	 19
 #define I915_PARAM_HAS_SEMAPHORES	 20
-#define I915_PARAM_HAS_PRIME_VMAP_FLUSH	 21
+#define I915_PARAM_HAS_VMAP		 21
 #define I915_PARAM_HAS_VEBOX		 22
 #define I915_PARAM_HAS_SECURE_BATCHES	 23
 #define I915_PARAM_HAS_PINNED_BATCHES	 24
@@ -1117,5 +1121,19 @@ struct drm_i915_reserved_reg_bit_2 {
 struct drm_i915_plane_180_rotation {
 	__u32 crtc_id;
 	__u32 rotate;
+};
+
+struct drm_i915_gem_userptr {
+	__u64 user_ptr;
+	__u32 user_size;
+	__u32 flags;
+#define I915_USERPTR_READ_ONLY 0x1
+#define I915_USERPTR_UNSYNCHRONIZED 0x80000000
+	/**
+	 * Returned handle for the object.
+	 *
+	 * Object handles are nonzero.
+	 */
+	__u32 handle;
 };
 #endif /* _UAPI_I915_DRM_H_ */

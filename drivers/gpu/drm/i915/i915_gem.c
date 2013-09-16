@@ -550,6 +550,12 @@ i915_gem_pread_ioctl(struct drm_device *dev, void *data,
 		goto out;
 	}
 
+	/* No pread for userptr objects */
+	if (i915_gem_is_userptr_object(obj)) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
 	/* prime objects have no backing filp to GEM pread/pwrite
 	 * pages from.
 	 */
@@ -895,6 +901,12 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 	    args->size > obj->base.size - args->offset) {
 		ret = -EINVAL;
 		goto out;
+	}
+
+	/* No pwrite for userptr objects */
+	if (i915_gem_is_userptr_object(obj)) {
+		ret = -EINVAL;
+		goto unlock;
 	}
 
 	/* prime objects have no backing filp to GEM pread/pwrite
@@ -1357,7 +1369,10 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	trace_i915_gem_object_fault(obj, page_offset, true, write);
 
 	/* Access to snoopable pages through the GTT is incoherent. */
-	if (obj->cache_level != I915_CACHE_NONE && !HAS_LLC(dev)) {
+	/* Time being relaxing this constraint for UserPtr objects
+	   TBD, to find the real need of this check */
+	if (obj->cache_level != I915_CACHE_NONE && !HAS_LLC(dev) &&
+	    !i915_gem_is_userptr_object(obj)) {
 		ret = -EINVAL;
 		goto unlock;
 	}
@@ -1567,6 +1582,22 @@ i915_gem_mmap_gtt(struct drm_file *file,
 
 	if (obj->madv != I915_MADV_WILLNEED) {
 		DRM_ERROR("Attempting to mmap a purgeable buffer\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if ((i915_gem_obj_ggtt_bound(obj) &&
+	      offset_in_page(i915_gem_obj_ggtt_offset(obj))) ||
+	    (i915_gem_is_userptr_object(obj) &&
+	      i915_gem_userptr_obj_pageoffset(obj))) {
+		DRM_ERROR("Attempting to mmap an unaligned buffer\n");
+		/* Regular GEM objects shall always have a GTT offset which
+		   is a multiple of PAGE_SIZE(4K). UserPtr GEM objects, which
+		   are linear can have an actual GTT offset, which is a not a
+		   multiple of PAGE_SIZE. But there shall be no real use case
+		   for using mmap_gtt interface for linear UserPtr objects, as
+		   by default they are marked to be snoopable (for VLV) or
+		   LLC cached */
 		ret = -EINVAL;
 		goto out;
 	}
@@ -4139,6 +4170,9 @@ void i915_gem_free_object(struct drm_gem_object *gem_obj)
 	if (obj->base.import_attach)
 		drm_prime_gem_destroy(&obj->base, NULL);
 
+	if (obj->ops->release)
+		obj->ops->release(obj);
+
 	drm_gem_object_release(&obj->base);
 	i915_gem_info_remove_obj(dev_priv, obj->base.size);
 
@@ -4508,7 +4542,7 @@ i915_gem_load(struct drm_device *dev)
 
 	dev_priv->slab =
 		kmem_cache_create("i915_gem_object",
-				  sizeof(struct drm_i915_gem_object), 0,
+				  sizeof(union drm_i915_gem_objects), 0,
 				  SLAB_HWCACHE_ALIGN,
 				  NULL);
 
@@ -4837,9 +4871,13 @@ unsigned long i915_gem_obj_offset(struct drm_i915_gem_object *o,
 
 	BUG_ON(list_empty(&o->vma_list));
 	list_for_each_entry(vma, &o->vma_list, vma_link) {
-		if (vma->vm == vm)
-			return vma->node.start;
-
+		if (vma->vm == vm) {
+			if (i915_gem_is_userptr_object(o))
+				return (vma->node.start +
+					i915_gem_userptr_obj_pageoffset(o));
+			else
+				return vma->node.start;
+		}
 	}
 	return -1;
 }
