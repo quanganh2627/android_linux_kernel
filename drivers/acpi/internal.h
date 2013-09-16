@@ -76,6 +76,11 @@ void acpi_lpss_init(void);
 #else
 static inline void acpi_lpss_init(void) {}
 #endif
+#ifdef CONFIG_INTEL_MID_LPSS
+void acpi_mid_lpss_init(void);
+#else
+static inline void acpi_mid_lpss_init(void) {}
+#endif
 
 /* --------------------------------------------------------------------------
                      Device Node Initialization / Removal
