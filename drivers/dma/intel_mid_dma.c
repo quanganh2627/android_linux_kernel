@@ -1024,26 +1024,27 @@ static struct dma_async_tx_descriptor *intel_mid_dma_prep_memcpy_v2(
 	cfg_lo.cfgx_v2.dst_burst_align = 1;
 	cfg_lo.cfgx_v2.src_burst_align = 1;
 
-	/*calculate CFG_HI*/
-	if (mids->cfg_mode == LNW_DMA_MEM_TO_MEM) {
-		/*SW HS only*/
-		cfg_hi.cfg_hi = 0;
-	} else {
-		cfg_hi.cfg_hi = 0;
+	/* For  mem to mem transfer, it's SW HS only*/
+	cfg_hi.cfg_hi = 0;
+	/*calculate CFG_HI for mem to/from dev scenario */
+	if (mids->cfg_mode != LNW_DMA_MEM_TO_MEM) {
 		if (midc->dma->pimr_mask) {
-			if (mids->dma_slave.direction == DMA_MEM_TO_DEV) {
-				cfg_hi.cfgx_v2.src_per = 0;
-				if (mids->device_instance == 0)
-					cfg_hi.cfgx_v2.dst_per = 1;
-				if (mids->device_instance == 1)
-					cfg_hi.cfgx_v2.dst_per = 3;
-			} else if (mids->dma_slave.direction == DMA_DEV_TO_MEM) {
-				if (mids->device_instance == 0)
-					cfg_hi.cfgx_v2.src_per = 0;
-				if (mids->device_instance == 1)
-					cfg_hi.cfgx_v2.src_per = 2;
-				cfg_hi.cfgx_v2.dst_per = 0;
+			/* device_instace => SSP0 = 0, SSP1 = 1, SSP2 = 2*/
+			if (mids->device_instance > 2) {
+				pr_err("Invalid SSP identifier\n");
+				return NULL;
 			}
+			cfg_hi.cfgx_v2.src_per = 0;
+			cfg_hi.cfgx_v2.dst_per = 0;
+			if (mids->dma_slave.direction == DMA_MEM_TO_DEV)
+				/* SSP DMA in Tx direction */
+				cfg_hi.cfgx_v2.dst_per = (2 * mids->device_instance) + 1;
+			else if (mids->dma_slave.direction == DMA_DEV_TO_MEM)
+				/* SSP DMA in Rx direction */
+				cfg_hi.cfgx_v2.src_per = (2 * mids->device_instance);
+			else
+				return NULL;
+
 		} else {
 			cfg_hi.cfgx_v2.src_per = cfg_hi.cfgx_v2.dst_per =
 					midc->ch_id - midc->dma->chan_base;
