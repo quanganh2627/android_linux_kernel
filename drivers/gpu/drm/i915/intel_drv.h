@@ -762,6 +762,10 @@ extern bool vlv_rs_initialize(struct drm_device *dev);
 extern void vlv_rs_sleepstateinit(struct drm_device *dev,
 					bool   bdisable_rs);
 extern void vlv_rs_setstate(struct drm_device *dev, bool enable);
+
+extern bool vlv_turbo_initialize(struct drm_device *dev);
+extern void vlv_turbo_disable(struct drm_device *dev);
+
 /* FBC */
 extern bool intel_fbc_enabled(struct drm_device *dev);
 extern void intel_update_fbc(struct drm_device *dev);

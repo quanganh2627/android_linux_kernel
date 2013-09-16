@@ -935,6 +935,8 @@ static int i915_cur_delayinfo(struct seq_file *m, void *unused)
 		seq_printf(m, "current GPU freq: %d MHz\n",
 			   vlv_gpu_freq(dev_priv->mem_freq,
 					(freq_sts >> 8) & 0xff));
+		seq_printf(m, "Last Requested Gpu Freq _requested_delay_: %d\n",
+					dev_priv->rps.requested_delay);
 		seq_printf(m, "Up Threshold: %ld\n",
 		atomic_read(&dev_priv->turbodebug.up_threshold));
 		seq_printf(m, "Down Threshold: %ld\n",

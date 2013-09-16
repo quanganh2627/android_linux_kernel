@@ -828,6 +828,11 @@ struct intel_gen6_power_mgmt {
 	struct work_struct work;
 	u32 pm_iir;
 
+	/* lock - irqsave spinlock that protectects the work_struct and
+	* pm_iir. */
+	spinlock_t lock;
+
+
 	/* On vlv we need to manually drop to Vmin with a delayed work. */
 	struct delayed_work vlv_work;
 
@@ -836,6 +841,8 @@ struct intel_gen6_power_mgmt {
 	u8 cur_delay;
 	u8 min_delay;
 	u8 max_delay;
+	u8 requested_delay; /* To track the actual requested delay */
+	u8 lowest_delay; /* lowest possible delay on the platform */
 	u8 rpe_delay;
 	u8 hw_max;
 
@@ -2236,6 +2243,7 @@ extern bool ironlake_set_drps(struct drm_device *dev, u8 val);
 extern void intel_init_pch_refclk(struct drm_device *dev);
 extern void gen6_set_rps(struct drm_device *dev, u8 val);
 extern void valleyview_set_rps(struct drm_device *dev, u8 val);
+extern void vlv_update_rps_cur_delay(struct drm_i915_private *dev_priv);
 extern int valleyview_rps_max_freq(struct drm_i915_private *dev_priv);
 extern int valleyview_rps_min_freq(struct drm_i915_private *dev_priv);
 extern void intel_detect_pch(struct drm_device *dev);

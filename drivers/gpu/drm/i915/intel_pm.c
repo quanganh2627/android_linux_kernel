@@ -3485,7 +3485,7 @@ void gen6_set_rps(struct drm_device *dev, u8 val)
  * or the timeout elapsed, and then update our notion
  * of the current GPU frequency.
  */
-static void vlv_update_rps_cur_delay(struct drm_i915_private *dev_priv)
+void vlv_update_rps_cur_delay(struct drm_i915_private *dev_priv)
 {
 	u32 pval;
 
@@ -3532,6 +3532,8 @@ void valleyview_set_rps(struct drm_device *dev, u8 val)
 
 	dev_priv->rps.cur_delay = val;
 
+	dev_priv->rps.requested_delay = val;
+
 	trace_intel_gpu_freq_change(vlv_gpu_freq(dev_priv->mem_freq, val));
 }
 
@@ -3571,11 +3573,7 @@ void valleyview_disable_rps(struct drm_device *dev)
 	vlv_rs_setstate(dev, false);
 
 	/* Disable Turbo */
-	valleyview_set_rps(dev, dev_priv->rps.rpe_delay);
-	I915_WRITE(GEN6_RP_CONTROL, 0);
-
-	/* Do the gen6 disable seq also */
-	gen6_disable_rps(dev);
+	vlv_turbo_disable(dev);
 
 	if (dev_priv->vlv_pctx) {
 		drm_gem_object_unreference(&dev_priv->vlv_pctx->base);
@@ -3928,42 +3926,6 @@ out:
 	dev_priv->vlv_pctx = pctx;
 }
 
-/* This routine is to enable RC6, Turbo and other power features on VLV */
-void valleyview_enable_rps(struct drm_device *dev)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 gtfifodbg, val;
-
-	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
-
-	if ((gtfifodbg = I915_READ(GTFIFODBG))) {
-		DRM_ERROR("GT fifo had a previous error %x\n", gtfifodbg);
-		I915_WRITE(GTFIFODBG, gtfifodbg);
-	}
-
-	valleyview_setup_pctx(dev);
-
-	bios_init_rps(dev_priv);
-
-	/* 1. Setup RC6 */
-	vlv_rs_initialize(dev);
-
-	I915_WRITE(GEN6_RP_UP_THRESHOLD, 59400);
-	I915_WRITE(GEN6_RP_DOWN_THRESHOLD, 245000);
-	I915_WRITE(GEN6_RP_UP_EI, 66000);
-	I915_WRITE(GEN6_RP_DOWN_EI, 350000);
-
-	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
-	I915_WRITE(GEN6_RP_DOWN_TIMEOUT, 0xf4240);
-
-	I915_WRITE(GEN6_RP_CONTROL,
-		   /*GEN6_RP_MEDIA_TURBO |*/
-		   GEN6_RP_MEDIA_HW_NORMAL_MODE |
-		   /*GEN6_RP_MEDIA_IS_GFX | */
-		   GEN6_RP_ENABLE |
-		   GEN6_RP_UP_BUSY_AVG |
-		   GEN6_RP_DOWN_IDLE_CONT);
-
 void bios_init_rps(struct drm_i915_private *dev_priv)
 {
 	/* This function implements the Power meter Weights sequencing done
@@ -4051,6 +4013,29 @@ void bios_init_rps(struct drm_i915_private *dev_priv)
 
 }
 
+/* This routine is to enable RC6, Turbo and other power features on VLV */
+bool vlv_turbo_initialize(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 val;
+
+	I915_WRITE(GEN6_RP_UP_THRESHOLD, 59400);
+	I915_WRITE(GEN6_RP_DOWN_THRESHOLD, 245000);
+	I915_WRITE(GEN6_RP_UP_EI, 66000);
+	I915_WRITE(GEN6_RP_DOWN_EI, 350000);
+
+	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
+	I915_WRITE(GEN6_RP_DOWN_TIMEOUT, 0xf4240);
+
+	I915_WRITE(GEN6_RP_CONTROL,
+		   GEN6_RP_MEDIA_HW_NORMAL_MODE |
+		   GEN6_RP_MEDIA_IS_GFX |
+		   GEN6_RP_ENABLE |
+		   GEN6_RP_UP_BUSY_AVG |
+		   GEN6_RP_DOWN_IDLE_CONT);
+
+
+
 	val = vlv_punit_read(dev_priv, PUNIT_FUSE_BUS2);
 	DRM_DEBUG_DRIVER("max GPLL freq: %d\n", val);
 
@@ -4059,12 +4044,15 @@ void bios_init_rps(struct drm_i915_private *dev_priv)
 	case 0:
 	case 1:
 		dev_priv->mem_freq = 800;
+		dev_priv->rps.lowest_delay = VLV_LOWEST_FREQ_GPLL_DDR_MODE_800;
 		break;
 	case 2:
 		dev_priv->mem_freq = 1066;
+		dev_priv->rps.lowest_delay = VLV_LOWEST_FREQ_GPLL_DDR_MODE_1066;
 		break;
 	case 3:
 		dev_priv->mem_freq = 1333;
+		dev_priv->rps.lowest_delay = VLV_LOWEST_FREQ_GPLL_DDR_MODE_1333;
 		break;
 	}
 	DRM_DEBUG_DRIVER("DDR speed: %d MHz", dev_priv->mem_freq);
@@ -4118,6 +4106,59 @@ void bios_init_rps(struct drm_i915_private *dev_priv)
 	valleyview_set_rps(dev_priv->dev, dev_priv->rps.rpe_delay);
 
 	gen6_enable_rps_interrupts(dev);
+	return 1;
+}
+
+void vlv_turbo_disable(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	unsigned long flags;
+
+	I915_WRITE(GEN6_PMINTRMSK, 0xffffffff);
+	I915_WRITE(GEN6_PMIER, 0);
+
+	/* Complete PM interrupt masking here doesn't race with the rps work
+	* item again unmasking PM interrupts because that is using a different
+	* register (PMIMR) to mask PM interrupts. The only risk is in leaving
+	* stale bits in PMIIR and PMIMR which gen6_enable_rps will clean up. */
+
+	spin_lock_irqsave(&dev_priv->rps.lock, flags);
+	dev_priv->rps.pm_iir = 0;
+	spin_unlock_irqrestore(&dev_priv->rps.lock, flags);
+
+	I915_WRITE(GEN6_PMIIR, I915_READ(GEN6_PMIIR));
+
+	/* Disable Turbo in control register */
+	I915_WRITE(GEN6_RP_CONTROL, 0);
+
+	/* Set the Freq to min */
+	valleyview_set_rps(dev, dev_priv->rps.min_delay);
+
+}
+
+void valleyview_enable_rps(struct drm_device *dev)
+{
+
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 gtfifodbg, val;
+
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
+	if ((gtfifodbg == I915_READ(GTFIFODBG))) {
+		DRM_ERROR("GT fifo had a previous error %x\n", gtfifodbg);
+		I915_WRITE(GTFIFODBG, gtfifodbg);
+	}
+
+	valleyview_setup_pctx(dev);
+
+	bios_init_rps(dev_priv);
+
+	/* 1. Setup RC6 */
+	vlv_rs_initialize(dev);
+
+	/* Setu Gfx Turbo */
+	if (i915_enable_turbo > 0)
+		vlv_turbo_initialize(dev);
 }
 
 void ironlake_teardown_rc6(struct drm_device *dev)
@@ -4873,7 +4914,6 @@ static void intel_gen6_powersave_work(struct work_struct *work)
 	mutex_lock(&dev_priv->rps.hw_lock);
 
 	if (IS_VALLEYVIEW(dev)) {
-		if (i915_enable_turbo > 0)
 			valleyview_enable_rps(dev);
 	} else {
 		gen6_enable_rps(dev);
