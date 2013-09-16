@@ -853,6 +853,8 @@
 #define   MI_ARB_DISPLAY_PRIORITY_B_A		(1 << 0)	/* display B > display A */
 
 #define CACHE_MODE_0	0x02120 /* 915+ only */
+#define GEN7_CACHE_MODE_0	0x07000 /* IVB+ */
+#define   GEN7_RC_OP_FLUSH_ENABLE (1<<0)
 #define   CM0_PIPELINED_RENDER_FLUSH_DISABLE (1<<8)
 #define   CM0_IZ_OPT_DISABLE      (1<<6)
 #define   CM0_ZR_OPT_DISABLE      (1<<5)
