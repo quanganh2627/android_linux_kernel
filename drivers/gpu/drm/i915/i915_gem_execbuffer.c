@@ -111,6 +111,11 @@ eb_lookup_objects(struct eb_objects *eb,
 		drm_gem_object_reference(&obj->base);
 		list_add_tail(&obj->exec_list, &eb->objects);
 
+		/* Mark each buffer as r/w by default
+		 * If we are changing gt_ro, we need to make sure that it
+		 * gets re-mapped on gtt to update the ptes */
+		obj->gt_old_ro = obj->gt_ro;
+		obj->gt_ro = 0;
 		obj->exec_entry = &exec[i];
 		if (eb->and < 0) {
 			eb->lut[i] = obj;
@@ -575,7 +580,8 @@ i915_gem_execbuffer_reserve(struct intel_ring_buffer *ring,
 
 			if ((entry->alignment &&
 			     obj_offset & (entry->alignment - 1)) ||
-			    (need_mappable && !obj->map_and_fenceable))
+			    (need_mappable && !obj->map_and_fenceable) ||
+			    (obj->gt_old_ro != obj->gt_ro))
 				ret = i915_vma_unbind(i915_gem_obj_to_vma(obj, vm));
 			else
 				ret = i915_gem_execbuffer_reserve_object(obj, ring, vm, need_relocs);
@@ -1038,6 +1044,9 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	batch_obj = list_entry(eb->objects.prev,
 			       struct drm_i915_gem_object,
 			       exec_list);
+
+	/* Mark exec buffers as read-only from GPU side by default */
+	batch_obj->gt_ro = 1;
 
 	/* Move the objects en-masse into the GTT, evicting if necessary. */
 	need_relocs = (args->flags & I915_EXEC_NO_RELOC) == 0;

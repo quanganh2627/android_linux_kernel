@@ -1300,6 +1300,9 @@ static int intel_init_ring_buffer(struct drm_device *dev,
 		goto err_hws;
 	}
 
+	/* mark ring buffers as read-only from GPU side by default */
+	obj->gt_ro = 1;
+
 	ring->obj = obj;
 
 	ret = i915_gem_obj_ggtt_pin(obj, PAGE_SIZE, true, false);

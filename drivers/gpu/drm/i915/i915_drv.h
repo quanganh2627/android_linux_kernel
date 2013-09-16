@@ -511,7 +511,8 @@ struct i915_address_space {
 	void (*insert_entries)(struct i915_address_space *vm,
 			       struct sg_table *st,
 			       unsigned int first_entry,
-			       enum i915_cache_level cache_level);
+			       enum i915_cache_level cache_level,
+			       int gt_ro);
 	void (*cleanup)(struct i915_address_space *vm);
 };
 
@@ -1511,6 +1512,13 @@ struct drm_i915_gem_object {
 	unsigned int has_aliasing_ppgtt_mapping:1;
 	unsigned int has_global_gtt_mapping:1;
 	unsigned int has_dma_mapping:1;
+
+	/*
+	 * Is the object to be mapped as read-only to the GPU
+	 * Only honoured if hardware has relevant pte bit
+	 */
+	unsigned long gt_ro;
+	unsigned long gt_old_ro;
 
 	struct sg_table *pages;
 	int pages_pin_count;
