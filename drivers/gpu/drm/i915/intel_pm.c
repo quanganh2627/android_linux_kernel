@@ -3941,6 +3941,7 @@ static void valleyview_enable_rps(struct drm_device *dev)
 
 	valleyview_setup_pctx(dev);
 
+	bios_init_rps(dev_priv);
 
 	/* 1. Setup RC6 */
 	vlv_rs_initialize(dev);
@@ -3961,6 +3962,92 @@ static void valleyview_enable_rps(struct drm_device *dev)
 		   GEN6_RP_UP_BUSY_AVG |
 		   GEN6_RP_DOWN_IDLE_CONT);
 
+void bios_init_rps(struct drm_i915_private *dev_priv)
+{
+	/* This function implements the Power meter Weights sequencing done
+	* usually by the BIOS. Since ehis sequencing is not being done in
+	* the IA firmware code, we are taking care of it in the driver
+	* for turbo as a hack until IAFW adds support for this. */
+
+	/* Write 0x0 to P-Unit offset 0x6 to enable Turbo */
+	u32 bios_punit_val;
+	bios_punit_val = vlv_punit_read(dev_priv, 0x6);
+	vlv_punit_write(dev_priv, 0x6, bios_punit_val & ~(1<<7));
+
+	I915_WRITE(0xA000, 0x71388);
+	I915_WRITE(0xA080, 0x4);
+	I915_WRITE(0x9424, 0x1);
+	I915_WRITE(0x907C, 0x10000);
+	I915_WRITE(0xA0B0, 0x0);
+	I915_WRITE(0xA010, 0xF4240);
+	I915_WRITE(0xA02C, 0xE8E8);
+	I915_WRITE(0xA030, 0x3BD08);
+	I915_WRITE(0xA068, 0x101D0);
+	I915_WRITE(0xA06C, 0x55730);
+	I915_WRITE(0xA070, 0xA);
+	I915_WRITE(0xA090, 0);	/* Disabling RC6 */
+	I915_WRITE(0xA024, 0x592);
+	I915_WRITE(0xA168, 0x7E);
+
+	I915_WRITE(0xA800, 0x00000000);
+	I915_WRITE(0xA804, 0x00000000);
+	I915_WRITE(0xA808, 0x0000FF0A);
+	I915_WRITE(0xA80c, 0x1D000000);
+	I915_WRITE(0xA810, 0xAC004800);
+	I915_WRITE(0xA814, 0x000F0000);
+	I915_WRITE(0xA818, 0x5A000000);
+	I915_WRITE(0xA81c, 0x2600001F);
+	I915_WRITE(0xA820, 0x00090000);
+	I915_WRITE(0xA824, 0x2000FF00);
+	I915_WRITE(0xA828, 0xFF090017);
+	I915_WRITE(0xA82c, 0x00000000);
+	I915_WRITE(0xA830, 0x00000100);
+	I915_WRITE(0xA834, 0x009C0F51);
+	I915_WRITE(0xA838, 0x000B0000);
+	I915_WRITE(0xA83c, 0x007D3307);
+	I915_WRITE(0xA840, 0xFF3C0000);
+	I915_WRITE(0xA844, 0xFFFF00FF);
+	I915_WRITE(0xA848, 0x00220000);
+	I915_WRITE(0xA84c, 0x43000000);
+	I915_WRITE(0xA850, 0x00000800);
+	I915_WRITE(0xA854, 0x00000100);
+	I915_WRITE(0xA858, 0x00000000);
+	I915_WRITE(0xA85c, 0x00000000);
+	I915_WRITE(0xA860, 0x00FF0000);
+	I915_WRITE(0xA900, 0x00000000);
+	I915_WRITE(0xA904, 0x00001C00);
+	I915_WRITE(0xA908, 0x00000000);
+	I915_WRITE(0xA90c, 0x06000000);
+	I915_WRITE(0xA910, 0x09000200);
+	I915_WRITE(0xA914, 0x00000000);
+	I915_WRITE(0xA918, 0x00590000);
+	I915_WRITE(0xA91c, 0x00000000);
+	I915_WRITE(0xA920, 0x04002501);
+	I915_WRITE(0xA924, 0x00000100);
+	I915_WRITE(0xA928, 0x03000410);
+	I915_WRITE(0xA92c, 0x00000000);
+	I915_WRITE(0xA930, 0x00020000);
+	I915_WRITE(0xA934, 0x02070106);
+	I915_WRITE(0xA938, 0x00010100);
+	I915_WRITE(0xA93c, 0x00401C00);
+	I915_WRITE(0xA940, 0x00000000);
+	I915_WRITE(0xA944, 0x00000000);
+	I915_WRITE(0xA948, 0x10000E00);
+	I915_WRITE(0xA94c, 0x02000004);
+	I915_WRITE(0xA950, 0x00000001);
+	I915_WRITE(0xA954, 0x00000004);
+	I915_WRITE(0xa960, 0x00060000);
+	I915_WRITE(0xAA3c, 0x00001C00);
+	I915_WRITE(0xAA54, 0x00000004);
+	I915_WRITE(0xAA60, 0x00060000);
+	I915_WRITE(0xAA80, 0x00B5005A);
+	I915_WRITE(0xAA84, 0x00000000);
+	I915_WRITE(0x1300A4, 0x00000000);
+	I915_WRITE(0xA248, 0x00000058);
+
+	vlv_punit_write(dev_priv, 0xd2, 0x1EF53);
+
+}
 
 	val = vlv_punit_read(dev_priv, PUNIT_FUSE_BUS2);
 	DRM_DEBUG_DRIVER("max GPLL freq: %d\n", val);
