@@ -4871,7 +4871,8 @@ static void intel_gen6_powersave_work(struct work_struct *work)
 	mutex_lock(&dev_priv->rps.hw_lock);
 
 	if (IS_VALLEYVIEW(dev)) {
-		valleyview_enable_rps(dev);
+		if (i915_enable_turbo > 0)
+			valleyview_enable_rps(dev);
 	} else {
 		gen6_enable_rps(dev);
 		gen6_update_ring_freq(dev);

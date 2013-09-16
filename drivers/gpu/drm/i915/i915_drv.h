@@ -1723,6 +1723,7 @@ extern int i915_enable_rc6 __read_mostly;
 extern int i915_enable_fbc __read_mostly;
 extern bool i915_enable_hangcheck __read_mostly;
 extern int i915_enable_ppgtt __read_mostly;
+extern int i915_enable_turbo __read_mostly;
 extern int i915_psr_support __read_mostly;
 extern int i915_enable_psr __read_mostly;
 extern unsigned int i915_preliminary_hw_support __read_mostly;

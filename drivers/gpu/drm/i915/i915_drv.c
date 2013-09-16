@@ -160,6 +160,11 @@ MODULE_PARM_DESC(psr_support,
 		"Specify PSR support parameter "
 		"1 = supported [default], 0 = not supported");
 
+int i915_enable_turbo __read_mostly = 1;
+module_param_named(i915_enable_turbo, i915_enable_turbo, int, 0600);
+MODULE_PARM_DESC(i915_enable_turbo,
+		"Enable VLV Turbo (default: true)");
+
 static struct drm_driver driver;
 extern int intel_agp_enabled;
 
