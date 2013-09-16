@@ -87,7 +87,7 @@ struct sst_info ctp_sst_info = {
 	.imr_use = false,
 	.use_elf = false,
 	.dma_addr_ia_viewpt = true,
-	.max_streams = 5,
+	.max_streams = MAX_NUM_STREAMS_CTP,
 	.dma_max_len = (SST_MAX_DMA_LEN * 4),
 	.num_probes = 1,
 };
@@ -105,7 +105,7 @@ struct sst_info mrfld_sst_info = {
 	.imr_use = false,
 	.use_elf = true,
 	.dma_addr_ia_viewpt = true,
-	.max_streams = 23,
+	.max_streams = MAX_NUM_STREAMS_MRFLD,
 	.dma_max_len = SST_MAX_DMA_LEN_MRFLD,
 	.num_probes = 16,
 };

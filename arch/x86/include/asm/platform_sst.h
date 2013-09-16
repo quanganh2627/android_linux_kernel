@@ -15,6 +15,11 @@
 #define _PLATFORM_SST_H_
 
 #include <linux/sfi.h>
+
+#define MAX_NUM_STREAMS_CTP	5
+#define MAX_NUM_STREAMS_MRFLD	23
+#define MAX_NUM_STREAMS	MAX_NUM_STREAMS_MRFLD
+
 #define SST_MAX_SSP_PORTS 4
 #define SST_MAX_DMA 2
 
