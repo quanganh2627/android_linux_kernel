@@ -816,4 +816,10 @@ config INTEL_SCU_FLIS
 	  We could read write the flis address and configure the
 	  pin pull up/down using these interfaces.
 
+config INTEL_SOC_PMC
+	tristate "Baytrial PMC driver"
+	help
+	  This driver supports the Intel Baytrial PMC power management
+	  by implementing platform suspend operations
+
 endif # X86_PLATFORM_DEVICES

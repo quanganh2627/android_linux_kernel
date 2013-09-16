@@ -135,6 +135,8 @@ struct usb_hcd {
 	unsigned		authorized_default:1;
 	unsigned		has_tt:1;	/* Integrated TT in root hub */
 	unsigned		has_wakeup_irq:1; /* Can IRQ when suspended */
+	unsigned		has_sram:1;	/* Local SRAM for caching */
+	unsigned		sram_no_payload:1; /* sram not for payload */
 
 	unsigned int		irq;		/* irq allocated */
 	void __iomem		*regs;		/* device memory/io */
@@ -174,6 +176,18 @@ struct usb_hcd {
 
 #define	HC_IS_RUNNING(state) ((state) & __ACTIVE)
 #define	HC_IS_SUSPENDED(state) ((state) & __SUSPEND)
+
+#ifdef CONFIG_USB_OTG
+	/* some otg HCDs need this to get USB_DEVICE_ADD and USB_DEVICE_REMOVE
+	 * from root hub, we do not want to use USB notification chain, since
+	 * it would be a over kill to use high level notification.
+	 */
+	void (*otg_notify) (struct usb_device *udev, unsigned action);
+#endif
+
+#ifdef CONFIG_USB_HCD_HSIC
+	void (*hsic_notify)(struct usb_device *udev, unsigned action);
+#endif
 
 	/* more shared queuing code would be good; it should support
 	 * smarter scheduling, handle transaction translators, etc;

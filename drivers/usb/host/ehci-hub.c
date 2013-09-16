@@ -303,12 +303,18 @@ static int ehci_bus_suspend (struct usb_hcd *hcd)
 			u32 __iomem	*hostpc_reg = &ehci->regs->hostpc[port];
 			u32		t3;
 
-			t3 = ehci_readl(ehci, hostpc_reg);
-			ehci_writel(ehci, t3 | HOSTPC_PHCD, hostpc_reg);
-			t3 = ehci_readl(ehci, hostpc_reg);
-			ehci_dbg(ehci, "Port %d phy low-power mode %s\n",
-					port, (t3 & HOSTPC_PHCD) ?
-					"succeeded" : "failed");
+			struct pci_dev  *pdev =
+				to_pci_dev(hcd->self.controller);
+
+			/* Temp bypass the phy low power mode for HSIC */
+			if (pdev->device != 0x119D) {
+				t3 = ehci_readl(ehci, hostpc_reg);
+				ehci_writel(ehci, t3 | HOSTPC_PHCD, hostpc_reg);
+				t3 = ehci_readl(ehci, hostpc_reg);
+				ehci_dbg(ehci, "Port %d phy low-power mode %s\n",
+						port, (t3 & HOSTPC_PHCD) ?
+						"succeeded" : "failed");
+			}
 		}
 	}
 	spin_unlock_irq(&ehci->lock);
@@ -1022,7 +1028,7 @@ static int ehci_hub_control (
 			ehci_writel(ehci, temp | PORT_SUSPEND, status_reg);
 			if (ehci->has_hostpc) {
 				spin_unlock_irqrestore(&ehci->lock, flags);
-				msleep(5);/* 5ms for HCD enter low pwr mode */
+				mdelay(5);/* 5ms for HCD enter low pwr mode */
 				spin_lock_irqsave(&ehci->lock, flags);
 				temp1 = ehci_readl(ehci, hostpc_reg);
 				ehci_writel(ehci, temp1 | HOSTPC_PHCD,

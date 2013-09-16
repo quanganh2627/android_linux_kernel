@@ -236,10 +236,12 @@ static void tdi_reset (struct ehci_hcd *ehci)
  * Reset a non-running (STS_HALT == 1) controller.
  * Must be called with interrupts enabled and the lock not held.
  */
-static int ehci_reset (struct ehci_hcd *ehci)
+int ehci_reset(struct ehci_hcd *ehci)
 {
 	int	retval;
 	u32	command = ehci_readl(ehci, &ehci->regs->command);
+	int	port;
+	u32	temp;
 
 	/* If the EHCI debug controller is active, special care must be
 	 * taken before and after a host controller reset */
@@ -258,6 +260,15 @@ static int ehci_reset (struct ehci_hcd *ehci)
 		ehci_writel(ehci, USBMODE_EX_HC | USBMODE_EX_VBPS,
 				&ehci->regs->usbmode_ex);
 		ehci_writel(ehci, TXFIFO_DEFAULT, &ehci->regs->txfill_tuning);
+
+		/* FIXME: clear ASUS auto PHY low power mode, as we set it
+		 * manually */
+		port = HCS_N_PORTS(ehci->hcs_params);
+		while (port--) {
+			u32 __iomem	*hostpc_reg = &ehci->regs->hostpc[port];
+			temp = ehci_readl(ehci, hostpc_reg);
+			ehci_writel(ehci, temp & ~HOSTPC_ASUS, hostpc_reg);
+		}
 	}
 	if (retval)
 		return retval;
@@ -272,6 +283,7 @@ static int ehci_reset (struct ehci_hcd *ehci)
 			ehci->resuming_ports = 0;
 	return retval;
 }
+EXPORT_SYMBOL_GPL(ehci_reset);
 
 /*
  * Idle the controller (turn off the schedules).
@@ -408,7 +420,7 @@ static void ehci_work (struct ehci_hcd *ehci)
 /*
  * Called when the ehci_hcd module is removed.
  */
-static void ehci_stop (struct usb_hcd *hcd)
+void ehci_stop(struct usb_hcd *hcd)
 {
 	struct ehci_hcd		*ehci = hcd_to_ehci (hcd);
 
@@ -448,6 +460,7 @@ static void ehci_stop (struct usb_hcd *hcd)
 	dbg_status (ehci, "ehci_stop completed",
 		    ehci_readl(ehci, &ehci->regs->status));
 }
+EXPORT_SYMBOL_GPL(ehci_stop);
 
 /* one-time init, only for memory state */
 static int ehci_init(struct usb_hcd *hcd)

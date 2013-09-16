@@ -706,7 +706,10 @@ static void lnw_irq_handler(unsigned irq, struct irq_desc *desc)
 	/* check GPIO controller to check which pin triggered the interrupt */
 	for (base = 0; base < lnw->chip.ngpio; base += 32) {
 		gp_reg = gpio_reg(&lnw->chip, base, reg_type);
-		while ((pending = readl(gp_reg))) {
+		while ((pending = (lnw->type != TANGIER_GPIO) ?
+			readl(gp_reg) :
+			(readl(gp_reg) &
+			readl(gpio_reg(&lnw->chip, base, GIMR))))) {
 			gpio = __ffs(pending);
 			mask = BIT(gpio);
 			/* Clear before handling so we can't lose an edge */

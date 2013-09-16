@@ -409,7 +409,9 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 
 	dwc->needs_fifo_resize = of_property_read_bool(node, "tx-fifo-resize");
 
+	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(dev);
+	pm_runtime_set_suspended(&pdev->dev);
 	pm_runtime_get_sync(dev);
 	pm_runtime_forbid(dev);
 
@@ -455,6 +457,7 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_allow(dev);
+	pm_runtime_put(dev);
 
 	return 0;
 

@@ -633,11 +633,7 @@ static enum power_supply_charger_cable_type
 	 * Check ID pin state.
 	 */
 	val = dwc3_intel_get_id(otg);
-	if (val)
-		otg_err(otg, "Fail to enable ACA&ID detection logic\n");
-
-	val &= USBIDSTS_ID_FLOAT_STS;
-	if (!val) {
+	if (val != RID_FLOAT) {
 		type = aca_check(otg);
 		goto cleanup;
 	}
