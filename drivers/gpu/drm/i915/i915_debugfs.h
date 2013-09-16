@@ -34,14 +34,23 @@
 #define READ_TOKEN	        "READ"
 #define WRITE_TOKEN	        "WRITE"
 
+#define IOSF_FUSE_TOKEN	"FUSE"
+#define IOSF_PUNIT_TOKEN	"PUNIT"
+
 /* DebugFS Variable declaration */
 struct debugfs_mmio_vars {
 	char mmio_vars[MAX_BUFFER_STR_LEN];
 	u32 mmio_input;
 };
 
+struct debugfs_iosf_vars {
+	char iosf_vars[MAX_BUFFER_STR_LEN];
+	u32 iosf_input;
+};
+
 union {
 	struct debugfs_mmio_vars mmio;
+	struct debugfs_iosf_vars iosf;
 } i915_debugfs_vars;
 
 enum {

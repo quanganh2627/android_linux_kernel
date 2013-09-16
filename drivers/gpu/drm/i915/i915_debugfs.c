@@ -2177,6 +2177,105 @@ static const struct file_operations i915_mmio_fops = {
 	.llseek = default_llseek,
 };
 
+/* Debugfs iosf apis implementation */
+
+static ssize_t
+i915_iosf_read_api(struct file *filp,
+		   char __user *ubuf,
+		   size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char buf[200], operation[10], port[10], offset[20], format[20];
+	int len = 0, ret, noOfTokens;
+	u32 iosf_reg, iosf_val;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (i915_debugfs_vars.iosf.iosf_input == 0)
+		return len;
+
+	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+			sizeof(operation), sizeof(port), sizeof(offset));
+
+	noOfTokens = sscanf(i915_debugfs_vars.iosf.iosf_vars,
+				format, operation, port, offset);
+
+	if (noOfTokens < 3)
+		return len;
+
+	len = sizeof(i915_debugfs_vars.iosf.iosf_vars);
+
+	ret = kstrtoul(offset, 16, &iosf_reg);
+	if (ret)
+		return -EINVAL;
+
+	if (strcmp(operation, READ_TOKEN) == 0) {
+		if (strcmp(port, IOSF_PUNIT_TOKEN) == 0) {
+			iosf_val = vlv_punit_read(dev_priv, iosf_reg);
+			len = snprintf(buf, sizeof(buf),
+				"0x%x: 0x%x\n", (unsigned int) iosf_reg,
+						(unsigned int) iosf_val);
+		} else if (strcmp(port, IOSF_FUSE_TOKEN) == 0) {
+			iosf_val = vlv_nc_read(dev_priv, iosf_reg);
+			len = snprintf(buf, sizeof(buf),
+				"0x%x: 0x%x\n", (unsigned int) iosf_reg,
+						(unsigned int) iosf_val);
+		}
+	} else {
+		len = snprintf(buf, sizeof(buf),
+				"IOSF WRITE not supported\n");
+	}
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	i915_debugfs_vars.iosf.iosf_input = 0;
+
+	simple_read_from_buffer(ubuf, max, ppos, buf, len);
+
+	return len;
+}
+
+static ssize_t
+i915_iosf_write_api(struct file *filp,
+		  const char __user *ubuf,
+		  size_t cnt,
+		  loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	/* reset the string */
+	memset(i915_debugfs_vars.iosf.iosf_vars, 0, MAX_BUFFER_STR_LEN);
+
+	if (cnt > 0) {
+		if (cnt > sizeof(i915_debugfs_vars.iosf.iosf_vars) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(i915_debugfs_vars.iosf.iosf_vars, ubuf, cnt))
+			return -EFAULT;
+		i915_debugfs_vars.iosf.iosf_vars[cnt] = 0;
+
+		/* Enable read */
+		i915_debugfs_vars.iosf.iosf_input = 1;
+	}
+
+	return cnt;
+}
+
+static const struct file_operations i915_iosf_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_iosf_read_api,
+	.write = i915_iosf_write_api,
+	.llseek = default_llseek,
+};
+
 static int
 i915_cache_sharing_get(void *data, u64 *val)
 {
@@ -2374,6 +2473,7 @@ static struct i915_debugfs_files {
 	{"i915_error_state", &i915_error_state_fops},
 	{"i915_next_seqno", &i915_next_seqno_fops},
 	{"i915_mmio_api", &i915_mmio_fops},
+	{"i915_iosf_api", &i915_iosf_fops},
 };
 
 int i915_debugfs_init(struct drm_minor *minor)
