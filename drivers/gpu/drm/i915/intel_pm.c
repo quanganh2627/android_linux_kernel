@@ -3557,23 +3557,25 @@ static void gen6_disable_rps(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if (IS_VALLEYVIEW(dev)) {
-		valleyview_set_rps(dev, dev_priv->rps.min_delay);
-		I915_WRITE(GEN6_RC_CONTROL, 0);
-	}
-
 	I915_WRITE(GEN6_RC_CONTROL, 0);
 	I915_WRITE(GEN6_RPNSWREQ, 1 << 31);
 
 	gen6_disable_rps_interrupts(dev);
 }
 
-static void valleyview_disable_rps(struct drm_device *dev)
+void valleyview_disable_rps(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	/* 1. Clear RC6 */
 	vlv_rs_setstate(dev, false);
+
+	/* Disable Turbo */
+	valleyview_set_rps(dev, dev_priv->rps.rpe_delay);
+	I915_WRITE(GEN6_RP_CONTROL, 0);
+
+	/* Do the gen6 disable seq also */
+	gen6_disable_rps(dev);
 
 	if (dev_priv->vlv_pctx) {
 		drm_gem_object_unreference(&dev_priv->vlv_pctx->base);
@@ -3927,7 +3929,7 @@ out:
 }
 
 /* This routine is to enable RC6, Turbo and other power features on VLV */
-static void valleyview_enable_rps(struct drm_device *dev)
+void valleyview_enable_rps(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 gtfifodbg, val;
