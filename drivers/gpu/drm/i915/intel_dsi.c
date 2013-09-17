@@ -35,8 +35,13 @@
 
 /* the sub-encoders aka panel drivers */
 static const struct intel_dsi_device intel_dsi_devices[] = {
+	{
+		.panel_id = MIPI_DSI_AUO_B080XAT_PANEL_ID,
+		.type = INTEL_DSI_VIDEO_MODE,
+		.name = "auo-b080xat-dsi-vid-mode-display",
+		.dev_ops = &auo_b080xat_dsi_display_ops,
+	},
 };
-
 
 static void vlv_cck_modify(struct drm_i915_private *dev_priv, u32 reg, u32 val,
 			   u32 mask)
