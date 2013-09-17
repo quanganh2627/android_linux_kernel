@@ -386,6 +386,9 @@ struct atomisp_gamma_table {
  */
 #define ATOMISP_MORPH_TABLE_NUM_PLANES  6
 struct atomisp_morph_table {
+#ifdef CONFIG_VIDEO_ATOMISP_CSS20
+	unsigned int enabled;
+#endif
 	unsigned int height;
 	unsigned int width;	/* number of valid elements per line */
 	unsigned short __user *coordinates_x[ATOMISP_MORPH_TABLE_NUM_PLANES];
