@@ -3879,8 +3879,10 @@ static void vlv_rps_timer_work(struct work_struct *work)
 	 * min freq available.
 	 */
 	mutex_lock(&dev_priv->rps.hw_lock);
-	if (dev_priv->rps.cur_delay > dev_priv->rps.rpe_delay)
+	if (dev_priv->rps.cur_delay > dev_priv->rps.rpe_delay) {
+		DRM_DEBUG_DRIVER("\nMoving to Rpe on RC6");
 		valleyview_set_rps(dev_priv->dev, dev_priv->rps.rpe_delay);
+	}
 	mutex_unlock(&dev_priv->rps.hw_lock);
 }
 
@@ -4093,10 +4095,15 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 			 dev_priv->rps.rpe_delay);
 
 	dev_priv->rps.min_delay = valleyview_rps_min_freq(dev_priv);
+	dev_priv->rps.hw_min = dev_priv->rps.min_delay;
 	DRM_DEBUG_DRIVER("min GPU freq: %d MHz (%u)\n",
 			 vlv_gpu_freq(dev_priv->mem_freq,
 				      dev_priv->rps.min_delay),
 			 dev_priv->rps.min_delay);
+
+	/* For valleyview, min delay is Rpe */
+	if (IS_VALLEYVIEW(dev))
+		dev_priv->rps.min_delay = dev_priv->rps.rpe_delay;
 
 	DRM_DEBUG_DRIVER("setting GPU freq to %d MHz (%u)\n",
 			 vlv_gpu_freq(dev_priv->mem_freq,

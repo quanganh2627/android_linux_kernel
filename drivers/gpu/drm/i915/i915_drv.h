@@ -845,6 +845,7 @@ struct intel_gen6_power_mgmt {
 	u8 lowest_delay; /* lowest possible delay on the platform */
 	u8 rpe_delay;
 	u8 hw_max;
+	u8 hw_min;
 
 	u8 rp_up_masked;
 	u8 rp_down_masked;

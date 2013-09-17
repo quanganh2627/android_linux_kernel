@@ -943,11 +943,12 @@ static void gen6_pm_rps_work(struct work_struct *work)
 	pm_iir = dev_priv->rps.pm_iir;
 	dev_priv->rps.pm_iir = 0;
 	/* Make sure not to corrupt PMIMR state used by ringbuffer code */
-	snb_enable_pm_irq(dev_priv, GEN6_PM_RPS_EVENTS);
+	snb_enable_pm_irq(dev_priv,
+				(GEN6_PM_RPS_EVENTS | VLV_PM_DEFERRED_EVENTS));
 	spin_unlock_irq(&dev_priv->irq_lock);
 
 	/* Make sure we didn't queue anything we're not going to process. */
-	WARN_ON(pm_iir & ~GEN6_PM_RPS_EVENTS);
+	WARN_ON(pm_iir & ~(GEN6_PM_RPS_EVENTS | VLV_PM_DEFERRED_EVENTS));
 
 	if ((pm_iir & (GEN6_PM_RPS_EVENTS | VLV_PM_DEFERRED_EVENTS)) == 0)
 		return;
@@ -1214,11 +1215,23 @@ static void dp_aux_irq_handler(struct drm_device *dev)
  * the work queue. */
 static void gen6_rps_irq_handler(struct drm_i915_private *dev_priv, u32 pm_iir)
 {
+
 	if (pm_iir & GEN6_PM_RPS_EVENTS) {
 		spin_lock(&dev_priv->irq_lock);
 		dev_priv->rps.pm_iir |= pm_iir & GEN6_PM_RPS_EVENTS;
 		snb_disable_pm_irq(dev_priv, pm_iir & GEN6_PM_RPS_EVENTS);
 		spin_unlock(&dev_priv->irq_lock);
+		DRM_DEBUG_DRIVER("\nQueueing RPS Work - Vanilla Turbo");
+
+		queue_work(dev_priv->wq, &dev_priv->rps.work);
+	}
+
+	if (pm_iir & VLV_PM_DEFERRED_EVENTS) {
+		spin_lock(&dev_priv->irq_lock);
+		dev_priv->rps.pm_iir |= pm_iir & VLV_PM_DEFERRED_EVENTS;
+		snb_disable_pm_irq(dev_priv, pm_iir & VLV_PM_DEFERRED_EVENTS);
+		spin_unlock(&dev_priv->irq_lock);
+		DRM_DEBUG_DRIVER("\nQueueing RPS Work - RC6 WA Turbo");
 
 		queue_work(dev_priv->wq, &dev_priv->rps.work);
 	}

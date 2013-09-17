@@ -924,18 +924,23 @@ static int i915_cur_delayinfo(struct seq_file *m, void *unused)
 		seq_printf(m, "PUNIT_REG_GPU_FREQ_STS: 0x%08x\n", freq_sts);
 		seq_printf(m, "DDR freq: %d MHz\n", dev_priv->mem_freq);
 
-		val = vlv_punit_read(dev_priv, PUNIT_FUSE_BUS1);
-		seq_printf(m, "max GPU freq: %d MHz\n",
-			   vlv_gpu_freq(dev_priv->mem_freq, val));
+		seq_printf(m, "Max GPU freq: %d MHz (%d)\n",
+			vlv_gpu_freq(dev_priv->mem_freq,
+				dev_priv->rps.max_delay),
+				dev_priv->rps.max_delay);
 
-		val = vlv_punit_read(dev_priv, PUNIT_REG_GPU_LFM);
-		seq_printf(m, "min GPU freq: %d MHz\n",
-			   vlv_gpu_freq(dev_priv->mem_freq, val));
+		seq_printf(m, "Min GPU freq: %d MHz (%d)\n",
+			vlv_gpu_freq(dev_priv->mem_freq,
+					dev_priv->rps.hw_min),
+					dev_priv->rps.hw_min);
 
-		seq_printf(m, "current GPU freq: %d MHz\n",
-			   vlv_gpu_freq(dev_priv->mem_freq,
-					(freq_sts >> 8) & 0xff));
-		seq_printf(m, "Last Requested Gpu Freq _requested_delay_: %d\n",
+		seq_printf(m, "Current GPU freq: %d MHz (%d)\n",
+			vlv_gpu_freq(dev_priv->mem_freq,
+					dev_priv->rps.cur_delay),
+					dev_priv->rps.cur_delay);
+		seq_printf(m, "Last Requested Gpu freq: %d MHz (%d)\n",
+			vlv_gpu_freq(dev_priv->mem_freq,
+					dev_priv->rps.requested_delay),
 					dev_priv->rps.requested_delay);
 		seq_printf(m, "Up Threshold: %ld\n",
 		atomic_read(&dev_priv->turbodebug.up_threshold));
