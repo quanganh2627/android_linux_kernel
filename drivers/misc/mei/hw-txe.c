@@ -540,9 +540,14 @@ static int mei_txe_write(struct mei_device *dev,
 {
 	struct mei_txe_hw *hw = to_txe_hw(dev);
 	unsigned long rem;
-	unsigned long length = header->length;
+	unsigned long length;
 	u32 *reg_buf = (u32 *)buf;
 	int i;
+
+	if (WARN_ON(!header || !buf))
+		return -EINVAL;
+
+	length = header->length;
 
 	dev_dbg(&dev->pdev->dev, MEI_HDR_FMT, MEI_HDR_PRM(header));
 
@@ -617,6 +622,9 @@ static int mei_txe_read(struct mei_device *dev,
 	u32 i;
 	u32 *reg_buf = (u32 *)buf;
 	u32 rem = len & 0x3;
+
+	if (WARN_ON(!buf || !len))
+		return -EINVAL;
 
 	dev_dbg(&dev->pdev->dev,
 		"buffer-length = %lu buf[0]0x%08X\n",
