@@ -38,6 +38,7 @@
 #include "intel_dsi.h"
 #include "intel_dsi_cmd.h"
 #include "dsi_mod_panasonic_vvx09f006a00.h"
+#include "linux/mfd/intel_mid_pmic.h"
 
 static void  vvx09f006a00_get_panel_info(int pipe,
 					struct drm_connector *connector)
@@ -131,6 +132,18 @@ static int vvx09f006a00_mode_valid(struct intel_dsi_device *dsi,
 	return MODE_OK;
 }
 
+void vvx09f006a00_panel_reset(struct intel_dsi_device *dsi)
+{
+	intel_mid_pmic_writeb(0x52, 0x01);
+	msleep(120);
+}
+
+void  vvx09f006a00_disable_panel_power(struct intel_dsi_device *dsi)
+{
+	intel_mid_pmic_writeb(0x52, 0x00);
+	msleep(20);
+}
+
 static void vvx09f006a00_dpms(struct intel_dsi_device *dsi, bool enable)
 {
 	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
@@ -194,6 +207,8 @@ struct intel_dsi_dev_ops panasonic_vvx09f006a00_dsi_display_ops = {
 	.dpms = vvx09f006a00_dpms,
 	.mode_valid = vvx09f006a00_mode_valid,
 	.mode_fixup = vvx09f006a00_mode_fixup,
+	.panel_reset = vvx09f006a00_panel_reset,
+	.disable_panel_power = vvx09f006a00_disable_panel_power,
 	.detect = vvx09f006a00_detect,
 	.get_hw_state = vvx09f006a00_get_hw_state,
 	.get_modes = vvx09f006a00_get_modes,
