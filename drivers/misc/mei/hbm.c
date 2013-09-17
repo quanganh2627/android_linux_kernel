@@ -227,9 +227,6 @@ static int mei_hbm_prop_req(struct mei_device *dev)
 	unsigned long next_client_index;
 	unsigned long client_num;
 
-
-	client_num = dev->me_client_presentation_num;
-
 	next_client_index = find_next_bit(dev->me_clients_map, MEI_CLIENTS_MAX,
 					  dev->me_client_index);
 
@@ -239,6 +236,10 @@ static int mei_hbm_prop_req(struct mei_device *dev)
 
 		return 0;
 	}
+
+	client_num = dev->me_client_presentation_num;
+	if (WARN_ON(dev->me_clients_num <= client_num))
+		return -EIO;
 
 	dev->me_clients[client_num].client_id = next_client_index;
 	dev->me_clients[client_num].mei_flow_ctrl_creds = 0;
