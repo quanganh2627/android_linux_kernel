@@ -37,6 +37,7 @@ obj-$(subst m,y,$(CONFIG_GPIO_PCA953X)) += platform_tca6416.o
 obj-$(subst m,y,$(CONFIG_CHARGER_BQ24192)) += platform_bq24192.o
 obj-$(subst m,y,$(CONFIG_BQ24261_CHARGER)) += platform_bq24261.o
 obj-$(subst m,y,$(CONFIG_SND_SOC_CS42L73)) += platform_cs42l73.o
+obj-$(subst m,y,$(CONFIG_SND_SOC_WM8994)) += platform_wm8994.o
 obj-$(subst m,y,$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4_FORK)) += platform_rmi4.o
 obj-$(subst m,y,$(CONFIG_TOUCHSCREEN_R69001_I2C)) += platform_r69001.o
 obj-$(subst m,y,$(CONFIG_PN544_NFC_FORK)) += platform_pn544.o
