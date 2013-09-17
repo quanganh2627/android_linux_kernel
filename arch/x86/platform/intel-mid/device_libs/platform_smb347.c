@@ -158,8 +158,7 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pdata = {
 };
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
 #define SMB347_CHRG_CUR_NOLIMIT		1800
-#define SMB347_CHRG_CUR_HIGH		1400
-#define	SMB347_CHRG_CUR_MEDIUM		1200
+#define SMB347_CHRG_CUR_MEDIUM		1400
 #define SMB347_CHRG_CUR_LOW		1000
 
 static struct ps_batt_chg_prof ps_batt_chrg_prof;
@@ -171,10 +170,6 @@ static struct power_supply_throttle smb347_throttle_states[] = {
 	},
 	{
 		.throttle_action = PSY_THROTTLE_CC_LIMIT,
-		.throttle_val = SMB347_CHRG_CUR_HIGH,
-	},
-	{
-		.throttle_action = PSY_THROTTLE_CC_LIMIT,
 		.throttle_val = SMB347_CHRG_CUR_MEDIUM,
 	},
 	{
@@ -183,9 +178,6 @@ static struct power_supply_throttle smb347_throttle_states[] = {
 	},
 	{
 		.throttle_action = PSY_THROTTLE_DISABLE_CHARGING,
-	},
-	{
-		.throttle_action = PSY_THROTTLE_DISABLE_CHARGER,
 	},
 };
 
@@ -214,7 +206,7 @@ static void *platform_get_batt_charge_profile()
 
 	temp_mon_range[0].temp_up_lim = 55;
 	temp_mon_range[0].full_chrg_vol = 4100;
-	temp_mon_range[0].full_chrg_cur = 1500;
+	temp_mon_range[0].full_chrg_cur = 1400;
 	temp_mon_range[0].maint_chrg_vol_ll = 4050;
 	temp_mon_range[0].maint_chrg_vol_ul = 4100;
 	temp_mon_range[0].maint_chrg_cur = 1000;
@@ -228,14 +220,14 @@ static void *platform_get_batt_charge_profile()
 
 	temp_mon_range[2].temp_up_lim = 23;
 	temp_mon_range[2].full_chrg_vol = 4350;
-	temp_mon_range[2].full_chrg_cur = 1500;
+	temp_mon_range[2].full_chrg_cur = 1400;
 	temp_mon_range[2].maint_chrg_vol_ll = 4230;
 	temp_mon_range[2].maint_chrg_vol_ul = 4350;
 	temp_mon_range[2].maint_chrg_cur = 1000;
 
 	temp_mon_range[3].temp_up_lim = 10;
 	temp_mon_range[3].full_chrg_vol = 4340;
-	temp_mon_range[3].full_chrg_cur = 1500;
+	temp_mon_range[3].full_chrg_cur = 1400;
 	temp_mon_range[3].maint_chrg_vol_ll = 4230;
 	temp_mon_range[3].maint_chrg_vol_ul = 4350;
 	temp_mon_range[3].maint_chrg_cur = 1000;

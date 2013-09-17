@@ -1343,6 +1343,52 @@ err_iterm:
 	return ret;
 }
 
+#ifndef CONFIG_POWER_SUPPLY_CHARGER
+static int smb347_throttle_charging(struct smb347_charger *smb, int lim)
+{
+	struct power_supply_throttle *throttle_states =
+					smb->pdata->throttle_states;
+	int ret;
+
+	if (lim < 0 || lim > (smb->pdata->num_throttle_states - 1))
+		return -ERANGE;
+
+	if (throttle_states[lim].throttle_action ==
+				PSY_THROTTLE_CC_LIMIT) {
+		ret = smb347_enable_charger();
+		if (ret < 0)
+			goto throttle_fail;
+		ret = smb347_set_cc(smb, throttle_states[lim].throttle_val);
+		if (ret < 0)
+			goto throttle_fail;
+		ret = smb347_charging_set(smb, true);
+	} else if (throttle_states[lim].throttle_action ==
+				PSY_THROTTLE_INPUT_LIMIT) {
+		ret = smb347_enable_charger();
+		if (ret < 0)
+			goto throttle_fail;
+		ret = smb347_set_inlmt(smb, throttle_states[lim].throttle_val);
+		if (ret < 0)
+			goto throttle_fail;
+		ret = smb347_charging_set(smb, true);
+	} else if (throttle_states[lim].throttle_action ==
+				PSY_THROTTLE_DISABLE_CHARGING) {
+		ret = smb347_enable_charger();
+		if (ret < 0)
+			goto throttle_fail;
+		ret = smb347_charging_set(smb, false);
+	} else if (throttle_states[lim].throttle_action ==
+				PSY_THROTTLE_DISABLE_CHARGER) {
+		ret = smb347_disable_charger();
+	} else {
+		return -EINVAL;
+	}
+
+throttle_fail:
+	return ret;
+}
+#endif
+
 static int smb347_usb_set_property(struct power_supply *psy,
 					enum power_supply_property psp,
 					const union power_supply_propval *val)
@@ -1357,6 +1403,12 @@ static int smb347_usb_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		smb->online = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_MAX_CHARGE_CURRENT:
+		smb->max_cc = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_MAX_CHARGE_VOLTAGE:
+		smb->max_cv = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_ENABLE_CHARGING:
 		ret = smb347_charging_set(smb, (bool)val->intval);
@@ -1426,11 +1478,26 @@ static int smb347_usb_set_property(struct power_supply *psy,
 		mutex_unlock(&smb->lock);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
-		smb->cntl_state = val->intval;
+#ifdef CONFIG_POWER_SUPPLY_CHARGER
+		if (val->intval < smb->pdata->num_throttle_states)
+			smb->cntl_state = val->intval;
+		else
+			ret = -ERANGE;
+#else
+		if (val->intval < smb->pdata->num_throttle_states) {
+			ret = smb347_throttle_charging(smb, val->intval);
+			if (ret < 0)
+				break;
+			smb->cntl_state = val->intval;
+		} else {
+			ret = -ERANGE;
+		}
+#endif
 		break;
 	default:
-		ret = -ENODATA;
+		ret = -EINVAL;
 	}
+
 	return ret;
 }
 
@@ -1767,7 +1834,7 @@ static int smb347_probe(struct i2c_client *client,
 	smb347_dev = smb;
 
 	if (smb->pdata->use_mains) {
-		smb->mains.name = "smb347-mains";
+		smb->mains.name = "smb34x-ac_charger";
 		smb->mains.type = POWER_SUPPLY_TYPE_MAINS;
 		smb->mains.get_property = smb347_mains_get_property;
 		smb->mains.properties = smb347_mains_properties;
@@ -1780,7 +1847,7 @@ static int smb347_probe(struct i2c_client *client,
 	}
 
 	if (smb->pdata->use_usb) {
-		smb->usb.name = "smb347-usb";
+		smb->usb.name = "smb34x-usb_charger";
 		smb->usb.type = POWER_SUPPLY_TYPE_USB;
 		smb->usb.get_property = smb347_usb_get_property;
 		smb->usb.properties = smb347_usb_properties;
@@ -1802,7 +1869,7 @@ static int smb347_probe(struct i2c_client *client,
 	}
 
 	if (smb->pdata->show_battery) {
-		smb->battery.name = "smb347-battery";
+		smb->battery.name = "smb34x_battery";
 		smb->battery.type = POWER_SUPPLY_TYPE_BATTERY;
 		smb->battery.get_property = smb347_battery_get_property;
 		smb->battery.properties = smb347_battery_properties;
