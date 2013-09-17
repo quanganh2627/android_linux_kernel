@@ -204,19 +204,24 @@ static int mei_mm_free(struct mei_mm_device *mdev, unsigned long arg)
 
 	if (copy_from_user(&req, (char __user *)arg, sizeof(req))) {
 		meimm_err(mdev, "failed to copy data from userland\n");
-		ret = -EFAULT;
-		goto err;
+		return -EFAULT;
 	}
 
 	mutex_lock(&mdev->lock);
-	/* FIXME: validate free */
+
+	if (mdev->pool.offset < req.size) {
+		meimm_err(mdev, "cannot free 0x%lld bytes - offset=0x%zd\n",
+			  req.size, mdev->pool.offset);
+		ret = -EINVAL;
+		goto out;
+	}
+
 	mdev->pool.offset -= req.size;
 	mdev->client.size = 0;
 	mdev->client.paddr = 0LL;
+	ret = 0;
+out:
 	mutex_unlock(&mdev->lock);
-
-	return 0;
-err:
 	return ret;
 
 }
