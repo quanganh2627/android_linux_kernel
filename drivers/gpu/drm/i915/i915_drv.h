@@ -1314,6 +1314,7 @@ typedef struct drm_i915_private {
 
 	/* Adding this to fallback to normal Turbo logic */
 	bool use_RC0_residency_for_turbo;
+	bool is_turbo_enabled;
 
 	struct {
 		atomic_t up_threshold;

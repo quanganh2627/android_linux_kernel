@@ -3892,6 +3892,10 @@ static void vlv_rps_timer_work(struct work_struct *work)
 	 * min freq available.
 	 */
 	mutex_lock(&dev_priv->rps.hw_lock);
+
+	if (!dev_priv->is_turbo_enabled)
+		goto exit;
+
 	if (I915_READ(VLV_GTLC_SURVIVABILITY_REG) & VLV_GFX_CLK_STATUS_BIT) {
 		/* GT is not power gated. Cancel any pending ones
 		* and reschedule again
@@ -3934,6 +3938,8 @@ static void vlv_rps_timer_work(struct work_struct *work)
 		else
 			I915_WRITE(GEN6_PMINTRMSK, ~GEN6_PM_RPS_EVENTS);
 	}
+
+exit:
 	mutex_unlock(&dev_priv->rps.hw_lock);
 }
 
@@ -4181,6 +4187,8 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 	I915_WRITE(GEN6_PMIMR, 0);
 	spin_unlock_irqrestore(&dev_priv->rps.lock, flags);
 
+	dev_priv->is_turbo_enabled = true;
+
 	/* Use RC0 residency method for rps control as WA */
 	if (dev_priv->use_RC0_residency_for_turbo) {
 		I915_WRITE(GEN6_PMIER, VLV_PM_DEFERRED_EVENTS);
@@ -4197,6 +4205,8 @@ void vlv_turbo_disable(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	unsigned long flags;
+
+	dev_priv->is_turbo_enabled = false;
 
 	I915_WRITE(GEN6_PMINTRMSK, 0xffffffff);
 	I915_WRITE(GEN6_PMIER, 0);
