@@ -1485,8 +1485,23 @@ struct drm_i915_gem_object {
 	 *
 	 * In the worst case this is 1 + 1 + 1 + 2*2 = 7. That would fit into 3
 	 * bits with absolutely no headroom. So use 4 bits. */
-	unsigned int pin_count:4;
-#define DRM_I915_GEM_OBJECT_MAX_PIN_COUNT 0xf
+	/**
+	 * But somehow on VLV, especially for Widi case, the max count of 15
+	 * with 4 bits proved insufficient, so time being using 5 bits to
+	 * provide aditional headroom.
+	 * Todo, understand that why 4 bits are proving insufficient.
+	 * One reason could be due to late scheduling of unpin work items.
+	 * The un-pin(decrement of pin count variable) of the frame buffer
+	 * GEM object is performed from a work item queued in the workqueue.
+	 * And Widi is a stressful scenario where lot of activities take
+	 * place, like there is a simultaneous decode/composition/encode
+	 * & also streaming is done, so the un-pin work items scheduling
+	 * could get delayed.
+	 * Other reason could be a genuine requirement of a higher pin count
+	 * in Widi scenario.
+	 */
+	unsigned int pin_count:5;
+#define DRM_I915_GEM_OBJECT_MAX_PIN_COUNT 0x1f
 
 	/**
 	 * Is the object at the current location in the gtt mappable and
