@@ -50,6 +50,10 @@
 #define READ_COUNTER_1_TOKEN	"COUNTER_1"
 #define READ_COUNTER_6_TOKEN	"COUNTER_6"
 
+/* RP(Turbo) Operations */
+#define RP_MAXFREQ_TOKEN	"SETMAXFREQ"
+#define RP_MINFREQ_TOKEN        "SETMINFREQ"
+
 /* DebugFS Variable declaration */
 struct debugfs_mmio_vars {
 	char mmio_vars[MAX_BUFFER_STR_LEN];
@@ -66,10 +70,16 @@ struct debugfs_rc6_vars {
 	u32 rc6_input;
 };
 
+struct debugfs_turbo_vars {
+	char turbo_vars[MAX_BUFFER_STR_LEN];
+	u32 turbo_input;
+};
+
 union {
 	struct debugfs_mmio_vars mmio;
 	struct debugfs_iosf_vars iosf;
 	struct debugfs_rc6_vars rc6;
+	struct debugfs_turbo_vars turbo;
 } i915_debugfs_vars;
 
 enum {
