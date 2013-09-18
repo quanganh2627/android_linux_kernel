@@ -3485,7 +3485,7 @@ void gen6_set_rps(struct drm_device *dev, u8 val)
  * or the timeout elapsed, and then update our notion
  * of the current GPU frequency.
  */
-void vlv_update_rps_cur_delay(struct drm_i915_private *dev_priv)
+bool vlv_update_rps_cur_delay(struct drm_i915_private *dev_priv)
 {
 	u32 pval;
 
@@ -3503,6 +3503,7 @@ void vlv_update_rps_cur_delay(struct drm_i915_private *dev_priv)
 				 vlv_gpu_freq(dev_priv->mem_freq, pval), pval);
 
 	dev_priv->rps.cur_delay = pval;
+	return true;
 }
 
 void valleyview_set_rps(struct drm_device *dev, u8 val)
@@ -3866,6 +3867,18 @@ int valleyview_rps_min_freq(struct drm_i915_private *dev_priv)
 	return vlv_punit_read(dev_priv, PUNIT_REG_GPU_LFM) & 0xff;
 }
 
+/* vlv_rps_timer_work: Set the frequency to Rpe if Gfx clocks are down
+ * @work: work_struct
+ *
+ * If Gfx clock is UP, then reset the timer as there is a possibility
+ * that normal Turbo logic can bring down the freq to Rpe.
+ * If Gfx clock is Down, then
+ * 1. Mask Turbo interrupts
+ * 2. Bring up Gfx clock
+ * 3. Change the freq to Rpe and wait till P-Unit updates freq
+ * 4. Clear the Force GFX CLK ON bit so that Gfx can down
+ * 5. Unmask Turbo interrupts
+*/
 static void vlv_rps_timer_work(struct work_struct *work)
 {
 	drm_i915_private_t *dev_priv = container_of(work, drm_i915_private_t,
@@ -3879,9 +3892,47 @@ static void vlv_rps_timer_work(struct work_struct *work)
 	 * min freq available.
 	 */
 	mutex_lock(&dev_priv->rps.hw_lock);
-	if (dev_priv->rps.cur_delay > dev_priv->rps.rpe_delay) {
-		DRM_DEBUG_DRIVER("\nMoving to Rpe on RC6");
-		valleyview_set_rps(dev_priv->dev, dev_priv->rps.rpe_delay);
+	if (I915_READ(VLV_GTLC_SURVIVABILITY_REG) & VLV_GFX_CLK_STATUS_BIT) {
+		/* GT is not power gated. Cancel any pending ones
+		* and reschedule again
+		*/
+		mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
+				msecs_to_jiffies(100));
+	} else {
+		/* Mask turbo interrupt so that they will not come in between */
+		I915_WRITE(GEN6_PMINTRMSK, 0xffffffff);
+
+		/* Bring up the Gfx clock */
+		I915_WRITE(VLV_GTLC_SURVIVABILITY_REG,
+		I915_READ(VLV_GTLC_SURVIVABILITY_REG) |
+				VLV_GFX_CLK_FORCE_ON_BIT);
+
+		if (wait_for(((VLV_GFX_CLK_STATUS_BIT &
+			I915_READ(VLV_GTLC_SURVIVABILITY_REG)) != 0), 500)) {
+				DRM_ERROR("GFX_CLK_ON request timed out\n");
+				mutex_unlock(&dev_priv->rps.hw_lock);
+				return;
+		}
+
+		if (dev_priv->rps.cur_delay > dev_priv->rps.rpe_delay) {
+			valleyview_set_rps(dev_priv->dev,
+						dev_priv->rps.rpe_delay);
+			/* Make sure Rpe is set by P-Unit*/
+			if (wait_for((vlv_update_rps_cur_delay(dev_priv) &&
+				(dev_priv->rps.cur_delay ==
+					dev_priv->rps.rpe_delay)), 100))
+				DRM_DEBUG_DRIVER("Not able to set Rpe\n");
+		}
+		/* Release the Gfx clock */
+		I915_WRITE(VLV_GTLC_SURVIVABILITY_REG,
+		I915_READ(VLV_GTLC_SURVIVABILITY_REG) &
+				~VLV_GFX_CLK_FORCE_ON_BIT);
+
+		/* Unmask Turbo interrupts */
+		if (dev_priv->use_RC0_residency_for_turbo)
+			I915_WRITE(GEN6_PMINTRMSK, ~VLV_PM_DEFERRED_EVENTS);
+		else
+			I915_WRITE(GEN6_PMINTRMSK, ~GEN6_PM_RPS_EVENTS);
 	}
 	mutex_unlock(&dev_priv->rps.hw_lock);
 }

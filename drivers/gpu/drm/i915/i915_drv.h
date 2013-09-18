@@ -2257,7 +2257,7 @@ extern bool ironlake_set_drps(struct drm_device *dev, u8 val);
 extern void intel_init_pch_refclk(struct drm_device *dev);
 extern void gen6_set_rps(struct drm_device *dev, u8 val);
 extern void valleyview_set_rps(struct drm_device *dev, u8 val);
-extern void vlv_update_rps_cur_delay(struct drm_i915_private *dev_priv);
+extern bool vlv_update_rps_cur_delay(struct drm_i915_private *dev_priv);
 extern int valleyview_rps_max_freq(struct drm_i915_private *dev_priv);
 extern int valleyview_rps_min_freq(struct drm_i915_private *dev_priv);
 extern void intel_detect_pch(struct drm_device *dev);

@@ -920,9 +920,11 @@ static u32 vlv_calc_delay_from_C0_counters(struct drm_i915_private *dev_priv)
 
 		atomic_inc(&dev_priv->turbodebug.up_threshold);
 
-	} else if (residency_C0_down &&
+	} else if (!dev_priv->rps.ei_interrupt_count &&
 			(residency_C0_down < VLV_RP_DOWN_EI_THRESHOLD)) {
-
+		/* This means, C0 residency is less than down threshold over
+		* a period of VLV_INT_COUNT_FOR_DOWN_EI. So, reduce the freq
+		*/
 		if (dev_priv->rps.cur_delay > dev_priv->rps.min_delay)
 			new_delay = dev_priv->rps.cur_delay - 1;
 
@@ -1025,8 +1027,11 @@ static void gen6_pm_rps_work(struct work_struct *work)
 		 * fire when there's activity or once after we've entered
 		 * RC6, and then won't be re-armed until the next RPS interrupt.
 		 */
-		mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
-				 msecs_to_jiffies(100));
+		if (new_delay > dev_priv->rps.rpe_delay) {
+			mod_delayed_work(dev_priv->wq,
+					&dev_priv->rps.vlv_work,
+					msecs_to_jiffies(100));
+		}
 	}
 
 	mutex_unlock(&dev_priv->rps.hw_lock);
