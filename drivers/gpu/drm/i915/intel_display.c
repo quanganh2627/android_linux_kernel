@@ -1853,7 +1853,7 @@ static void intel_disable_pipe(struct drm_i915_private *dev_priv,
 		return;
 
 	I915_WRITE(reg, val & ~PIPECONF_ENABLE);
-	intel_wait_for_pipe_off(dev_priv->dev, pipe);
+//	intel_wait_for_pipe_off(dev_priv->dev, pipe);
 }
 
 /*
@@ -9379,7 +9379,7 @@ check_crtc_state(struct drm_device *dev)
 		WARN(crtc->active != active,
 		     "crtc active state doesn't match with hw state "
 		     "(expected %i, found %i)\n", crtc->active, active);
-
+#if 0
 		if (active &&
 		    !intel_pipe_config_compare(dev, &crtc->config, &pipe_config)) {
 			WARN(1, "pipe state doesn't match!\n");
@@ -9388,6 +9388,7 @@ check_crtc_state(struct drm_device *dev)
 			intel_dump_pipe_config(crtc, &crtc->config,
 					       "[sw state]");
 		}
+#endif
 	}
 }
 
@@ -10256,7 +10257,7 @@ static void intel_setup_outputs(struct drm_device *dev)
 
 	intel_lvds_init(dev);
 
-	if (!IS_ULT(dev))
+	if (!IS_ULT(dev) && !IS_VALLEYVIEW(dev))
 		intel_crt_init(dev);
 
 	if (HAS_DDI(dev)) {
@@ -10306,6 +10307,7 @@ static void intel_setup_outputs(struct drm_device *dev)
 		if (I915_READ(PCH_DP_D) & DP_DETECTED)
 			intel_dp_init(dev, PCH_DP_D, PORT_D);
 	} else if (IS_VALLEYVIEW(dev)) {
+#if 0
 		/* Check for built-in panel first. Shares lanes with HDMI on SDVOC */
 		if (I915_READ(VLV_DISPLAY_BASE + GEN4_HDMIC) & SDVO_DETECTED) {
 			intel_hdmi_init(dev, VLV_DISPLAY_BASE + GEN4_HDMIC,
@@ -10321,7 +10323,7 @@ static void intel_setup_outputs(struct drm_device *dev)
 			if (I915_READ(VLV_DISPLAY_BASE + DP_B) & DP_DETECTED)
 				intel_dp_init(dev, VLV_DISPLAY_BASE + DP_B, PORT_B);
 		}
-
+#endif
 		intel_dsi_init(dev);
 	} else if (SUPPORTS_DIGITAL_OUTPUTS(dev)) {
 		bool found = false;

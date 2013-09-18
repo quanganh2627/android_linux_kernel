@@ -64,6 +64,7 @@ struct intel_dsi_device {
 	unsigned int lane_count;
 	const struct intel_dsi_dev_ops *dev_ops;
 	void *dev_priv;
+#if 0
 	u8 eotp_pkt;
 	u16 dsi_clock_freq;
 	u8 operation_mode;
@@ -88,6 +89,7 @@ struct intel_dsi_device {
 	u8 backlight_off_delay; /*in ms*/
 	bool send_shutdown;
 	u8 shutdown_pkt_delay; /*in ms*/
+#endif
 };
 
 struct intel_dsi_dev_ops {
