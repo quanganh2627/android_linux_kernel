@@ -4945,13 +4945,8 @@ static void intel_gen6_powersave_work(struct work_struct *work)
 	struct drm_device *dev = dev_priv->dev;
 
 	mutex_lock(&dev_priv->rps.hw_lock);
-
-	if (IS_VALLEYVIEW(dev)) {
-			valleyview_enable_rps(dev);
-	} else {
-		gen6_enable_rps(dev);
-		gen6_update_ring_freq(dev);
-	}
+	gen6_enable_rps(dev);
+	gen6_update_ring_freq(dev);
 	mutex_unlock(&dev_priv->rps.hw_lock);
 }
 
@@ -4964,6 +4959,11 @@ void intel_enable_gt_powersave(struct drm_device *dev)
 		ironlake_enable_rc6(dev);
 		intel_init_emon(dev);
 	} else if (IS_GEN6(dev) || IS_GEN7(dev)) {
+		if (IS_VALLEYVIEW(dev)) {
+			mutex_lock(&dev_priv->rps.hw_lock);
+			valleyview_enable_rps(dev);
+			mutex_unlock(&dev_priv->rps.hw_lock);
+		} else {
 		/*
 		 * PCU communication is slow and this doesn't need to be
 		 * done at any specific time, so do this out of our fast path
@@ -4971,6 +4971,7 @@ void intel_enable_gt_powersave(struct drm_device *dev)
 		 */
 		schedule_delayed_work(&dev_priv->rps.delayed_resume_work,
 				      round_jiffies_up_relative(HZ));
+		}
 	}
 }
 

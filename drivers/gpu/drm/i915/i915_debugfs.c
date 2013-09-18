@@ -924,21 +924,21 @@ static int i915_cur_delayinfo(struct seq_file *m, void *unused)
 		seq_printf(m, "PUNIT_REG_GPU_FREQ_STS: 0x%08x\n", freq_sts);
 		seq_printf(m, "DDR freq: %d MHz\n", dev_priv->mem_freq);
 
-		seq_printf(m, "Max GPU freq: %d MHz (%d)\n",
+		seq_printf(m, "Max GPU freq: %d MHz (%u)\n",
 			vlv_gpu_freq(dev_priv->mem_freq,
 				dev_priv->rps.max_delay),
 				dev_priv->rps.max_delay);
 
-		seq_printf(m, "Min GPU freq: %d MHz (%d)\n",
+		seq_printf(m, "Min GPU freq: %d MHz (%u)\n",
 			vlv_gpu_freq(dev_priv->mem_freq,
 					dev_priv->rps.hw_min),
 					dev_priv->rps.hw_min);
 
-		seq_printf(m, "Current GPU freq: %d MHz (%d)\n",
+		seq_printf(m, "Current GPU freq: %d MHz (%u)\n",
 			vlv_gpu_freq(dev_priv->mem_freq,
 					dev_priv->rps.cur_delay),
 					dev_priv->rps.cur_delay);
-		seq_printf(m, "Last Requested Gpu freq: %d MHz (%d)\n",
+		seq_printf(m, "Last Requested Gpu freq: %d MHz (%u)\n",
 			vlv_gpu_freq(dev_priv->mem_freq,
 					dev_priv->rps.requested_delay),
 					dev_priv->rps.requested_delay);
@@ -2017,9 +2017,9 @@ i915_max_freq_set(void *data, u64 val)
 	 * Turbo will still be enabled, but won't go above the set value.
 	 */
 	if (!IS_VALLEYVIEW(dev)) {
-		val = vlv_freq_opcode(dev_priv->mem_freq, val);
+		/*val = vlv_freq_opcode(dev_priv->mem_freq, val);*/
 		dev_priv->rps.max_delay = val;
-		gen6_set_rps(dev, val);
+		valleyview_set_rps(dev, val);
 	} else {
 		do_div(val, GT_FREQUENCY_MULTIPLIER);
 		dev_priv->rps.max_delay = val;
