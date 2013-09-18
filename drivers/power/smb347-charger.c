@@ -1512,10 +1512,10 @@ static int smb347_usb_get_property(struct power_supply *psy,
 	mutex_lock(&smb->lock);
 	switch (prop) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = smb->usb_online;
+		val->intval = smb->online;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		val->intval = smb->usb_online;
+		val->intval = smb->present;
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = smb34x_get_health(smb);
