@@ -994,7 +994,7 @@ i915_gem_check_olr(struct intel_ring_buffer *ring, u32 seqno)
  * Returns 0 if the seqno was found within the alloted time. Else returns the
  * errno with remaining time filled in timeout argument.
  */
-static int __wait_seqno(struct intel_ring_buffer *ring, u32 seqno,
+int __wait_seqno(struct intel_ring_buffer *ring, u32 seqno,
 			unsigned reset_counter,
 			bool interruptible, struct timespec *timeout)
 {

@@ -1605,6 +1605,31 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 		goto out_mtrrfree;
 	}
 
+	/* Creating our own private workqueue for handling the
+	 * MMIO based flips, so as to avoid the block of the
+	 * display thread (who issued the flip ioctl), due to the
+	 * synchronization needed between the Rendering & flip stages.
+	 * The synchronization will require a sw wait for the ongoing
+	 * rendering operation, if any, to complete, before issuing the
+	 * MMIO flip call. Because of this work queue, the wait would
+	 * be done by the worker thread.
+	 *
+	 * Also since the flip work has to be processed at earliest, HIGHPRI
+	 * flag is used here.
+	 * Also we need serialized execution, hence using max_active = 1
+	 * and NON_REENTRANT.
+	 */
+	dev_priv->flipwq = alloc_workqueue("i915_flip",
+				WQ_UNBOUND | WQ_NON_REENTRANT | WQ_HIGHPRI,
+				1);
+
+	if (dev_priv->flipwq == NULL) {
+		DRM_ERROR("Failed to create flip workqueue.\n");
+		ret = -ENOMEM;
+		destroy_workqueue(dev_priv->wq);
+		goto out_mtrrfree;
+	}
+
 	/* This must be called before any calls to HAS_PCH_* */
 	intel_detect_pch(dev);
 
@@ -1682,6 +1707,7 @@ out_gem_unload:
 
 	intel_teardown_gmbus(dev);
 	intel_teardown_mchbar(dev);
+	destroy_workqueue(dev_priv->flipwq);
 	destroy_workqueue(dev_priv->wq);
 out_mtrrfree:
 	arch_phys_wc_del(dev_priv->gtt.mtrr);
@@ -1788,6 +1814,7 @@ int i915_driver_unload(struct drm_device *dev)
 	intel_teardown_mchbar(dev);
 
 	destroy_workqueue(dev_priv->wq);
+	destroy_workqueue(dev_priv->flipwq);
 	pm_qos_remove_request(&dev_priv->pm_qos);
 
 	dev_priv->gtt.base.cleanup(&dev_priv->gtt.base);

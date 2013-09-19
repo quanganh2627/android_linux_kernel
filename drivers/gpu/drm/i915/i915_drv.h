@@ -73,6 +73,7 @@ enum plane {
 	PLANE_A = 0,
 	PLANE_B,
 	PLANE_C,
+	I915_MAX_PLANES
 };
 #define plane_name(p) ((p) + 'A')
 
@@ -1268,6 +1269,7 @@ typedef struct drm_i915_private {
 	unsigned int fsb_freq, mem_freq, is_ddr3;
 
 	struct workqueue_struct *wq;
+	struct workqueue_struct *flipwq;
 
 	/* Display functions */
 	struct drm_i915_display_funcs display;
