@@ -1100,7 +1100,8 @@ hsw_vebox_put_irq(struct intel_ring_buffer *ring)
 static int
 i965_dispatch_execbuffer(struct intel_ring_buffer *ring,
 			 u32 offset, u32 length,
-			 unsigned flags)
+			 unsigned flags,
+			 void *priv_data, u32 priv_length)
 {
 	int ret;
 
@@ -1123,7 +1124,8 @@ i965_dispatch_execbuffer(struct intel_ring_buffer *ring,
 static int
 i830_dispatch_execbuffer(struct intel_ring_buffer *ring,
 				u32 offset, u32 len,
-				unsigned flags)
+				unsigned flags,
+				void *priv_data, u32 priv_length)
 {
 	int ret;
 
@@ -1175,7 +1177,8 @@ i830_dispatch_execbuffer(struct intel_ring_buffer *ring,
 static int
 i915_dispatch_execbuffer(struct intel_ring_buffer *ring,
 			 u32 offset, u32 len,
-			 unsigned flags)
+			 unsigned flags,
+			 void *priv_data, u32 priv_length)
 {
 	int ret;
 
@@ -1675,7 +1678,8 @@ static int gen6_bsd_ring_flush(struct intel_ring_buffer *ring,
 static int
 hsw_ring_dispatch_execbuffer(struct intel_ring_buffer *ring,
 			      u32 offset, u32 len,
-			      unsigned flags)
+			      unsigned flags,
+			      void *priv_data, u32 priv_length)
 {
 	int ret;
 
@@ -1694,9 +1698,82 @@ hsw_ring_dispatch_execbuffer(struct intel_ring_buffer *ring,
 }
 
 static int
+vlv_launch_cb2(struct intel_ring_buffer *ring)
+{
+	int			i;
+	int			ret = 0;
+	uint32_t		hws_pga;
+	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
+
+	/* Get HW Status Page address & point to its center */
+	hws_pga = 0x800 + (I915_READ(HWS_PGA) & 0xFFFFF000);
+
+	/* Insert 20 Store Data Immediate commands */
+	for (i = 0; i < 20; i++) {
+		ret = intel_ring_begin(ring, 4);
+		if (ret)
+			return ret;
+
+		intel_ring_emit(ring, 0x10400002); /* SDI - DW0 */
+		intel_ring_emit(ring, 0);	/* SDI - DW1 */
+		intel_ring_emit(ring, hws_pga);	/* SDI - Address */
+		intel_ring_emit(ring, 0);	/* SDI - Data */
+		intel_ring_advance(ring);
+	}
+
+	ret = intel_ring_begin(ring, 20);
+	if (ret)
+		return ret;
+
+	/* Pipe Control */
+	intel_ring_emit(ring, 0x7a000003);	/* PipeControl DW0 */
+	intel_ring_emit(ring, 0x01010a0);	/* DW1 */
+	intel_ring_emit(ring, 0);		/* DW2 */
+	intel_ring_emit(ring, 0);		/* DW3 */
+	intel_ring_emit(ring, 0);		/* DW4 */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+
+	/* Start CB2 */
+	intel_ring_emit(ring, 0x18800800);	/* BB Start - CB2 */
+	intel_ring_emit(ring, 0);		/* Address */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+
+	/* Pipe Control */
+	intel_ring_emit(ring, 0x7a000003);	/* PipeControl DW0 */
+	intel_ring_emit(ring, 0x01010a0);	/* DW1 */
+	intel_ring_emit(ring, 0);		/* DW2 */
+	intel_ring_emit(ring, 0);		/* DW3 */
+	intel_ring_emit(ring, 0);		/* DW4 */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+
+	intel_ring_advance(ring);
+
+	/* Add another 20 Store Data Immediate commands */
+	for (i = 0; i < 20; i++) {
+		ret = intel_ring_begin(ring, 4);
+		if (ret)
+			return ret;
+
+		intel_ring_emit(ring, 0x10400002); /* SDI - DW0 */
+		intel_ring_emit(ring, 0);	/* SDI - DW1 */
+		intel_ring_emit(ring, hws_pga);	/* SDI - Address */
+		intel_ring_emit(ring, 0);	/* SDI - Data */
+		intel_ring_advance(ring);
+	}
+
+	return ret;
+}
+
+static int
 gen6_ring_dispatch_execbuffer(struct intel_ring_buffer *ring,
 			      u32 offset, u32 len,
-			      unsigned flags)
+			      unsigned flags,
+			      void *priv_data, u32 priv_length)
 {
 	int ret;
 
@@ -1710,6 +1787,13 @@ gen6_ring_dispatch_execbuffer(struct intel_ring_buffer *ring,
 	/* bit0-7 is the length on GEN6+ */
 	intel_ring_emit(ring, offset);
 	intel_ring_advance(ring);
+
+	/* Execute CB2 if requested to do so */
+	if ((priv_length == sizeof(u32)) &&
+	    (*(u32 *)priv_data == 0xffffffff)) {
+		if (IS_VALLEYVIEW(ring->dev))
+			ret = vlv_launch_cb2(ring);
+	}
 
 	return 0;
 }
