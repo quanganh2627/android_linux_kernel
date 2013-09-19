@@ -491,27 +491,6 @@ config REMOVEME_INTEL_ATOM_MRFLD_POWER
 
 endchoice
 
-choice
-	prompt "Intel MID board type"
-	depends on X86_INTEL_MID
-	---help---
-	  This option is used for selecting the board configuration of
-	  Intel mobile devices.
-	  You should select the board name that matches your hardware
-	  configuration.
-
-config BOARD_CTP
-	bool "Clovertrail board type"
-	depends on X86_MDFLD
-	---help---
-	  Clovertrail board type is special.
-	  We use Medfield Soc file for Clovertrail but define a new
-	  board file for Clovertrail. That's because Clovertrail Soc
-	  shares all the codes with Medfield except the board file(i.e.
-	  only platform devices and platform device data are different)
-
-endchoice
-
 endif
 
 config X86_INTEL_LPSS
