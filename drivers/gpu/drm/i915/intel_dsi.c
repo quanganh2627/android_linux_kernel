@@ -42,6 +42,12 @@ static const struct intel_dsi_device intel_dsi_devices[] = {
 		.name = "auo-b080xat-dsi-vid-mode-display",
 		.dev_ops = &auo_b080xat_dsi_display_ops,
 	},
+	{
+		.panel_id = MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID,
+		.type = INTEL_DSI_VIDEO_MODE,
+		.name = "auo-panasonic-dsi-vid-mode-display",
+		.dev_ops = &panasonic_vvx09f006a00_dsi_display_ops,
+	},
 };
 
 static void vlv_cck_modify(struct drm_i915_private *dev_priv, u32 reg, u32 val,
@@ -705,7 +711,7 @@ bool intel_dsi_init(struct drm_device *dev)
 	intel_connector->get_hw_state = intel_connector_get_hw_state;
 
 	/* XXX: Will be fixed when we go with generic MIPI design, soon */
-	dev_priv->mipi_panel_id = MIPI_DSI_AUO_B080XAT_PANEL_ID;
+	dev_priv->mipi_panel_id = MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID;
 
 	for (i = 0; i < ARRAY_SIZE(intel_dsi_devices); i++) {
 		dsi = &intel_dsi_devices[i];

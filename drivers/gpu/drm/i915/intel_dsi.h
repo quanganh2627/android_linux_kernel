@@ -169,8 +169,10 @@ static inline struct intel_dsi *enc_to_intel_dsi(struct drm_encoder *encoder)
 extern void vlv_enable_dsi_pll(struct intel_encoder *encoder);
 extern void vlv_disable_dsi_pll(struct intel_encoder *encoder);
 
+extern struct intel_dsi_dev_ops panasonic_vvx09f006a00_dsi_display_ops;
 extern struct intel_dsi_dev_ops auo_b080xat_dsi_display_ops;
 
+#define	MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID	0x03
 #define	MIPI_DSI_AUO_B080XAT_PANEL_ID			0x04
 
 #endif /* _INTEL_DSI_H */
