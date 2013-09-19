@@ -945,8 +945,10 @@ static void gen6_pm_rps_work(struct work_struct *work)
 	pm_iir = dev_priv->rps.pm_iir;
 	dev_priv->rps.pm_iir = 0;
 	/* Make sure not to corrupt PMIMR state used by ringbuffer code */
-	snb_enable_pm_irq(dev_priv,
-				(GEN6_PM_RPS_EVENTS | VLV_PM_DEFERRED_EVENTS));
+	if (dev_priv->use_RC0_residency_for_turbo)
+		snb_enable_pm_irq(dev_priv, VLV_PM_DEFERRED_EVENTS);
+	else
+		snb_enable_pm_irq(dev_priv, GEN6_PM_RPS_EVENTS);
 	spin_unlock_irq(&dev_priv->irq_lock);
 
 	/* Make sure we didn't queue anything we're not going to process. */
@@ -2405,12 +2407,17 @@ static void gen5_gt_irq_postinstall(struct drm_device *dev)
 	POSTING_READ(GTIER);
 
 	if (INTEL_INFO(dev)->gen >= 6) {
-		pm_irqs |= GEN6_PM_RPS_EVENTS;
-
 		if (HAS_VEBOX(dev))
 			pm_irqs |= PM_VEBOX_USER_INTERRUPT;
 
 		dev_priv->pm_irq_mask = 0xffffffff;
+		if (dev_priv->use_RC0_residency_for_turbo) {
+			dev_priv->pm_irq_mask &= ~VLV_PM_DEFERRED_EVENTS;
+			pm_irqs |= VLV_PM_DEFERRED_EVENTS;
+		} else {
+			dev_priv->pm_irq_mask &= ~GEN6_PM_RPS_EVENTS;
+			pm_irqs |= GEN6_PM_RPS_EVENTS;
+		}
 		I915_WRITE(GEN6_PMIIR, I915_READ(GEN6_PMIIR));
 		I915_WRITE(GEN6_PMIMR, dev_priv->pm_irq_mask);
 		I915_WRITE(GEN6_PMIER, pm_irqs);
