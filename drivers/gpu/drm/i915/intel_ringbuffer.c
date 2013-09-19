@@ -630,6 +630,7 @@ static void render_ring_cleanup(struct intel_ring_buffer *ring)
 
 static void
 update_mboxes(struct intel_ring_buffer *ring,
+	      u32 seqno,
 	      u32 mmio_offset)
 {
 /* NB: In order to be able to do semaphore MBOX updates for varying number
@@ -640,7 +641,7 @@ update_mboxes(struct intel_ring_buffer *ring,
 #define MBOX_UPDATE_DWORDS 4
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 	intel_ring_emit(ring, mmio_offset);
-	intel_ring_emit(ring, ring->outstanding_lazy_request);
+	intel_ring_emit(ring, seqno);
 	intel_ring_emit(ring, MI_NOOP);
 }
 
@@ -656,23 +657,11 @@ update_mboxes(struct intel_ring_buffer *ring,
 static int
 gen6_add_request(struct intel_ring_buffer *ring)
 {
-	struct drm_device *dev = ring->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_ring_buffer *useless;
-	int i, ret;
+	int ret;
 
-	ret = intel_ring_begin(ring, ((I915_NUM_RINGS-1) *
-				      MBOX_UPDATE_DWORDS) +
-				      4);
+	ret = intel_ring_begin(ring, 4);
 	if (ret)
 		return ret;
-#undef MBOX_UPDATE_DWORDS
-
-	for_each_ring(useless, dev_priv, i) {
-		u32 mbox_reg = ring->signal_mbox[i];
-		if (mbox_reg != GEN6_NOSYNC)
-			update_mboxes(ring, mbox_reg);
-	}
 
 	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
 	intel_ring_emit(ring, I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
@@ -722,6 +711,26 @@ gen6_ring_sync(struct intel_ring_buffer *waiter,
 
 	/* If seqno wrap happened, omit the wait with no-ops */
 	if (likely(!i915_gem_has_seqno_wrapped(waiter->dev, seqno))) {
+		/* Add the Mbox update command in the Signaller ring,
+		 * this a point where the actual inter ring dependency has
+		 * been ascertained. Although this late sync could affect
+		 * the Media performance slightly but it shall improve the
+		 * residency time of individual power wells in C6 state
+		 */
+		u32 mbox_reg = signaller->signal_mbox[waiter->id];
+		/* Precautionary check */
+		if (mbox_reg != GEN6_NOSYNC) {
+			ret = intel_ring_begin(signaller, MBOX_UPDATE_DWORDS);
+			if (ret)
+				return ret;
+#undef MBOX_UPDATE_DWORDS
+			update_mboxes(signaller, (seqno + 1), mbox_reg);
+			intel_ring_advance(signaller);
+		}
+
+		/* Add the corresponding Semaphore Wait command in the
+		 * waiter ring
+		 */
 		intel_ring_emit(waiter,
 				dw1 |
 				signaller->semaphore_register[waiter->id]);
