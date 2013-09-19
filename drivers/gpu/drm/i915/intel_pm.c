@@ -4099,7 +4099,7 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 		   GEN6_RP_MEDIA_IS_GFX |
 		   GEN6_RP_ENABLE |
 		   GEN6_RP_UP_BUSY_AVG |
-		   GEN6_RP_DOWN_IDLE_CONT);
+		   GEN7_RP_DOWN_IDLE_AVG);
 
 
 
@@ -4184,7 +4184,11 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 	spin_lock_irqsave(&dev_priv->rps.lock, flags);
 	WARN_ON(dev_priv->rps.pm_iir != 0);
 	I915_WRITE(GEN6_PMIIR, I915_READ(GEN6_PMIIR));
-	I915_WRITE(GEN6_PMIMR, 0);
+	if (dev_priv->use_RC0_residency_for_turbo)
+		dev_priv->pm_irq_mask &= ~VLV_PM_DEFERRED_EVENTS;
+	else
+		dev_priv->pm_irq_mask &= ~GEN6_PM_RPS_EVENTS;
+	I915_WRITE(GEN6_PMIMR, dev_priv->pm_irq_mask);
 	spin_unlock_irqrestore(&dev_priv->rps.lock, flags);
 
 	dev_priv->is_turbo_enabled = true;
