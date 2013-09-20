@@ -1957,12 +1957,12 @@ int dma_resume(struct device *dev)
 {
 	struct middma_device *device = dev_get_drvdata(dev);
 
-	pr_debug("MDMA: dma_resume called\n");
+	pr_info("MDMA: dma_resume called, base = %p\n", device->dma_base);
 	device->state = RUNNING;
-	iowrite32(REG_BIT0, device->dma_base + DMA_CFG);
+	/* iowrite32(REG_BIT0, device->dma_base + DMA_CFG);
 
 	if (!device->dword_trf)
-		config_dma_fifo_partition(device);
+		config_dma_fifo_partition(device); */
 
 	return 0;
 }
