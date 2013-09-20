@@ -148,7 +148,7 @@ static struct platform_device wm8994_ldo2_device = {
 static struct wm8994_pdata wm8958_merr_pdata = {
 	/* configure gpio1 function: 0x0001(Logic level input/output) */
 	.gpio_defaults[0] = 0x0003,
-	.irq_flags = IRQF_TRIGGER_RISING,
+	.irq_flags = IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 	/* FIXME: Below are 1811A specfic, we need to use SPID for these */
 
 	/* configure gpio3/4/5/7 function for AIF2 voice */
