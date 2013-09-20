@@ -1021,7 +1021,11 @@ gen6_ring_get_irq(struct intel_ring_buffer *ring)
 	/* It looks like we need to prevent the gt from suspending while waiting
 	 * for an notifiy irq, otherwise irqs seem to get lost on at least the
 	 * blt/bsd rings on ivb. */
-	gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
+	/* Wake up only the relevant engine based on ring type */
+	if (ring->id == RCS)
+		gen6_gt_force_wake_get(dev_priv, FORCEWAKE_RENDER);
+	else
+		gen6_gt_force_wake_get(dev_priv, FORCEWAKE_MEDIA);
 
 	spin_lock_irqsave(&dev_priv->irq_lock, flags);
 	if (ring->irq_refcount++ == 0) {
@@ -1056,7 +1060,11 @@ gen6_ring_put_irq(struct intel_ring_buffer *ring)
 	}
 	spin_unlock_irqrestore(&dev_priv->irq_lock, flags);
 
-	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
+	/* Put down only the relevant engine based on ring type */
+	if (ring->id == RCS)
+		gen6_gt_force_wake_put(dev_priv, FORCEWAKE_RENDER);
+	else
+		gen6_gt_force_wake_put(dev_priv, FORCEWAKE_MEDIA);
 }
 
 static bool
