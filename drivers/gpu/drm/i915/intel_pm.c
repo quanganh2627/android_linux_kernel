@@ -355,7 +355,7 @@ static void intel_fbc_work_fn(struct work_struct *__work)
 	kfree(work);
 }
 
-static void intel_cancel_fbc_work(struct drm_i915_private *dev_priv)
+void intel_cancel_fbc_work(struct drm_i915_private *dev_priv)
 {
 	if (dev_priv->fbc.fbc_work == NULL)
 		return;
@@ -5820,12 +5820,14 @@ static void display_early_suspend(struct early_suspend *h)
 {
 	struct drm_device *drm_dev = gdev;
 	struct drm_i915_private *dev_priv = gdev->dev_private;
-	int ret = display_runtime_suspend(drm_dev);
+	int ret;
+	DRM_DEBUG_PM("Early suspend called\n");
+	ret = display_runtime_suspend(drm_dev);
 	if (ret)
 		DRM_ERROR("Display suspend failure\n");
 	else {
 		dev_priv->early_suspended = true;
-		DRM_DEBUG_DRIVER("Display suspend Success\n");
+		DRM_DEBUG_PM("Early suspend finished\n");
 	}
 }
 
@@ -5833,12 +5835,14 @@ static void display_late_resume(struct early_suspend *h)
 {
 	struct drm_device *drm_dev = gdev;
 	struct drm_i915_private *dev_priv = gdev->dev_private;
-	int ret = display_runtime_resume(drm_dev);
+	int ret;
+	DRM_DEBUG_PM("Late Resume called\n");
+	ret = display_runtime_resume(drm_dev);
 	if (ret)
 		DRM_ERROR("Display Resume failure\n");
 	else {
 		dev_priv->early_suspended = false;
-		DRM_DEBUG_DRIVER("Display Resume Success\n");
+		DRM_DEBUG_PM("Late Resume finished\n");
 	}
 }
 

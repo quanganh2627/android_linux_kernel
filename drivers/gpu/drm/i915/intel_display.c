@@ -10031,6 +10031,7 @@ static void intel_shared_dpll_init(struct drm_device *dev)
 		      dev_priv->num_shared_dpll);
 }
 
+extern void intel_cancel_fbc_work(struct drm_i915_private *dev_priv);
 static int display_disable_wq(struct drm_device *drm_dev)
 {
 	struct drm_i915_private *dev_priv = drm_dev->dev_private;
@@ -10038,12 +10039,10 @@ static int display_disable_wq(struct drm_device *drm_dev)
 	struct intel_encoder *intel_encoder;
 
 	cancel_work_sync(&dev_priv->hotplug_work);
-	cancel_work_sync(&dev_priv->l3_parity.error_work);
-	cancel_work_sync(&dev_priv->gpu_error.work);
-	cancel_work_sync(&dev_priv->rps.work);
+	//intel_cancel_fbc_work(dev_priv);
 	/* Uncomment this once HDMI audio code is integrated */
 	/* cancel_work_sync(&dev_priv->hdmi_audio_wq); */
-	list_for_each_entry(crtc, &drm_dev->mode_config.crtc_list, head) {
+	/*list_for_each_entry(crtc, &drm_dev->mode_config.crtc_list, head) {
 		struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 		for_each_encoder_on_crtc(drm_dev, crtc, intel_encoder) {
 			struct intel_dp *intel_dp =
@@ -10052,7 +10051,7 @@ static int display_disable_wq(struct drm_device *drm_dev)
 				cancel_delayed_work_sync(
 					&intel_dp->panel_vdd_work);
 		}
-	}
+	}*/
 
 	/* No need to explictly flush the flipwq here. There is already
 	 * a wait for pending flips to get completed in crtc_disable,
@@ -10064,10 +10063,7 @@ static int display_disable_wq(struct drm_device *drm_dev)
 	 * accepted(TBD??) which can queue new flip work items.
 	 */
 
-	/* flush any delayed tasks or pending work */
-	flush_scheduled_work();
 	return 0;
-
 }
 
 enum {SAVEHPD, RESTOREHPD};
@@ -10087,40 +10083,34 @@ static void display_save_restore_hotplug(struct drm_device *drm_dev, int flag)
 	} else if (flag == RESTOREHPD)
 		I915_WRITE(PORT_HOTPLUG_EN, dev_priv->hotplugstat);
 }
-ssize_t display_runtime_suspend(struct drm_device *drm_dev)
+ssize_t display_runtime_suspend(struct drm_device *dev)
 {
-	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
 	struct intel_encoder *intel_encoder;
 
-	drm_kms_helper_poll_disable(drm_dev);
-	display_save_restore_hotplug(drm_dev, SAVEHPD);
-	display_disable_wq(drm_dev);
+	/* ignore lid events during suspend */
+	mutex_lock(&dev_priv->modeset_restore_lock);
+	dev_priv->modeset_restore = MODESET_SUSPENDED;
+	mutex_unlock(&dev_priv->modeset_restore_lock);
+
+	drm_kms_helper_poll_disable(dev);
+	display_save_restore_hotplug(dev, SAVEHPD);
+	display_disable_wq(dev);
 	dev_priv->s0ixstat = true;
-	mutex_lock(&drm_dev->mode_config.mutex);
-	list_for_each_entry(crtc, &drm_dev->mode_config.crtc_list, head) {
-		struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-		if (intel_crtc->s0ix_suspend_state == false) {
-			i9xx_crtc_disable(crtc);
-			/*
-			TODO: Revisit as per
-			commit 61b77ddda6cf6f1f6f543339cfeee4c623f82784
-			Author: Daniel Vetter <daniel.vetter@ffwll.ch>
-			Date:   Mon Jul 2 00:16:19 2012 +0200
 
-			drm/i915: clean up encoder_prepare/commit
+	/* If KMS is active, we do the leavevt stuff here */
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		dev_priv->enable_hotplug_processing = false;
+		/*
+		 * Disable CRTCs directly since we want to preserve sw state
+		 * for _thaw.
+		 */
+		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
+			dev_priv->display.crtc_disable(crtc);
 
-			We no longer need them. And now that all encoders
-			are converted, we can finally move the cpt modeset
-			check to the right place - at the end
-			of the crtc_enable function.
-			*/
-			/*
-			for_each_encoder_on_crtc(drm_dev, crtc, intel_encoder)
-				intel_encoder_prepare(&intel_encoder->base);
-			*/
-		}
 	}
+
 	/* TODO: uncomment after HDMI dependancies are merged */
 	/*
 	int ret = i915_hdmi_audio_suspend(drm_dev);
@@ -10128,56 +10118,39 @@ ssize_t display_runtime_suspend(struct drm_device *drm_dev)
 		DRM_ERROR("Error suspending HDMI audio\n");
 	*/
 	dev_priv->s0ixstat = false;
-	mutex_unlock(&drm_dev->mode_config.mutex);
-#if 0
-	i915_rpm_put(drm_dev, RPM_AUTOSUSPEND);
-#endif
+	i915_rpm_put_disp(dev);
 	return 0;
 }
 
-ssize_t display_runtime_resume(struct drm_device *drm_dev)
+extern void intel_resume_hotplug(struct drm_device *dev);
+ssize_t display_runtime_resume(struct drm_device *dev)
 {
-	struct drm_crtc *crtc;
-	struct intel_encoder *intel_encoder;
-	struct intel_crtc *intel_crtc;
-	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 
-#if 0
-	i915_rpm_get(drm_dev, RPM_SYNC);
-#endif
-	drm_kms_helper_poll_enable(drm_dev);
-	display_save_restore_hotplug(drm_dev, RESTOREHPD);
-	mutex_lock(&drm_dev->mode_config.mutex);
+	i915_rpm_get_disp(dev);
+
+	drm_kms_helper_poll_enable(dev);
+	display_save_restore_hotplug(dev, RESTOREHPD);
 	dev_priv->s0ixstat = true;
-	list_for_each_entry(crtc, &drm_dev->mode_config.crtc_list, head) {
-		intel_crtc = to_intel_crtc(crtc);
-		if (intel_crtc->s0ix_suspend_state == true) {
-			i9xx_crtc_enable(crtc);
-			/*
-			TODO: Revisit as per
-			commit 61b77ddda6cf6f1f6f543339cfeee4c623f82784
-			Author: Daniel Vetter <daniel.vetter@ffwll.ch>
-			Date:   Mon Jul 2 00:16:19 2012 +0200
-
-			drm/i915: clean up encoder_prepare/commit
-
-			We no longer need them. And now that all encoders
-			are converted, we can finally move the cpt modeset
-			check to the right place - at the end
-			of the crtc_enable function.
-			*/
-
-			/*
-			for_each_encoder_on_crtc(drm_dev, crtc, intel_encoder) {
-				intel_encoder_commit(&intel_encoder->base);
-			}
-			*/
-		}
+	/* KMS EnterVT equivalent */
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		drm_modeset_lock_all(dev);
+		intel_modeset_setup_hw_state(dev, true);
+		drm_modeset_unlock_all(dev);
+		/*
+		 * ... but also need to make sure that hotplug processing
+		 * doesn't cause havoc. Like in the driver load code we don't
+		 * bother with the tiny race here where we might loose hotplug
+		 * notifications.
+		 * */
+		intel_hpd_init(dev);
+		dev_priv->enable_hotplug_processing = true;
+		/* Config may have changed between suspend and resume */
+		intel_resume_hotplug(dev);
 	}
 	/* TODO: uncomment after HDMI dependencies are merged */
 	/* i915_hdmi_audio_resume(drm_dev); */
 	dev_priv->s0ixstat = false;
-	mutex_unlock(&drm_dev->mode_config.mutex);
 	return 0;
 }
 

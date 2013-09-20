@@ -508,7 +508,7 @@ static int __i915_drm_freeze(struct drm_device *dev)
 	return 0;
 }
 
-static void intel_resume_hotplug(struct drm_device *dev)
+void intel_resume_hotplug(struct drm_device *dev)
 {
 	struct drm_mode_config *mode_config = &dev->mode_config;
 	struct intel_encoder *encoder;
@@ -777,13 +777,6 @@ static int valleyview_freeze(struct drm_device *dev)
 	struct drm_crtc *crtc;
 	u32 reg;
 
-	/* ignore lid events during suspend */
-	mutex_lock(&dev_priv->modeset_restore_lock);
-	dev_priv->modeset_restore = MODESET_SUSPENDED;
-	mutex_unlock(&dev_priv->modeset_restore_lock);
-
-	drm_kms_helper_poll_disable(dev);
-
 	pci_save_state(dev->pdev);
 
 	/* i) Set Graphics Clocks to Forced ON */
@@ -822,13 +815,7 @@ static int valleyview_freeze(struct drm_device *dev)
 		cancel_work_sync(&dev_priv->gpu_error.work);
 		cancel_work_sync(&dev_priv->rps.work);
 
-		dev_priv->enable_hotplug_processing = false;
-		/*
-		 * Disable CRTCs directly since we want to preserve sw state
-		 * for _thaw.
-		 */
-		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
-			dev_priv->display.crtc_disable(crtc);
+		drm_irq_uninstall(dev);
 
 		intel_modeset_suspend_hw(dev);
 	}
@@ -950,21 +937,6 @@ static int valleyview_thaw(struct drm_device *dev)
 		drm_irq_install(dev);
 
 		intel_modeset_init_hw(dev);
-
-		drm_modeset_lock_all(dev);
-		intel_modeset_setup_hw_state(dev, true);
-		drm_modeset_unlock_all(dev);
-
-		/*
-		 * ... but also need to make sure that hotplug processing
-		 * doesn't cause havoc. Like in the driver load code we don't
-		 * bother with the tiny race here where we might loose hotplug
-		 * notifications.
-		 * */
-		intel_hpd_init(dev);
-		dev_priv->enable_hotplug_processing = true;
-		/* Config may have changed between suspend and resume */
-		intel_resume_hotplug(dev);
 	}
 
 	intel_opregion_init(dev);
