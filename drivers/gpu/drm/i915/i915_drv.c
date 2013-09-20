@@ -824,6 +824,35 @@ i915_pci_remove(struct pci_dev *pdev)
 	drm_put_dev(dev);
 }
 
+#ifdef CONFIG_PM_RUNTIME
+static int i915_release(struct inode *inode, struct file *filp)
+{
+	int ret = 0;
+	struct drm_file *file_priv = filp->private_data;
+	struct drm_device *dev = file_priv->minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	i915_rpm_get_callback(dev);
+	ret = drm_release(inode, filp);
+	i915_rpm_put_callback(dev);
+
+	return ret;
+}
+
+static long i915_ioctl(struct file *filp,
+	      unsigned int cmd, unsigned long arg)
+{
+	unsigned int nr = DRM_IOCTL_NR(cmd);
+	struct drm_file *file_priv = filp->private_data;
+	struct drm_device *dev = file_priv->minor->dev;
+	int ret;
+	i915_rpm_get_ioctl(dev);
+	ret = drm_ioctl(filp, cmd, arg);
+	i915_rpm_put_ioctl(dev);
+	return ret;
+}
+#endif
+
 static int i915_suspend_common(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
@@ -949,8 +978,13 @@ static const struct vm_operations_struct i915_gem_vm_ops = {
 static const struct file_operations i915_driver_fops = {
 	.owner = THIS_MODULE,
 	.open = drm_open,
+#ifdef CONFIG_PM_RUNTIME
+	.release = i915_release,
+	.unlocked_ioctl = i915_ioctl,
+#else
 	.release = drm_release,
 	.unlocked_ioctl = drm_ioctl,
+#endif
 	.mmap = drm_gem_mmap,
 	.poll = drm_poll,
 	.fasync = drm_fasync,
