@@ -83,6 +83,7 @@
 #include "device_libs/platform_lis3dh.h"
 #include "device_libs/platform_lsm303.h"
 #include "device_libs/platform_apds990x.h"
+#include "device_libs/platform_a1026.h"
 
 /* SW devices */
 #include "device_libs/platform_panel.h"
@@ -236,6 +237,8 @@ struct devs_id __initconst device_ids[] = {
 					&intel_register_i2c_camera_device},
 	{"lm3559", SFI_DEV_TYPE_I2C, 0, &lm3559_platform_data_func,
 					&intel_register_i2c_camera_device},
+	{"audience_es305", SFI_DEV_TYPE_I2C, 0, &audience_platform_data,
+						NULL},
 	{"PANEL_JDI_CMD", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
 
