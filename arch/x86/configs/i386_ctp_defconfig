@@ -3253,6 +3253,7 @@ CONFIG_EXTCON=y
 #
 # CONFIG_EXTCON_GPIO is not set
 # CONFIG_EXTCON_ARIZONA is not set
+# CONFIG_EXTCON_FSA9285 is not set
 # CONFIG_MEMORY is not set
 # CONFIG_IIO is not set
 # CONFIG_VME_BUS is not set
