@@ -498,14 +498,18 @@ static int lnw_irq_type(struct irq_data *d, unsigned type)
 
 		spin_lock_irqsave(&lnw->lock, flags);
 		if (type & IRQ_TYPE_LEVEL_MASK) {
-			value = readl(gpit) | BIT(gpio % 32);
-			writel(value, gpit);
-
+			/* To prevent glitches from triggering an unintended
+			 * level interrupt, configure GLPR register first
+			 * and then configure GITR.
+			 */
 			if (type & IRQ_TYPE_LEVEL_LOW)
 				value = readl(gpip) | BIT(gpio % 32);
 			else
 				value = readl(gpip) & (~BIT(gpio % 32));
 			writel(value, gpip);
+
+			value = readl(gpit) | BIT(gpio % 32);
+			writel(value, gpit);
 
 			__irq_set_handler_locked(d->irq, handle_level_irq);
 		} else if (type & IRQ_TYPE_EDGE_BOTH) {
