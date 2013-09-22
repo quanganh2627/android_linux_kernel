@@ -74,8 +74,10 @@ static int imx132_power_ctrl(struct v4l2_subdev *sd, int flag)
 #else
 			pr_err("imx132 power is not set.\n");
 #endif
-			if (!ret)
+			if (!ret) {
+				usleep_range(1000, 1200);
 				camera_vprog1_on = 1;
+			}
 			return ret;
 		}
 	} else {
