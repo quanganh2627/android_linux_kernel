@@ -372,19 +372,6 @@ struct ipc_header_fw_init {
 	u8 debug_info; /* Debug info from Module ID in case of fail */
 } __packed;
 
-
-/* Time stamp */
-struct snd_sst_tstamp_mfld {
-	u64 samples_processed;/* capture - data in DDR */
-	u64 samples_rendered;/* playback - data rendered */
-	u64 bytes_processed;/* bytes decoded or encoded */
-	u32 sampling_frequency;/* eg: 48000, 44100 */
-	u32 reserved1;
-	u16 reserved2;
-	u16 reserved;/* 32 bit alignment */
-	u64 pcm_delay;
-};
-
 struct snd_sst_tstamp {
 	u64 ring_buffer_counter;	/* PB/CP: Bytes copied from/to DDR. */
 	u64 hardware_counter;	    /* PB/CP: Bytes DMAed to/from SSP. */
@@ -394,7 +381,6 @@ struct snd_sst_tstamp {
 	u32 sampling_frequency;
 	u32 channel_peak[8];
 };
-
 
 /* SST to IA memory read debug message  */
 struct ipc_sst_ia_dbg_mem_rw  {
@@ -472,18 +458,6 @@ struct snd_pcm_params {
 	u8 channel_map[8];
 } __packed;
 
-/* PCM Parameters */
-struct snd_pcm_params_mfld {
-	u16 codec;	/* codec type */
-	u8 num_chan;	/* 1=Mono, 2=Stereo */
-	u8 pcm_wd_sz;	/* 16/24 - bit*/
-	u32 reserved;	/* Bitrate in bits per second */
-	u32 sfreq;	/* Sampling rate in Hz */
-	u32 ring_buffer_size;
-	u32 period_count;	/* period elapsed in samples*/
-	u32 ring_buffer_addr;
-};
-
 /* MP3 Music Parameters Message */
 struct snd_mp3_params {
 	u8  num_chan;	/* 1=Mono, 2=Stereo	*/
@@ -524,14 +498,6 @@ struct snd_wma_params {
 };
 
 /* Codec params struture */
-union snd_sst_codec_params_mfld {
-	struct snd_pcm_params_mfld pcm_params;
-	struct snd_mp3_params mp3_params;
-	struct snd_aac_params aac_params;
-	struct snd_wma_params wma_params;
-};
-
-/* Codec params struture */
 union  snd_sst_codec_params {
 	struct snd_pcm_params pcm_params;
 	struct snd_mp3_params mp3_params;
@@ -569,9 +535,6 @@ struct snd_sst_params {
 	struct snd_sst_stream_params sparams;
 	struct snd_sst_alloc_params_ext aparams;
 };
-struct snd_sst_stream_params_mfld {
-	union snd_sst_codec_params_mfld uc;
-} __packed;
 
 struct snd_sst_alloc_mrfld {
 	u16 codec_type;
@@ -584,34 +547,11 @@ struct snd_sst_alloc_mrfld {
 } __packed;
 
 /* Alloc stream params structure */
-struct snd_sst_alloc_params_mfld {
-	struct snd_sst_str_type str_type;
-	struct snd_sst_stream_params_mfld stream_params;
-};
-
-struct snd_sst_pmic_config {
-	u32  sfreq;                /* Sampling rate in Hz */
-	u16  num_chan;             /* Mono =1 or Stereo =2 */
-	u16  pcm_wd_sz;            /* Number of bits per sample */
-} __packed;
-
-struct snd_sst_fw_get_stream_params_mfld {
-	struct snd_sst_stream_params_mfld codec_params;
-	struct snd_sst_pmic_config pcm_params;
-};
-
-/* Alloc stream params structure */
 struct snd_sst_alloc_params {
 	struct snd_sst_str_type str_type;
 	struct snd_sst_stream_params stream_params;
 	struct snd_sst_alloc_params_ext alloc_params;
 } __packed;
-
-
-struct snd_sst_fw_get_stream_params {
-	struct snd_sst_stream_params codec_params;
-	struct snd_sst_pmic_config pcm_params;
-};
 
 /* Alloc stream response message */
 struct snd_sst_alloc_response {
@@ -674,16 +614,11 @@ enum stream_param_type {
 	OTHERS = 2, /*reserved for future params*/
 };
 
-struct snd_sst_get_stream_params {
-	struct snd_sst_params codec_params;
-	struct snd_sst_pmic_config pcm_params;
-};
 /* CSV Voice call routing structure */
 struct snd_sst_control_routing {
 	u8 control; /* 0=start, 1=Stop */
 	u8 reserved[3];	/* Reserved- for 32 bit alignment */
 };
-
 
 struct ipc_post {
 	struct list_head node;

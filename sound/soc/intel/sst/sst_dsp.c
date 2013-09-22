@@ -462,9 +462,6 @@ static int sst_alloc_dma_chan(struct sst_dma *dma)
 	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
 		dmac = pci_get_device(PCI_VENDOR_ID_INTEL,
 				      PCI_DMAC_CLV_ID, NULL);
-	else if (sst_drv_ctx->pci_id == SST_MFLD_PCI_ID)
-		dmac = pci_get_device(PCI_VENDOR_ID_INTEL,
-				      PCI_DMAC_MFLD_ID, NULL);
 	else if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID)
 		dmac = pci_get_device(PCI_VENDOR_ID_INTEL,
 				      PCI_DMAC_MRFLD_ID, NULL);

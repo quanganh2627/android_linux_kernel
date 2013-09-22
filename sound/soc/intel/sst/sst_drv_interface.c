@@ -737,21 +737,6 @@ int sst_send_sync_msg(int ipc, int str_id)
 	return sst_drv_ctx->ops->sync_post_message(msg);
 }
 
-static inline int sst_calc_mfld_tstamp(struct pcm_stream_info *info,
-		int ops, struct snd_sst_tstamp_mfld *fw_tstamp)
-{
-	if (ops == STREAM_OPS_PLAYBACK)
-		info->buffer_ptr = fw_tstamp->samples_rendered;
-	else
-		info->buffer_ptr = fw_tstamp->samples_processed;
-	info->pcm_delay = fw_tstamp->pcm_delay;
-
-	pr_debug("Samples rendered = %llu, buffer ptr %llu\n",
-			fw_tstamp->samples_rendered, info->buffer_ptr);
-	pr_debug("pcm delay %llu\n", info->pcm_delay);
-	return 0;
-}
-
 static inline int sst_calc_tstamp(struct pcm_stream_info *info,
 		struct snd_pcm_substream *substream,
 		struct snd_sst_tstamp *fw_tstamp)
@@ -789,6 +774,7 @@ static int sst_read_timestamp(struct pcm_stream_info *info)
 {
 	struct stream_info *stream;
 	struct snd_pcm_substream *substream;
+	struct snd_sst_tstamp fw_tstamp;
 	unsigned int str_id;
 
 	str_id = info->str_id;
@@ -800,23 +786,11 @@ static int sst_read_timestamp(struct pcm_stream_info *info)
 		return -EINVAL;
 	substream = stream->pcm_substream;
 
-	if (sst_drv_ctx->pci_id == SST_MFLD_PCI_ID) {
-		struct snd_sst_tstamp_mfld fw_tstamp_mfld;
-
-		memcpy_fromio(&fw_tstamp_mfld,
-			((void *)(sst_drv_ctx->mailbox + sst_drv_ctx->tstamp)
-				+ (str_id * sizeof(fw_tstamp_mfld))),
-			sizeof(fw_tstamp_mfld));
-		return sst_calc_mfld_tstamp(info, stream->ops, &fw_tstamp_mfld);
-	} else {
-		struct snd_sst_tstamp fw_tstamp;
-
-		memcpy_fromio(&fw_tstamp,
-			((void *)(sst_drv_ctx->mailbox + sst_drv_ctx->tstamp)
-				+ (str_id * sizeof(fw_tstamp))),
-			sizeof(fw_tstamp));
-		return sst_calc_tstamp(info, substream, &fw_tstamp);
-	}
+	memcpy_fromio(&fw_tstamp,
+		((void *)(sst_drv_ctx->mailbox + sst_drv_ctx->tstamp)
+			+ (str_id * sizeof(fw_tstamp))),
+		sizeof(fw_tstamp));
+	return sst_calc_tstamp(info, substream, &fw_tstamp);
 }
 
 /*
@@ -858,11 +832,7 @@ static int sst_device_control(int cmd, void *arg)
 		ipc = IPC_IA_START_STREAM;
 		str_info->prev = str_info->status;
 		str_info->status = STREAM_RUNNING;
-		if (sst_drv_ctx->pci_id != SST_MFLD_PCI_ID)
-			sst_start_stream(str_id);
-		else
-			retval = sst_send_sync_msg(ipc, str_id);
-
+		sst_start_stream(str_id);
 		break;
 	}
 	case SST_SND_DROP: {

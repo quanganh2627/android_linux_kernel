@@ -73,7 +73,6 @@ static ssize_t sst_debug_shim_read(struct file *file, char __user *user_buf,
 
 	for (addr = SST_SHIM_BEGIN; addr <= SST_SHIM_END; addr += 8) {
 		switch (drv->pci_id) {
-		case SST_MFLD_PCI_ID:
 		case SST_CLV_PCI_ID:
 			val = sst_shim_read(drv->shim, addr);
 			break;
@@ -154,7 +153,7 @@ static ssize_t sst_debug_shim_write(struct file *file,
 
 	pr_debug("writing shim: 0x%.2lx=0x%.8llx", reg_addr, value);
 
-	if (drv->pci_id == SST_MFLD_PCI_ID || drv->pci_id == SST_CLV_PCI_ID)
+	if (drv->pci_id == SST_CLV_PCI_ID)
 		sst_shim_write(drv->shim, reg_addr, (u32) value);
 	else if (drv->pci_id == SST_MRFLD_PCI_ID)
 		sst_shim_write64(drv->shim, reg_addr, (u64) value);

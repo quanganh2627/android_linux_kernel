@@ -429,22 +429,6 @@ static struct intel_sst_ops mrfld_32_ops = {
 	.alloc_stream = sst_alloc_stream_ctp,
 };
 
-static struct intel_sst_ops mfld_ops = {
-	.interrupt = intel_sst_intr_mfld,
-	.irq_thread = intel_sst_irq_thread_mfld,
-	.clear_interrupt = intel_sst_clear_intr_mfld,
-	.start = sst_start_mfld,
-	.reset = intel_sst_reset_dsp_mfld,
-	.post_message = sst_post_message_mfld,
-	.sync_post_message = sst_sync_post_message_mfld,
-	.process_message = sst_process_message_mfld,
-	.process_reply = sst_process_reply_mfld,
-	.set_bypass = intel_sst_set_bypass_mfld,
-	.save_dsp_context =  sst_save_dsp_context,
-	.restore_dsp_context = sst_restore_fw_context,
-	.alloc_stream = sst_alloc_stream_mfld,
-};
-
 static struct intel_sst_ops ctp_ops = {
 	.interrupt = intel_sst_intr_mfld,
 	.irq_thread = intel_sst_irq_thread_mfld,
@@ -479,10 +463,6 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 	case SST_CLV_PCI_ID:
 		sst->tstamp =  SST_TIME_STAMP;
 		sst->ops = &ctp_ops;
-		return 0;
-	case SST_MFLD_PCI_ID:
-		sst->tstamp =  SST_TIME_STAMP;
-		sst->ops = &mfld_ops;
 		return 0;
 	default:
 		pr_err("SST Driver capablities missing for pci_id: %x", sst->pci_id);
@@ -779,8 +759,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 		/*setting zero as that is valid mem to restore*/
 		sst_drv_ctx->fw_cntx_size = 0;
 	}
-	if ((sst_drv_ctx->pci_id == SST_MFLD_PCI_ID) ||
-	    (sst_drv_ctx->pci_id == SST_CLV_PCI_ID)) {
+	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID) {
 		u32 csr;
 		u32 csr2;
 		u32 clkctl;
@@ -1012,8 +991,7 @@ static int intel_sst_runtime_suspend(struct device *dev)
 	if (ctx->ops->save_dsp_context(ctx))
 		return -EBUSY;
 
-	if (ctx->pci_id == SST_MFLD_PCI_ID ||
-	    ctx->pci_id == SST_CLV_PCI_ID) {
+	if (ctx->pci_id == SST_CLV_PCI_ID) {
 		/*Assert RESET on LPE Processor*/
 		csr.full = sst_shim_read(ctx->shim, SST_CSR);
 		ctx->csr_value = csr.full;
@@ -1049,8 +1027,7 @@ static int intel_sst_runtime_resume(struct device *dev)
 		sst_restore_shim64(ctx, ctx->shim, ctx->shim_regs64);
 	}
 
-	if (ctx->pci_id == SST_MFLD_PCI_ID ||
-	    ctx->pci_id == SST_CLV_PCI_ID) {
+	if (ctx->pci_id == SST_CLV_PCI_ID) {
 		csr = sst_shim_read(ctx->shim, SST_CSR);
 		/*
 		 * To restore the csr_value after S0ix and S3 states.

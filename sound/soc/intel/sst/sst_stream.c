@@ -204,103 +204,6 @@ int sst_alloc_stream_mrfld(char *params, struct sst_block *block)
 	return str_id;
 }
 
-int sst_alloc_stream_mfld(char *params, struct sst_block *block)
-{
-	struct ipc_post *msg = NULL;
-	struct snd_sst_alloc_params_mfld alloc_param;
-	struct snd_sst_params *str_params;
-	struct stream_info *str_info;
-	unsigned int stream_ops, device;
-	struct snd_sst_stream_params_mfld *sparams;
-	unsigned int pcm_slot = 0, num_ch, pcm_wd_sz, sfreq;
-	int str_id;
-	u8 codec;
-	u32 rb_size, rb_addr, period_count;
-	unsigned long irq_flags;
-
-	pr_debug("In %s\n", __func__);
-
-	BUG_ON(!params);
-	str_params = (struct snd_sst_params *)params;
-	stream_ops = str_params->ops;
-	codec = str_params->codec;
-	device = str_params->device_type;
-	num_ch = sst_get_num_channel(str_params);
-	sfreq = sst_get_sfreq(str_params);
-	pcm_wd_sz = sst_get_wdsize(str_params);
-	rb_size = str_params->aparams.ring_buf_info[0].size;
-	rb_addr = str_params->aparams.ring_buf_info[0].addr;
-	period_count = str_params->aparams.frag_size / 4;
-
-
-	pr_debug("period_size = %d\n", period_count);
-	pr_debug("ring_buf_addr = 0x%x\n", rb_addr);
-	pr_debug("ring_buf_size = %d\n", rb_size);
-	pr_debug("device_type=%d\n", device);
-	pr_debug("sfreq =%d\n", sfreq);
-	pr_debug("stream_ops%d codec%d device%d\n", stream_ops, codec, device);
-
-
-	sparams = kzalloc(sizeof(*sparams), GFP_KERNEL);
-	if (!sparams) {
-		pr_err("Unable to allocate snd_sst_stream_params\n");
-		return -ENOMEM;
-	}
-
-
-	sparams->uc.pcm_params.codec = codec;
-	sparams->uc.pcm_params.num_chan = num_ch;
-	sparams->uc.pcm_params.pcm_wd_sz = pcm_wd_sz;
-	sparams->uc.pcm_params.reserved = 0;
-	sparams->uc.pcm_params.sfreq = sfreq;
-	sparams->uc.pcm_params.ring_buffer_size = rb_size;
-	sparams->uc.pcm_params.period_count = period_count;
-	sparams->uc.pcm_params.ring_buffer_addr = rb_addr;
-
-
-	mutex_lock(&sst_drv_ctx->stream_lock);
-	str_id = device;
-	mutex_unlock(&sst_drv_ctx->stream_lock);
-	pr_debug("slot %x\n", pcm_slot);
-
-	/*allocate device type context*/
-	sst_init_stream(&sst_drv_ctx->streams[str_id], codec,
-			str_id, stream_ops, pcm_slot);
-	/* send msg to FW to allocate a stream */
-	if (sst_create_ipc_msg(&msg, true)) {
-		kfree(sparams);
-		return -ENOMEM;
-	}
-
-	alloc_param.str_type.codec_type = codec;
-	alloc_param.str_type.str_type = SST_STREAM_TYPE_MUSIC;
-	alloc_param.str_type.operation = stream_ops;
-	alloc_param.str_type.protected_str = 0; /* non drm */
-	alloc_param.str_type.time_slots = pcm_slot;
-	alloc_param.str_type.reserved = 0;
-	alloc_param.str_type.result = 0;
-
-	block->drv_id = str_id;
-	block->msg_id = IPC_IA_ALLOC_STREAM;
-
-	sst_fill_header(&msg->header, IPC_IA_ALLOC_STREAM, 1, str_id);
-	msg->header.part.data = sizeof(alloc_param) + sizeof(u32);
-	memcpy(&alloc_param.stream_params, sparams,
-			sizeof(*sparams));
-	kfree(sparams);
-
-	memcpy(msg->mailbox_data, &msg->header, sizeof(u32));
-	memcpy(msg->mailbox_data + sizeof(u32), &alloc_param,
-			sizeof(alloc_param));
-	str_info = &sst_drv_ctx->streams[str_id];
-	spin_lock_irqsave(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	list_add_tail(&msg->node, &sst_drv_ctx->ipc_dispatch_list);
-	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	sst_drv_ctx->ops->post_message(&sst_drv_ctx->ipc_post_msg_wq);
-	pr_debug("SST DBG:alloc stream done\n");
-	return str_id;
-}
-
 /**
 * sst_stream_stream - Send msg for a pausing stream
 * @str_id:	 stream ID
@@ -341,7 +244,7 @@ int sst_start_stream(int str_id)
 		memcpy(msg->mailbox_data, &dsp_hdr, sizeof(dsp_hdr));
 		memset(msg->mailbox_data + sizeof(dsp_hdr), 0, sizeof(u16));
 	} else {
-		pr_debug("fill START_STREAM for MFLD/CTP\n");
+		pr_debug("fill START_STREAM for CTP\n");
 		sst_fill_header(&msg->header, IPC_IA_START_STREAM, 1, str_id);
 		msg->header.part.data =  sizeof(u32) + sizeof(u32);
 		memcpy(msg->mailbox_data, &msg->header, sizeof(u32));

@@ -481,8 +481,7 @@ static int process_fw_init(struct sst_ipc_msg_wq *msg)
 	int retval = 0;
 
 	pr_debug("*** FW Init msg came***\n");
-	if (sst_drv_ctx->pci_id == SST_MFLD_PCI_ID ||
-	    sst_drv_ctx->pci_id == SST_CLV_PCI_ID) {
+	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID) {
 		if (init->result) {
 			sst_drv_ctx->sst_state =  SST_ERROR;
 			pr_debug("FW Init failed, Error %x\n", init->result);

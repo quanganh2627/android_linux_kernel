@@ -40,7 +40,6 @@
 /* driver names */
 #define SST_DRV_NAME "intel_sst_driver"
 #define SST_MRST_PCI_ID	0x080A
-#define SST_MFLD_PCI_ID	0x082F
 #define SST_CLV_PCI_ID	0x08E7
 #define SST_MRFLD_PCI_ID 0x119A
 #define SST_BYT_PCI_ID  0x0F28
@@ -365,7 +364,6 @@ struct snd_sst_probe_bytes {
 	char bytes[0];
 };
 
-#define PCI_DMAC_MFLD_ID 0x0830
 #define PCI_DMAC_CLV_ID 0x08F0
 #define PCI_DMAC_MRFLD_ID 0x119B
 
@@ -619,8 +617,6 @@ int sst_send_byte_stream_mrfld(void *sbytes);
 int sst_send_probe_bytes(struct intel_sst_drv *sst);
 int sst_set_stream_param(int str_id, struct snd_sst_params *str_param);
 int sst_set_metadata(int str_id, char *params);
-int sst_get_stream_params(int str_id,
-		struct snd_sst_get_stream_params *get_params);
 int sst_get_stream(struct snd_sst_params *str_param);
 int sst_get_stream_allocated(struct snd_sst_params *str_param,
 				struct snd_sst_lib_download **lib_dnld);
@@ -681,7 +677,6 @@ int sst_get_wdsize(struct snd_sst_params *str_param);
 int sst_get_sfreq(struct snd_sst_params *str_param);
 int intel_sst_check_device(void);
 int sst_alloc_stream_ctp(char *params, struct sst_block *block);
-int sst_alloc_stream_mfld(char *params, struct sst_block *block);
 int sst_alloc_stream_mrfld(char *params, struct sst_block *block);
 void sst_restore_fw_context(void);
 struct sst_block *sst_create_block(struct intel_sst_drv *ctx,
