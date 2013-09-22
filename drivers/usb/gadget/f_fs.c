@@ -2256,9 +2256,9 @@ static int ffs_func_bind(struct usb_configuration *c,
 		struct usb_descriptor_header
 			*ss_descs[super ? ffs->ss_descs_count + 1 : 0];
 		short inums[ffs->interfaces_count];
-		char raw_descs[super ? ffs->raw_descs_length
-				: high ? ffs->raw_hs_descs_length
-				    : ffs->raw_fs_descs_length];
+		char raw_descs[super ? ffs->raw_descs_length : high ?
+			ffs->raw_hs_descs_length + ffs->raw_fs_descs_length
+			    : ffs->raw_fs_descs_length];
 	} *data;
 
 	ENTER();
