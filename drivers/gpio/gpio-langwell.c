@@ -771,6 +771,16 @@ static const struct irq_domain_ops lnw_gpio_irq_ops = {
 	.xlate = irq_domain_xlate_twocell,
 };
 
+static int lnw_gpio_runtime_resume(struct device *dev)
+{
+	return 0;
+}
+
+static int lnw_gpio_runtime_suspend(struct device *dev)
+{
+	return 0;
+}
+
 static int lnw_gpio_runtime_idle(struct device *dev)
 {
 	int err = pm_schedule_suspend(dev, 500);
@@ -782,7 +792,9 @@ static int lnw_gpio_runtime_idle(struct device *dev)
 }
 
 static const struct dev_pm_ops lnw_gpio_pm_ops = {
-	SET_RUNTIME_PM_OPS(NULL, NULL, lnw_gpio_runtime_idle)
+	SET_RUNTIME_PM_OPS(lnw_gpio_runtime_suspend,
+			   lnw_gpio_runtime_resume,
+			   lnw_gpio_runtime_idle)
 };
 
 static int lnw_gpio_probe(struct pci_dev *pdev,
