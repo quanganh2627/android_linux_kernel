@@ -917,7 +917,7 @@ static int i915_cur_delayinfo(struct seq_file *m, void *unused)
 		seq_printf(m, "Max overclocked frequency: %dMHz\n",
 			   dev_priv->rps.hw_max * GT_FREQUENCY_MULTIPLIER);
 	} else if (IS_VALLEYVIEW(dev)) {
-		u32 freq_sts, val;
+		u32 freq_sts;
 
 		mutex_lock(&dev_priv->rps.hw_lock);
 		freq_sts = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
@@ -942,9 +942,9 @@ static int i915_cur_delayinfo(struct seq_file *m, void *unused)
 			vlv_gpu_freq(dev_priv->mem_freq,
 					dev_priv->rps.requested_delay),
 					dev_priv->rps.requested_delay);
-		seq_printf(m, "Up Threshold: %ld\n",
+		seq_printf(m, "Up Threshold: %d\n",
 		atomic_read(&dev_priv->turbodebug.up_threshold));
-		seq_printf(m, "Down Threshold: %ld\n",
+		seq_printf(m, "Down Threshold: %d\n",
 		atomic_read(&dev_priv->turbodebug.down_threshold));
 		seq_printf(m, "RP_UP: %d\nRP_DOWN:%d\n",
 					dev_priv->rps.rp_up_masked,
@@ -1478,9 +1478,9 @@ static int i915_gen6_forcewake_count_info(struct seq_file *m, void *data)
 	struct drm_info_node *node = (struct drm_info_node *) m->private;
 	struct drm_device *dev = node->minor->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	unsigned forcewake_count;
-	unsigned fw_rendercount;
-	unsigned fw_mediacount;
+	unsigned forcewake_count = 0;
+	unsigned fw_rendercount = 0;
+	unsigned fw_mediacount = 0;
 
 	spin_lock_irq(&dev_priv->uncore.lock);
 	if (IS_VALLEYVIEW(dev)) {
@@ -2001,29 +2001,6 @@ i915_set_max_freq(struct drm_device *dev, int val)
 	return 0;
 }
 
-/* Helper function to get max freq turbo based on input */
-static int
-i915_get_max_freq(struct drm_device *dev, int *val)
-{
-	int ret;
-	drm_i915_private_t *dev_priv = dev->dev_private;
-
-	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
-	if (ret)
-		return ret;
-
-	if (IS_VALLEYVIEW(dev))
-		*val = dev_priv->rps.max_delay;
-	else
-		*val = dev_priv->rps.max_delay * 50;
-
-	mutex_unlock(&dev_priv->rps.hw_lock);
-
-	return 0;
-}
-
-
-
 static int
 i915_max_freq_get(void *data, u64 *val)
 {
@@ -2109,27 +2086,6 @@ i915_set_min_freq(struct drm_device *dev, int val)
 		dev_priv->rps.min_delay = val / 50;
 		gen6_set_rps(dev, val / 50);
 	}
-
-	mutex_unlock(&dev_priv->rps.hw_lock);
-
-	return 0;
-}
-
-/* Helper function to get min freq turbo based on input */
-static int
-i915_get_min_freq(struct drm_device *dev, int *val)
-{
-	int ret;
-	drm_i915_private_t *dev_priv = dev->dev_private;
-
-	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
-	if (ret)
-		return ret;
-
-	if (IS_VALLEYVIEW(dev))
-		*val = dev_priv->rps.min_delay;
-	else
-		*val = dev_priv->rps.min_delay * 50;
 
 	mutex_unlock(&dev_priv->rps.hw_lock);
 
@@ -2299,7 +2255,8 @@ i915_read_turbo_api(struct file *filp,
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	char buf[200], control[10], operation[20], val[20], format[20];
 	int len = 0, ret, no_of_tokens;
-	u32 pval = 0;
+	unsigned long pval = 0;
+	u32 reg_val = 0;
 
 	if (!(IS_VALLEYVIEW(dev)))
 		return -ENODEV;
@@ -2323,10 +2280,10 @@ i915_read_turbo_api(struct file *filp,
 		if (ret)
 			return ret;
 
-		pval = I915_READ(GEN6_RP_CONTROL);
+		reg_val = I915_READ(GEN6_RP_CONTROL);
 		len = snprintf(buf, sizeof(buf),
 				"Turbo Enabled: %s\n",
-				yesno(pval & GEN6_RP_ENABLE));
+				yesno(reg_val & GEN6_RP_ENABLE));
 
 		if (len < 0)
 			return len;
@@ -2338,9 +2295,9 @@ i915_read_turbo_api(struct file *filp,
 				"Min Gpu Freq _min_delay_: %d\n",
 				dev_priv->rps.min_delay);
 
-		pval = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
+		reg_val = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
 		len += snprintf(&buf[len], (sizeof(buf) - len),
-				"Cur Gpu Freq _cur_delay_: %d\n", pval >> 8);
+				"Cur Gpu Freq _cur_delay_: %d\n", reg_val >> 8);
 		len += snprintf(&buf[len], (sizeof(buf) - len),
 				"Up Threshold: %d\n", atomic_read(
 					&dev_priv->turbodebug.up_threshold));
@@ -2478,7 +2435,6 @@ static int
 rc6_enable_disable(struct drm_device *dev, long unsigned int val)
 {
 	int ret;
-	drm_i915_private_t *dev_priv = dev->dev_private;
 
 	if (!(IS_VALLEYVIEW(dev)))
 		return -ENODEV;
@@ -2847,7 +2803,8 @@ i915_iosf_read_api(struct file *filp,
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	char buf[200], operation[10], port[10], offset[20], format[20];
 	int len = 0, ret, noOfTokens;
-	u32 iosf_reg, iosf_val;
+	unsigned long iosf_reg;
+	u32 iosf_val;
 
 	if (!(IS_VALLEYVIEW(dev)))
 		return -ENODEV;

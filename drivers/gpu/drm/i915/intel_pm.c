@@ -3112,7 +3112,6 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 					bool enabled, bool scaled)
 {
 	struct drm_device *dev = plane->dev;
-	int pipe = to_intel_plane(plane)->pipe;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int sprite_prec = 0, sprite_dl = 0;
 	int sprite_prec_mult = 0;
@@ -4238,11 +4237,11 @@ void valleyview_enable_rps(struct drm_device *dev)
 {
 
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 gtfifodbg, val;
+	u32 gtfifodbg = 0;
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
-
-	if ((gtfifodbg == I915_READ(GTFIFODBG))) {
+	gtfifodbg = I915_READ(GTFIFODBG);
+	if (gtfifodbg) {
 		DRM_ERROR("GT fifo had a previous error %x\n", gtfifodbg);
 		I915_WRITE(GTFIFODBG, gtfifodbg);
 	}
