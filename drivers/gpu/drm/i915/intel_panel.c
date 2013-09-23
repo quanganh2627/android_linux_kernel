@@ -485,6 +485,7 @@ static void intel_panel_actually_set_backlight(struct drm_device *dev, u32 level
 
 	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi) {
 #ifdef CONFIG_CRYSTAL_COVE
+		DRM_DEBUG_DRIVER("tux: set backlight PWM = %d\n", level);
 		intel_mid_pmic_writeb(0x4E, level);
 #else
 		DRM_ERROR("Backlight not supported yet\n");

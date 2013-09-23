@@ -64,32 +64,6 @@ struct intel_dsi_device {
 	unsigned int lane_count;
 	const struct intel_dsi_dev_ops *dev_ops;
 	void *dev_priv;
-#if 0
-	u8 eotp_pkt;
-	u16 dsi_clock_freq;
-	u8 operation_mode;
-	u8 video_mode_type;
-	u32 pixel_format;
-	u32 data_width;
-	u8 dither;
-	u32 port_bits;
-	u8 escape_clk_div;
-	u32 lp_rx_timeout;
-	u8 turn_arnd_val;
-	u16 init_count;
-	u16 rst_timer_val;
-	u16 hs_to_lp_count;
-	u16 lp_byte_clk;
-	u32 bw_timer;
-	u16 clk_lp_to_hs_count;
-	u16 clk_hs_to_lp_count;
-	u32 video_frmt_cfg_bits;
-	u32 dphy_reg;
-
-	u8 backlight_off_delay; /*in ms*/
-	bool send_shutdown;
-	u8 shutdown_pkt_delay; /*in ms*/
-#endif
 };
 
 struct intel_dsi_dev_ops {
@@ -152,6 +126,8 @@ struct intel_dsi {
 	/* number of DSI lanes */
 	unsigned int lane_count;
 
+	enum pipe pipe;
+
 	/* video mode pixel format for MIPI_DSI_FUNC_PRG register */
 	u32 pixel_format;
 
@@ -160,6 +136,29 @@ struct intel_dsi {
 
 	/* eot for MIPI_EOT_DISABLE register */
 	u32 eot_disable;
+
+	u16 dsi_clock_freq;
+	u8 operation_mode;
+	u8 video_mode_type;
+	u32 data_width;
+	u8 dither;
+	u32 port_bits;
+	u8 escape_clk_div;
+	u32 lp_rx_timeout;
+	u8 turn_arnd_val;
+	u16 init_count;
+	u16 rst_timer_val;
+	u16 hs_to_lp_count;
+	u16 lp_byte_clk;
+	u32 bw_timer;
+	u16 clk_lp_to_hs_count;
+	u16 clk_hs_to_lp_count;
+	u32 video_frmt_cfg_bits;
+	u32 dphy_reg;
+
+	u8 backlight_off_delay; /*in ms*/
+	bool send_shutdown;
+	u8 shutdown_pkt_delay; /*in ms*/
 };
 
 static inline struct intel_dsi *enc_to_intel_dsi(struct drm_encoder *encoder)

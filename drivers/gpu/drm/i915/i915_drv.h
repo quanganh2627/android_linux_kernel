@@ -1388,6 +1388,7 @@ typedef struct drm_i915_private {
 	struct i915_ums_state ums;
 
 	u16 is_mipi;
+	u16 mipi_panel_id;
 } drm_i915_private_t;
 
 static inline struct drm_i915_private *to_i915(const struct drm_device *dev)
@@ -2392,6 +2393,7 @@ u32 vlv_gpio_nc_read(struct drm_i915_private *dev_priv, u32 reg);
 void vlv_gpio_nc_write(struct drm_i915_private *dev_priv, u32 reg, u32 val);
 u32 vlv_cck_read(struct drm_i915_private *dev_priv, u32 reg);
 void vlv_cck_write(struct drm_i915_private *dev_priv, u32 reg, u32 val);
+void vlv_cck_write_bits(struct drm_i915_private *dev_priv, u32 reg, u32 val, u32 mask);
 u32 vlv_ccu_read(struct drm_i915_private *dev_priv, u32 reg);
 void vlv_ccu_write(struct drm_i915_private *dev_priv, u32 reg, u32 val);
 u32 vlv_gps_core_read(struct drm_i915_private *dev_priv, u32 reg);
@@ -2408,6 +2410,10 @@ int intel_pmc_read32(struct drm_i915_private *dev_priv, u32 reg,  u32 *val);
 int intel_pmc_write32(struct drm_i915_private *dev_priv, u32 reg, u32 val);
 int intel_pmc_write32_bits(struct drm_i915_private *dev_priv, \
 			u32 reg, u32 val, u32 mask);
+int intel_flisdsi_read32(struct drm_i915_private *dev_priv, u32 reg, u32 *val);
+int intel_flisdsi_write32(struct drm_i915_private *dev_priv, u32 reg, u32 val);
+int intel_flisdsi_write32_bits(struct drm_i915_private *dev_priv, u32 reg, 
+								u32 val, u32 mask);
 
 int vlv_gpu_freq(int ddr_freq, int val);
 int vlv_freq_opcode(int ddr_freq, int val);
@@ -2428,6 +2434,14 @@ __i915_write(32)
 __i915_write(64)
 #undef __i915_write
 
+#define __i915_write_bits(x) \
+	void i915_write_bits##x(struct drm_i915_private *dev_priv, u32 reg, u##x val, u##x mask, bool trace);
+__i915_write_bits(8)
+__i915_write_bits(16)
+__i915_write_bits(32)
+__i915_write_bits(64)
+#undef __i915_write_bits
+
 #define I915_READ8(reg)		i915_read8(dev_priv, (reg), true)
 #define I915_WRITE8(reg, val)	i915_write8(dev_priv, (reg), (val), true)
 
@@ -2437,7 +2451,11 @@ __i915_write(64)
 #define I915_WRITE16_NOTRACE(reg, val)	i915_write16(dev_priv, (reg), (val), false)
 
 #define I915_READ(reg)		i915_read32(dev_priv, (reg), true)
+
 #define I915_WRITE(reg, val)	i915_write32(dev_priv, (reg), (val), true)
+
+#define I915_WRITE_BITS(reg, val, mask)	i915_write_bits32(dev_priv, (reg), (val), (mask), true)
+
 #define I915_READ_NOTRACE(reg)		i915_read32(dev_priv, (reg), false)
 #define I915_WRITE_NOTRACE(reg, val)	i915_write32(dev_priv, (reg), (val), false)
 

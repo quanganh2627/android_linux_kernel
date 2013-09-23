@@ -30,6 +30,8 @@ static int vlv_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
 			   u32 port, u32 opcode, u32 addr, u32 *val)
 {
 	u32 cmd, be = 0xf, bar = 0;
+	devfn = 0x00;
+
 	bool is_read = (opcode == PUNIT_OPCODE_REG_READ ||
 			opcode == DPIO_OPCODE_REG_READ);
 
@@ -38,6 +40,11 @@ static int vlv_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
 			opcode = 0x0;
 		else
 			opcode = 0x1;
+	else 
+		if (is_read)
+			opcode = 0x6;
+		else
+			opcode = 0x7;
 
 	cmd = (devfn << IOSF_DEVFN_SHIFT) | (opcode << IOSF_OPCODE_SHIFT) |
 		(port << IOSF_PORT_SHIFT) | (be << IOSF_BYTE_ENABLES_SHIFT) |
@@ -152,6 +159,12 @@ void vlv_cck_write(struct drm_i915_private *dev_priv, u32 reg, u32 val)
 {
 	vlv_sideband_rw(dev_priv, PCI_DEVFN(2, 0), IOSF_PORT_CCK,
 			PUNIT_OPCODE_REG_WRITE, reg, &val);
+}
+
+void vlv_cck_write_bits(struct drm_i915_private *dev_priv, u32 reg, u32 val, u32 mask)
+{
+	vlv_sideband_rw32_bits(dev_priv, PCI_DEVFN(2, 0), IOSF_PORT_CCK,
+				PUNIT_OPCODE_REG_WRITE, reg, &val, mask);
 }
 
 u32 vlv_ccu_read(struct drm_i915_private *dev_priv, u32 reg)
@@ -274,5 +287,24 @@ int intel_pmc_write32_bits(struct drm_i915_private *dev_priv, u32 reg,
 				u32 val, u32 mask)
 {
 	return vlv_sideband_rw32_bits(dev_priv, DPIO_DEVFN, IOSF_PORT_PMC,
+				DPIO_OPCODE_REG_WRITE, reg, &val, mask);
+}
+
+int intel_flisdsi_read32(struct drm_i915_private *dev_priv, u32 reg, u32 *val)
+{
+	return vlv_sideband_rw(dev_priv, DPIO_DEVFN, IOSF_PORT_FLISDSI, 
+				DPIO_OPCODE_REG_READ, reg, val);
+}
+
+int intel_flisdsi_write32(struct drm_i915_private *dev_priv, u32 reg, u32 val)
+{
+	return vlv_sideband_rw(dev_priv, DPIO_DEVFN, IOSF_PORT_FLISDSI, 
+				DPIO_OPCODE_REG_WRITE, reg, &val);
+}
+
+int intel_flisdsi_write32_bits(struct drm_i915_private *dev_priv, u32 reg,
+				u32 val, u32 mask)
+{
+	return vlv_sideband_rw32_bits(dev_priv, DPIO_DEVFN, IOSF_PORT_FLISDSI, 
 				DPIO_OPCODE_REG_WRITE, reg, &val, mask);
 }

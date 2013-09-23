@@ -32,6 +32,7 @@
 #include "intel_drv.h"
 #include "intel_dsi.h"
 #include "intel_dsi_cmd.h"
+#include "intel_dsi_pll.h"
 
 /* the sub-encoders aka panel drivers */
 static const struct intel_dsi_device intel_dsi_devices[] = {
@@ -52,39 +53,18 @@ static void vlv_cck_modify(struct drm_i915_private *dev_priv, u32 reg, u32 val,
 	vlv_cck_write(dev_priv, reg, tmp);
 }
 
-static void band_gap_wa(struct drm_i915_private *dev_priv)
+static void band_gap_reset(struct drm_i915_private *dev_priv)
 {
 	mutex_lock(&dev_priv->dpio_lock);
 
-	/* Enable bandgap fix in GOP driver */
-	vlv_cck_modify(dev_priv, 0x6D, 0x00010000, 0x00030000);
-	msleep(20);
-	vlv_cck_modify(dev_priv, 0x6E, 0x00010000, 0x00030000);
-	msleep(20);
-	vlv_cck_modify(dev_priv, 0x6F, 0x00010000, 0x00030000);
-	msleep(20);
-	vlv_cck_modify(dev_priv, 0x00, 0x00008000, 0x00008000);
-	msleep(20);
-	vlv_cck_modify(dev_priv, 0x00, 0x00000000, 0x00008000);
-	msleep(20);
-
-	/* Turn Display Trunk on */
-	vlv_cck_modify(dev_priv, 0x6B, 0x00020000, 0x00030000);
-	msleep(20);
-
-	vlv_cck_modify(dev_priv, 0x6C, 0x00020000, 0x00030000);
-	msleep(20);
-
-	vlv_cck_modify(dev_priv, 0x6D, 0x00020000, 0x00030000);
-	msleep(20);
-	vlv_cck_modify(dev_priv, 0x6E, 0x00020000, 0x00030000);
-	msleep(20);
-	vlv_cck_modify(dev_priv, 0x6F, 0x00020000, 0x00030000);
+	intel_flisdsi_write32(dev_priv, 0x08, 0x0001);
+	intel_flisdsi_write32(dev_priv, 0x0F, 0x0005);
+	intel_flisdsi_write32(dev_priv, 0x0F, 0x0025);
+	udelay(150);
+	intel_flisdsi_write32(dev_priv, 0x0F, 0x0000);
+	intel_flisdsi_write32(dev_priv, 0x08, 0x0000);
 
 	mutex_unlock(&dev_priv->dpio_lock);
-
-	/* Need huge delay, otherwise clock is not stable */
-	msleep(100);
 }
 
 static struct intel_dsi *intel_attached_dsi(struct drm_connector *connector)
@@ -134,20 +114,14 @@ static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
 {
 	DRM_DEBUG_KMS("\n");
 
-	vlv_enable_dsi_pll(encoder);
+	intel_enable_dsi_pll(encoder);
 }
 
-static void intel_dsi_pre_enable(struct intel_encoder *encoder)
-{
-	DRM_DEBUG_KMS("\n");
-}
-
-static void intel_dsi_enable(struct intel_encoder *encoder)
+void intel_dsi_device_ready(struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
-	struct drm_device *dev = encoder->base.dev;
 	int pipe = intel_crtc->pipe;
 	u32 temp;
 
@@ -156,36 +130,84 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	if (intel_dsi->dev.dev_ops->panel_reset)
 		intel_dsi->dev.dev_ops->panel_reset(&intel_dsi->dev);
 
-	temp = I915_READ(MIPI_DEVICE_READY(pipe));
-	if ((temp & DEVICE_READY) == 0) {
-		temp &= ~ULPS_STATE_MASK;
-		I915_WRITE(MIPI_DEVICE_READY(pipe), temp | DEVICE_READY);
-	} else if (temp & ULPS_STATE_MASK) {
-		temp &= ~ULPS_STATE_MASK;
-		I915_WRITE(MIPI_DEVICE_READY(pipe), temp | ULPS_STATE_EXIT);
-		/*
-		 * We need to ensure that there is a minimum of 1 ms time
-		 * available before clearing the UPLS exit state.
-		 */
-		msleep(2);
-		I915_WRITE(MIPI_DEVICE_READY(pipe), temp);
-	}
+	I915_WRITE_BITS(MIPI_PORT_CTRL(pipe), LP_OUTPUT_HOLD, LP_OUTPUT_HOLD);
+	usleep_range(1000, 1500);
+	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY |
+			ULPS_STATE_EXIT, DEVICE_READY | ULPS_STATE_MASK);
+	usleep_range(2000, 2500);
+	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY,
+			DEVICE_READY | ULPS_STATE_MASK);
+	usleep_range(2000, 2500);
+	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), 0x00,
+			DEVICE_READY | ULPS_STATE_MASK);
+	usleep_range(2000, 2500);
+	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY,
+			DEVICE_READY | ULPS_STATE_MASK);
+	usleep_range(2000, 2500);
 
 	if (intel_dsi->dev.dev_ops->send_otp_cmds)
 		intel_dsi->dev.dev_ops->send_otp_cmds(&intel_dsi->dev);
 
-	if (is_cmd_mode(intel_dsi))
-		I915_WRITE(MIPI_MAX_RETURN_PKT_SIZE(pipe), 8 * 4);
+}
 
-	if (is_vid_mode(intel_dsi)) {
+static void intel_dsi_pre_enable(struct intel_encoder *encoder)
+{
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	DRM_DEBUG_KMS("\n");
+
+	/* put device in ready state */
+	intel_dsi_device_ready(encoder);
+}
+
+static void intel_dsi_enable(struct intel_encoder *encoder)
+{
+	struct drm_device *dev = encoder->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	int pipe = intel_crtc->pipe;
+	int intr_stat, dpi_ctrl;
+	u32 temp;
+
+	DRM_DEBUG_KMS("\n");
+
+	if (is_cmd_mode(intel_dsi)) {
+		/* XXX: Implement me */
+		I915_WRITE(MIPI_MAX_RETURN_PKT_SIZE(pipe), 8 * 4);
+	}
+	else {
 		msleep(20); /* XXX */
 		dpi_send_cmd(intel_dsi, TURN_ON);
 		msleep(100);
+#if 0
+		intr_stat = I915_READ(MIPI_INTR_STAT(pipe));
+		if (intr_stat & SPL_PKT_SENT_INTERRUPT)
+			I915_WRITE(MIPI_INTR_STAT(pipe),
+					SPL_PKT_SENT_INTERRUPT);
 
-		/* assert ip_tg_enable signal */
+		/* XXX: fix the bits with constants */
+		I915_WRITE(MIPI_DPI_CONTROL(pipe), ((0x1 << 1) &
+				~(0x1 << 0) & ~(0x1 << 6)));
+		I915_WRITE(MIPI_DPI_CONTROL(pipe), 0x2);
+
+		udelay(500);
+
+		/* Wait till SPL Packet Sent status bit is not set */
+		if (wait_for(I915_READ(MIPI_INTR_STAT(pipe)) &
+				SPL_PKT_SENT_INTERRUPT, 50))
+			DRM_ERROR("SPL Packet Sent failed\n");
+#endif
+		intr_stat = I915_READ(MIPI_INTR_STAT(pipe));
+#if 0
+		if (intr_stat & SPL_PKT_SENT_INTERRUPT)
+			I915_WRITE(MIPI_INTR_STAT(pipe),
+					SPL_PKT_SENT_INTERRUPT);
+#endif
+
 		temp = I915_READ(MIPI_PORT_CTRL(pipe));
+		temp = temp | intel_dsi->port_bits;
 		I915_WRITE(MIPI_PORT_CTRL(pipe), temp | DPI_ENABLE);
-		POSTING_READ(MIPI_PORT_CTRL(pipe));
+		usleep_range(2000, 2500);
 	}
 
 	if (intel_dsi->dev.dev_ops->enable)
@@ -196,43 +218,123 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 
 static void intel_dsi_disable(struct intel_encoder *encoder)
 {
+	struct drm_encoder *drm_encoder = &encoder->base;
+	struct drm_device *dev = drm_encoder->dev;
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
-	struct drm_device *dev = encoder->base.dev;
 	int pipe = intel_crtc->pipe;
-	u32 temp;
+	int intr_stat, dpi_ctrl;
 
 	DRM_DEBUG_KMS("\n");
 
 	intel_panel_disable_backlight(dev);
-	intel_dsi->dev.dev_ops->disable(&intel_dsi->dev);
+	if (intel_dsi->backlight_off_delay >= 20)
+		msleep(intel_dsi->backlight_off_delay);
+	else
+		usleep_range(intel_dsi->backlight_off_delay * 1000,
+			(intel_dsi->backlight_off_delay * 1000) + 500);
 
-	if (is_vid_mode(intel_dsi)) {
-		dpi_send_cmd(intel_dsi, SHUTDOWN);
-		msleep(10);
+	if (is_cmd_mode(intel_dsi)) {
+		/* XXX Impementation TBD */
+	} else {
+		/* video mode */
+		intr_stat = I915_READ(MIPI_INTR_STAT(pipe));
+		if (intr_stat & SPL_PKT_SENT_INTERRUPT)
+			I915_WRITE(MIPI_INTR_STAT(pipe),
+					SPL_PKT_SENT_INTERRUPT);
 
-		/* de-assert ip_tg_enable signal */
-		temp = I915_READ(MIPI_PORT_CTRL(pipe));
-		I915_WRITE(MIPI_PORT_CTRL(pipe), temp & ~DPI_ENABLE);
-		POSTING_READ(MIPI_PORT_CTRL(pipe));
+		dpi_ctrl = I915_READ(MIPI_DPI_CONTROL(pipe));
 
-		msleep(2);
+		if (!(dpi_ctrl & TURN_ON)) {
+			DRM_DEBUG_KMS("DPI already shutdown\n");
+			return;
+		}
+
+		if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)),
+						DPI_FIFO_EMPTY) == 0, 100)) {
+				DRM_DEBUG_KMS("DPI FIFO not empty\n");
+		}
+
+		if (intel_dsi->send_shutdown == true) {
+			I915_WRITE(MIPI_DPI_CONTROL(pipe), SHUTDOWN);
+
+			/* Wait for special packet sent interrupt */
+			if (wait_for(I915_READ(MIPI_INTR_STAT(pipe)) &
+						SPL_PKT_SENT_INTERRUPT, 50))
+				DRM_ERROR("Special packet not sent!\n");
+			else {
+				intr_stat = I915_READ(MIPI_INTR_STAT(pipe));
+				if (intr_stat & SPL_PKT_SENT_INTERRUPT)
+					I915_WRITE(MIPI_INTR_STAT(pipe),
+							SPL_PKT_SENT_INTERRUPT);
+			}
+
+			if (intel_dsi->shutdown_pkt_delay >= 20)
+				msleep(intel_dsi->shutdown_pkt_delay);
+			else
+				usleep_range(
+					intel_dsi->shutdown_pkt_delay *
+					1000,
+					intel_dsi->shutdown_pkt_delay *
+					1000 + 500);
+		}
+
+
+		/* If DPI is disabled before sending shutdown command then
+		 * sending shutdown special packet fails */
+		I915_WRITE_BITS(MIPI_PORT_CTRL(pipe), 0, DPI_ENABLE);
+		usleep_range(1000, 1500);
 	}
 
-	temp = I915_READ(MIPI_DEVICE_READY(pipe));
-	if (temp & DEVICE_READY) {
-		temp &= ~DEVICE_READY;
-		temp &= ~ULPS_STATE_MASK;
-		I915_WRITE(MIPI_DEVICE_READY(pipe), temp);
-	}
+	/* if disable packets are sent before sending shutdown packet then in
+	 * some next enable sequence send turn on packet error is observed */
+	if (intel_dsi->dev.dev_ops->disable)
+		intel_dsi->dev.dev_ops->disable(&intel_dsi->dev);
+}
+
+void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
+{
+	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	int pipe = intel_crtc->pipe;
+
+	DRM_DEBUG_KMS("\n");
+
+	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), ULPS_STATE_ENTER,
+							ULPS_STATE_MASK);
+	usleep_range(2000, 2500);
+
+	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), ULPS_STATE_EXIT,
+							ULPS_STATE_MASK);
+	usleep_range(2000, 2500);
+
+	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), ULPS_STATE_ENTER,
+							ULPS_STATE_MASK);
+	usleep_range(2000, 2500);
+
+	I915_WRITE_BITS(MIPI_PORT_CTRL(pipe), 0, LP_OUTPUT_HOLD);
+	usleep_range(1000, 1500);
+
+	if (wait_for(((I915_READ(MIPI_PORT_CTRL(pipe)) & 0x20000)
+					== 0x00000), 30))
+		DRM_ERROR("DSI LP not going Low\n");
+
+	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), 0x00, DEVICE_READY);
+	usleep_range(2000, 2500);
+
+	intel_disable_dsi_pll(encoder);
+
+	if (intel_dsi->dev.dev_ops->disable_panel_power)
+		intel_dsi->dev.dev_ops->disable_panel_power(&intel_dsi->dev);
 }
 
 static void intel_dsi_post_disable(struct intel_encoder *encoder)
 {
 	DRM_DEBUG_KMS("\n");
 
-	vlv_disable_dsi_pll(encoder);
+	intel_dsi_clear_device_ready(encoder);
 }
 
 static bool intel_dsi_get_hw_state(struct intel_encoder *encoder,
@@ -307,9 +409,12 @@ static u16 txclkesc(u32 divider, unsigned int us)
 }
 
 /* return pixels in terms of txbyteclkhs */
-static u16 txbyteclkhs(u16 pixels, int bpp, int lane_count)
+static u32 txbyteclkhs(u32 pixels, int bpp, int lane_count)
 {
-	return DIV_ROUND_UP(DIV_ROUND_UP(pixels * bpp, 8), lane_count);
+	u32 pixel_bytes;
+	pixel_bytes =  ((pixels * bpp) / 8) + (((pixels * bpp) % 8) && 1);
+	return (pixel_bytes / lane_count) + ((pixel_bytes % lane_count) && 1);
+	//return DIV_ROUND_UP(DIV_ROUND_UP(pixels * bpp, 8), lane_count);
 }
 
 static void set_dsi_timings(struct drm_encoder *encoder,
@@ -340,6 +445,22 @@ static void set_dsi_timings(struct drm_encoder *encoder,
 	hsync = txbyteclkhs(hsync, bpp, lane_count);
 	hbp = txbyteclkhs(hbp, bpp, lane_count);
 
+	/* FIXME: Find better way to do this */
+	/* For 7x10 panel we need to have BLLP added to active */
+	/* Trying to find optimal BLLP Multiplier */
+	/*	2.875 - Original multiplier, Works with flicker */
+	/*	2.000 - works but still some flicker */
+	/*	1.500 - Works, No Flicker */
+	/*	1.250 - Works, No Flicker */
+	/*	1.100 - Doesn't work */
+	/* FIXME: Acer Mango spec requires to run the DSI clock at 500 to
+	 * 560Mbps. Recomendation is to run at 513 Mbps. The addition dsi
+	 * clock is to be filled with NULL packets. Refer to acer panel
+	 * spec for more details.
+	 */
+	if (dev_priv->mipi_panel_id == MIPI_DSI_AUO_B080XAT_PANEL_ID)
+		hactive = (hactive * 10) / 8;
+
 	I915_WRITE(MIPI_HACTIVE_AREA_COUNT(pipe), hactive);
 	I915_WRITE(MIPI_HFP_COUNT(pipe), hfp);
 
@@ -352,6 +473,35 @@ static void set_dsi_timings(struct drm_encoder *encoder,
 	I915_WRITE(MIPI_VFP_COUNT(pipe), vfp);
 	I915_WRITE(MIPI_VSYNC_PADDING_COUNT(pipe), vsync);
 	I915_WRITE(MIPI_VBP_COUNT(pipe), vbp);
+}
+
+static void dsi_config(struct drm_encoder *encoder)
+{
+	struct drm_device *dev = encoder->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(encoder);
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
+	int pipe = intel_crtc->pipe;
+	u32 tmp;
+
+	DRM_DEBUG_KMS("\n");
+
+	/* escape clock divider, 20MHz, shared for A and C. device ready must be
+	 * off when doing this! txclkesc? */
+	tmp = I915_READ(MIPI_CTRL(0));
+	tmp &= ~ESCAPE_CLOCK_DIVIDER_MASK;
+	I915_WRITE(MIPI_CTRL(0), tmp | ESCAPE_CLOCK_DIVIDER_1);
+
+	/* read request priority is per pipe */
+	tmp = I915_READ(MIPI_CTRL(pipe));
+	tmp &= ~READ_REQUEST_PRIORITY_MASK;
+	I915_WRITE(MIPI_CTRL(pipe), tmp | READ_REQUEST_PRIORITY_HIGH);
+
+	/* XXX: why here, why like this? handling in irq handler?! */
+	I915_WRITE(MIPI_INTR_EN(pipe), 0xffffffff);
+
+	/* why here, was elsewhere... also 2a, 0c, 60, 08 for values */
+	I915_WRITE(MIPI_DPHY_PARAM(pipe), intel_dsi->dphy_reg);
 }
 
 static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
@@ -367,124 +517,83 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 	unsigned int bpp = intel_crtc->config.pipe_bpp;
 	u32 val, tmp;
 
-	DRM_DEBUG_KMS("pipe %d\n", pipe);
-	printk("tux: pipe %d\n", pipe);
+	band_gap_reset(dev_priv);
 
-	/* Update the DSI PLL */
-	vlv_enable_dsi_pll(intel_encoder);
+	dsi_config(encoder);
 
-	/* XXX: Location of the call */
-	band_gap_wa(dev_priv);
-
-	/* escape clock divider, 20MHz, shared for A and C. device ready must be
-	 * off when doing this! txclkesc? */
-	tmp = I915_READ(MIPI_CTRL(0));
-	tmp &= ~ESCAPE_CLOCK_DIVIDER_MASK;
-	I915_WRITE(MIPI_CTRL(0), tmp | ESCAPE_CLOCK_DIVIDER_1);
-
-	/* read request priority is per pipe */
-	tmp = I915_READ(MIPI_CTRL(pipe));
-	tmp &= ~READ_REQUEST_PRIORITY_MASK;
-	I915_WRITE(MIPI_CTRL(pipe), tmp | READ_REQUEST_PRIORITY_HIGH);
-
-	/* XXX: why here, why like this? handling in irq handler?! */
-	I915_WRITE(MIPI_INTR_STAT(pipe), 0xffffffff);
-	I915_WRITE(MIPI_INTR_EN(pipe), 0xffffffff);
-
-	intel_panel_enable_backlight(dev, pipe);
-
-	I915_WRITE(MIPI_DPHY_PARAM(pipe),
-		   0x3c << EXIT_ZERO_COUNT_SHIFT |
-		   0x1f << TRAIL_COUNT_SHIFT |
-		   0xc5 << CLK_ZERO_COUNT_SHIFT |
-		   0x1f << PREPARE_COUNT_SHIFT);
-
-	I915_WRITE(MIPI_DPI_RESOLUTION(pipe),
-		   adjusted_mode->vdisplay << VERTICAL_ADDRESS_SHIFT |
-		   adjusted_mode->hdisplay << HORIZONTAL_ADDRESS_SHIFT);
-
-	set_dsi_timings(encoder, adjusted_mode);
-
-	val = intel_dsi->lane_count << DATA_LANES_PRG_REG_SHIFT;
-	if (is_cmd_mode(intel_dsi)) {
-		val |= intel_dsi->channel << CMD_MODE_CHANNEL_NUMBER_SHIFT;
-		val |= CMD_MODE_DATA_WIDTH_8_BIT; /* XXX */
-	} else {
-		val |= intel_dsi->channel << VID_MODE_CHANNEL_NUMBER_SHIFT;
-
-		/* XXX: cross-check bpp vs. pixel format? */
-		val |= intel_dsi->pixel_format;
-	}
-	I915_WRITE(MIPI_DSI_FUNC_PRG(pipe), val);
-
-	/* timeouts for recovery. one frame IIUC. if counter expires, EOT and
-	 * stop state. */
-
-	/*
-	 * In burst mode, value greater than one DPI line Time in byte clock
-	 * (txbyteclkhs) To timeout this timer 1+ of the above said value is
-	 * recommended.
-	 *
-	 * In non-burst mode, Value greater than one DPI frame time in byte
-	 * clock(txbyteclkhs) To timeout this timer 1+ of the above said value
-	 * is recommended.
-	 *
-	 * In DBI only mode, value greater than one DBI frame time in byte
-	 * clock(txbyteclkhs) To timeout this timer 1+ of the above said value
-	 * is recommended.
-	 */
-
-	if (is_vid_mode(intel_dsi) &&
-	    intel_dsi->video_mode_format == VIDEO_MODE_BURST) {
-		I915_WRITE(MIPI_HS_TX_TIMEOUT(pipe),
-			   txbyteclkhs(adjusted_mode->htotal, bpp,
-				       intel_dsi->lane_count) + 1);
-	} else {
-		I915_WRITE(MIPI_HS_TX_TIMEOUT(pipe),
-			   txbyteclkhs(adjusted_mode->vtotal *
-				       adjusted_mode->htotal,
-				       bpp, intel_dsi->lane_count) + 1);
-	}
-	I915_WRITE(MIPI_LP_RX_TIMEOUT(pipe), 8309); /* max */
-	I915_WRITE(MIPI_TURN_AROUND_TIMEOUT(pipe), 0x14); /* max */
-	I915_WRITE(MIPI_DEVICE_RESET_TIMER(pipe), 0xffff); /* max */
-
-	/* dphy stuff */
-
+	I915_WRITE(MIPI_LP_RX_TIMEOUT(pipe), intel_dsi->lp_rx_timeout);
+	I915_WRITE(MIPI_TURN_AROUND_TIMEOUT(pipe),
+					intel_dsi->turn_arnd_val);
+	I915_WRITE(MIPI_DEVICE_RESET_TIMER(pipe),
+					intel_dsi->rst_timer_val);
 	/* in terms of low power clock */
-	I915_WRITE(MIPI_INIT_COUNT(pipe), txclkesc(ESCAPE_CLOCK_DIVIDER_1, 100));
+	I915_WRITE(MIPI_INIT_COUNT(pipe), intel_dsi->init_count);
 
-	/* recovery disables */
-	I915_WRITE(MIPI_EOT_DISABLE(pipe), intel_dsi->eot_disable);
+	if (intel_dsi->eot_disable)
+		I915_WRITE(MIPI_EOT_DISABLE(pipe), 0);
+	else
+		I915_WRITE(MIPI_EOT_DISABLE(pipe), 1);
 
-	/* in terms of txbyteclkhs. actual high to low switch +
-	 * MIPI_STOP_STATE_STALL * MIPI_LP_BYTECLK.
-	 *
-	 * XXX: write MIPI_STOP_STATE_STALL?
-	 */
-	I915_WRITE(MIPI_HIGH_LOW_SWITCH_COUNT(pipe), 0x46);
+	I915_WRITE(MIPI_HIGH_LOW_SWITCH_COUNT(pipe), \
+					intel_dsi->hs_to_lp_count);
+	I915_WRITE(MIPI_LP_BYTECLK(pipe), intel_dsi->lp_byte_clk);
 
-	/* XXX: low power clock equivalence in terms of byte clock. the number
-	 * of byte clocks occupied in one low power clock. based on txbyteclkhs
-	 * and txclkesc. txclkesc time / txbyteclk time * (105 +
-	 * MIPI_STOP_STATE_STALL) / 105.???
-	 */
-	I915_WRITE(MIPI_LP_BYTECLK(pipe), 4);
-
-	/* the bw essential for transmitting 16 long packets containing 252
-	 * bytes meant for dcs write memory command is programmed in this
-	 * register in terms of byte clocks. based on dsi transfer rate and the
-	 * number of lanes configured the time taken to transmit 16 long packets
-	 * in a dsi stream varies. */
-	I915_WRITE(MIPI_DBI_BW_CTRL(pipe), 0x820);
+	I915_WRITE(MIPI_MAX_RETURN_PKT_SIZE(pipe), 0x64);
 
 	I915_WRITE(MIPI_CLK_LANE_SWITCH_TIME_CNT(pipe),
-		   0xa << LP_HS_SSW_CNT_SHIFT |
-		   0x14 << HS_LP_PWR_SW_CNT_SHIFT);
+		((u32)intel_dsi->clk_lp_to_hs_count
+		<< LP_HS_SSW_CNT_SHIFT) |
+		(intel_dsi->clk_hs_to_lp_count << HS_LP_PWR_SW_CNT_SHIFT));
 
-	if (is_vid_mode(intel_dsi))
+	if (is_vid_mode(intel_dsi)) {
+		I915_WRITE(MIPI_DPI_RESOLUTION(pipe),
+			(adjusted_mode->vdisplay << VERTICAL_ADDRESS_SHIFT) |
+			(adjusted_mode->hdisplay << HORIZONTAL_ADDRESS_SHIFT));
+
+		set_dsi_timings(encoder, adjusted_mode);
+
+		val = intel_dsi->channel << VID_MODE_CHANNEL_NUMBER_SHIFT |
+			intel_dsi->lane_count << DATA_LANES_PRG_REG_SHIFT |
+			intel_dsi->pixel_format;
+		I915_WRITE(MIPI_DSI_FUNC_PRG(pipe), val);
+
+		/*
+		 * With AUO B080XAT mipi panel HS transmitter timeout issue
+		 * is observed. The timeout could be because there is not
+		 * enough time to go into BLLP and hence the DSI link is in
+		 * HS mode but HS TX timer timed out. As a work around
+		 * increase the HS TX timeout value.
+		 */
+		if (intel_dsi->video_mode_type == DSI_VIDEO_BURST &&
+				dev_priv->mipi_panel_id !=
+						MIPI_DSI_AUO_B080XAT_PANEL_ID) {
+			I915_WRITE(MIPI_HS_TX_TIMEOUT(pipe),
+				txbyteclkhs(adjusted_mode->htotal + 1, bpp,
+				intel_dsi->lane_count));
+		}
+		else {
+			I915_WRITE(MIPI_HS_TX_TIMEOUT(pipe),
+			   txbyteclkhs(adjusted_mode->vtotal *
+				   adjusted_mode->htotal,
+				   bpp, intel_dsi->lane_count));
+		}
+
 		I915_WRITE(MIPI_VIDEO_MODE_FORMAT(pipe),
-			   intel_dsi->video_mode_format);
+					intel_dsi->video_frmt_cfg_bits | \
+						intel_dsi->video_mode_type);
+	} else {
+		val = intel_dsi->channel << CMD_MODE_CHANNEL_NUMBER_SHIFT |
+			intel_dsi->lane_count << DATA_LANES_PRG_REG_SHIFT |
+			intel_dsi->data_width;
+		I915_WRITE(MIPI_DSI_FUNC_PRG(pipe), val);
+
+		I915_WRITE(MIPI_HS_TX_TIMEOUT(pipe),
+			txbyteclkhs(adjusted_mode->hdisplay *
+			adjusted_mode->vdisplay + 1,
+			bpp, intel_dsi->lane_count));
+
+		I915_WRITE(MIPI_DBI_BW_CTRL(pipe), intel_dsi->bw_timer);
+	}
 }
 
 static enum drm_connector_status
@@ -593,6 +702,9 @@ bool intel_dsi_init(struct drm_device *dev)
 	intel_encoder->get_config = intel_dsi_get_config;
 
 	intel_connector->get_hw_state = intel_connector_get_hw_state;
+
+	/* XXX: Will be fixed when we go with generic MIPI design, soon */
+	dev_priv->mipi_panel_id = MIPI_DSI_AUO_B080XAT_PANEL_ID;
 
 	for (i = 0; i < ARRAY_SIZE(intel_dsi_devices); i++) {
 		dsi = &intel_dsi_devices[i];

@@ -1779,6 +1779,8 @@ static void intel_enable_pipe(struct drm_i915_private *dev_priv, enum pipe pipe,
 	int reg;
 	u32 val;
 
+	DRM_ERROR("\n");
+
 	assert_planes_disabled(dev_priv, pipe);
 	assert_sprites_disabled(dev_priv, pipe);
 
@@ -1835,6 +1837,7 @@ static void intel_disable_pipe(struct drm_i915_private *dev_priv,
 								      pipe);
 	int reg;
 	u32 val;
+	DRM_ERROR("\n");
 
 	/*
 	 * Make sure planes won't keep trying to pump pixels to us,
@@ -1883,6 +1886,7 @@ static void intel_enable_plane(struct drm_i915_private *dev_priv,
 	int reg;
 	u32 val;
 
+	DRM_ERROR("\n");
 	/* If the pipe isn't enabled, we can't pump pixels and may hang */
 	assert_pipe_enabled(dev_priv, pipe);
 
@@ -1909,6 +1913,7 @@ static void intel_disable_plane(struct drm_i915_private *dev_priv,
 {
 	int reg;
 	u32 val;
+	DRM_ERROR("\n");
 
 	reg = DSPCNTR(plane);
 	val = I915_READ(reg);
@@ -3974,7 +3979,8 @@ static void i9xx_crtc_enable(struct drm_crtc *crtc)
 		if (encoder->pre_enable)
 			encoder->pre_enable(encoder);
 
-	i9xx_enable_pll(intel_crtc);
+	if (!intel_pipe_has_type(crtc, INTEL_OUTPUT_DSI))
+		i9xx_enable_pll(intel_crtc);
 
 	i9xx_pfit_enable(intel_crtc);
 

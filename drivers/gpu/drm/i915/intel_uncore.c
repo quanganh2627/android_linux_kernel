@@ -489,6 +489,15 @@ __i915_write(32)
 __i915_write(64)
 #undef __i915_write
 
+void i915_write_bits32(struct drm_i915_private *dev_priv, u32 reg, u32 val, u32 mask, bool trace) { \
+	u32 tmp;
+	tmp = I915_READ(reg);
+	tmp &= ~mask;
+	val &= mask;
+	val |= tmp;
+	I915_WRITE(reg, val);
+}
+
 static const struct register_whitelist {
 	uint64_t offset;
 	uint32_t size;

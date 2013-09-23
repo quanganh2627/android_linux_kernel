@@ -59,29 +59,30 @@ bool b080xat_init(struct intel_dsi_device *dsi)
 
 	DRM_DEBUG_KMS("\n");
 
+	intel_dsi->hs = true;
 	intel_dsi->channel = 0;
 	intel_dsi->lane_count = 4;
 	intel_dsi->eot_disable = 1;
-//	dsi->dsi_clock_freq = 513;
-//	dsi->operation_mode = DSI_VIDEO_MODE;
-	intel_dsi->video_mode_format = DSI_VIDEO_BURST;
+	intel_dsi->port_bits = 0;
+	intel_dsi->dsi_clock_freq = 513;
+	intel_dsi->video_mode_type = DSI_VIDEO_BURST;
 	intel_dsi->pixel_format = VID_MODE_FORMAT_RGB666_LOOSE;
-//	dsi->escape_clk_div = ESCAPE_CLOCK_DIVIDER_1;
-//	dsi->lp_rx_timeout = 0xffff;
-//	dsi->turn_arnd_val = 0x3f;
-//	dsi->rst_timer_val = 0xff;
-//	dsi->init_count = 0x7d0;
-//	dsi->hs_to_lp_count = 0x46;
-//	dsi->lp_byte_clk = 4;
-//	dsi->bw_timer = 0;
-//	dsi->clk_lp_to_hs_count = 0x24;
-//	dsi->clk_hs_to_lp_count = 0x0F;
-//	dsi->video_frmt_cfg_bits = DISABLE_VIDEO_BTA;
-//	dsi->dphy_reg = 0x3F10430D;
+	intel_dsi->escape_clk_div = ESCAPE_CLOCK_DIVIDER_1;
+	intel_dsi->lp_rx_timeout = 0xffff;
+	intel_dsi->turn_arnd_val = 0x3f;
+	intel_dsi->rst_timer_val = 0xff;
+	intel_dsi->init_count = 0x7d0;
+	intel_dsi->hs_to_lp_count = 0x46;
+	intel_dsi->lp_byte_clk = 4;
+	intel_dsi->bw_timer = 0;
+	intel_dsi->clk_lp_to_hs_count = 0x24;
+	intel_dsi->clk_hs_to_lp_count = 0x0F;
+	intel_dsi->video_frmt_cfg_bits = DISABLE_VIDEO_BTA;
+	intel_dsi->dphy_reg = 0x3F10430D;
 
-//	dsi->backlight_off_delay = 20;
-//	dsi->send_shutdown = false;
-//	dsi->shutdown_pkt_delay = 20;
+	intel_dsi->backlight_off_delay = 20;
+	intel_dsi->send_shutdown = false;
+	intel_dsi->shutdown_pkt_delay = 20;
 
 	return true;
 }
@@ -151,8 +152,8 @@ void b080xat_disable(struct intel_dsi_device *dsi)
 
 	DRM_DEBUG_KMS("\n");
 
-	dsi_vc_dcs_write_0(intel_dsi, 0, 0x28);
-	msleep(20);
+//	dsi_vc_dcs_write_0(intel_dsi, 0, 0x28);
+//	msleep(20);
 }
 
 enum drm_connector_status b080xat_detect(struct intel_dsi_device *dsi)
