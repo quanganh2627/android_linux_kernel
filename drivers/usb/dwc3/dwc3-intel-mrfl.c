@@ -24,6 +24,20 @@ static int otg_id = -1;
 static int enable_usb_phy(struct dwc_otg2 *otg, bool on_off);
 static int dwc3_intel_notify_charger_type(struct dwc_otg2 *otg,
 		enum power_supply_charger_event event);
+static struct power_supply_cable_props cap_record;
+
+inline int charger_detect_enable(struct dwc_otg2 *otg)
+{
+	struct intel_dwc_otg_pdata *data;
+
+	if (!otg || !otg->otg_data)
+		return 0;
+
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+
+	return data->charger_detect_enable;
+}
+
 
 static int is_hybridvp(struct dwc_otg2 *otg)
 {
@@ -59,6 +73,10 @@ static int dwc_otg_charger_hwdet(bool enable)
 	int				retval;
 	struct usb_phy *phy;
 	struct dwc_otg2 *otg = dwc3_get_otg();
+
+	/* Just return if charger detection is not enabled */
+	if (!charger_detect_enable(otg))
+		return 0;
 
 	phy = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (!phy)
@@ -481,6 +499,11 @@ static int dwc3_intel_notify_charger_type(struct dwc_otg2 *otg,
 	int ret = 0;
 	unsigned long flags;
 
+	if (!charger_detect_enable(otg) &&
+		(otg->charging_cap.chrg_type !=
+		POWER_SUPPLY_CHARGER_TYPE_USB_SDP))
+		return 0;
+
 	if (event > POWER_SUPPLY_CHARGER_EVENT_DISCONNECT) {
 		otg_err(otg,
 		"%s: Invalid power_supply_charger_event!\n", __func__);
@@ -518,6 +541,9 @@ static enum power_supply_charger_cable_type
 	unsigned long timeout, interval;
 	enum power_supply_charger_cable_type type =
 		POWER_SUPPLY_CHARGER_TYPE_NONE;
+
+	if (!charger_detect_enable(otg))
+		return cap_record.chrg_type;
 
 	phy = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (!phy) {
@@ -727,14 +753,17 @@ cleanup:
 static int dwc3_intel_handle_notification(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
+	int state;
+	unsigned long flags, valid_chrg_type;
 	struct dwc_otg2 *otg = dwc3_get_otg();
-	int state, val;
-	unsigned long flags;
+	struct power_supply_cable_props *cap;
 
 	if (!otg)
 		return NOTIFY_BAD;
 
-	val = *(int *)data;
+	valid_chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP |
+		POWER_SUPPLY_CHARGER_TYPE_USB_CDP |
+		POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK;
 
 	spin_lock_irqsave(&otg->lock, flags);
 	switch (event) {
@@ -743,7 +772,7 @@ static int dwc3_intel_handle_notification(struct notifier_block *nb,
 		state = NOTIFY_OK;
 		break;
 	case USB_EVENT_VBUS:
-		if (val) {
+		if (*(int *)data) {
 			otg->otg_events |= OEVT_B_DEV_SES_VLD_DET_EVNT;
 			otg->otg_events &= ~OEVT_A_DEV_SESS_END_DET_EVNT;
 		} else {
@@ -752,10 +781,41 @@ static int dwc3_intel_handle_notification(struct notifier_block *nb,
 		}
 		state = NOTIFY_OK;
 		break;
+	case USB_EVENT_CHARGER:
+		if (charger_detect_enable(otg)) {
+			state = NOTIFY_DONE;
+			goto done;
+		}
+		cap = (struct power_supply_cable_props *)data;
+		if (!(cap->chrg_type & valid_chrg_type)) {
+			otg_err(otg, "Invalid charger type!\n");
+			state = NOTIFY_BAD;
+		}
+		if (cap->chrg_evt == POWER_SUPPLY_CHARGER_EVENT_CONNECT) {
+			otg->otg_events |= OEVT_B_DEV_SES_VLD_DET_EVNT;
+			otg->otg_events &= ~OEVT_A_DEV_SESS_END_DET_EVNT;
+
+			cap_record.chrg_type = cap->chrg_type;
+			cap_record.mA = cap->mA;
+			cap_record.chrg_evt = cap->chrg_evt;
+		} else if (cap->chrg_evt ==
+				POWER_SUPPLY_CHARGER_EVENT_DISCONNECT) {
+			otg->otg_events |= OEVT_A_DEV_SESS_END_DET_EVNT;
+			otg->otg_events &= ~OEVT_B_DEV_SES_VLD_DET_EVNT;
+
+			cap_record.chrg_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
+			cap_record.mA = 0;
+			cap_record.chrg_evt =
+				POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
+		}
+		state = NOTIFY_OK;
+		break;
 	default:
 		otg_dbg(otg, "DWC OTG Notify unknow notify message\n");
 		state = NOTIFY_DONE;
 	}
+
+done:
 	dwc3_wakeup_otg_thread(otg);
 	spin_unlock_irqrestore(&otg->lock, flags);
 

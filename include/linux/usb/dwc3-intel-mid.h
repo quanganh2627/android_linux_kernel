@@ -22,8 +22,15 @@
 
 #include "otg.h"
 
+enum intel_mid_pmic_type {
+	NO_PMIC,
+	SHADY_COVE,
+	BASIN_COVE
+};
+
 struct intel_dwc_otg_pdata {
 	int is_hvp;
+	enum intel_mid_pmic_type pmic_type;
 	int charger_detect_enable;
 	int gpio_cs;
 	int gpio_reset;
