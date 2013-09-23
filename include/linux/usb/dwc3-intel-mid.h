@@ -182,4 +182,17 @@ struct intel_dwc_otg_pdata {
 #define PMIC_MAJOR_REV (0x07 << 3)
 #define PMIC_A0_MAJOR_REV 0x00
 
+/* ShardyCove register */
+#define PMIC_SCHGRIRQ1		0X4F
+#define PMIC_GPADCREQ_REG	0xDC
+#define PMIC_ADCIRQ_REG		0x06
+#define PMIC_USBIDRSLTL		0xEF
+#define PMIC_USBIDRSLTH		0xEE
+#define PMIC_GPADCREQ_ADC_USBID	(1 << 1)
+#define PMIC_ADCIRQ_USBID	(1 << 0)
+#define PMIC_USBIDRSLTL_USBID_L_MASK	(0xFF)
+#define PMIC_USBIDRSLTH_USBID_H_MASK	(0x0F)
+#define PMIC_USBIDRSLTH_USBID_CURSRC_MASK	(0xF0)
+#define PMIC_SCHGRIRQ1_SUSBIDDET(v)	((v & 0x3) << 3)
+
 #endif /* __DWC3_INTEL_H */
