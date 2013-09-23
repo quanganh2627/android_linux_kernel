@@ -983,6 +983,26 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	if (err)
 		goto free_card;
 
+	if (!(rocr & SD_ROCR_S18A) && mmc_sd_card_uhs(card)) {
+		/*
+		 * SD card which has DDR50/SDR104 flag and noddr50 flag has
+		 * already in 1.8v IO voltage without a power loss
+		 */
+		err = __mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180);
+		if (err) {
+			pr_err("%s: swith to 1.8v for re-init failed\n",
+					mmc_hostname(host));
+			goto free_card;
+		}
+		rocr |= SD_ROCR_S18A;
+	}
+
+	if (mmc_card_noddr50(card)) {
+		card->sw_caps.sd3_bus_mode &= ~(SD_MODE_UHS_DDR50 |
+				SD_MODE_UHS_SDR104);
+		pr_info("%s: disable DDR50/SDR104\n", __func__);
+	}
+
 	/* Initialization sequence for UHS-I cards */
 	if (rocr & SD_ROCR_S18A) {
 		err = mmc_sd_init_uhs_card(card);

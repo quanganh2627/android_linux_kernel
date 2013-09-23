@@ -2307,6 +2307,18 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 		}
 	}
 
+	if (card && mmc_card_sd(card) &&
+			(card->host->caps2 & MMC_CAP2_FIXED_NCRC) &&
+			(card->scr.sda_spec3) &&
+			(card->sw_caps.sd3_bus_mode & (SD_MODE_UHS_DDR50 |
+				SD_MODE_UHS_SDR104))) {
+		pr_warn("%s: SD card disable DDR50 and SDR104\n", __func__);
+		mmc_card_set_noddr50(card);
+	}
+
+	mmc_power_off(host);
+	mmc_power_up(host);
+
 	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_DDR);
 	if (mmc_host_is_spi(host)) {
 		host->ios.chip_select = MMC_CS_HIGH;
