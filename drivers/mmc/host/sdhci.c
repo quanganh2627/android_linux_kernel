@@ -72,79 +72,79 @@ static inline int sdhci_runtime_pm_put(struct sdhci_host *host)
 
 static void sdhci_dumpregs(struct sdhci_host *host)
 {
-	pr_info(DRIVER_NAME ": =========== REGISTER DUMP (%s)===========\n",
+	pr_err(DRIVER_NAME ": =========== REGISTER DUMP (%s)===========\n",
 		mmc_hostname(host->mmc));
 
-	pr_info(DRIVER_NAME ": Sys addr: 0x%08x | Version:  0x%08x\n",
+	pr_err(DRIVER_NAME ": Sys addr: 0x%08x | Version:  0x%08x\n",
 		sdhci_readl(host, SDHCI_DMA_ADDRESS),
 		sdhci_readw(host, SDHCI_HOST_VERSION));
-	pr_info(DRIVER_NAME ": Blk size: 0x%08x | Blk cnt:  0x%08x\n",
+	pr_err(DRIVER_NAME ": Blk size: 0x%08x | Blk cnt:  0x%08x\n",
 		sdhci_readw(host, SDHCI_BLOCK_SIZE),
 		sdhci_readw(host, SDHCI_BLOCK_COUNT));
-	pr_info(DRIVER_NAME ": Argument: 0x%08x | Trn mode: 0x%08x\n",
+	pr_err(DRIVER_NAME ": Argument: 0x%08x | Trn mode: 0x%08x\n",
 		sdhci_readl(host, SDHCI_ARGUMENT),
 		sdhci_readw(host, SDHCI_TRANSFER_MODE));
-	pr_info(DRIVER_NAME ": Present:  0x%08x | Host ctl: 0x%08x\n",
+	pr_err(DRIVER_NAME ": Present:  0x%08x | Host ctl: 0x%08x\n",
 		sdhci_readl(host, SDHCI_PRESENT_STATE),
 		sdhci_readb(host, SDHCI_HOST_CONTROL));
-	pr_info(DRIVER_NAME ": Power:    0x%08x | Blk gap:  0x%08x\n",
+	pr_err(DRIVER_NAME ": Power:    0x%08x | Blk gap:  0x%08x\n",
 		sdhci_readb(host, SDHCI_POWER_CONTROL),
 		sdhci_readb(host, SDHCI_BLOCK_GAP_CONTROL));
-	pr_info(DRIVER_NAME ": Wake-up:  0x%08x | Clock:    0x%08x\n",
+	pr_err(DRIVER_NAME ": Wake-up:  0x%08x | Clock:    0x%08x\n",
 		sdhci_readb(host, SDHCI_WAKE_UP_CONTROL),
 		sdhci_readw(host, SDHCI_CLOCK_CONTROL));
-	pr_info(DRIVER_NAME ": Timeout:  0x%08x | Int stat: 0x%08x\n",
+	pr_err(DRIVER_NAME ": Timeout:  0x%08x | Int stat: 0x%08x\n",
 		sdhci_readb(host, SDHCI_TIMEOUT_CONTROL),
 		sdhci_readl(host, SDHCI_INT_STATUS));
-	pr_info(DRIVER_NAME ": Int enab: 0x%08x | Sig enab: 0x%08x\n",
+	pr_err(DRIVER_NAME ": Int enab: 0x%08x | Sig enab: 0x%08x\n",
 		sdhci_readl(host, SDHCI_INT_ENABLE),
 		sdhci_readl(host, SDHCI_SIGNAL_ENABLE));
-	pr_info(DRIVER_NAME ": AC12 err: 0x%08x | Slot int: 0x%08x\n",
+	pr_err(DRIVER_NAME ": AC12 err: 0x%08x | Slot int: 0x%08x\n",
 		sdhci_readw(host, SDHCI_ACMD12_ERR),
 		sdhci_readw(host, SDHCI_SLOT_INT_STATUS));
-	pr_info(DRIVER_NAME ": Caps:     0x%08x | Caps_1:   0x%08x\n",
+	pr_err(DRIVER_NAME ": Caps:     0x%08x | Caps_1:   0x%08x\n",
 		sdhci_readl(host, SDHCI_CAPABILITIES),
 		sdhci_readl(host, SDHCI_CAPABILITIES_1));
-	pr_info(DRIVER_NAME ": Cmd:      0x%08x | Max curr: 0x%08x\n",
+	pr_err(DRIVER_NAME ": Cmd:      0x%08x | Max curr: 0x%08x\n",
 		sdhci_readw(host, SDHCI_COMMAND),
 		sdhci_readl(host, SDHCI_MAX_CURRENT));
-	pr_info(DRIVER_NAME ": Host ctl2: 0x%08x\n",
+	pr_err(DRIVER_NAME ": Host ctl2: 0x%08x\n",
 		sdhci_readw(host, SDHCI_HOST_CONTROL2));
 
 	if (host->flags & SDHCI_USE_ADMA)
-		pr_info(DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
+		pr_err(DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
 		       readl(host->ioaddr + SDHCI_ADMA_ERROR),
 		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
 
 	if (host->cmd)
-		pr_info(DRIVER_NAME
+		pr_err(DRIVER_NAME
 				": command pending, Cmdcode: %d\n",
 				host->cmd->opcode);
 	else
-		pr_info(DRIVER_NAME ": No command pending\n");
+		pr_err(DRIVER_NAME ": No command pending\n");
 
 	if (host->data)
-		pr_info(DRIVER_NAME ": data pending\n");
+		pr_err(DRIVER_NAME ": data pending\n");
 	else
-		pr_info(DRIVER_NAME ": No data pending\n");
+		pr_err(DRIVER_NAME ": No data pending\n");
 
-	pr_info(DRIVER_NAME ": pwr:     0x%x | clock:   %d\n",
+	pr_err(DRIVER_NAME ": pwr:     0x%x | clock:   %d\n",
 			host->pwr, host->clock);
 #ifdef CONFIG_PM_RUNTIME
-	pr_info(DRIVER_NAME ": usage_count %d | Runtime_status %d\n",
+	pr_err(DRIVER_NAME ": usage_count %d | Runtime_status %d\n",
 			atomic_read(&host->mmc->parent->power.usage_count),
 			host->mmc->parent->power.runtime_status);
 #endif
 	if (test_bit(TASKLET_STATE_SCHED, &host->finish_tasklet.state))
-		pr_info(DRIVER_NAME
+		pr_err(DRIVER_NAME
 				": finish_tasklet pending running, state %ld\n",
 				host->finish_tasklet.state);
 	else
-		pr_info(DRIVER_NAME
+		pr_err(DRIVER_NAME
 				": finish_tasklet NOT start, state %ld\n",
 				host->finish_tasklet.state);
 
-	pr_info(DRIVER_NAME ": ===========================================\n");
+	pr_err(DRIVER_NAME ": ===========================================\n");
 }
 
 /*****************************************************************************\
@@ -2298,7 +2298,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		}
 
 		if (!host->tuning_done) {
-			pr_info(DRIVER_NAME ": Timeout waiting for "
+			pr_warn(DRIVER_NAME ": Timeout waiting for "
 				"Buffer Read Ready interrupt during tuning "
 				"procedure, falling back to fixed sampling "
 				"clock\n");
@@ -2307,7 +2307,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 			ctrl &= ~SDHCI_CTRL_EXEC_TUNING;
 			sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 
-			pr_info("%s: present %08x, ctrl2 %08x, irq %08x\n"
+			pr_warn("%s: present %08x, ctrl2 %08x, irq %08x\n"
 				"%s: loop %d, timeout %ld, retry....\n",
 				mmc_hostname(host->mmc),
 				sdhci_readl(host, SDHCI_PRESENT_STATE),
@@ -2337,7 +2337,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 	} else {
 		if (!(ctrl & SDHCI_CTRL_TUNED_CLK)) {
-			pr_info(DRIVER_NAME ": Tuning procedure"
+			pr_err(DRIVER_NAME ": Tuning procedure"
 				" failed, falling back to fixed sampling"
 				" clock\n");
 			err = -EIO;
