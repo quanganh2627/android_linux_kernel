@@ -191,6 +191,16 @@ static void i915_restore_vga(struct drm_device *dev)
 	I915_WRITE8(VGA_DACMASK, dev_priv->regfile.saveDACMASK);
 }
 
+void i915_save_dpst_regs(struct drm_i915_private *dev_priv)
+{
+	dev_priv->regfile.saveBLC_HIST_GUARD = I915_READ(BLC_HIST_GUARD);
+}
+
+void i915_restore_dpst_regs(struct drm_i915_private *dev_priv)
+{
+	I915_WRITE(BLC_HIST_GUARD, dev_priv->regfile.saveBLC_HIST_GUARD);
+}
+
 static void i915_save_display(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -255,6 +265,9 @@ static void i915_save_display(struct drm_device *dev)
 			dev_priv->regfile.saveFBC_CONTROL = I915_READ(FBC_CONTROL);
 		}
 	}
+
+	if (I915_HAS_DPST(dev))
+		i915_save_dpst_regs(dev_priv);
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		i915_save_vga(dev);
@@ -330,6 +343,8 @@ static void i915_restore_display(struct drm_device *dev)
 			I915_WRITE(FBC_CONTROL, dev_priv->regfile.saveFBC_CONTROL);
 		}
 	}
+	if (I915_HAS_DPST(dev))
+		i915_restore_dpst_regs(dev_priv);
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		i915_restore_vga(dev);

@@ -2380,7 +2380,21 @@ EDP_PSR_SW_TIMER
 #define   BACKLIGHT_DUTY_CYCLE_MASK_PNV		(0xfffe)
 #define   BLM_POLARITY_PNV			(1 << 0) /* pnv only */
 
+/* DPST related registers */
 #define BLC_HIST_CTL	(dev_priv->info->display_mmio_offset + 0x61260)
+#define IE_HISTOGRAM_ENABLE             (1<<31)
+#define IE_MOD_TABLE_ENABLE             (1<<27)
+#define HSV_INTENSITY_MODE              (1<<24)
+#define ENHANCEMENT_MODE_MULT           (2<<13)
+#define BIN_REG_FUNCTION_SELECT_IE      (1<<11)
+#define BIN_REGISTER_INDEX_MASK         0x7F
+#define BLC_HIST_BIN	(dev_priv->info->display_mmio_offset + 0x61264)
+#define BUSY_BIT                        (1<<31)
+#define BIN_COUNT_MASK                  0x3FFFFF
+#define BLC_HIST_GUARD	(dev_priv->info->display_mmio_offset + 0x61268)
+#define HISTOGRAM_INTERRUPT_ENABLE      (1<<31)
+#define HISTOGRAM_EVENT_STATUS          (1<<30)
+#define HIST_BIN_COUNT                  32
 
 /* New registers for PCH-split platforms. Safe where new bits show up, the
  * register layout machtes with gen4 BLC_PWM_CTL[12]. */

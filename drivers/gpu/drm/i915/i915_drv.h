@@ -436,6 +436,7 @@ struct drm_i915_pm_funcs {
 	func(has_force_wake) sep \
 	func(has_fbc) sep \
 	func(has_pipe_cxsr) sep \
+	func(has_dpst) sep \
 	func(has_hotplug) sep \
 	func(cursor_needs_physical) sep \
 	func(has_overlay) sep \
@@ -828,6 +829,7 @@ struct i915_suspend_saved_registers {
 	u32 savePIPEB_LINK_N1;
 	u32 saveMCHBAR_RENDER_STANDBY;
 	u32 savePCH_PORT_HOTPLUG;
+	u32 saveBLC_HIST_GUARD;
 	u32 saveGUNIT_Control;
 	u32 saveGUNIT_Control2;
 	u32 saveGUNIT_CZClockGatingDisable1;
@@ -1294,6 +1296,14 @@ typedef struct drm_i915_private {
 	struct drm_i915_display_funcs display;
 	bool early_suspended;
 
+	/* DPST information */
+	struct {
+		struct task_struct *task;
+		u32 signal;
+		u32 blc_adjustment;
+		bool enabled;
+	} dpst;
+
 	/* PCH chipset type */
 	enum intel_pch pch_type;
 	unsigned short pch_id;
@@ -1749,6 +1759,7 @@ struct drm_i915_file_private {
 #define HAS_FW_BLC(dev) (INTEL_INFO(dev)->gen > 2)
 #define HAS_PIPE_CXSR(dev) (INTEL_INFO(dev)->has_pipe_cxsr)
 #define I915_HAS_FBC(dev) (INTEL_INFO(dev)->has_fbc)
+#define I915_HAS_DPST(dev) (INTEL_INFO(dev)->has_dpst)
 
 #define HAS_IPS(dev)		(IS_ULT(dev))
 
@@ -2181,6 +2192,8 @@ int i915_gem_context_create_ioctl(struct drm_device *dev, void *data,
 int i915_gem_context_destroy_ioctl(struct drm_device *dev, void *data,
 				   struct drm_file *file);
 
+void intel_panel_actually_set_backlight(struct drm_device *dev, u32 level);
+
 /* i915_gem_gtt.c */
 void i915_gem_cleanup_aliasing_ppgtt(struct drm_device *dev);
 void i915_ppgtt_bind_object(struct i915_hw_ppgtt *ppgtt,
@@ -2322,6 +2335,13 @@ static inline void intel_opregion_init(struct drm_device *dev) { return; }
 static inline void intel_opregion_fini(struct drm_device *dev) { return; }
 static inline void intel_opregion_asle_intr(struct drm_device *dev) { return; }
 #endif
+
+/* i915_dpst.c */
+int i915_dpst_context(struct drm_device *dev, void *data,
+			struct drm_file *file_priv);
+u32 i915_dpst_get_brightness(struct drm_device *dev);
+void i915_dpst_set_brightness(struct drm_device *dev, u32 brightness_val);
+void i915_dpst_irq_handler(struct drm_device *dev);
 
 /* intel_acpi.c */
 #ifdef CONFIG_ACPI
