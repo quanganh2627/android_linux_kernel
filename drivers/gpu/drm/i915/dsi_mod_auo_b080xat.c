@@ -81,7 +81,7 @@ bool b080xat_init(struct intel_dsi_device *dsi)
 	intel_dsi->dphy_reg = 0x3F10430D;
 
 	intel_dsi->backlight_off_delay = 20;
-	intel_dsi->send_shutdown = false;
+	intel_dsi->send_shutdown = true;
 	intel_dsi->shutdown_pkt_delay = 20;
 
 	return true;

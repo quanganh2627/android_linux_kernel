@@ -112,9 +112,10 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 
 static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
 {
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	DRM_DEBUG_KMS("\n");
 
-	intel_enable_dsi_pll(encoder);
+	intel_enable_dsi_pll(intel_dsi);
 }
 
 void intel_dsi_device_ready(struct intel_encoder *encoder)
@@ -324,7 +325,7 @@ void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
 	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), 0x00, DEVICE_READY);
 	usleep_range(2000, 2500);
 
-	intel_disable_dsi_pll(encoder);
+	intel_disable_dsi_pll(intel_dsi);
 
 	if (intel_dsi->dev.dev_ops->disable_panel_power)
 		intel_dsi->dev.dev_ops->disable_panel_power(&intel_dsi->dev);
