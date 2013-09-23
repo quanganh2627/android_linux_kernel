@@ -1779,8 +1779,6 @@ static void intel_enable_pipe(struct drm_i915_private *dev_priv, enum pipe pipe,
 	int reg;
 	u32 val;
 
-	DRM_ERROR("\n");
-
 	assert_planes_disabled(dev_priv, pipe);
 	assert_sprites_disabled(dev_priv, pipe);
 
@@ -1837,7 +1835,6 @@ static void intel_disable_pipe(struct drm_i915_private *dev_priv,
 								      pipe);
 	int reg;
 	u32 val;
-	DRM_ERROR("\n");
 
 	/*
 	 * Make sure planes won't keep trying to pump pixels to us,
@@ -1886,7 +1883,6 @@ static void intel_enable_plane(struct drm_i915_private *dev_priv,
 	int reg;
 	u32 val;
 
-	DRM_ERROR("\n");
 	/* If the pipe isn't enabled, we can't pump pixels and may hang */
 	assert_pipe_enabled(dev_priv, pipe);
 
@@ -1913,7 +1909,6 @@ static void intel_disable_plane(struct drm_i915_private *dev_priv,
 {
 	int reg;
 	u32 val;
-	DRM_ERROR("\n");
 
 	reg = DSPCNTR(plane);
 	val = I915_READ(reg);
@@ -2262,9 +2257,6 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		intel_crtc->dspaddr_offset = linear_offset;
 	}
 
-	DRM_DEBUG_KMS("Writing base %08lX %08lX %d %d %d\n",
-		      i915_gem_obj_ggtt_offset(obj), linear_offset, x, y,
-		      fb->pitches[0]);
 	I915_WRITE(DSPSTRIDE(plane), fb->pitches[0]);
 	if (INTEL_INFO(dev)->gen >= 4) {
 		I915_MODIFY_DISPBASE(DSPSURF(plane),
@@ -4031,6 +4023,16 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	if (!intel_crtc->active)
 		return;
 
+	if ((pipe == 0) && (dev_priv->is_mipi)) {
+		/* XXX: Disable PPS */
+		/* temporary fix for the IA firwware issue */
+		I915_WRITE_BITS(VLV_PIPE_PP_CONTROL(pipe), 0xabcd0000, 0xffff0000);
+		I915_WRITE_BITS(VLV_PIPE_PP_CONTROL(pipe), 0, 0x00000001);
+		if (wait_for((I915_READ(VLV_PIPE_PP_STATUS(pipe)) &
+						0x80000000) == 0, 50))
+			DRM_DEBUG_KMS("PPS Disableing timedout\n");
+	}
+
 	for_each_encoder_on_crtc(dev, crtc, encoder)
 		encoder->disable(encoder);
 
@@ -4062,6 +4064,23 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 		intel_crtc->s0ix_suspend_state = true;
 	intel_update_fbc(dev);
 	intel_update_watermarks(dev);
+
+	if ((pipe == 0) && (dev_priv->is_mipi)) {
+		/* Ensure that port, plane, pipe, pf, pll are all disabled
+		 * XXX Fis the register constants
+		 */
+		/* temporary fix for the IA firwware issue */
+		I915_WRITE_BITS(VLV_DISPLAY_BASE + 0x64200, 0, 0x80000000);
+		I915_WRITE_BITS(VLV_DISPLAY_BASE + 0x70180, 0, 0x80000000);
+		I915_WRITE_BITS(VLV_DISPLAY_BASE + 0x70008, 0, 0x80000000);
+
+		/* Wait till pipe off bit is not set */
+		if (wait_for(I915_READ( VLV_DISPLAY_BASE + 0x70008) & 0x40000000, 50))
+			DRM_DEBUG_KMS("pipe not turned off\n");
+
+		I915_WRITE_BITS(VLV_DISPLAY_BASE + 0x61230, 0, 0x80000000);
+		I915_WRITE_BITS(VLV_DISPLAY_BASE + 0x6014, 0, 0x80000000);
+	}
 }
 
 static void i9xx_crtc_off(struct drm_crtc *crtc)
@@ -10263,7 +10282,7 @@ static void intel_setup_outputs(struct drm_device *dev)
 
 	intel_lvds_init(dev);
 
-	if (!IS_ULT(dev) && !IS_VALLEYVIEW(dev))
+	if (!IS_ULT(dev))// && !IS_VALLEYVIEW(dev))
 		intel_crt_init(dev);
 
 	if (HAS_DDI(dev)) {

@@ -372,7 +372,7 @@ static u32 intel_panel_get_max_backlight(struct drm_device *dev)
 	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi)
 		return 0xFF;
 
-	max = i915_read_blc_pwm_ctl(dev_priv);
+	max = i915_read_blc_pwm_ctl(dev);
 
 	if (HAS_PCH_SPLIT(dev)) {
 		max >>= 16;

@@ -50,11 +50,13 @@ static int vlv_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
 		(port << IOSF_PORT_SHIFT) | (be << IOSF_BYTE_ENABLES_SHIFT) |
 		(bar << IOSF_BAR_SHIFT);
 
+	mutex_lock(&dev_priv->new_dpio_lock);
 //	WARN_ON(!mutex_is_locked(&dev_priv->dpio_lock));
 
 	if (wait_for((I915_READ(VLV_IOSF_DOORBELL_REQ) & IOSF_SB_BUSY) == 0, 5)) {
 		DRM_DEBUG_DRIVER("IOSF sideband idle wait (%s) timed out\n",
 				 is_read ? "read" : "write");
+		mutex_unlock(&dev_priv->new_dpio_lock);
 		return -EAGAIN;
 	}
 
@@ -66,6 +68,7 @@ static int vlv_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
 	if (wait_for((I915_READ(VLV_IOSF_DOORBELL_REQ) & IOSF_SB_BUSY) == 0, 5)) {
 		DRM_DEBUG_DRIVER("IOSF sideband finish wait (%s) timed out\n",
 				 is_read ? "read" : "write");
+		mutex_unlock(&dev_priv->new_dpio_lock);
 		return -ETIMEDOUT;
 	}
 
@@ -73,6 +76,7 @@ static int vlv_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
 		*val = I915_READ(VLV_IOSF_DATA);
 	I915_WRITE(VLV_IOSF_DATA, 0);
 
+	mutex_unlock(&dev_priv->new_dpio_lock);
 	return 0;
 }
 
@@ -101,10 +105,10 @@ u32 vlv_punit_read(struct drm_i915_private *dev_priv, u8 addr)
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 
-	mutex_lock(&dev_priv->dpio_lock);
+//	mutex_lock(&dev_priv->dpio_lock);
 	vlv_sideband_rw(dev_priv, PCI_DEVFN(2, 0), IOSF_PORT_PUNIT,
 			PUNIT_OPCODE_REG_READ, addr, &val);
-	mutex_unlock(&dev_priv->dpio_lock);
+//	mutex_unlock(&dev_priv->dpio_lock);
 
 	return val;
 }
@@ -113,10 +117,10 @@ void vlv_punit_write(struct drm_i915_private *dev_priv, u8 addr, u32 val)
 {
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 
-	mutex_lock(&dev_priv->dpio_lock);
+//	mutex_lock(&dev_priv->dpio_lock);
 	vlv_sideband_rw(dev_priv, PCI_DEVFN(2, 0), IOSF_PORT_PUNIT,
 			PUNIT_OPCODE_REG_WRITE, addr, &val);
-	mutex_unlock(&dev_priv->dpio_lock);
+//	mutex_unlock(&dev_priv->dpio_lock);
 }
 
 u32 vlv_nc_read(struct drm_i915_private *dev_priv, u8 addr)
@@ -125,10 +129,10 @@ u32 vlv_nc_read(struct drm_i915_private *dev_priv, u8 addr)
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 
-	mutex_lock(&dev_priv->dpio_lock);
+//	mutex_lock(&dev_priv->dpio_lock);
 	vlv_sideband_rw(dev_priv, PCI_DEVFN(2, 0), IOSF_PORT_NC,
 			PUNIT_OPCODE_REG_READ, addr, &val);
-	mutex_unlock(&dev_priv->dpio_lock);
+//	mutex_unlock(&dev_priv->dpio_lock);
 
 	return val;
 }
