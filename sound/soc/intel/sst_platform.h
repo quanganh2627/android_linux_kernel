@@ -73,11 +73,12 @@ enum sst_controls {
 	SST_SND_START	 =		0x1007,
 	SST_SET_RUNTIME_PARAMS =	0x1008,
 	SST_SET_ALGO_PARAMS =		0x1009,
-	SST_MAX_CONTROLS =		0x1010,
-	SST_SET_BYTE_STREAM =		0x1011,
-	SST_GET_BYTE_STREAM =		0x1012,
-	SST_SET_PROBE_BYTE_STREAM =     0x1014,
-	SST_GET_PROBE_BYTE_STREAM =	0x1015,
+	SST_SET_BYTE_STREAM =		0x100A,
+	SST_GET_BYTE_STREAM =		0x100B,
+	SST_SET_SSP_CONFIG =		0x100C,
+	SST_SET_PROBE_BYTE_STREAM =     0x100D,
+	SST_GET_PROBE_BYTE_STREAM =	0x100E,
+	SST_SET_VTSV_INFO =		0x100F,
 };
 
 struct pcm_stream_info {
@@ -137,7 +138,6 @@ struct sst_runtime_stream {
 	struct compress_sst_ops *compr_ops;
 	spinlock_t	status_lock;
 };
-
 
 struct sst_device {
 	char *name;

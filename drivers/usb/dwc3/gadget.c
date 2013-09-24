@@ -56,6 +56,7 @@
 #include "core.h"
 #include "gadget.h"
 #include "io.h"
+#include "otg.h"
 
 /**
  * dwc3_gadget_set_test_mode - Enables USB2 Test Modes

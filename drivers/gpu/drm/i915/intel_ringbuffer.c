@@ -399,7 +399,7 @@ static int init_ring_common(struct intel_ring_buffer *ring)
 	u32 head;
 
 	if (HAS_FORCE_WAKE(dev))
-		gen6_gt_force_wake_get(dev_priv);
+		gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
 
 	if (I915_NEED_GFX_HWS(dev))
 		intel_ring_setup_status_page(ring);
@@ -473,7 +473,7 @@ static int init_ring_common(struct intel_ring_buffer *ring)
 
 out:
 	if (HAS_FORCE_WAKE(dev))
-		gen6_gt_force_wake_put(dev_priv);
+		gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 
 	return ret;
 }
@@ -550,7 +550,9 @@ static int init_render_ring(struct intel_ring_buffer *ring)
 	int ret = init_ring_common(ring);
 
 	if (INTEL_INFO(dev)->gen > 3)
-		I915_WRITE(MI_MODE, _MASKED_BIT_ENABLE(VS_TIMER_DISPATCH));
+		if (!IS_VALLEYVIEW(dev))
+			I915_WRITE(MI_MODE,
+				_MASKED_BIT_ENABLE(VS_TIMER_DISPATCH));
 
 	/* We need to disable the AsyncFlip performance optimisations in order
 	 * to use MI_WAIT_FOR_EVENT within the CS. It should already be
@@ -566,10 +568,17 @@ static int init_render_ring(struct intel_ring_buffer *ring)
 		I915_WRITE(GFX_MODE,
 			   _MASKED_BIT_ENABLE(GFX_TLB_INVALIDATE_ALWAYS));
 
-	if (IS_GEN7(dev))
-		I915_WRITE(GFX_MODE_GEN7,
-			   _MASKED_BIT_DISABLE(GFX_TLB_INVALIDATE_ALWAYS) |
-			   _MASKED_BIT_ENABLE(GFX_REPLAY_MODE));
+	if (IS_GEN7(dev)) {
+		if (IS_VALLEYVIEW(dev)) {
+			I915_WRITE(GFX_MODE_GEN7,
+				_MASKED_BIT_ENABLE(GFX_REPLAY_MODE));
+			I915_WRITE(MI_MODE, I915_READ(MI_MODE) |
+				_MASKED_BIT_ENABLE(MI_FLUSH_ENABLE));
+		} else
+			I915_WRITE(GFX_MODE_GEN7,
+				_MASKED_BIT_DISABLE(GFX_TLB_INVALIDATE_ALWAYS) |
+				_MASKED_BIT_ENABLE(GFX_REPLAY_MODE));
+	}
 
 	if (INTEL_INFO(dev)->gen >= 5) {
 		ret = init_pipe_control(ring);
@@ -583,7 +592,7 @@ static int init_render_ring(struct intel_ring_buffer *ring)
 		 *  policy. [...] This bit must be reset.  LRA replacement
 		 *  policy is not supported."
 		 */
-		I915_WRITE(CACHE_MODE_0,
+		I915_WRITE(CACHE_MODE_0_OFFSET(dev),
 			   _MASKED_BIT_DISABLE(CM0_STC_EVICT_DISABLE_LRA_SNB));
 
 		/* This is not explicitly set for GEN6, so read the register.
@@ -621,6 +630,7 @@ static void render_ring_cleanup(struct intel_ring_buffer *ring)
 
 static void
 update_mboxes(struct intel_ring_buffer *ring,
+	      u32 seqno,
 	      u32 mmio_offset)
 {
 /* NB: In order to be able to do semaphore MBOX updates for varying number
@@ -631,7 +641,7 @@ update_mboxes(struct intel_ring_buffer *ring,
 #define MBOX_UPDATE_DWORDS 4
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 	intel_ring_emit(ring, mmio_offset);
-	intel_ring_emit(ring, ring->outstanding_lazy_request);
+	intel_ring_emit(ring, seqno);
 	intel_ring_emit(ring, MI_NOOP);
 }
 
@@ -647,23 +657,11 @@ update_mboxes(struct intel_ring_buffer *ring,
 static int
 gen6_add_request(struct intel_ring_buffer *ring)
 {
-	struct drm_device *dev = ring->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_ring_buffer *useless;
-	int i, ret;
+	int ret;
 
-	ret = intel_ring_begin(ring, ((I915_NUM_RINGS-1) *
-				      MBOX_UPDATE_DWORDS) +
-				      4);
+	ret = intel_ring_begin(ring, 4);
 	if (ret)
 		return ret;
-#undef MBOX_UPDATE_DWORDS
-
-	for_each_ring(useless, dev_priv, i) {
-		u32 mbox_reg = ring->signal_mbox[i];
-		if (mbox_reg != GEN6_NOSYNC)
-			update_mboxes(ring, mbox_reg);
-	}
 
 	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
 	intel_ring_emit(ring, I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
@@ -713,6 +711,26 @@ gen6_ring_sync(struct intel_ring_buffer *waiter,
 
 	/* If seqno wrap happened, omit the wait with no-ops */
 	if (likely(!i915_gem_has_seqno_wrapped(waiter->dev, seqno))) {
+		/* Add the Mbox update command in the Signaller ring,
+		 * this a point where the actual inter ring dependency has
+		 * been ascertained. Although this late sync could affect
+		 * the Media performance slightly but it shall improve the
+		 * residency time of individual power wells in C6 state
+		 */
+		u32 mbox_reg = signaller->signal_mbox[waiter->id];
+		/* Precautionary check */
+		if (mbox_reg != GEN6_NOSYNC) {
+			ret = intel_ring_begin(signaller, MBOX_UPDATE_DWORDS);
+			if (ret)
+				return ret;
+#undef MBOX_UPDATE_DWORDS
+			update_mboxes(signaller, (seqno + 1), mbox_reg);
+			intel_ring_advance(signaller);
+		}
+
+		/* Add the corresponding Semaphore Wait command in the
+		 * waiter ring
+		 */
 		intel_ring_emit(waiter,
 				dw1 |
 				signaller->semaphore_register[waiter->id]);
@@ -1012,7 +1030,11 @@ gen6_ring_get_irq(struct intel_ring_buffer *ring)
 	/* It looks like we need to prevent the gt from suspending while waiting
 	 * for an notifiy irq, otherwise irqs seem to get lost on at least the
 	 * blt/bsd rings on ivb. */
-	gen6_gt_force_wake_get(dev_priv);
+	/* Wake up only the relevant engine based on ring type */
+	if (ring->id == RCS)
+		gen6_gt_force_wake_get(dev_priv, FORCEWAKE_RENDER);
+	else
+		gen6_gt_force_wake_get(dev_priv, FORCEWAKE_MEDIA);
 
 	spin_lock_irqsave(&dev_priv->irq_lock, flags);
 	if (ring->irq_refcount++ == 0) {
@@ -1047,7 +1069,11 @@ gen6_ring_put_irq(struct intel_ring_buffer *ring)
 	}
 	spin_unlock_irqrestore(&dev_priv->irq_lock, flags);
 
-	gen6_gt_force_wake_put(dev_priv);
+	/* Put down only the relevant engine based on ring type */
+	if (ring->id == RCS)
+		gen6_gt_force_wake_put(dev_priv, FORCEWAKE_RENDER);
+	else
+		gen6_gt_force_wake_put(dev_priv, FORCEWAKE_MEDIA);
 }
 
 static bool
@@ -1091,7 +1117,8 @@ hsw_vebox_put_irq(struct intel_ring_buffer *ring)
 static int
 i965_dispatch_execbuffer(struct intel_ring_buffer *ring,
 			 u32 offset, u32 length,
-			 unsigned flags)
+			 unsigned flags,
+			 void *priv_data, u32 priv_length)
 {
 	int ret;
 
@@ -1114,7 +1141,8 @@ i965_dispatch_execbuffer(struct intel_ring_buffer *ring,
 static int
 i830_dispatch_execbuffer(struct intel_ring_buffer *ring,
 				u32 offset, u32 len,
-				unsigned flags)
+				unsigned flags,
+				void *priv_data, u32 priv_length)
 {
 	int ret;
 
@@ -1166,7 +1194,8 @@ i830_dispatch_execbuffer(struct intel_ring_buffer *ring,
 static int
 i915_dispatch_execbuffer(struct intel_ring_buffer *ring,
 			 u32 offset, u32 len,
-			 unsigned flags)
+			 unsigned flags,
+			 void *priv_data, u32 priv_length)
 {
 	int ret;
 
@@ -1290,6 +1319,9 @@ static int intel_init_ring_buffer(struct drm_device *dev,
 		ret = -ENOMEM;
 		goto err_hws;
 	}
+
+	/* mark ring buffers as read-only from GPU side by default */
+	obj->gt_ro = 1;
 
 	ring->obj = obj;
 
@@ -1663,7 +1695,8 @@ static int gen6_bsd_ring_flush(struct intel_ring_buffer *ring,
 static int
 hsw_ring_dispatch_execbuffer(struct intel_ring_buffer *ring,
 			      u32 offset, u32 len,
-			      unsigned flags)
+			      unsigned flags,
+			      void *priv_data, u32 priv_length)
 {
 	int ret;
 
@@ -1682,9 +1715,82 @@ hsw_ring_dispatch_execbuffer(struct intel_ring_buffer *ring,
 }
 
 static int
+vlv_launch_cb2(struct intel_ring_buffer *ring)
+{
+	int			i;
+	int			ret = 0;
+	uint32_t		hws_pga;
+	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
+
+	/* Get HW Status Page address & point to its center */
+	hws_pga = 0x800 + (I915_READ(HWS_PGA) & 0xFFFFF000);
+
+	/* Insert 20 Store Data Immediate commands */
+	for (i = 0; i < 20; i++) {
+		ret = intel_ring_begin(ring, 4);
+		if (ret)
+			return ret;
+
+		intel_ring_emit(ring, 0x10400002); /* SDI - DW0 */
+		intel_ring_emit(ring, 0);	/* SDI - DW1 */
+		intel_ring_emit(ring, hws_pga);	/* SDI - Address */
+		intel_ring_emit(ring, 0);	/* SDI - Data */
+		intel_ring_advance(ring);
+	}
+
+	ret = intel_ring_begin(ring, 20);
+	if (ret)
+		return ret;
+
+	/* Pipe Control */
+	intel_ring_emit(ring, 0x7a000003);	/* PipeControl DW0 */
+	intel_ring_emit(ring, 0x01010a0);	/* DW1 */
+	intel_ring_emit(ring, 0);		/* DW2 */
+	intel_ring_emit(ring, 0);		/* DW3 */
+	intel_ring_emit(ring, 0);		/* DW4 */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+
+	/* Start CB2 */
+	intel_ring_emit(ring, 0x18800800);	/* BB Start - CB2 */
+	intel_ring_emit(ring, 0);		/* Address */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+
+	/* Pipe Control */
+	intel_ring_emit(ring, 0x7a000003);	/* PipeControl DW0 */
+	intel_ring_emit(ring, 0x01010a0);	/* DW1 */
+	intel_ring_emit(ring, 0);		/* DW2 */
+	intel_ring_emit(ring, 0);		/* DW3 */
+	intel_ring_emit(ring, 0);		/* DW4 */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+
+	intel_ring_advance(ring);
+
+	/* Add another 20 Store Data Immediate commands */
+	for (i = 0; i < 20; i++) {
+		ret = intel_ring_begin(ring, 4);
+		if (ret)
+			return ret;
+
+		intel_ring_emit(ring, 0x10400002); /* SDI - DW0 */
+		intel_ring_emit(ring, 0);	/* SDI - DW1 */
+		intel_ring_emit(ring, hws_pga);	/* SDI - Address */
+		intel_ring_emit(ring, 0);	/* SDI - Data */
+		intel_ring_advance(ring);
+	}
+
+	return ret;
+}
+
+static int
 gen6_ring_dispatch_execbuffer(struct intel_ring_buffer *ring,
 			      u32 offset, u32 len,
-			      unsigned flags)
+			      unsigned flags,
+			      void *priv_data, u32 priv_length)
 {
 	int ret;
 
@@ -1698,6 +1804,13 @@ gen6_ring_dispatch_execbuffer(struct intel_ring_buffer *ring,
 	/* bit0-7 is the length on GEN6+ */
 	intel_ring_emit(ring, offset);
 	intel_ring_advance(ring);
+
+	/* Execute CB2 if requested to do so */
+	if ((priv_length == sizeof(u32)) &&
+	    (*(u32 *)priv_data == 0xffffffff)) {
+		if (IS_VALLEYVIEW(ring->dev))
+			ret = vlv_launch_cb2(ring);
+	}
 
 	return 0;
 }
@@ -2017,7 +2130,7 @@ int intel_init_vebox_ring_buffer(struct drm_device *dev)
 int
 intel_ring_flush_all_caches(struct intel_ring_buffer *ring)
 {
-	int ret;
+	int ret, i;
 
 	if (!ring->gpu_caches_dirty)
 		return 0;
@@ -2025,6 +2138,26 @@ intel_ring_flush_all_caches(struct intel_ring_buffer *ring)
 	ret = ring->flush(ring, 0, I915_GEM_GPU_DOMAINS);
 	if (ret)
 		return ret;
+
+	/* WaReadAfterWriteHazard*/
+	/* Send a number of Store Data commands here to finish
+	   flushing hardware pipeline.This is needed in the case
+	   where the next workload tries reading from the same
+	   surface that this batch writes to. Without these StoreDWs,
+	   not all of the data will actually be flushd to the surface
+	   by the time the next batch starts reading it, possibly
+	   causing a small amount of corruption.*/
+	ret = intel_ring_begin(ring, 4 * 12);
+	if (ret)
+		return ret;
+	for (i = 0; i < 12; i++) {
+		intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+		intel_ring_emit(ring, I915_GEM_HWS_SCRATCH_INDEX <<
+						MI_STORE_DWORD_INDEX_SHIFT);
+		intel_ring_emit(ring, 0);
+		intel_ring_emit(ring, MI_NOOP);
+	}
+	intel_ring_advance(ring);
 
 	trace_i915_gem_ring_flush(ring, 0, I915_GEM_GPU_DOMAINS);
 
@@ -2036,7 +2169,24 @@ int
 intel_ring_invalidate_all_caches(struct intel_ring_buffer *ring)
 {
 	uint32_t flush_domains;
-	int ret;
+	int ret, i;
+
+	/* WaTlbInvalidateStoreDataBefore*/
+	/* Before pipecontrol with TLB invalidate set, need 2 store
+	   data commands (such as MI_STORE_DATA_IMM or MI_STORE_DATA_INDEX)
+	   Without this, hardware cannot guarantee the command after the
+	   PIPE_CONTROL with TLB inv will not use the old TLB values.*/
+	ret = intel_ring_begin(ring, 4 * 2);
+	if (ret)
+		return ret;
+	for (i = 0; i < 2; i++) {
+		intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+		intel_ring_emit(ring, I915_GEM_HWS_SCRATCH_INDEX <<
+						MI_STORE_DWORD_INDEX_SHIFT);
+		intel_ring_emit(ring, 0);
+		intel_ring_emit(ring, MI_NOOP);
+	}
+	intel_ring_advance(ring);
 
 	flush_domains = 0;
 	if (ring->gpu_caches_dirty)

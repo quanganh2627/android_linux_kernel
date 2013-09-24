@@ -38,6 +38,12 @@
 #include <linux/module.h>
 #include <drm/drm_crtc_helper.h>
 
+int i915_rotation __read_mostly;
+module_param_named(i915_rotation, i915_rotation, int, 0600);
+MODULE_PARM_DESC(i915_rotation,
+		"Enable 180 degree hardware rotation support, "
+		"1=180 degree, 0=0 degree ");
+
 static int i915_modeset __read_mostly = -1;
 module_param_named(modeset, i915_modeset, int, 0400);
 MODULE_PARM_DESC(modeset,
@@ -102,6 +108,12 @@ MODULE_PARM_DESC(vbt_sdvo_panel_type,
 		"Override/Ignore selection of SDVO panel mode in the VBT "
 		"(-2=ignore, -1=auto [default], index in VBT BIOS table)");
 
+int i915_mipi_panel_id __read_mostly = -1;
+module_param_named(mipi_panel_id, i915_mipi_panel_id, int, 0600);
+MODULE_PARM_DESC(mipi_panel_id,
+		"MIPI Panel selection in case MIPI block is not present in VBT "
+		"(-1=auto [default], mipi panel id)");
+
 static bool i915_try_reset __read_mostly = true;
 module_param_named(reset, i915_try_reset, bool, 0600);
 MODULE_PARM_DESC(reset, "Attempt GPU resets (default: true)");
@@ -159,6 +171,11 @@ module_param_named(psr_support, i915_psr_support, int, 0400);
 MODULE_PARM_DESC(psr_support,
 		"Specify PSR support parameter "
 		"1 = supported [default], 0 = not supported");
+
+int i915_enable_turbo __read_mostly = 1;
+module_param_named(i915_enable_turbo, i915_enable_turbo, int, 0600);
+MODULE_PARM_DESC(i915_enable_turbo,
+		"Enable VLV Turbo (default: true)");
 
 static struct drm_driver driver;
 extern int intel_agp_enabled;
@@ -564,58 +581,10 @@ bool i915_semaphore_is_enabled(struct drm_device *dev)
 static int i915_drm_freeze(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_crtc *crtc;
+	if (!dev_priv->pm.drm_freeze)
+		return -ENODEV;
 
-	/* ignore lid events during suspend */
-	mutex_lock(&dev_priv->modeset_restore_lock);
-	dev_priv->modeset_restore = MODESET_SUSPENDED;
-	mutex_unlock(&dev_priv->modeset_restore_lock);
-
-	/* We do a lot of poking in a lot of registers, make sure they work
-	 * properly. */
-	hsw_disable_package_c8(dev_priv);
-	intel_set_power_well(dev, true);
-
-	drm_kms_helper_poll_disable(dev);
-
-	pci_save_state(dev->pdev);
-
-	/* If KMS is active, we do the leavevt stuff here */
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		int error;
-
-		mutex_lock(&dev->struct_mutex);
-		error = i915_gem_idle(dev);
-		mutex_unlock(&dev->struct_mutex);
-		if (error) {
-			dev_err(&dev->pdev->dev,
-				"GEM idle failed, resume might fail\n");
-			return error;
-		}
-
-		cancel_delayed_work_sync(&dev_priv->rps.delayed_resume_work);
-
-		drm_irq_uninstall(dev);
-		dev_priv->enable_hotplug_processing = false;
-		/*
-		 * Disable CRTCs directly since we want to preserve sw state
-		 * for _thaw.
-		 */
-		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
-			dev_priv->display.crtc_disable(crtc);
-
-		intel_modeset_suspend_hw(dev);
-	}
-
-	i915_save_state(dev);
-
-	intel_opregion_fini(dev);
-
-	console_lock();
-	intel_fbdev_set_suspend(dev, FBINFO_STATE_SUSPENDED);
-	console_unlock();
-
-	return 0;
+	return dev_priv->pm.drm_freeze(dev);
 }
 
 int i915_suspend(struct drm_device *dev, pm_message_t state)
@@ -660,104 +629,28 @@ void intel_console_resume(struct work_struct *work)
 	console_unlock();
 }
 
-static void intel_resume_hotplug(struct drm_device *dev)
-{
-	struct drm_mode_config *mode_config = &dev->mode_config;
-	struct intel_encoder *encoder;
-
-	mutex_lock(&mode_config->mutex);
-	DRM_DEBUG_KMS("running encoder hotplug functions\n");
-
-	list_for_each_entry(encoder, &mode_config->encoder_list, base.head)
-		if (encoder->hot_plug)
-			encoder->hot_plug(encoder);
-
-	mutex_unlock(&mode_config->mutex);
-
-	/* Just fire off a uevent and let userspace tell us what to do */
-	drm_helper_hpd_irq_event(dev);
-}
-
-static int __i915_drm_thaw(struct drm_device *dev)
+static int i915_drm_thaw(struct drm_device *dev, bool restore_gtt)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	int error = 0;
-
-	i915_restore_state(dev);
-	intel_opregion_setup(dev);
-
-	/* KMS EnterVT equivalent */
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		intel_init_pch_refclk(dev);
-
-		mutex_lock(&dev->struct_mutex);
-
-		error = i915_gem_init_hw(dev);
-		mutex_unlock(&dev->struct_mutex);
-
-		/* We need working interrupts for modeset enabling ... */
-		drm_irq_install(dev);
-
-		intel_modeset_init_hw(dev);
-
-		drm_modeset_lock_all(dev);
-		intel_modeset_setup_hw_state(dev, true);
-		drm_modeset_unlock_all(dev);
-
-		/*
-		 * ... but also need to make sure that hotplug processing
-		 * doesn't cause havoc. Like in the driver load code we don't
-		 * bother with the tiny race here where we might loose hotplug
-		 * notifications.
-		 * */
-		intel_hpd_init(dev);
-		dev_priv->enable_hotplug_processing = true;
-		/* Config may have changed between suspend and resume */
-		intel_resume_hotplug(dev);
-	}
-
-	intel_opregion_init(dev);
-
-	/*
-	 * The console lock can be pretty contented on resume due
-	 * to all the printk activity.  Try to keep it out of the hot
-	 * path of resume if possible.
-	 */
-	if (console_trylock()) {
-		intel_fbdev_set_suspend(dev, FBINFO_STATE_RUNNING);
-		console_unlock();
-	} else {
-		schedule_work(&dev_priv->console_resume_work);
-	}
-
-	/* Undo what we did at i915_drm_freeze so the refcount goes back to the
-	 * expected level. */
-	hsw_enable_package_c8(dev_priv);
-
-	mutex_lock(&dev_priv->modeset_restore_lock);
-	dev_priv->modeset_restore = MODESET_DONE;
-	mutex_unlock(&dev_priv->modeset_restore_lock);
-	return error;
-}
-
-static int i915_drm_thaw(struct drm_device *dev)
-{
-	int error = 0;
+	int error;
 
 	intel_uncore_sanitize(dev);
 
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+	if (restore_gtt && drm_core_check_feature(dev, DRIVER_MODESET)) {
 		mutex_lock(&dev->struct_mutex);
 		i915_gem_restore_gtt_mappings(dev);
 		mutex_unlock(&dev->struct_mutex);
 	}
 
-	__i915_drm_thaw(dev);
+	if (!dev_priv->pm.drm_thaw)
+		return -ENODEV;
+
+	error = dev_priv->pm.drm_thaw(dev);
 
 	return error;
 }
 
-int i915_resume(struct drm_device *dev)
+int i915_resume_common(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
@@ -783,12 +676,17 @@ int i915_resume(struct drm_device *dev)
 		mutex_unlock(&dev->struct_mutex);
 	}
 
-	ret = __i915_drm_thaw(dev);
+	ret = i915_drm_thaw(dev, false);
 	if (ret)
 		return ret;
 
 	drm_kms_helper_poll_enable(dev);
 	return 0;
+}
+
+int i915_resume(struct drm_device *dev)
+{
+	return i915_resume_common(dev);
 }
 
 /**
@@ -932,7 +830,36 @@ i915_pci_remove(struct pci_dev *pdev)
 	drm_put_dev(dev);
 }
 
-static int i915_pm_suspend(struct device *dev)
+#ifdef CONFIG_PM_RUNTIME
+static int i915_release(struct inode *inode, struct file *filp)
+{
+	int ret = 0;
+	struct drm_file *file_priv = filp->private_data;
+	struct drm_device *dev = file_priv->minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	i915_rpm_get_callback(dev);
+	ret = drm_release(inode, filp);
+	i915_rpm_put_callback(dev);
+
+	return ret;
+}
+
+static long i915_ioctl(struct file *filp,
+	      unsigned int cmd, unsigned long arg)
+{
+	unsigned int nr = DRM_IOCTL_NR(cmd);
+	struct drm_file *file_priv = filp->private_data;
+	struct drm_device *dev = file_priv->minor->dev;
+	int ret;
+	i915_rpm_get_ioctl(dev);
+	ret = drm_ioctl(filp, cmd, arg);
+	i915_rpm_put_ioctl(dev);
+	return ret;
+}
+#endif
+
+static int i915_suspend_common(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
@@ -956,12 +883,54 @@ static int i915_pm_suspend(struct device *dev)
 	return 0;
 }
 
+static int i915_pm_suspend(struct device *dev)
+{
+	int ret;
+
+	DRM_DEBUG_PM("PM Suspend called\n");
+	ret = i915_suspend_common(dev);
+	DRM_DEBUG_PM("PM Suspend finished\n");
+
+	return ret;
+
+}
+
+static int i915_rpm_suspend(struct device *dev)
+{
+	int ret;
+
+	DRM_DEBUG_PM("Runtime PM Suspend called\n");
+	ret = i915_suspend_common(dev);
+	DRM_DEBUG_PM("Runtime PM Suspend finished\n");
+
+	return ret;
+
+}
+
 static int i915_pm_resume(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	u32 ret;
 
-	return i915_resume(drm_dev);
+	DRM_DEBUG_PM("PM Resume called\n");
+	ret = i915_resume_common(drm_dev);
+	DRM_DEBUG_PM("PM Resume finished\n");
+
+	return ret;
+}
+
+static int i915_rpm_resume(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	int ret;
+
+	DRM_DEBUG_PM("Runtime PM Resume called\n");
+	ret = i915_resume_common(drm_dev);
+	DRM_DEBUG_PM("Runtime PM Resume finished\n");
+
+	return ret;
 }
 
 static int i915_pm_freeze(struct device *dev)
@@ -982,7 +951,7 @@ static int i915_pm_thaw(struct device *dev)
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
 
-	return i915_drm_thaw(drm_dev);
+	return i915_drm_thaw(drm_dev, true);
 }
 
 static int i915_pm_poweroff(struct device *dev)
@@ -993,6 +962,17 @@ static int i915_pm_poweroff(struct device *dev)
 	return i915_drm_freeze(drm_dev);
 }
 
+static int i915_pm_shutdown(struct pci_dev *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	if (!i915_is_device_suspended(drm_dev)) {
+		/* Device already in suspend state */
+		return 0;
+	}
+	return i915_suspend_common(dev);
+}
+
 static const struct dev_pm_ops i915_pm_ops = {
 	.suspend = i915_pm_suspend,
 	.resume = i915_pm_resume,
@@ -1000,6 +980,10 @@ static const struct dev_pm_ops i915_pm_ops = {
 	.thaw = i915_pm_thaw,
 	.poweroff = i915_pm_poweroff,
 	.restore = i915_pm_resume,
+#ifdef CONFIG_PM_RUNTIME
+	.runtime_suspend = i915_rpm_suspend,
+	.runtime_resume = i915_rpm_resume,
+#endif
 };
 
 static const struct vm_operations_struct i915_gem_vm_ops = {
@@ -1011,8 +995,13 @@ static const struct vm_operations_struct i915_gem_vm_ops = {
 static const struct file_operations i915_driver_fops = {
 	.owner = THIS_MODULE,
 	.open = drm_open,
+#ifdef CONFIG_PM_RUNTIME
+	.release = i915_release,
+	.unlocked_ioctl = i915_ioctl,
+#else
 	.release = drm_release,
 	.unlocked_ioctl = drm_ioctl,
+#endif
 	.mmap = drm_gem_mmap,
 	.poll = drm_poll,
 	.fasync = drm_fasync,
@@ -1076,6 +1065,7 @@ static struct pci_driver i915_pci_driver = {
 	.probe = i915_pci_probe,
 	.remove = i915_pci_remove,
 	.driver.pm = &i915_pm_ops,
+	.shutdown = i915_pm_shutdown,
 };
 
 static int __init i915_init(void)
@@ -1114,7 +1104,7 @@ static void __exit i915_exit(void)
 	drm_pci_exit(&driver, &i915_pci_driver);
 }
 
-module_init(i915_init);
+device_initcall_sync(i915_init);
 module_exit(i915_exit);
 
 MODULE_AUTHOR(DRIVER_AUTHOR);

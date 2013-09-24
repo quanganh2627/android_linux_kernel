@@ -169,8 +169,11 @@ struct drm_mode_get_plane_res {
 #define DRM_MODE_ENCODER_TMDS	2
 #define DRM_MODE_ENCODER_LVDS	3
 #define DRM_MODE_ENCODER_TVDAC	4
-#define DRM_MODE_ENCODER_MIPI	5
+#define DRM_MODE_ENCODER_DSI	5
 #define DRM_MODE_ENCODER_VIRTUAL 6
+
+/*  Temp work-around until older references removed. */
+#define DRM_MODE_ENCODER_MIPI DRM_MODE_ENCODER_DSI
 
 struct drm_mode_get_encoder {
 	__u32 encoder_id;
@@ -208,8 +211,11 @@ struct drm_mode_get_encoder {
 #define DRM_MODE_CONNECTOR_HDMIB	12
 #define DRM_MODE_CONNECTOR_TV		13
 #define DRM_MODE_CONNECTOR_eDP		14
-#define DRM_MODE_CONNECTOR_MIPI		15
+#define DRM_MODE_CONNECTOR_DSI		15
 #define DRM_MODE_CONNECTOR_VIRTUAL      16
+
+/*  Temp work-around until older references removed. */
+#define DRM_MODE_CONNECTOR_MIPI DRM_MODE_CONNECTOR_DSI
 
 struct drm_mode_get_connector {
 

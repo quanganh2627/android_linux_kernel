@@ -401,15 +401,15 @@ static struct snd_soc_ops mrfld_ops = {
 	.hw_params = mrfld_hw_params,
 };
 
-static int mrfld_voip_aware_startup(struct snd_pcm_substream *substream)
+static int mrfld_8k_16k_startup(struct snd_pcm_substream *substream)
 {
 	return snd_pcm_hw_constraint_list(substream->runtime, 0,
 			SNDRV_PCM_HW_PARAM_RATE,
 			&constraints_8000_16000);
 }
 
-static struct snd_soc_ops mrfld_voip_aware_ops = {
-	.startup = mrfld_voip_aware_startup,
+static struct snd_soc_ops mrfld_8k_16k_ops = {
+	.startup = mrfld_8k_16k_startup,
 	.hw_params = mrfld_hw_params,
 };
 
@@ -449,7 +449,7 @@ struct snd_soc_dai_link mrfld_msic_dailink[] = {
 		.platform_name = "sst-platform",
 		.init = NULL,
 		.ignore_suspend = 1,
-		.ops = &mrfld_voip_aware_ops,
+		.ops = &mrfld_8k_16k_ops,
 	},
 	[MERR_SALTBAY_PROBE] = {
 		.name = "Merrifield Probe Port",
@@ -464,21 +464,24 @@ struct snd_soc_dai_link mrfld_msic_dailink[] = {
 	[MERR_SALTBAY_AWARE] = {
 		.name = "Merrifield Aware Port",
 		.stream_name = "Aware",
-		.cpu_dai_name = "Aware-cpu-dai",
+		.cpu_dai_name = "Loopback-cpu-dai",
 		.codec_dai_name = "LM49453 Headset",
 		.codec_name = "lm49453.1-001a",
 		.platform_name = "sst-platform",
 		.init = NULL,
 		.ignore_suspend = 1,
-		.ops = &mrfld_voip_aware_ops,
+		.ops = &mrfld_8k_16k_ops,
 	},
 	[MERR_SALTBAY_VAD] = {
 		.name = "Merrifield VAD Port",
 		.stream_name = "Vad",
-		.cpu_dai_name = "Virtual-cpu-dai",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
+		.cpu_dai_name = "Loopback-cpu-dai",
+		.codec_dai_name = "LM49453 Headset",
+		.codec_name = "lm49453.1-001a",
 		.platform_name = "sst-platform",
+		.init = NULL,
+		.ignore_suspend = 1,
+		.ops = &mrfld_8k_16k_ops,
 	},
 	[MERR_SALTBAY_POWER] = {
 		.name = "Virtual Power Port",

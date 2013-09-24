@@ -84,7 +84,7 @@ extern u32 __iomem *s0ix_counter[];
 #endif
 
 /* platform dependency starts */
-#ifdef CONFIG_INTEL_REMOVEME_ATOM_MDFLD_POWER
+#ifdef CONFIG_REMOVEME_INTEL_ATOM_MDFLD_POWER
 
 #define DEV_GFX		2
 #define FUNC_GFX	0

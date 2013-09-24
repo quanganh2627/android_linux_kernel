@@ -414,10 +414,10 @@ static const struct snd_kcontrol_new ear_amp_ctl =
 static const char * const loopback_text[] = {
 	"Enable", "Disable"};
 
-static const unsigned int loopback_values[] = { 0x3e, 0x3f };
+static const unsigned int loopback_values[] = { 0, 1 };
 
 static const struct soc_enum esl_loopback_enum =
-	SOC_VALUE_ENUM_SINGLE(CS42L73_ESLMIPMA, 0, 0x3f,
+	SOC_VALUE_ENUM_SINGLE(CS42L73_ESLMIPMA, 0, 1,
 			      ARRAY_SIZE(loopback_text),
 			      loopback_text,
 			      loopback_values);
@@ -426,7 +426,7 @@ static const struct snd_kcontrol_new esl_loopback_mux =
 	SOC_DAPM_ENUM("ESL Loopback Mux", esl_loopback_enum);
 
 static const struct soc_enum spk_loopback_enum =
-	SOC_VALUE_ENUM_SINGLE(CS42L73_SPKMIPMA, 0, 0x3f,
+	SOC_VALUE_ENUM_SINGLE(CS42L73_SPKMIPMA, 0, 1,
 			      ARRAY_SIZE(loopback_text),
 			      loopback_text,
 			      loopback_values);
@@ -435,7 +435,7 @@ static const struct snd_kcontrol_new spk_loopback_mux =
 	SOC_DAPM_ENUM("SPK Loopback Mux", spk_loopback_enum);
 
 static const struct soc_enum hl_loopback_enum =
-	SOC_VALUE_ENUM_SINGLE(CS42L73_HLBIPBA, 0, 0x3f,
+	SOC_VALUE_ENUM_SINGLE(CS42L73_HLBIPBA, 0, 1,
 			      ARRAY_SIZE(loopback_text),
 			      loopback_text,
 			      loopback_values);

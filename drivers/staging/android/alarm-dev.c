@@ -25,6 +25,10 @@
 #include <linux/alarmtimer.h>
 #include "android_alarm.h"
 
+#ifdef CONFIG_COMPAT
+#include <linux/compat.h>
+#endif
+
 #define ANDROID_ALARM_PRINT_INFO (1U << 0)
 #define ANDROID_ALARM_PRINT_IO (1U << 1)
 #define ANDROID_ALARM_PRINT_INT (1U << 2)
@@ -252,7 +256,9 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 
 	struct timespec ts;
-	int rv;
+	/* Using u32 instead of int for 32bit uspace and 64bit kernel */
+	u32 rv = 0;
+
 
 	switch (ANDROID_ALARM_BASE_CMD(cmd)) {
 	case ANDROID_ALARM_SET_AND_WAIT(0):
@@ -389,6 +395,9 @@ static enum alarmtimer_restart devalarm_alarmhandler(struct alarm *alrm,
 static const struct file_operations alarm_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = alarm_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl   = alarm_ioctl,
+#endif
 	.open = alarm_open,
 	.release = alarm_release,
 #ifdef CONFIG_COMPAT

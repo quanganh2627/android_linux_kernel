@@ -22,7 +22,6 @@ static char *entry_name[] = {
 
 static void history_record_init(struct saved_history_record *record)
 {
-	int i;
 	int cpu;
 
 	cpu = raw_smp_processor_id();
@@ -47,7 +46,6 @@ EXPORT_SYMBOL(get_new_history_record);
 
 static void print_saved_history_record(struct saved_history_record *record)
 {
-	int i;
 	unsigned long long ts = record->ts;
 	unsigned long nanosec_rem = do_div(ts, 1000000000);
 
@@ -73,7 +71,7 @@ static void print_saved_history_record(struct saved_history_record *record)
 		break;
 
 	case 4:
-		printk(KERN_INFO "name:[%s] ts[%5lu.%06lu] msvdx_stat[%#x]\n",
+		printk(KERN_INFO "name:[%s] ts[%5lu.%06lu] msvdx_stat[%#lx]\n",
 				entry_name[record->type],
 				(unsigned long)ts,
 				nanosec_rem / 1000,
@@ -81,14 +79,14 @@ static void print_saved_history_record(struct saved_history_record *record)
 		break;
 
 	case 5:
-		printk(KERN_INFO "name:[%s] ts[%5lu.%06lu] vdc_stat[%#x]\n",
+		printk(KERN_INFO "name:[%s] ts[%5lu.%06lu] vdc_stat[%#lx]\n",
 				entry_name[record->type],
 				(unsigned long)ts,
 				nanosec_rem / 1000,
 				record->record_value.vdc_stat);
 		break;
 
-	defalut:
+	default:
 		break;
 
 	}
@@ -135,8 +133,8 @@ static const struct file_operations debug_history_proc_fops = {
 static int __init debug_read_history_record_entry(void)
 {
 	struct proc_dir_entry *res = NULL;
-        res = proc_create_data("debug_read_sgx_history", S_IALLUGO, NULL,
-                                &debug_history_proc_fops, NULL);
+	res = proc_create_data("debug_read_sgx_history", S_IALLUGO, NULL,
+					&debug_history_proc_fops, NULL);
 	return 0;
 }
 

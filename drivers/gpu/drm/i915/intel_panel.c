@@ -32,6 +32,7 @@
 
 #include <linux/moduleparam.h>
 #include "intel_drv.h"
+#include "linux/mfd/intel_mid_pmic.h"
 
 #define PCI_LBPC 0xf4 /* legacy/combination backlight modes */
 
@@ -365,7 +366,11 @@ static u32 i915_read_blc_pwm_ctl(struct drm_device *dev)
 
 static u32 intel_panel_get_max_backlight(struct drm_device *dev)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 max;
+
+	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi)
+		return 0xFF;
 
 	max = i915_read_blc_pwm_ctl(dev);
 
@@ -418,7 +423,13 @@ static u32 intel_panel_get_backlight(struct drm_device *dev)
 
 	spin_lock_irqsave(&dev_priv->backlight.lock, flags);
 
-	if (HAS_PCH_SPLIT(dev)) {
+	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi) {
+#ifdef CONFIG_CRYSTAL_COVE
+		val = intel_mid_pmic_readb(0x4E);
+#else
+		DRM_ERROR("Backlight not supported yet\n");
+#endif
+	} else if (HAS_PCH_SPLIT(dev)) {
 		val = I915_READ(BLC_PWM_CPU_CTL) & BACKLIGHT_DUTY_CYCLE_MASK;
 	} else {
 		val = I915_READ(BLC_PWM_CTL) & BACKLIGHT_DUTY_CYCLE_MASK;
@@ -433,7 +444,15 @@ static u32 intel_panel_get_backlight(struct drm_device *dev)
 		}
 	}
 
-	val = intel_panel_compute_brightness(dev, val);
+	/* When DPST is enabled, reading the backlight register will
+	 - give the DPST adjusted backlight value. Since DPST works
+	 * without user knowing a perceived difference in the backlight,
+	 * the programmed backlight isn't the correct value to return.
+	 * So, get the user perceived backlight level from DPST. */
+	if (dev_priv->dpst.enabled)
+		val = i915_dpst_get_brightness(dev);
+	else
+		val = intel_panel_compute_brightness(dev, val);
 
 	spin_unlock_irqrestore(&dev_priv->backlight.lock, flags);
 
@@ -448,7 +467,7 @@ static void intel_pch_panel_set_backlight(struct drm_device *dev, u32 level)
 	I915_WRITE(BLC_PWM_CPU_CTL, val | level);
 }
 
-static void intel_panel_actually_set_backlight(struct drm_device *dev, u32 level)
+void intel_panel_actually_set_backlight(struct drm_device *dev, u32 level)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 tmp;
@@ -472,11 +491,20 @@ static void intel_panel_actually_set_backlight(struct drm_device *dev, u32 level
 		pci_write_config_byte(dev->pdev, PCI_LBPC, lbpc);
 	}
 
-	tmp = I915_READ(BLC_PWM_CTL);
-	if (INTEL_INFO(dev)->gen < 4)
-		level <<= 1;
-	tmp &= ~BACKLIGHT_DUTY_CYCLE_MASK;
-	I915_WRITE(BLC_PWM_CTL, tmp | level);
+	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi) {
+#ifdef CONFIG_CRYSTAL_COVE
+		DRM_DEBUG_DRIVER("tux: set backlight PWM = %d\n", level);
+		intel_mid_pmic_writeb(0x4E, level);
+#else
+		DRM_ERROR("Backlight not supported yet\n");
+#endif
+	} else {
+		tmp = I915_READ(BLC_PWM_CTL);
+		if (INTEL_INFO(dev)->gen < 4)
+			level <<= 1;
+		tmp &= ~BACKLIGHT_DUTY_CYCLE_MASK;
+		I915_WRITE(BLC_PWM_CTL, tmp | level);
+	}
 }
 
 /* set backlight brightness to level in range [0..max] */
@@ -502,7 +530,10 @@ void intel_panel_set_backlight(struct drm_device *dev, u32 level, u32 max)
 		dev_priv->backlight.device->props.brightness = level;
 
 	if (dev_priv->backlight.enabled)
-		intel_panel_actually_set_backlight(dev, level);
+		if (dev_priv->dpst.enabled)
+			i915_dpst_set_brightness(dev, level);
+		else
+			intel_panel_actually_set_backlight(dev, level);
 out:
 	spin_unlock_irqrestore(&dev_priv->backlight.lock, flags);
 }
@@ -517,7 +548,14 @@ void intel_panel_disable_backlight(struct drm_device *dev)
 	dev_priv->backlight.enabled = false;
 	intel_panel_actually_set_backlight(dev, 0);
 
-	if (INTEL_INFO(dev)->gen >= 4) {
+	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi) {
+#ifdef CONFIG_CRYSTAL_COVE
+		intel_mid_pmic_writeb(0x51, 0x00);
+		intel_mid_pmic_writeb(0x52, 0x00);
+#else
+		DRM_ERROR("Backlight not supported yet\n");
+#endif
+	} else if (INTEL_INFO(dev)->gen >= 4) {
 		uint32_t reg, tmp;
 
 		reg = HAS_PCH_SPLIT(dev) ? BLC_PWM_CPU_CTL2 : BLC_PWM_CTL2;
@@ -551,7 +589,16 @@ void intel_panel_enable_backlight(struct drm_device *dev,
 				dev_priv->backlight.level;
 	}
 
-	if (INTEL_INFO(dev)->gen >= 4) {
+	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi) {
+#ifdef CONFIG_CRYSTAL_COVE
+		intel_mid_pmic_writeb(0x4B, 0xFF);
+		intel_mid_pmic_writeb(0x4E, 0xFF);
+		intel_mid_pmic_writeb(0x51, 0x01);
+		intel_mid_pmic_writeb(0x52, 0x01);
+#else
+		DRM_ERROR("Backlight not supported yet\n");
+#endif
+	} else if (INTEL_INFO(dev)->gen >= 4) {
 		uint32_t reg, tmp;
 
 		reg = HAS_PCH_SPLIT(dev) ? BLC_PWM_CPU_CTL2 : BLC_PWM_CTL2;

@@ -91,6 +91,8 @@
 #define IPC_IA_DRAIN_STREAM 0x27 /* Short msg with str_id */
 #define IPC_IA_DRAIN_STREAM_MRFLD 0x8
 #define IPC_IA_CONTROL_ROUTING 0x29
+#define IPC_IA_VTSV_UPDATE_MODULES 0x20
+#define IPC_IA_VTSV_DETECTED 0x21
 
 #define IPC_IA_START_STREAM_MRFLD 0X06
 #define IPC_IA_START_STREAM 0x30 /* Short msg with str_id */
@@ -185,13 +187,12 @@ enum sst_codec_types {
 };
 
 enum sst_algo_types {
-	SST_CODEC_SRC = 0x64,
-	SST_CODEC_MIXER = 0x65,
-	SST_CODEC_DOWN_MIXER = 0x66,
-	SST_CODEC_VOLUME_CONTROL = 0x92,
-	SST_CODEC_AUDCLASSIFIER = 0x0080,
-	SST_CODEC_OEM1 = 0xC8,
-	SST_CODEC_OEM2 = 0xC9,
+	SST_ALGO_SRC = 0x64,
+	SST_ALGO_MIXER = 0x65,
+	SST_ALGO_DOWN_MIXER = 0x66,
+	SST_ALGO_VTSV = 0x73,
+	SST_ALGO_AUDCLASSIFIER = 0x80,
+	SST_ALGO_VOLUME_CONTROL = 0x92,
 };
 
 enum stream_type {
@@ -627,7 +628,11 @@ struct snd_sst_drop_response {
 };
 
 struct snd_sst_async_msg {
-	u32 msg_id; /* Async error msg id */
+	u32 msg_id; /* Async msg id */
+	u32 payload[0];
+};
+
+struct snd_sst_async_err_msg {
 	u32 fw_resp; /* Firmware Result */
 	u32 lib_resp; /*Library result */
 } __packed;
@@ -716,4 +721,10 @@ struct snd_sst_bytes_v2 {
 	u16 len;
 	char bytes[0];
 };
+
+#define MAX_VTSV_FILES 2
+struct snd_sst_vtsv_info {
+	struct sst_address_info vfiles[MAX_VTSV_FILES];
+} __packed;
+
 #endif /* __PLATFORMDRV_IPC_V2_H__ */

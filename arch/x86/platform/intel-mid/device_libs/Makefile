@@ -45,9 +45,18 @@ obj-$(subst m,y,$(CONFIG_SENSORS_LIS3DH_ACC)) += platform_lis3dh.o
 obj-$(subst m,y,$(CONFIG_SENSORS_LSM303_MAG)) += platform_lsm303.o
 obj-$(subst m,y,$(CONFIG_SENSORS_APDS990X_FORK)) += platform_apds990x.o
 obj-$(subst m,y,$(CONFIG_A1026)) += platform_a1026.o
+obj-$(subst m,y,$(CONFIG_EXTCON_FSA9285)) += platform_fsa9285.o
 
 # SPI Devices
 obj-$(subst m,y,$(CONFIG_SERIAL_MRST_MAX3110)) += platform_max3111.o
+# HSI Devices
+obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_hsi_modem.o
+obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_ffl_modem.o
+obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_edlp_modem.o
+obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_edlp_fast.o
+obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_logical_modem.o
+# Modem control Device
+obj-y									+= platform_modem_ctrl.o
 # MISC Devices
 obj-$(subst m,y,$(CONFIG_KEYBOARD_GPIO)) += platform_gpio_keys.o
 # ADC

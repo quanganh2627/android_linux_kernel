@@ -380,6 +380,7 @@ struct sst_probe_info {
 	u32 imr_end;
 	bool imr_use;
 	bool use_elf;
+	bool dma_addr_ia_viewpt;
 	unsigned int max_streams;
 	u32 dma_max_len;
 	u8 num_probes;
@@ -451,6 +452,13 @@ struct sst_shim_regs64 {
 	u64 ipclpesc;
 	u64 clkctl;
 	u64 csr2;
+};
+
+struct sst_vtsv_cache {
+	void *file1_in_mem;
+	u32 size1;
+	void *file2_in_mem;
+	u32 size2;
 };
 
 /***
@@ -565,6 +573,10 @@ struct intel_sst_drv {
 	struct snd_sst_probe_bytes *probe_bytes;
 	/* contains the ipc registers */
 	struct sst_ipc_reg	ipc_reg;
+	/* IMR region Library space memory manager */
+	struct sst_mem_mgr      lib_mem_mgr;
+	/* Contains the cached vtsv files*/
+	struct sst_vtsv_cache	vcache;
 };
 
 extern struct intel_sst_drv *sst_drv_ctx;
@@ -645,6 +657,8 @@ int intel_sst_release_cntrl(struct inode *i_node, struct file *file_ptr);
 int sst_load_fw(void);
 int sst_load_library(struct snd_sst_lib_download *lib, u8 ops);
 int sst_load_all_modules_elf(struct intel_sst_drv *ctx);
+int sst_get_next_lib_mem(struct sst_mem_mgr *mgr, int size,
+			u32 *lib_base);
 int sst_get_block_stream(struct intel_sst_drv *sst_drv_ctx);
 void sst_memcpy_free_resources(void);
 
@@ -689,6 +703,8 @@ int sst_acpi_probe(struct platform_device *pdev);
 int sst_acpi_remove(struct platform_device *pdev);
 void sst_save_shim64(struct intel_sst_drv *ctx, void __iomem *shim,
 		     struct sst_shim_regs64 *shim_regs);
+int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx);
+int sst_create_and_send_uevent(char *name, char *envp[]);
 
 static inline int sst_pm_runtime_put(struct intel_sst_drv *sst_drv)
 {

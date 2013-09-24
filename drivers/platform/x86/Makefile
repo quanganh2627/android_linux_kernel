@@ -47,6 +47,7 @@ obj-$(CONFIG_XO15_EBOOK)	+= xo15-ebook.o
 obj-$(CONFIG_IBM_RTL)		+= ibm_rtl.o
 obj-$(CONFIG_SAMSUNG_LAPTOP)	+= samsung-laptop.o
 obj-$(CONFIG_MXM_WMI)		+= mxm-wmi.o
+obj-$(CONFIG_INTEL_CRYSTALCOVE_PWRSRC)  += intel_crystalcove_pwrsrc.o
 obj-$(CONFIG_INTEL_MID_POWER_BUTTON)	+= intel_mid_powerbtn.o
 obj-$(CONFIG_INTEL_PMIC_CHARGER)	+= intel_pmic_charger.o
 obj-$(CONFIG_INTEL_OAKTRAIL)	+= intel_oaktrail.o

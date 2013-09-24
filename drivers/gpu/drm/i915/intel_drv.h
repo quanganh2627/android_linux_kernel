@@ -93,12 +93,16 @@
 #define INTEL_OUTPUT_HDMI 6
 #define INTEL_OUTPUT_DISPLAYPORT 7
 #define INTEL_OUTPUT_EDP 8
-#define INTEL_OUTPUT_UNKNOWN 9
+#define INTEL_OUTPUT_DSI 9
+#define INTEL_OUTPUT_UNKNOWN 10
 
 #define INTEL_DVO_CHIP_NONE 0
 #define INTEL_DVO_CHIP_LVDS 1
 #define INTEL_DVO_CHIP_TMDS 2
 #define INTEL_DVO_CHIP_TVOUT 4
+
+#define INTEL_DSI_COMMAND_MODE	0
+#define INTEL_DSI_VIDEO_MODE	1
 
 struct intel_framebuffer {
 	struct drm_framebuffer base;
@@ -550,6 +554,7 @@ extern void intel_mark_fb_busy(struct drm_i915_gem_object *obj,
 			       struct intel_ring_buffer *ring);
 extern void intel_mark_idle(struct drm_device *dev);
 extern void intel_lvds_init(struct drm_device *dev);
+extern bool intel_dsi_init(struct drm_device *dev);
 extern bool intel_is_dual_link_lvds(struct drm_device *dev);
 extern void intel_dp_init(struct drm_device *dev, int output_reg,
 			  enum port port);
@@ -758,6 +763,14 @@ extern int intel_sprite_get_colorkey(struct drm_device *dev, void *data,
 
 /* Power-related functions, located in intel_pm.c */
 extern void intel_init_pm(struct drm_device *dev);
+extern bool vlv_rs_initialize(struct drm_device *dev);
+extern void vlv_rs_sleepstateinit(struct drm_device *dev,
+					bool   bdisable_rs);
+extern void vlv_rs_setstate(struct drm_device *dev, bool enable);
+
+extern bool vlv_turbo_initialize(struct drm_device *dev);
+extern void vlv_turbo_disable(struct drm_device *dev);
+
 /* FBC */
 extern bool intel_fbc_enabled(struct drm_device *dev);
 extern void intel_update_fbc(struct drm_device *dev);

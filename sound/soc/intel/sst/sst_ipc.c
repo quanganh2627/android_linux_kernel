@@ -608,24 +608,65 @@ void sst_process_message_mrfld(struct work_struct *work)
 	return;
 }
 
-void print_fw_async_error_msg(struct snd_sst_async_msg *msg)
+/* Max 6 results each of size 14 bytes + numresults(2bytes) */
+#define MAX_VTSV_RESULT_SIZE 86
+static int send_vtsv_result_event(void *data, int size)
 {
-	if (msg->msg_id == IPC_IA_FW_ASYNC_ERR_MRFLD) {
+	char *envp[MAX_VTSV_RESULT_SIZE+2];
+	char res_size[30], result[MAX_VTSV_RESULT_SIZE][10];
+	int offset = 0;
+	u8 *tmp;
+	int i = 0;
+
+	if (size > MAX_VTSV_RESULT_SIZE) {
+		pr_err("VTSV result size exceeds expected value, no uevent sent\n");
+		return -1;
+	}
+
+	sprintf(res_size, "VTSV_RESULT_SIZE=%d", size);
+	envp[offset++] = res_size;
+	tmp = (u8 *)(data);
+	while (size) {
+		sprintf(result[i], "%d", *tmp++);
+		envp[offset++] = result[i++];
+		size--;
+	}
+	envp[offset] = NULL;
+	return sst_create_and_send_uevent("SST_VOICE_TRIGGER", envp);
+}
+
+static void process_fw_async_large_msg(void *data, u32 msg_size)
+{
+	u32 msg_id;
+	int res_size, ret;
+	struct snd_sst_async_err_msg err_msg = {0};
+
+	msg_id = ((struct snd_sst_async_msg *)data)->msg_id;
+	if (msg_id == IPC_IA_FW_ASYNC_ERR_MRFLD) {
+		memcpy(&err_msg, (data + sizeof(msg_id)),
+						sizeof(err_msg));
 		pr_err("FW sent async error msg:\n");
 		pr_err("FW error: 0x%x, Lib error: 0x%x\n",
-					msg->fw_resp, msg->lib_resp);
+			err_msg.fw_resp, err_msg.lib_resp);
+	} else if (msg_id == IPC_IA_VTSV_DETECTED) {
+		res_size = msg_size - (sizeof(msg_id));
+		ret = send_vtsv_result_event(
+				(data + sizeof(msg_id)), res_size);
+		if (ret)
+			pr_err("VTSV uevent send failed: %d\n", ret);
+		else
+			pr_debug("VTSV uevent sent\n");
 	} else
-		pr_err("Invalid err msg from fw\n");
-
+		pr_err("Invalid async msg from FW\n");
 }
 
 void sst_process_reply_mrfld(struct work_struct *work)
 {
 	struct sst_ipc_msg_wq *msg, *tmp;
-	unsigned int msg_id, drv_id;
+	unsigned int drv_id;
 	void *data = NULL;
 	union ipc_header_high msg_high;
-	u32 msg_low;
+	u32 msg_low, msg_id;
 
 	/* copy the message before enabling interrupts */
 	tmp = container_of(work, struct sst_ipc_msg_wq, wq);
@@ -658,18 +699,15 @@ void sst_process_reply_mrfld(struct work_struct *work)
 			if (msg_id == IPC_IA_FW_INIT_CMPLT_MRFLD)
 				process_fw_init(msg);
 		} else {
-			/* FW sent async error as large msg */
-			struct snd_sst_async_msg err_msg;
-			if (msg_low != sizeof(err_msg)) {
-				pr_err("Invalid async msg from FW:");
-				pr_err("Expected:%zu, Got:%u\n",
-						sizeof(err_msg), msg_low);
+			/* FW sent async large message */
+			data = kzalloc(msg_low, GFP_KERNEL);
+			if (!data)
 				goto end;
-			}
-			memcpy(&err_msg, (void *) msg->mailbox,
-							sizeof(err_msg));
-			print_fw_async_error_msg(&err_msg);
+			memcpy(data, (void *) msg->mailbox, msg_low);
+			process_fw_async_large_msg(data, msg_low);
+			kfree(data);
 		}
+		goto end;
 	}
 	/* Process all valid responses */
 	/* if it is a large message, the payload contains the size to

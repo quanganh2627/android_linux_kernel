@@ -1509,7 +1509,7 @@ static int sst_check_binary_input(char *stream)
 		pr_err("length out of bounds %d\n", bytes->len);
 		return -EINVAL;
 	}
-	if (bytes->type == 0 || bytes->type > 2) {
+	if (bytes->type == 0 || bytes->type > SND_SST_BYTES_GET) {
 		pr_err("type out of bounds: %d\n", bytes->type);
 		return -EINVAL;
 	}
@@ -1517,7 +1517,7 @@ static int sst_check_binary_input(char *stream)
 		pr_err("block invalid %d\n", bytes->block);
 		return -EINVAL;
 	}
-	if (bytes->task_id == 0 || bytes->task_id > 4) {
+	if (bytes->task_id == SST_TASK_ID_NONE || bytes->task_id > SST_TASK_ID_MAX) {
 		pr_err("taskid invalid %d\n", bytes->task_id);
 		return -EINVAL;
 	}
@@ -1580,11 +1580,33 @@ static int sst_pipe_id_control_set(struct snd_kcontrol *kcontrol,
 static int sst_compr_vol_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
 	struct sst_algo_int_control_v2 *amc = (void *)kcontrol->private_value;
+	u16 gain;
+	unsigned int gain_offset, ret;
 
-	ucontrol->value.integer.value[0] = amc->value;
-	pr_debug("%s: cell_gain = %d\n", __func__, amc->value);
+	sst_create_compr_vol_ipc(sst->byte_stream, SND_SST_BYTES_GET, amc);
+	mutex_lock(&sst->lock);
+	ret = sst_dsp->ops->set_generic_params(SST_SET_BYTE_STREAM,
+						sst->byte_stream);
+	mutex_unlock(&sst->lock);
+	if (ret) {
+		pr_err("failed to get compress vol from fw: %d\n", ret);
+		return ret;
+	}
+	gain_offset = sizeof(struct snd_sst_bytes_v2) +
+				sizeof(struct ipc_dsp_hdr);
 
+	/* Get params format for vol ctrl lib, size 6 bytes :
+	 * u16 left_gain, u16 right_gain, u16 ramp
+	 */
+	memcpy(&gain,
+		(unsigned int *)(sst->byte_stream + gain_offset),
+		sizeof(u16));
+	pr_debug("%s: cell_gain = %d\n", __func__, gain);
+	amc->value = gain;
+	ucontrol->value.integer.value[0] = gain;
 	return 0;
 }
 
@@ -1616,9 +1638,36 @@ static int sst_compr_vol_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int sst_vtsv_enroll_set(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	int ret = 0;
+
+	sst->vtsv_enroll = ucontrol->value.integer.value[0];
+	mutex_lock(&sst->lock);
+	if (sst->vtsv_enroll)
+		ret = sst_dsp->ops->set_generic_params(SST_SET_VTSV_INFO,
+					(void *)&sst->vtsv_enroll);
+	mutex_unlock(&sst->lock);
+	return ret;
+}
+
+static int sst_vtsv_enroll_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+
+	ucontrol->value.integer.value[0] = sst->vtsv_enroll;
+	return 0;
+}
+
 /* This value corresponds to two's complement value of -10 or -1dB */
 #define SST_COMPR_VOL_MAX_INTEG_GAIN 0xFFF6
 #define SST_COMPR_VOL_MUTE 0xFA60 /* 2's complement of -1440 or -144dB*/
+
 
 static const struct snd_kcontrol_new sst_mrfld_controls[] = {
 	SND_SOC_BYTES_EXT("SST Byte control", SST_MAX_BIN_BYTES,
@@ -1628,8 +1677,10 @@ static const struct snd_kcontrol_new sst_mrfld_controls[] = {
 	SST_ALGO_KCONTROL_INT("Compress Volume", SST_COMPRESS_VOL,
 		0, SST_COMPR_VOL_MAX_INTEG_GAIN, 0,
 		sst_compr_vol_get, sst_compr_vol_set,
-		SST_CODEC_VOLUME_CONTROL, PIPE_MEDIA0_IN, 0,
+		SST_ALGO_VOLUME_CONTROL, PIPE_MEDIA0_IN, 0,
 		SST_COMPR_VOL_MUTE),
+	SOC_SINGLE_BOOL_EXT("SST VTSV Enroll", 0, sst_vtsv_enroll_get,
+		       sst_vtsv_enroll_set),
 };
 
 int sst_dsp_init(struct snd_soc_platform *platform)
@@ -1642,6 +1693,8 @@ int sst_dsp_init(struct snd_soc_platform *platform)
 		pr_err("kzalloc failed\n");
 		return -ENOMEM;
 	}
+
+	sst->vtsv_enroll = false;
 
 	snd_soc_dapm_new_controls(&platform->dapm, sst_dapm_widgets,
 			ARRAY_SIZE(sst_dapm_widgets));

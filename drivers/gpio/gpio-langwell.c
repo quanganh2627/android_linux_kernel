@@ -498,14 +498,18 @@ static int lnw_irq_type(struct irq_data *d, unsigned type)
 
 		spin_lock_irqsave(&lnw->lock, flags);
 		if (type & IRQ_TYPE_LEVEL_MASK) {
-			value = readl(gpit) | BIT(gpio % 32);
-			writel(value, gpit);
-
+			/* To prevent glitches from triggering an unintended
+			 * level interrupt, configure GLPR register first
+			 * and then configure GITR.
+			 */
 			if (type & IRQ_TYPE_LEVEL_LOW)
 				value = readl(gpip) | BIT(gpio % 32);
 			else
 				value = readl(gpip) & (~BIT(gpio % 32));
 			writel(value, gpip);
+
+			value = readl(gpit) | BIT(gpio % 32);
+			writel(value, gpit);
 
 			__irq_set_handler_locked(d->irq, handle_level_irq);
 		} else if (type & IRQ_TYPE_EDGE_BOTH) {
@@ -700,6 +704,8 @@ static void lnw_irq_handler(unsigned irq, struct irq_desc *desc)
 	unsigned long pending;
 	void __iomem *gp_reg;
 	enum GPIO_REG reg_type;
+	struct irq_desc *lnw_irq_desc;
+	unsigned int lnw_irq;
 
 	reg_type = (lnw->type == TANGIER_GPIO) ? GISR : GEDR;
 
@@ -711,11 +717,18 @@ static void lnw_irq_handler(unsigned irq, struct irq_desc *desc)
 			(readl(gp_reg) &
 			readl(gpio_reg(&lnw->chip, base, GIMR))))) {
 			gpio = __ffs(pending);
+			/* Mask irq if not requested in kernel */
+			lnw_irq = irq_find_mapping(lnw->domain, base + gpio);
+			lnw_irq_desc = irq_to_desc(lnw_irq);
+			if (lnw_irq_desc && unlikely(!lnw_irq_desc->action)) {
+				lnw_irq_mask(&lnw_irq_desc->irq_data);
+				continue;
+			}
+
 			mask = BIT(gpio);
 			/* Clear before handling so we can't lose an edge */
 			writel(mask, gp_reg);
-			generic_handle_irq(irq_find_mapping(lnw->domain,
-							    base + gpio));
+			generic_handle_irq(lnw_irq);
 		}
 	}
 

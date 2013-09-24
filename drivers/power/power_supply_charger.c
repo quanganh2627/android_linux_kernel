@@ -13,8 +13,6 @@
 #include "power_supply.h"
 #include "power_supply_charger.h"
 
-extern int otg_get_chr_status(struct usb_phy *phy, void *data);
-
 struct work_struct otg_work;
 #define MAX_CHARGER_COUNT 5
 
@@ -190,7 +188,7 @@ int otg_register(void)
 
 	otg_xceiver = usb_get_phy(USB_PHY_TYPE_USB2);
 
-	if (!otg_xceiver) {
+	if (IS_ERR(otg_xceiver)) {
 		pr_err("%s:%d failure to get otg transceiver\n",
 					__FILE__, __LINE__);
 		goto otg_reg_failed;
@@ -256,7 +254,7 @@ static void init_charger_cables(struct charger_cable *cable_lst, int count)
 		}
 	}
 
-	if (!otg_get_chrg_status(otg_xceiver, &cap))
+	if (!IS_ERR(otg_xceiver) && !otg_get_chrg_status(otg_xceiver, &cap))
 		process_cable_props(&cap);
 
 }

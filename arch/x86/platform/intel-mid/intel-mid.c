@@ -71,7 +71,7 @@ module_param(force_cold_boot, int, 0644);
 MODULE_PARM_DESC(force_cold_boot,
 		 "Set to Y to force a COLD BOOT instead of a COLD RESET "
 		 "on the next reboot system call.");
-
+u32 nbr_hsi_clients = 2;
 static void intel_mid_power_off(void)
 {
 };

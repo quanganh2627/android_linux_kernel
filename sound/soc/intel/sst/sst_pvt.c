@@ -28,6 +28,7 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/kobject.h>
 #include <linux/pci.h>
 #include <linux/fs.h>
 #include <linux/firmware.h>
@@ -218,8 +219,12 @@ static void sst_do_recovery(struct intel_sst_drv *sst)
 	 */
 	pr_err("Audio: Intel SST engine encountered an unrecoverable error\n");
 	pr_err("Audio: trying to reset the dsp now\n");
-	mutex_lock(&sst->sst_lock);
 
+	if (sst->sst_state == SST_FW_RUNNING &&
+		sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
+		dump_sst_crash_area();
+
+	mutex_lock(&sst->sst_lock);
 	sst->sst_state = SST_UN_INIT;
 	sst_stream_recovery(sst);
 
@@ -228,7 +233,6 @@ static void sst_do_recovery(struct intel_sst_drv *sst)
 	dump_stack();
 	dump_sst_shim(sst);
 	reset_sst_shim(sst);
-	dump_sst_crash_area();
 
 	if (sst_drv_ctx->ops->set_bypass) {
 
@@ -272,7 +276,10 @@ static void sst_do_recovery(struct intel_sst_drv *sst)
 
 	dump_stack();
 	dump_sst_shim(sst);
-	dump_sst_crash_area();
+
+	if (sst->sst_state == SST_FW_RUNNING &&
+		sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
+		dump_sst_crash_area();
 
 	spin_lock_irqsave(&sst->ipc_spin_lock, irq_flags);
 	if (list_empty(&sst->ipc_dispatch_list))
@@ -397,3 +404,34 @@ void sst_clean_stream(struct stream_info *stream)
 	mutex_unlock(&stream->lock);
 }
 
+/*
+ * sst_create_and_send_uevent - dynamically create, send and destroy uevent
+ * @name - Name of the uevent
+ * @envp - Event parameters
+ */
+int sst_create_and_send_uevent(char *name, char *envp[])
+{
+	struct kset *set;
+	struct kobject *obj;
+	int ret = 0;
+
+	set = kset_create_and_add("SSTEVENTS", NULL, &sst_drv_ctx->dev->kobj);
+	if (!set) {
+		pr_err("kset creation failed\n");
+		return -ENOMEM;
+	}
+	obj = kobject_create_and_add(name, &sst_drv_ctx->dev->kobj);
+	if (!obj) {
+		pr_err("kboject creation failed\n");
+		ret = -ENOMEM;
+		goto free_kset;
+	}
+	obj->kset = set;
+	ret = kobject_uevent_env(obj, KOBJ_ADD, envp);
+	if (ret)
+		pr_err("sst uevent send failed - %d\n", ret);
+	kobject_put(obj);
+free_kset:
+	kset_unregister(set);
+	return ret;
+}

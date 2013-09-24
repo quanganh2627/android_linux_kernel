@@ -31,6 +31,7 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 	{ "PNP0D40" },
 	{ "BCM43241" },
 	{ "BCM2E1A" },
+	{ "LPE0F281", 0 },
 	{ }
 };
 

@@ -110,14 +110,17 @@ static irqreturn_t intel_sst_irq_thread_mrfld(int irq, void *context)
 	struct intel_sst_drv *drv = (struct intel_sst_drv *) context;
 	union ipc_header_mrfld header;
 	struct stream_info *stream;
-	unsigned int size = 0, msg_id, pipe_id;
+	unsigned int size = 0, msg_id = 0, pipe_id;
 	int str_id;
 
 	header.full = sst_shim_read64(drv->shim, SST_IPCD);
-	msg_id = header.p.header_low_payload & SST_ASYNC_MSG_MASK;
 	pr_debug("interrupt: header_high: 0x%x, header_low: 0x%x\n",
 				(unsigned int)header.p.header_high.full,
 				(unsigned int)header.p.header_low_payload);
+
+	if (!header.p.header_high.part.large)
+		msg_id = header.p.header_low_payload & SST_ASYNC_MSG_MASK;
+
 	if ((msg_id == IPC_SST_PERIOD_ELAPSED_MRFLD) &&
 	    (header.p.header_high.part.msg_id == IPC_CMD)) {
 		sst_drv_ctx->ops->clear_interrupt();
@@ -556,6 +559,11 @@ static int intel_sst_probe(struct pci_dev *pci,
 
 	sst_drv_ctx->stream_cnt = 0;
 	sst_drv_ctx->fw_in_mem = NULL;
+	sst_drv_ctx->vcache.file1_in_mem = NULL;
+	sst_drv_ctx->vcache.file2_in_mem = NULL;
+	sst_drv_ctx->vcache.size1 = 0;
+	sst_drv_ctx->vcache.size2 = 0;
+
 	/* we use dma, so set to 1*/
 	sst_drv_ctx->use_dma = 0;
 	sst_drv_ctx->use_lli = 1;
@@ -607,6 +615,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 	for (i = 1; i <= sst_drv_ctx->info.max_streams; i++) {
 		struct stream_info *stream = &sst_drv_ctx->streams[i];
 		memset(stream, 0, sizeof(*stream));
+		stream->pipe_id = PIPE_RSVD;
 		mutex_init(&stream->lock);
 	}
 
@@ -1107,15 +1116,7 @@ static int intel_sst_runtime_idle(struct device *dev)
 
 }
 
-/**
-* sst_shutdown - PCI shutdown function
-*
-* @pci:        PCI device structure
-*
-* This function is called by OS when a device is shutdown/reboot
-*
-*/
-static void sst_shutdown(struct pci_dev *pci)
+static void sst_do_shutdown(struct intel_sst_drv *ctx)
 {
 	int retval = 0;
 	unsigned int pvt_id;
@@ -1124,31 +1125,53 @@ static void sst_shutdown(struct pci_dev *pci)
 	struct sst_block *block = NULL;
 
 	pr_debug(" %s called\n", __func__);
-	if (sst_drv_ctx->sst_state == SST_SUSPENDED ||
-			sst_drv_ctx->sst_state == SST_UN_INIT) {
-		sst_set_fw_state_locked(sst_drv_ctx, SST_SHUTDOWN);
-		goto disable;
+	if (ctx->sst_state == SST_SUSPENDED ||
+			ctx->sst_state == SST_UN_INIT) {
+		sst_set_fw_state_locked(ctx, SST_SHUTDOWN);
+		pr_debug("sst is already in suspended/un-int state\n");
+		return;
 	}
-	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID) {
-		sst_set_fw_state_locked(sst_drv_ctx, SST_SHUTDOWN);
-		flush_workqueue(sst_drv_ctx->post_msg_wq);
-		flush_workqueue(sst_drv_ctx->process_msg_wq);
-		flush_workqueue(sst_drv_ctx->process_reply_wq);
-		pvt_id = sst_assign_pvt_id(sst_drv_ctx);
-		retval = sst_create_block_and_ipc_msg(&msg, false,
-				sst_drv_ctx, &block,
-				IPC_IA_PREPARE_SHUTDOWN, pvt_id);
-		if (retval)
-			goto disable;
-		sst_fill_header(&msg->header, IPC_IA_PREPARE_SHUTDOWN, 0, pvt_id);
-		spin_lock_irqsave(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-		list_add_tail(&msg->node, &sst_drv_ctx->ipc_dispatch_list);
-		spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-		sst_drv_ctx->ops->post_message(&sst_drv_ctx->ipc_post_msg_wq);
-		sst_wait_timeout(sst_drv_ctx, block);
-		sst_free_block(sst_drv_ctx, block);
+	if (!ctx->use_32bit_ops)
+		return;
+
+	sst_set_fw_state_locked(ctx, SST_SHUTDOWN);
+	flush_workqueue(ctx->post_msg_wq);
+	flush_workqueue(ctx->process_msg_wq);
+	flush_workqueue(ctx->process_reply_wq);
+	pvt_id = sst_assign_pvt_id(ctx);
+	retval = sst_create_block_and_ipc_msg(&msg, false,
+			ctx, &block,
+			IPC_IA_PREPARE_SHUTDOWN, pvt_id);
+	if (retval) {
+		pr_err("sst_create_block returned error!\n");
+		return;
 	}
-disable:
+	sst_fill_header(&msg->header, IPC_IA_PREPARE_SHUTDOWN, 0, pvt_id);
+	spin_lock_irqsave(&ctx->ipc_spin_lock, irq_flags);
+	list_add_tail(&msg->node, &ctx->ipc_dispatch_list);
+	spin_unlock_irqrestore(&ctx->ipc_spin_lock, irq_flags);
+	sst_drv_ctx->ops->post_message(&ctx->ipc_post_msg_wq);
+	sst_wait_timeout(ctx, block);
+	sst_free_block(ctx, block);
+}
+
+
+/**
+* sst_pci_shutdown - PCI shutdown function
+*
+* @pci:        PCI device structure
+*
+* This function is called by OS when a device is shutdown/reboot
+*
+*/
+
+static void sst_pci_shutdown(struct pci_dev *pci)
+{
+	struct intel_sst_drv *ctx = pci_get_drvdata(pci);
+
+	pr_debug(" %s called\n", __func__);
+
+	sst_do_shutdown(ctx);
 	disable_irq_nosync(pci->irq);
 }
 
@@ -1162,9 +1185,12 @@ disable:
 */
 static void sst_acpi_shutdown(struct platform_device *pdev)
 {
+	struct intel_sst_drv *ctx = platform_get_drvdata(pdev);
 	int irq = platform_get_irq(pdev, 0);
 
 	pr_debug(" %s called\n", __func__);
+
+	sst_do_shutdown(ctx);
 	disable_irq_nosync(irq);
 }
 
@@ -1217,10 +1243,12 @@ const struct sst_probe_info intel_byt_info = {
 	.imr_start	= SST_BYT_IMR_START,
 	.imr_end	= SST_BYT_IMR_END,
 	.imr_use	= true,
+	.dma_addr_ia_viewpt = false,
 };
 
 static const struct acpi_device_id sst_acpi_ids[] = {
 	{ "LPE0F28", (kernel_ulong_t) &intel_byt_info },
+	{ "LPE0F281", (kernel_ulong_t) &intel_byt_info },
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, sst_acpi_ids);
@@ -1230,7 +1258,7 @@ static struct pci_driver driver = {
 	.id_table = intel_sst_ids,
 	.probe = intel_sst_probe,
 	.remove = intel_sst_remove,
-	.shutdown = sst_shutdown,
+	.shutdown = sst_pci_shutdown,
 #ifdef CONFIG_PM
 	.driver = {
 		.pm = &intel_sst_pm,

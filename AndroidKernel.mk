@@ -22,8 +22,6 @@ make_kernel_tarball: get_kernel_from_source bootimage
 	@cp $(PRODUCT_OUT)/bzImage $(PRODUCT_OUT)/kerneltarball/
 	tar cvzf $(TARGET_KERNEL_TARBALL) -C $(PRODUCT_OUT)/kerneltarball bzImage root/lib/modules
 
-ALL_KERNEL_MODULES :=
-
 KERNEL_SOC_medfield := mfld
 KERNEL_SOC_clovertrail := ctp
 KERNEL_SOC_merrifield := mrfl
@@ -39,13 +37,12 @@ endif
 
 ifeq ($(BOARD_USE_64BIT_KERNEL),true)
 KERNEL_ARCH := x86_64
-KERNEL_EXTRA_FLAGS := -B ANDROID_TOOLCHAIN_FLAGS=
 else
 KERNEL_ARCH := i386
-KERNEL_EXTRA_FLAGS := ANDROID_TOOLCHAIN_FLAGS=-mno-android
 endif
-
+KERNEL_EXTRA_FLAGS := ANDROID_TOOLCHAIN_FLAGS=-mno-android
 KERNEL_CROSS_COMP := $(notdir $(TARGET_TOOLS_PREFIX))
+
 KERNEL_CCACHE :=$(firstword $(TARGET_CC))
 KERNEL_PATH := $(ANDROID_BUILD_TOP)/vendor/intel/support
 ifeq ($(notdir $(KERNEL_CCACHE)),ccache)
@@ -53,15 +50,17 @@ KERNEL_CROSS_COMP := "ccache $(KERNEL_CROSS_COMP)"
 KERNEL_PATH := $(KERNEL_PATH):$(ANDROID_BUILD_TOP)/$(dir $(KERNEL_CCACHE))
 endif
 
+#remove time_macros from ccache options, it breaks signing process
+KERNEL_CCSLOP := $(filter-out time_macros,$(subst $(comma), ,$(CCACHE_SLOPPINESS)))
+KERNEL_CCSLOP := $(subst $(space),$(comma),$(KERNEL_CCSLOP))
+
 KERNEL_OUT_DIR := $(PRODUCT_OUT)/linux/kernel
 KERNEL_OUT_DIR_KDUMP := $(PRODUCT_OUT)/linux/kdump
-KERNEL_MODULES_STRIPED := kernel_modules
 KERNEL_MODULES_ROOT := $(PRODUCT_OUT)/root/lib/modules
 KERNEL_CONFIG := $(KERNEL_OUT_DIR)/.config
 KERNEL_CONFIG_KDUMP := $(KERNEL_OUT_DIR_KDUMP)/.config
 KERNEL_BLD_FLAGS := \
     ARCH=$(KERNEL_ARCH) \
-    O=../../$(KERNEL_OUT_DIR) \
     $(KERNEL_EXTRA_FLAGS)
 
 KERNEL_BLD_FLAGS_KDUMP := $(KERNEL_BLD_FLAGS) \
@@ -71,15 +70,18 @@ KERNEL_BLD_FLAGS :=$(KERNEL_BLD_FLAGS) \
      O=../../$(KERNEL_OUT_DIR) \
 
 KERNEL_BLD_ENV := CROSS_COMPILE=$(KERNEL_CROSS_COMP) \
-    PATH=$(KERNEL_PATH):$(PATH)
+    PATH=$(KERNEL_PATH):$(PATH) \
+    CCACHE_SLOPPINESS=$(KERNEL_CCSLOP)
 KERNEL_FAKE_DEPMOD := $(KERNEL_OUT_DIR)/fakedepmod/lib/modules
 
 KERNEL_DEFCONFIG := $(KERNEL_SRC_DIR)/arch/x86/configs/$(KERNEL_ARCH)_$(KERNEL_SOC)_defconfig
 KERNEL_DEFCONFIG_KDUMP := $(KERNEL_DEFCONFIG)
 KERNEL_DIFFCONFIG_DIR ?= $(TARGET_DEVICE_DIR)
-KERNEL_DIFFCONFIG := $(KERNEL_DIFFCONFIG_DIR)/$(TARGET_DEVICE)_next_diffconfig
+KERNEL_DIFFCONFIG ?= $(KERNEL_DIFFCONFIG_DIR)/$(TARGET_DEVICE)_next_diffconfig
 KERNEL_VERSION_FILE := $(KERNEL_OUT_DIR)/include/config/kernel.release
 KERNEL_VERSION_FILE_KDUMP := $(KERNEL_OUT_DIR_KDUMP)/include/config/kernel.release
+
+ALL_KERNEL_MODULES := $(KERNEL_OUT_DIR)
 
 $(KERNEL_CONFIG): $(KERNEL_DEFCONFIG) $(wildcard $(KERNEL_DIFFCONFIG))
 	@echo Regenerating kernel config $(KERNEL_OUT_DIR)
@@ -102,25 +104,20 @@ build_bzImage_kdump: $(KERNEL_CONFIG_KDUMP) openssl $(MINIGZIP)
 	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS_KDUMP)
 	@cp -f $(KERNEL_OUT_DIR_KDUMP)/arch/x86/boot/bzImage $(PRODUCT_OUT)/kdumpbzImage
 
-modules_install: build_bzImage
-	@$(RM) -rf $(KERNEL_OUT_DIR)/$(KERNEL_MODULES_STRIPED)
-	@mkdir -p $(KERNEL_OUT_DIR)/$(KERNEL_MODULES_STRIPED)
-	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) INSTALL_MOD_PATH=$(KERNEL_MODULES_STRIPED) INSTALL_MOD_STRIP=1 modules_install
-
 clean_kernel:
 	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) clean
 
 #need to do this to have a modules.dep correctly set.
 #it is not optimized (copying all modules for each rebuild) but better than kernel-build.sh
+#copy and strip module at the same time.
 #fake depmod with a symbolic link to have /lib/modules/$(version_tag)/xxxx.ko
-copy_modules_to_root: build_bzImage modules_install
+copy_modules_to_root: build_bzImage
 	@$(RM) -rf $(KERNEL_MODULES_ROOT)
 	@mkdir -p $(KERNEL_MODULES_ROOT)
-	@find $(KERNEL_OUT_DIR)/$(KERNEL_MODULES_STRIPED) -name "*.ko" -exec cp -f {} $(KERNEL_MODULES_ROOT)/ \;
-	# Line above replaces following 2 lines, leaving for future use if needed.
-	#@find $(KERNEL_OUT_DIR) -name "*.ko" -exec cp -f {} $(KERNEL_MODULES_ROOT)/ \;
-	#@find $(ALL_KERNEL_MODULES) -name "*.ko" -exec cp -f {} $(KERNEL_MODULES_ROOT)/ \;
+	@find $(ALL_KERNEL_MODULES) -name "*.ko" -exec bash -c \
+           'echo "  STRIP `basename {}`" && $(TARGET_STRIP) --strip-debug {} -o $(KERNEL_MODULES_ROOT)/`basename {}`' \;
 	@mkdir -p $(KERNEL_FAKE_DEPMOD)
+	@echo "  DEPMOD `cat $(KERNEL_VERSION_FILE)`"
 	@ln -fns $(ANDROID_BUILD_TOP)/$(KERNEL_MODULES_ROOT) $(KERNEL_FAKE_DEPMOD)/`cat $(KERNEL_VERSION_FILE)`
 	@/sbin/depmod -b $(KERNEL_OUT_DIR)/fakedepmod `cat $(KERNEL_VERSION_FILE)`
 
@@ -146,8 +143,6 @@ $(2): build_bzImage
 	@echo Building kernel module $(2) in $(1)
 	@mkdir -p $(KERNEL_OUT_DIR)/../../$(1)
 	@+$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) M=../../$(1) $(3)
-	@mkdir -p $(PRODUCT_OUT)/$(KERNEL_MODULES_STRIPED)
-	@+$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) M=../../$(1) $(3) INSTALL_MOD_PATH=$(KERNEL_MODULES_STRIPED) INSTALL_MOD_STRIP=1 modules_install
 
 $(2)_clean:
 	@echo Cleaning kernel module $(2) in $(1)

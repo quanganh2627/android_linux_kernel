@@ -26,6 +26,7 @@
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
+#include <linux/hsi/hsi.h>
 #include <linux/mmc/core.h>
 #include <linux/mmc/card.h>
 #include <linux/blkdev.h>
@@ -421,6 +422,30 @@ static void __init sfi_handle_i2c_dev(struct sfi_device_table_entry *pentry,
 		i2c_register_board_info(pentry->host_num, &i2c_info, 1);
 }
 
+static void sfi_handle_hsi_dev(struct sfi_device_table_entry *pentry,
+					struct devs_id *dev)
+{
+	struct hsi_board_info hsi_info;
+	void *pdata = NULL;
+
+	pr_info("HSI bus = %d, name = %16.16s, port = %d\n",
+		pentry->host_num,
+		pentry->name,
+		pentry->addr);
+
+	memset(&hsi_info, 0, sizeof(hsi_info));
+	hsi_info.name = pentry->name;
+	hsi_info.hsi_id = pentry->host_num;
+	hsi_info.port = pentry->addr;
+
+	pdata = dev->get_platform_data(&hsi_info);
+	if (pdata) {
+		pr_info("SFI register platform data for HSI device %s\n",
+					dev->name);
+		hsi_register_board_info(pdata, 2);
+	}
+}
+
 static void __init sfi_handle_sd_dev(struct sfi_device_table_entry *pentry,
 					struct devs_id *dev)
 {
@@ -533,6 +558,8 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 				sfi_handle_sd_dev(pentry, dev);
 				break;
 			case SFI_DEV_TYPE_HSI:
+				sfi_handle_hsi_dev(pentry, dev);
+				break;
 			case SFI_DEV_TYPE_UART:
 			default:
 				break;

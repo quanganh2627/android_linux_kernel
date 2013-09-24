@@ -489,9 +489,12 @@ static int drm_mmap_dma(struct file *filp, struct vm_area_struct *vma)
 		  vma->vm_start, vma->vm_end, vma->vm_pgoff);
 
 	/* Length must match exact page count */
-	if (!dma || (length >> PAGE_SHIFT) != dma->page_count) {
+	if (!dma) {
+		DRM_DEBUG("return EINVAL. dma: %x\n", dma);
 		return -EINVAL;
 	}
+	if (!dma || (length >> PAGE_SHIFT) != dma->page_count)
+		return -EINVAL;
 
 	if (!capable(CAP_SYS_ADMIN) &&
 	    (dma->flags & _DRM_DMA_USE_PCI_RO)) {

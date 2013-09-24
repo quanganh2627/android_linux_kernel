@@ -15,15 +15,6 @@
 
 #include <linux/types.h>
 
-struct mxt_platform_info {
-	u8 family_id;
-	u8 variant_id;
-	u8 version;
-	u8 build;
-	u32 info_crc;
-	u32 config_crc;
-};
-
 /* The platform data for the Atmel maXTouch touchscreen driver */
 struct mxt_platform_data {
 	unsigned long irqflags;
@@ -34,8 +25,8 @@ struct mxt_platform_data {
 	int gpio_reset;
 	const char *cfg_name;
 	bool regulator_en;
+	unsigned gpio_switch;
 	int hardware_id;
-	struct mxt_platform_info info;
 };
 
 #endif /* __LINUX_ATMEL_MXT_TS_H */

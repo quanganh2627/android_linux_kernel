@@ -37,17 +37,12 @@
 #include "intel_ringbuffer.h"
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
+#include "i915_debugfs.h"
 
 #define DRM_I915_RING_DEBUG 1
 
 
 #if defined(CONFIG_DEBUG_FS)
-
-enum {
-	ACTIVE_LIST,
-	INACTIVE_LIST,
-	PINNED_LIST,
-};
 
 static const char *yesno(int v)
 {
@@ -867,7 +862,7 @@ static int i915_cur_delayinfo(struct seq_file *m, void *unused)
 		if (ret)
 			return ret;
 
-		gen6_gt_force_wake_get(dev_priv);
+		gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
 
 		rpstat = I915_READ(GEN6_RPSTAT1);
 		rpupei = I915_READ(GEN6_RP_CUR_UP_EI);
@@ -882,7 +877,7 @@ static int i915_cur_delayinfo(struct seq_file *m, void *unused)
 			cagf = (rpstat & GEN6_CAGF_MASK) >> GEN6_CAGF_SHIFT;
 		cagf *= GT_FREQUENCY_MULTIPLIER;
 
-		gen6_gt_force_wake_put(dev_priv);
+		gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 		mutex_unlock(&dev->struct_mutex);
 
 		seq_printf(m, "GT_PERF_STATUS: 0x%08x\n", gt_perf_status);
@@ -922,24 +917,38 @@ static int i915_cur_delayinfo(struct seq_file *m, void *unused)
 		seq_printf(m, "Max overclocked frequency: %dMHz\n",
 			   dev_priv->rps.hw_max * GT_FREQUENCY_MULTIPLIER);
 	} else if (IS_VALLEYVIEW(dev)) {
-		u32 freq_sts, val;
+		u32 freq_sts;
 
 		mutex_lock(&dev_priv->rps.hw_lock);
 		freq_sts = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
 		seq_printf(m, "PUNIT_REG_GPU_FREQ_STS: 0x%08x\n", freq_sts);
 		seq_printf(m, "DDR freq: %d MHz\n", dev_priv->mem_freq);
 
-		val = vlv_punit_read(dev_priv, PUNIT_FUSE_BUS1);
-		seq_printf(m, "max GPU freq: %d MHz\n",
-			   vlv_gpu_freq(dev_priv->mem_freq, val));
+		seq_printf(m, "Max GPU freq: %d MHz (%u)\n",
+			vlv_gpu_freq(dev_priv->mem_freq,
+				dev_priv->rps.max_delay),
+				dev_priv->rps.max_delay);
 
-		val = vlv_punit_read(dev_priv, PUNIT_REG_GPU_LFM);
-		seq_printf(m, "min GPU freq: %d MHz\n",
-			   vlv_gpu_freq(dev_priv->mem_freq, val));
+		seq_printf(m, "Min GPU freq: %d MHz (%u)\n",
+			vlv_gpu_freq(dev_priv->mem_freq,
+					dev_priv->rps.hw_min),
+					dev_priv->rps.hw_min);
 
-		seq_printf(m, "current GPU freq: %d MHz\n",
-			   vlv_gpu_freq(dev_priv->mem_freq,
-					(freq_sts >> 8) & 0xff));
+		seq_printf(m, "Current GPU freq: %d MHz (%u)\n",
+			vlv_gpu_freq(dev_priv->mem_freq,
+					dev_priv->rps.cur_delay),
+					dev_priv->rps.cur_delay);
+		seq_printf(m, "Last Requested Gpu freq: %d MHz (%u)\n",
+			vlv_gpu_freq(dev_priv->mem_freq,
+					dev_priv->rps.requested_delay),
+					dev_priv->rps.requested_delay);
+		seq_printf(m, "Up Threshold: %d\n",
+		atomic_read(&dev_priv->turbodebug.up_threshold));
+		seq_printf(m, "Down Threshold: %d\n",
+		atomic_read(&dev_priv->turbodebug.down_threshold));
+		seq_printf(m, "RP_UP: %d\nRP_DOWN:%d\n",
+					dev_priv->rps.rp_up_masked,
+					dev_priv->rps.rp_down_masked);
 		mutex_unlock(&dev_priv->rps.hw_lock);
 	} else {
 		seq_puts(m, "no P-state info available\n");
@@ -1469,13 +1478,23 @@ static int i915_gen6_forcewake_count_info(struct seq_file *m, void *data)
 	struct drm_info_node *node = (struct drm_info_node *) m->private;
 	struct drm_device *dev = node->minor->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	unsigned forcewake_count;
+	unsigned forcewake_count = 0;
+	unsigned fw_rendercount = 0;
+	unsigned fw_mediacount = 0;
 
 	spin_lock_irq(&dev_priv->uncore.lock);
-	forcewake_count = dev_priv->uncore.forcewake_count;
+	if (IS_VALLEYVIEW(dev)) {
+		fw_rendercount = dev_priv->uncore.fw_rendercount;
+		fw_mediacount = dev_priv->uncore.fw_mediacount;
+	} else
+		forcewake_count = dev_priv->uncore.forcewake_count;
 	spin_unlock_irq(&dev_priv->uncore.lock);
 
-	seq_printf(m, "forcewake count = %u\n", forcewake_count);
+	if (IS_VALLEYVIEW(dev)) {
+		seq_printf(m, "fw_rendercount = %u\n", fw_rendercount);
+		seq_printf(m, "fw_mediacount = %u\n", fw_mediacount);
+	} else
+		seq_printf(m, "forcewake count = %u\n", forcewake_count);
 
 	return 0;
 }
@@ -1953,6 +1972,35 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_drop_caches_fops,
 			i915_drop_caches_get, i915_drop_caches_set,
 			"0x%08llx\n");
 
+/* Helper function to set max freq turbo based on input */
+static int
+i915_set_max_freq(struct drm_device *dev, int val)
+{
+	int ret;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	DRM_DEBUG_DRIVER("Manually setting max freq to %d\n", val);
+
+	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
+	if (ret)
+		return ret;
+
+	/*
+	 * Turbo will still be enabled, but won't go above the set value.
+	 */
+	if (IS_VALLEYVIEW(dev)) {
+		dev_priv->rps.max_delay = val;
+		valleyview_set_rps(dev, val);
+	} else {
+		dev_priv->rps.max_delay = val / 50;
+		gen6_set_rps(dev, val / 50);
+	}
+
+	mutex_unlock(&dev_priv->rps.hw_lock);
+
+	return 0;
+}
+
 static int
 i915_max_freq_get(void *data, u64 *val)
 {
@@ -1967,7 +2015,7 @@ i915_max_freq_get(void *data, u64 *val)
 	if (ret)
 		return ret;
 
-	if (IS_VALLEYVIEW(dev))
+	if (!(IS_VALLEYVIEW(dev)))
 		*val = vlv_gpu_freq(dev_priv->mem_freq,
 				    dev_priv->rps.max_delay);
 	else
@@ -1996,10 +2044,10 @@ i915_max_freq_set(void *data, u64 val)
 	/*
 	 * Turbo will still be enabled, but won't go above the set value.
 	 */
-	if (IS_VALLEYVIEW(dev)) {
-		val = vlv_freq_opcode(dev_priv->mem_freq, val);
+	if (!IS_VALLEYVIEW(dev)) {
+		/*val = vlv_freq_opcode(dev_priv->mem_freq, val);*/
 		dev_priv->rps.max_delay = val;
-		gen6_set_rps(dev, val);
+		valleyview_set_rps(dev, val);
 	} else {
 		do_div(val, GT_FREQUENCY_MULTIPLIER);
 		dev_priv->rps.max_delay = val;
@@ -2015,6 +2063,35 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_max_freq_fops,
 			i915_max_freq_get, i915_max_freq_set,
 			"%llu\n");
 
+/* Helper function to set min freq turbo based on input */
+static int
+i915_set_min_freq(struct drm_device *dev, int val)
+{
+	int ret;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	DRM_DEBUG_DRIVER("Manually setting min freq to %d\n", val);
+
+	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
+	if (ret)
+		return ret;
+
+	/*
+	 * Turbo will still be enabled, but won't go below the set value.
+	 */
+	if (IS_VALLEYVIEW(dev)) {
+		dev_priv->rps.min_delay = val;
+		valleyview_set_rps(dev, val);
+	} else {
+		dev_priv->rps.min_delay = val / 50;
+		gen6_set_rps(dev, val / 50);
+	}
+
+	mutex_unlock(&dev_priv->rps.hw_lock);
+
+	return 0;
+}
+
 static int
 i915_min_freq_get(void *data, u64 *val)
 {
@@ -2029,7 +2106,7 @@ i915_min_freq_get(void *data, u64 *val)
 	if (ret)
 		return ret;
 
-	if (IS_VALLEYVIEW(dev))
+	if (!(IS_VALLEYVIEW(dev)))
 		*val = vlv_gpu_freq(dev_priv->mem_freq,
 				    dev_priv->rps.min_delay);
 	else
@@ -2058,7 +2135,7 @@ i915_min_freq_set(void *data, u64 val)
 	/*
 	 * Turbo will still be enabled, but won't go below the set value.
 	 */
-	if (IS_VALLEYVIEW(dev)) {
+	if (!(IS_VALLEYVIEW(dev))) {
 		val = vlv_freq_opcode(dev_priv->mem_freq, val);
 		dev_priv->rps.min_delay = val;
 		valleyview_set_rps(dev, val);
@@ -2075,6 +2152,744 @@ i915_min_freq_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(i915_min_freq_fops,
 			i915_min_freq_get, i915_min_freq_set,
 			"%llu\n");
+
+/* Helper function to enable and disable turbo based on input */
+static int
+i915_rps_enable_disable(struct drm_device *dev, long unsigned int val)
+{
+	int ret;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
+	if (ret)
+		return ret;
+
+	/* 1=> Enable Turbo, else disable. */
+
+	/* Vlv specific function are not added Yet.*/
+	if (val == 1)
+		vlv_turbo_initialize(dev);
+	else
+		vlv_turbo_disable(dev);
+
+	mutex_unlock(&dev_priv->rps.hw_lock);
+
+	return 0;
+}
+
+static ssize_t
+i915_rps_init_read(struct file *filp, char __user *ubuf, size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char buf[] = "rps init read is not defined";
+	int len;
+	u32 rval;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	rval = I915_READ(GEN6_RP_CONTROL);
+	len = snprintf(buf, sizeof(buf),
+		       "Turbo Enabled: %s\n", yesno(rval & GEN6_RP_ENABLE));
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
+}
+
+
+static ssize_t
+i915_rps_init_write(struct file *filp, const char __user *ubuf, size_t cnt,
+		    loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	char buf[20];
+	long unsigned int val = 1;
+	int ret;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (cnt > 0) {
+		if (cnt > sizeof(buf) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(buf, ubuf, cnt))
+			return -EFAULT;
+
+		buf[cnt] = 0;
+
+		ret = kstrtoul(buf, 0, (unsigned long *)&val);
+		if (ret)
+			return -EINVAL;
+	}
+
+	ret = i915_rps_enable_disable(dev, val);
+	if (ret)
+		return ret;
+
+	return cnt;
+}
+
+static const struct file_operations i915_rps_init_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_rps_init_read,
+	.write = i915_rps_init_write,
+	.llseek = default_llseek,
+};
+
+
+static int
+i915_read_turbo_api(struct file *filp,
+		   char __user *ubuf,
+		   size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char buf[200], control[10], operation[20], val[20], format[20];
+	int len = 0, ret, no_of_tokens;
+	unsigned long pval = 0;
+	u32 reg_val = 0;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (i915_debugfs_vars.turbo.turbo_input == 0)
+		return len;
+
+	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+			sizeof(control), sizeof(operation), sizeof(val));
+
+	no_of_tokens = sscanf(i915_debugfs_vars.turbo.turbo_vars,
+				format, control, operation, val);
+
+	if (no_of_tokens < 3)
+		return len;
+
+	len = sizeof(i915_debugfs_vars.turbo.turbo_vars);
+
+	if (strcmp(operation, DETAILS_TOKEN) == 0) {
+		ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
+		if (ret)
+			return ret;
+
+		reg_val = I915_READ(GEN6_RP_CONTROL);
+		len = snprintf(buf, sizeof(buf),
+				"Turbo Enabled: %s\n",
+				yesno(reg_val & GEN6_RP_ENABLE));
+
+		if (len < 0)
+			return len;
+
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"Max Gpu Freq _max_delay_: %d\n",
+				dev_priv->rps.max_delay);
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"Min Gpu Freq _min_delay_: %d\n",
+				dev_priv->rps.min_delay);
+
+		reg_val = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"Cur Gpu Freq _cur_delay_: %d\n", reg_val >> 8);
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"Up Threshold: %d\n", atomic_read(
+					&dev_priv->turbodebug.up_threshold));
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"Down Threshold: %d\n",	atomic_read(
+					&dev_priv->turbodebug.down_threshold));
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"RP_UP: %d\nRP_DOWN:%d\n",
+				dev_priv->rps.rp_up_masked,
+				dev_priv->rps.rp_down_masked);
+
+		mutex_unlock(&dev_priv->rps.hw_lock);
+
+	} else if (strcmp(operation, ENABLE_TOKEN) == 0) {
+
+		/* 1=> Enable Turbo, else disable. */
+
+		ret = i915_rps_enable_disable(dev, 1);
+		if (ret)
+			return ret;
+
+		len = snprintf(buf, sizeof(buf),
+				"Turbo Enabled: Yes\n");
+
+	} else if (strcmp(operation, DISABLE_TOKEN) == 0) {
+
+		/* 1=> Enable Turbo, else disable. */
+
+		ret = i915_rps_enable_disable(dev, 0);
+		if (ret)
+			return ret;
+
+		len = snprintf(buf, sizeof(buf),
+				"Turbo Enabled: No\n");
+
+	} else if (strcmp(operation, RP_MAXFREQ_TOKEN) == 0) {
+
+		ret = kstrtoul(val, 0, &pval);
+		if (ret)
+			return -EINVAL;
+
+		ret = i915_set_max_freq(dev, pval);
+		if (ret)
+			return ret;
+
+		len = snprintf(buf, sizeof(buf),
+				"OPERATION: SUCCESSFUL\n");
+	} else if (strcmp(operation, RP_MINFREQ_TOKEN) == 0) {
+
+		ret = kstrtoul(val, 0, &pval);
+		if (ret)
+			return -EINVAL;
+
+		ret = i915_set_min_freq(dev, pval);
+		if (ret)
+			return ret;
+
+		len = snprintf(buf, sizeof(buf),
+				"OPERATION: SUCCESSFUL\n");
+
+	} else
+		len = snprintf(buf, sizeof(buf),
+				"NOTSUPPORTED\n");
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	i915_debugfs_vars.turbo.turbo_input = 0;
+	simple_read_from_buffer(ubuf, max, ppos, buf, len);
+
+	return len;
+}
+
+static ssize_t
+i915_write_turbo_api(struct file *filp,
+		  const char __user *ubuf,
+		  size_t cnt,
+		  loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	/* Reset the string */
+	memset(i915_debugfs_vars.turbo.turbo_vars, 0, MAX_BUFFER_STR_LEN);
+
+	if (cnt > 0) {
+		if (cnt > sizeof(i915_debugfs_vars.turbo.turbo_vars) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(i915_debugfs_vars.turbo.turbo_vars,
+					ubuf, cnt))
+			return -EFAULT;
+
+		i915_debugfs_vars.turbo.turbo_vars[cnt] = 0;
+
+		/* Enable read */
+		i915_debugfs_vars.turbo.turbo_input = 1;
+	}
+
+	return cnt;
+}
+
+static const struct file_operations i915_turbo_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_read_turbo_api,
+	.write = i915_write_turbo_api,
+	.llseek = default_llseek,
+};
+
+
+/* Debugfs rc6 apis implementation */
+
+static inline bool is_rc6_enabled(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	return I915_READ(VLV_RENDER_C_STATE_CONTROL_1_REG)
+			& (VLV_EVAL_METHOD_ENABLE_BIT
+			| VLV_TIMEOUT_METHOD_ENABLE_BIT);
+}
+
+static int
+rc6_status(struct drm_device *dev, char *buf, int *len)
+{
+	*len = snprintf(buf, MAX_BUFFER_STR_LEN,
+			"RC6 ENABLED: %s\n",
+			yesno(is_rc6_enabled(dev)));
+	return 0;
+}
+
+static int
+rc6_enable_disable(struct drm_device *dev, long unsigned int val)
+{
+	int ret;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (is_rc6_enabled(dev)) {
+		if (val > 0)
+			return 0;
+	} else if (val == 0)
+		return 0;
+
+	ret = mutex_lock_interruptible(&dev->struct_mutex);
+	if (ret)
+		return ret;
+
+	vlv_rs_setstate(dev, (val > 0 ? true : false));
+	mutex_unlock(&dev->struct_mutex);
+	DRM_DEBUG_DRIVER("RC6 feature status is %ld\n", val);
+
+	return 0;
+}
+
+
+static int
+i915_read_rc6_api(struct file *filp,
+		   char __user *ubuf,
+		   size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char buf[200], control[10], operation[20], format[20];
+	int len = 0, ret, no_of_tokens;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (i915_debugfs_vars.rc6.rc6_input == 0)
+		return len;
+
+	snprintf(format, sizeof(format), "%%%ds %%%ds",
+				sizeof(control), sizeof(operation));
+
+	no_of_tokens = sscanf(i915_debugfs_vars.rc6.rc6_vars,
+					format, control, operation);
+
+	if (no_of_tokens < 2)
+		return len;
+
+	len = sizeof(i915_debugfs_vars.rc6.rc6_vars);
+
+	if (strcmp(operation, STATUS_TOKEN) == 0) {
+		rc6_status(dev, buf, &len);
+
+	} else if (strcmp(operation, ENABLE_TOKEN) == 0) {
+		/*
+		* 1=> Enable RC6, else disable.
+		*/
+		ret = rc6_enable_disable(dev, 1);
+		if (ret)
+			return ret;
+
+		rc6_status(dev, buf, &len);
+
+	} else if (strcmp(operation, DISABLE_TOKEN) == 0) {
+		/*
+		* 1=> Enable RC6, else disable.
+		*/
+		ret = rc6_enable_disable(dev, 0);
+		if (ret)
+			return ret;
+
+		rc6_status(dev, buf, &len);
+
+	} else if (strcmp(operation, RC6_POWER_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf),
+				"RENDER WELL: %s & MEDIA WELL: %s\n",
+				(I915_READ(VLV_POWER_WELL_STATUS_REG) &
+					VLV_RENDER_WELL_STATUS_MASK)
+					? "UP" : "DOWN",
+				(I915_READ(VLV_POWER_WELL_STATUS_REG) &
+					VLV_MEDIA_WELL_STATUS_MASK)
+					? "UP" : "DOWN");
+
+	} else if (strcmp(operation, READ_COUNTER_0_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf),
+				"RENDER WELL C0 COUNTER: 0x%x & ",
+				(unsigned int) I915_READ(GEN6_GT_GFX_RC6));
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"MEDIA WELL C1 COUNTER: 0x%x\n",
+				(unsigned int) I915_READ(GEN6_GT_GFX_RC6p));
+
+	} else if (strcmp(operation, READ_COUNTER_1_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf),
+				"RENDER WELL C1 COUNTER: 0x%x & ",
+				(unsigned int)I915_READ(GEN6_GT_GFX_RC6pp));
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"MEDIA WELL C1 COUNTER: 0x%x\n",
+				(unsigned int)
+					I915_READ(VLV_MEDIA_C1_COUNT_REG));
+
+	} else if (strcmp(operation, READ_COUNTER_6_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf),
+				"RENDER WELL C6 COUNTER: 0x%x & ",
+				(unsigned int)
+					I915_READ(VLV_RENDER_C0_COUNT_REG));
+		len += snprintf(&buf[len], (sizeof(buf) - len),
+				"MEDIA WELL C6 COUNTER: 0x%x\n",
+				(unsigned int)
+					I915_READ(VLV_MEDIA_C0_COUNT_REG));
+
+	} else if (strcmp(operation, MULTITHREAD_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
+
+	} else if (strcmp(operation, RC6_SINGLETHREAD_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf),
+			"SINGLE THREAD ENABLED: Yes\n");
+	} else
+		len = snprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	i915_debugfs_vars.rc6.rc6_input = 0;
+	simple_read_from_buffer(ubuf, max, ppos, buf, len);
+
+	return len;
+}
+
+static ssize_t
+i915_write_rc6_api(struct file *filp,
+		  const char __user *ubuf,
+		  size_t cnt,
+		  loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	/* reset the string */
+	memset(i915_debugfs_vars.rc6.rc6_vars, 0, MAX_BUFFER_STR_LEN);
+
+	if (cnt > 0) {
+		if (cnt > sizeof(i915_debugfs_vars.rc6.rc6_vars) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(i915_debugfs_vars.rc6.rc6_vars, ubuf, cnt))
+			return -EFAULT;
+
+		i915_debugfs_vars.rc6.rc6_vars[cnt] = 0;
+
+		/* Enable read */
+		i915_debugfs_vars.rc6.rc6_input = 1;
+	}
+
+	return cnt;
+}
+
+static const struct file_operations i915_rc6_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_read_rc6_api,
+	.write = i915_write_rc6_api,
+	.llseek = default_llseek,
+};
+
+
+static int
+i915_read_rc6_status(struct file *filp,
+		   char __user *ubuf,
+		   size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char buf[80];
+	int len = 0;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	len = snprintf(buf, sizeof(buf),
+		"RC6 is %s\n",
+		(is_rc6_enabled(dev)) ?
+				"enabled" : "disabled");
+
+	len += snprintf(&buf[len], (sizeof(buf) - len),
+		"Render well is %s & Media well is %s\n",
+		(I915_READ(VLV_POWER_WELL_STATUS_REG) &
+			VLV_RENDER_WELL_STATUS_MASK) ? "UP" : "DOWN",
+		(I915_READ(VLV_POWER_WELL_STATUS_REG) &
+			VLV_MEDIA_WELL_STATUS_MASK) ? "UP" : "DOWN");
+
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
+}
+
+static ssize_t
+i915_write_rc6_status(struct file *filp,
+		  const char __user *ubuf,
+		  size_t cnt,
+		  loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	char buf[20];
+	int ret = 0;
+	long unsigned int val = 0;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (cnt > 0) {
+		if (cnt > sizeof(buf) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(buf, ubuf, cnt))
+			return -EFAULT;
+		buf[cnt] = 0;
+
+		ret = kstrtoul(buf, 0, (unsigned long *)&val);
+		if (ret)
+			return -EINVAL;
+	}
+
+
+
+	/*
+	* 1=> Enable RC6, else disable.
+	*/
+	ret = rc6_enable_disable(dev, val);
+	if (ret)
+		return ret;
+
+	return cnt;
+}
+
+static const struct file_operations i915_rc6_status_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_read_rc6_status,
+	.write = i915_write_rc6_status,
+	.llseek = default_llseek,
+};
+
+
+
+
+static ssize_t
+i915_mmio_read_api(struct file *filp,
+		   char __user *ubuf,
+		   size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char buf[200], offset[20], operation[10], format[20], val[20];
+	int len = 0, ret;
+	int no_of_tokens;
+	long unsigned int mmio_offset, mmio_to_write;
+
+	if (INTEL_INFO(dev)->gen < 6)
+		return -ENODEV;
+
+	if (i915_debugfs_vars.mmio.mmio_input == 0)
+		return len;
+
+	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+				sizeof(operation), sizeof(offset), sizeof(val));
+
+	no_of_tokens = sscanf(i915_debugfs_vars.mmio.mmio_vars,
+					format, operation, offset, val);
+
+	if (no_of_tokens < 3)
+		return len;
+
+	len = sizeof(i915_debugfs_vars.mmio.mmio_vars);
+
+	if (strcmp(operation, READ_TOKEN) == 0) {
+
+		ret = kstrtoul(offset, 16, &mmio_offset);
+		if (ret)
+			return -EINVAL;
+
+		len = snprintf(buf, sizeof(buf),
+				"0x%x: 0x%x\n",
+				(unsigned int) mmio_offset,
+				(unsigned int) I915_READ(mmio_offset));
+	} else if (strcmp(operation, WRITE_TOKEN) == 0) {
+
+		ret = kstrtoul(offset, 16, &mmio_offset);
+		if (ret)
+			return -EINVAL;
+
+		ret = kstrtoul(val, 16, &mmio_to_write);
+		if (ret)
+			return -EINVAL;
+
+		I915_WRITE(mmio_offset, mmio_to_write);
+		len = snprintf(buf, sizeof(buf),
+				"0x%x: 0x%x\n",
+				(unsigned int) mmio_offset,
+				(unsigned int) I915_READ(mmio_offset));
+	} else
+		len = snprintf(buf, sizeof(buf), "Operation Not Supported\n");
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	i915_debugfs_vars.mmio.mmio_input = 0;
+
+	simple_read_from_buffer(ubuf, max, ppos, buf, len);
+
+	return len;
+}
+
+static ssize_t
+i915_mmio_write_api(struct file *filp,
+		  const char __user *ubuf,
+		  size_t cnt,
+		  loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+
+	if (INTEL_INFO(dev)->gen < 6)
+		return -ENODEV;
+
+	/* reset the string */
+	memset(i915_debugfs_vars.mmio.mmio_vars, 0, MAX_BUFFER_STR_LEN);
+
+	if (cnt > 0) {
+		if (cnt > sizeof(i915_debugfs_vars.mmio.mmio_vars) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(i915_debugfs_vars.mmio.mmio_vars, ubuf, cnt))
+			return -EFAULT;
+
+		i915_debugfs_vars.mmio.mmio_vars[cnt] = 0;
+
+		/* Enable Read */
+		i915_debugfs_vars.mmio.mmio_input = 1;
+	}
+
+	return cnt;
+}
+
+static const struct file_operations i915_mmio_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_mmio_read_api,
+	.write = i915_mmio_write_api,
+	.llseek = default_llseek,
+};
+
+/* Debugfs iosf apis implementation */
+
+static ssize_t
+i915_iosf_read_api(struct file *filp,
+		   char __user *ubuf,
+		   size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char buf[200], operation[10], port[10], offset[20], format[20];
+	int len = 0, ret, noOfTokens;
+	unsigned long iosf_reg;
+	u32 iosf_val;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (i915_debugfs_vars.iosf.iosf_input == 0)
+		return len;
+
+	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+			sizeof(operation), sizeof(port), sizeof(offset));
+
+	noOfTokens = sscanf(i915_debugfs_vars.iosf.iosf_vars,
+				format, operation, port, offset);
+
+	if (noOfTokens < 3)
+		return len;
+
+	len = sizeof(i915_debugfs_vars.iosf.iosf_vars);
+
+	ret = kstrtoul(offset, 16, &iosf_reg);
+	if (ret)
+		return -EINVAL;
+
+	if (strcmp(operation, READ_TOKEN) == 0) {
+		if (strcmp(port, IOSF_PUNIT_TOKEN) == 0) {
+			iosf_val = vlv_punit_read(dev_priv, iosf_reg);
+			len = snprintf(buf, sizeof(buf),
+				"0x%x: 0x%x\n", (unsigned int) iosf_reg,
+						(unsigned int) iosf_val);
+		} else if (strcmp(port, IOSF_FUSE_TOKEN) == 0) {
+			iosf_val = vlv_nc_read(dev_priv, iosf_reg);
+			len = snprintf(buf, sizeof(buf),
+				"0x%x: 0x%x\n", (unsigned int) iosf_reg,
+						(unsigned int) iosf_val);
+		}
+	} else {
+		len = snprintf(buf, sizeof(buf),
+				"IOSF WRITE not supported\n");
+	}
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	i915_debugfs_vars.iosf.iosf_input = 0;
+
+	simple_read_from_buffer(ubuf, max, ppos, buf, len);
+
+	return len;
+}
+
+static ssize_t
+i915_iosf_write_api(struct file *filp,
+		  const char __user *ubuf,
+		  size_t cnt,
+		  loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	/* reset the string */
+	memset(i915_debugfs_vars.iosf.iosf_vars, 0, MAX_BUFFER_STR_LEN);
+
+	if (cnt > 0) {
+		if (cnt > sizeof(i915_debugfs_vars.iosf.iosf_vars) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(i915_debugfs_vars.iosf.iosf_vars, ubuf, cnt))
+			return -EFAULT;
+		i915_debugfs_vars.iosf.iosf_vars[cnt] = 0;
+
+		/* Enable read */
+		i915_debugfs_vars.iosf.iosf_input = 1;
+	}
+
+	return cnt;
+}
+
+static const struct file_operations i915_iosf_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_iosf_read_api,
+	.write = i915_iosf_write_api,
+	.llseek = default_llseek,
+};
 
 static int
 i915_cache_sharing_get(void *data, u64 *val)
@@ -2161,7 +2976,7 @@ static int i915_forcewake_open(struct inode *inode, struct file *file)
 	if (INTEL_INFO(dev)->gen < 6)
 		return 0;
 
-	gen6_gt_force_wake_get(dev_priv);
+	gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
 
 	return 0;
 }
@@ -2174,7 +2989,7 @@ static int i915_forcewake_release(struct inode *inode, struct file *file)
 	if (INTEL_INFO(dev)->gen < 6)
 		return 0;
 
-	gen6_gt_force_wake_put(dev_priv);
+	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 
 	return 0;
 }
@@ -2272,6 +3087,12 @@ static struct i915_debugfs_files {
 	{"i915_gem_drop_caches", &i915_drop_caches_fops},
 	{"i915_error_state", &i915_error_state_fops},
 	{"i915_next_seqno", &i915_next_seqno_fops},
+	{"i915_mmio_api", &i915_mmio_fops},
+	{"i915_iosf_api", &i915_iosf_fops},
+	{"i915_rc6_api", &i915_rc6_fops},
+	{"i915_rc6_status", &i915_rc6_status_fops},
+	{"i915_turbo_api", &i915_turbo_fops},
+	{"i915_rps_init", &i915_rps_init_fops},
 };
 
 int i915_debugfs_init(struct drm_minor *minor)

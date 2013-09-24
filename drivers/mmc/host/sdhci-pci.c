@@ -758,6 +758,17 @@ static const struct sdhci_pci_fixes sdhci_intel_byt_sd = {
 	.remove_slot	= byt_sd_remove_slot,
 };
 
+#define TNG_IOAPIC_IDX	0xfec00000
+static void mrfl_ioapic_rte_reg_addr_map(struct sdhci_pci_slot *slot)
+{
+	slot->host->rte_addr = ioremap_nocache(TNG_IOAPIC_IDX, 256);
+	if (!slot->host->rte_addr)
+		dev_err(&slot->chip->pdev->dev, "rte_addr ioremap fail!\n");
+	else
+		dev_info(&slot->chip->pdev->dev, "rte_addr mapped addr: %p\n",
+			slot->host->rte_addr);
+}
+
 /* Define Host controllers for Intel Merrifield platform */
 #define INTEL_MRFL_EMMC_0	0
 #define INTEL_MRFL_EMMC_1	1
@@ -776,6 +787,9 @@ static int intel_mrfl_mmc_probe_slot(struct sdhci_pci_slot *slot)
 
 	if (PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_EMMC_0)
 		sdhci_alloc_panic_host(slot->host);
+
+	if (PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_EMMC_0)
+		mrfl_ioapic_rte_reg_addr_map(slot);
 
 	slot->host->mmc->caps2 |= MMC_CAP2_INIT_CARD_SYNC |
 		MMC_CAP2_POLL_R1B_BUSY;
@@ -802,6 +816,9 @@ static int intel_mrfl_mmc_probe_slot(struct sdhci_pci_slot *slot)
 
 static void intel_mrfl_mmc_remove_slot(struct sdhci_pci_slot *slot, int dead)
 {
+	if (PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_EMMC_0)
+		if (slot->host->rte_addr)
+			iounmap(slot->host->rte_addr);
 }
 
 static const struct sdhci_pci_fixes sdhci_intel_mrfl_mmc = {

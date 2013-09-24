@@ -180,7 +180,7 @@ static int sst_send_lpe_mixer_algo_params(void)
 				& SST_INPUT_STREAM_MIXED;
 	pr_debug("Input Mixer settings %d", input_mixer);
 	stream_device_id = sst_drv_ctx->device_input_mixer - input_mixer;
-	algo_param.algo_id = SST_CODEC_MIXER;
+	algo_param.algo_id = SST_ALGO_MIXER;
 	algo_param.str_id = stream_device_id;
 	algo_param.enable = 1;
 	algo_param.reserved = 0;
@@ -1016,6 +1016,17 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 			return ret_val;
 
 		ret_val = sst_send_probe_bytes(sst_drv_ctx);
+		break;
+	}
+	case SST_SET_VTSV_INFO: {
+		ret_val = intel_sst_check_device();
+		if (ret_val)
+			return ret_val;
+
+		ret_val = sst_send_vtsv_data_to_fw(sst_drv_ctx);
+		if (ret_val)
+			pr_err("vtsv data send failed\n");
+		pm_runtime_put(sst_drv_ctx->dev);
 		break;
 	}
 	default:
