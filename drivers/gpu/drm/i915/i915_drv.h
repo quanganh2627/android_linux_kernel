@@ -413,9 +413,14 @@ struct intel_uncore {
 	unsigned int fw_mediacount;
 };
 
-struct drm_i915_pm_funcs {
+struct i915_pm_funcs {
 	int (*drm_freeze)(struct drm_device *dev);
 	int (*drm_thaw)(struct drm_device *dev);
+};
+
+struct i915_pm {
+	struct i915_pm_funcs funcs;
+	bool shutdown_in_progress;
 };
 
 #define DEV_INFO_FOR_EACH_FLAG(func, sep) \
@@ -1222,7 +1227,7 @@ typedef struct drm_i915_private {
 	void __iomem *regs;
 
 	/** related to power management */
-	struct drm_i915_pm_funcs pm;
+	struct i915_pm pm;
 
 	struct intel_uncore uncore;
 

@@ -9767,12 +9767,16 @@ intel_modeset_stage_output_state(struct drm_device *dev,
 	struct drm_crtc *new_crtc;
 	struct intel_connector *connector;
 	struct intel_encoder *encoder;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ro;
 
 	/* The upper layers ensure that we either disable a crtc or have a list
 	 * of connectors. For paranoia, double-check this. */
 	WARN_ON(!set->fb && (set->num_connectors != 0));
 	WARN_ON(set->fb && (set->num_connectors == 0));
+
+	if (dev_priv->pm.shutdown_in_progress)
+		return -EINVAL;
 
 	list_for_each_entry(connector, &dev->mode_config.connector_list,
 			    base.head) {
