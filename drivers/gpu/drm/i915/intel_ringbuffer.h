@@ -121,6 +121,8 @@ struct  intel_ring_buffer {
 	/* mboxes this ring signals to */
 	u32		signal_mbox[I915_NUM_RINGS];
 
+	int		(*invalidate_tlb)(struct intel_ring_buffer *ring);
+
 	/**
 	 * List of objects currently involved in rendering from the
 	 * ringbuffer.
