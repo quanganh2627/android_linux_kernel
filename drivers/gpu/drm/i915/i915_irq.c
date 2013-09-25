@@ -832,6 +832,8 @@ static u32 vlv_calc_delay_from_C0_counters(struct drm_i915_private *dev_priv)
 
 	dev_priv->rps.ei_interrupt_count++;
 
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
 	/* read the CZ clock time stamp from P-unint &
 	* render/media C0 counters from MMIO reg
 	*/

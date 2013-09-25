@@ -3876,6 +3876,8 @@ static int valleyview_rps_rpe_freq(struct drm_i915_private *dev_priv)
 
 int valleyview_rps_min_freq(struct drm_i915_private *dev_priv)
 {
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
 	return vlv_punit_read(dev_priv, PUNIT_REG_GPU_LFM) & 0xff;
 }
 
@@ -4006,6 +4008,9 @@ void bios_init_rps(struct drm_i915_private *dev_priv)
 
 	/* Write 0x0 to P-Unit offset 0x6 to enable Turbo */
 	u32 bios_punit_val;
+
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
 	bios_punit_val = vlv_punit_read(dev_priv, 0x6);
 	vlv_punit_write(dev_priv, 0x6, bios_punit_val & ~(1<<7));
 
