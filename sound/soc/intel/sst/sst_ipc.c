@@ -597,37 +597,55 @@ void sst_process_message_mrfld(struct ipc_post *msg)
 	return;
 }
 
-/* Max 6 results each of size 14 bytes + numresults(2bytes) */
-#define MAX_VTSV_RESULT_SIZE 50
+#define VTSV_MAX_NUM_RESULTS 6
+#define VTSV_SIZE_PER_RESULT 7 /* 7 16 bit words */
+/* Max 6 results each of size 7 words + 1 num results word */
+#define VTSV_MAX_TOTAL_RESULT_SIZE \
+	(VTSV_MAX_NUM_RESULTS*VTSV_SIZE_PER_RESULT + 1)
+/* Each data word in the result is sent as a string in the format:
+DATAn=d, where n is the data word index varying from 0 to
+				VTSV_MAX_TOTAL_RESULT_SIZE-1
+d = string representation of data in decimal format;
+				unsigned 16bit data needs max 5 chars
+So total data string size = 4("DATA")+2("n")+1("=")
+				+5("d")+1(null)+5(reserved) = 18  */
+#define VTSV_DATA_STRING_SIZE 18
+
 static int send_vtsv_result_event(void *data, int size)
 {
-	char *envp[MAX_VTSV_RESULT_SIZE+2];
-	char res_size[30], result[MAX_VTSV_RESULT_SIZE][10];
+	char *envp[VTSV_MAX_TOTAL_RESULT_SIZE+3];
+	char res_size[30];
+	char ev_type[30];
+	char result[VTSV_MAX_TOTAL_RESULT_SIZE][VTSV_DATA_STRING_SIZE];
 	int offset = 0;
-	u8 *tmp;
-	int i = 0;
+	u16 *tmp;
+	int i;
 	int ret;
 
 	if (!data) {
 		pr_err("Data pointer Null into %s\n", __func__);
 		return -EINVAL;
 	}
-
-	if (size > MAX_VTSV_RESULT_SIZE) {
+	size = size / (sizeof(u16)); /* Number of 16 bit data words*/
+	if (size > VTSV_MAX_TOTAL_RESULT_SIZE) {
 		pr_err("VTSV result size exceeds expected value, no uevent sent\n");
 		return -EINVAL;
 	}
 
-	sprintf(res_size, "VTSV_RESULT_SIZE=%d", size);
+	snprintf(ev_type, sizeof(res_size), "EVENT_TYPE=SST_VTSV");
+	envp[offset++] = ev_type;
+	snprintf(res_size, sizeof(ev_type), "VTSV_RESULT_SIZE=%u", size);
 	envp[offset++] = res_size;
-	tmp = (u8 *)(data);
-	while (size) {
-		sprintf(result[i], "%d", *tmp++);
-		envp[offset++] = result[i++];
-		size--;
+	tmp = (u16 *)(data);
+	for (i = 0; i < size; i++) {
+		/* Driver assumes all data to be u16; The VTSV service
+		layer will type cast to u16 or s16 as appropriate for
+		a given data word*/
+		snprintf(result[i], VTSV_DATA_STRING_SIZE,
+				"DATA%u=%u", i, *tmp++);
+		envp[offset++] = result[i];
 	}
 	envp[offset] = NULL;
-
 	ret = kobject_uevent_env(&sst_drv_ctx->dev->kobj, KOBJ_CHANGE, envp);
 	if (ret)
 		pr_err("VTSV event send failed: ret = %d\n", ret);
