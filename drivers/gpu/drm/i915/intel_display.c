@@ -10361,24 +10361,28 @@ static void intel_setup_outputs(struct drm_device *dev)
 		if (I915_READ(PCH_DP_D) & DP_DETECTED)
 			intel_dp_init(dev, PCH_DP_D, PORT_D);
 	} else if (IS_VALLEYVIEW(dev)) {
-#if 0
-		/* Check for built-in panel first. Shares lanes with HDMI on SDVOC */
-		if (I915_READ(VLV_DISPLAY_BASE + GEN4_HDMIC) & SDVO_DETECTED) {
-			intel_hdmi_init(dev, VLV_DISPLAY_BASE + GEN4_HDMIC,
+		/* In VLV A0 board after rework there is HDMI on PORT B and
+		 * either of DP or eDP on Port C
+		 *
+		 * Enable both for now as we know that VLV Baylake supports
+		 * both.
+		 *
+		 * FIXME:
+		 * Support eDP Vs MIPI detection based on VBT and AUX
+		 * transaction later. As of now if mipi panel id > 0 is
+		 * given as kernel param we treat MIPI is there else we
+		 * always initialize on eDP.
+		 *
+		 * Can be fixed later when VBT or equivalent is available
+		 */
+		if (i915_mipi_panel_id <= 0)
+			intel_dp_init(dev, VLV_DISPLAY_BASE + DP_C,
 					PORT_C);
-			if (I915_READ(VLV_DISPLAY_BASE + DP_C) & DP_DETECTED)
-				intel_dp_init(dev, VLV_DISPLAY_BASE + DP_C,
-					      PORT_C);
-		}
+		else
+			intel_dsi_init(dev);
 
-		if (I915_READ(VLV_DISPLAY_BASE + GEN4_HDMIB) & SDVO_DETECTED) {
-			intel_hdmi_init(dev, VLV_DISPLAY_BASE + GEN4_HDMIB,
-					PORT_B);
-			if (I915_READ(VLV_DISPLAY_BASE + DP_B) & DP_DETECTED)
-				intel_dp_init(dev, VLV_DISPLAY_BASE + DP_B, PORT_B);
-		}
-#endif
-		intel_dsi_init(dev);
+		intel_hdmi_init(dev, VLV_DISPLAY_BASE + GEN4_HDMIB,
+				PORT_B);
 	} else if (SUPPORTS_DIGITAL_OUTPUTS(dev)) {
 		bool found = false;
 
