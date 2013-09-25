@@ -550,6 +550,12 @@ i915_gem_pread_ioctl(struct drm_device *dev, void *data,
 		goto out;
 	}
 
+	/* No pread for userptr objects */
+	if (i915_gem_is_userptr_object(obj)) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
 	/* prime objects have no backing filp to GEM pread/pwrite
 	 * pages from.
 	 */
@@ -897,6 +903,12 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 		goto out;
 	}
 
+	/* No pwrite for userptr objects */
+	if (i915_gem_is_userptr_object(obj)) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
 	/* prime objects have no backing filp to GEM pread/pwrite
 	 * pages from.
 	 */
@@ -994,7 +1006,7 @@ i915_gem_check_olr(struct intel_ring_buffer *ring, u32 seqno)
  * Returns 0 if the seqno was found within the alloted time. Else returns the
  * errno with remaining time filled in timeout argument.
  */
-static int __wait_seqno(struct intel_ring_buffer *ring, u32 seqno,
+int __wait_seqno(struct intel_ring_buffer *ring, u32 seqno,
 			unsigned reset_counter,
 			bool interruptible, struct timespec *timeout)
 {
@@ -1357,7 +1369,10 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	trace_i915_gem_object_fault(obj, page_offset, true, write);
 
 	/* Access to snoopable pages through the GTT is incoherent. */
-	if (obj->cache_level != I915_CACHE_NONE && !HAS_LLC(dev)) {
+	/* Time being relaxing this constraint for UserPtr objects
+	   TBD, to find the real need of this check */
+	if (obj->cache_level != I915_CACHE_NONE && !HAS_LLC(dev) &&
+	    !i915_gem_is_userptr_object(obj)) {
 		ret = -EINVAL;
 		goto unlock;
 	}
@@ -1567,6 +1582,22 @@ i915_gem_mmap_gtt(struct drm_file *file,
 
 	if (obj->madv != I915_MADV_WILLNEED) {
 		DRM_ERROR("Attempting to mmap a purgeable buffer\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if ((i915_gem_obj_ggtt_bound(obj) &&
+	      offset_in_page(i915_gem_obj_ggtt_offset(obj))) ||
+	    (i915_gem_is_userptr_object(obj) &&
+	      i915_gem_userptr_obj_pageoffset(obj))) {
+		DRM_ERROR("Attempting to mmap an unaligned buffer\n");
+		/* Regular GEM objects shall always have a GTT offset which
+		   is a multiple of PAGE_SIZE(4K). UserPtr GEM objects, which
+		   are linear can have an actual GTT offset, which is a not a
+		   multiple of PAGE_SIZE. But there shall be no real use case
+		   for using mmap_gtt interface for linear UserPtr objects, as
+		   by default they are marked to be snoopable (for VLV) or
+		   LLC cached */
 		ret = -EINVAL;
 		goto out;
 	}
@@ -2035,7 +2066,8 @@ i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
 int __i915_add_request(struct intel_ring_buffer *ring,
 		       struct drm_file *file,
 		       struct drm_i915_gem_object *obj,
-		       u32 *out_seqno)
+		       u32 *out_seqno,
+			   bool flush_caches)
 {
 	drm_i915_private_t *dev_priv = ring->dev->dev_private;
 	struct drm_i915_gem_request *request;
@@ -2051,9 +2083,11 @@ int __i915_add_request(struct intel_ring_buffer *ring,
 	 * is that the flush _must_ happen before the next request, no matter
 	 * what.
 	 */
-	ret = intel_ring_flush_all_caches(ring);
-	if (ret)
-		return ret;
+	if (flush_caches) {
+		ret = intel_ring_flush_all_caches(ring);
+		if (ret)
+			return ret;
+	}
 
 	request = kmalloc(sizeof(*request), GFP_KERNEL);
 	if (request == NULL)
@@ -2072,6 +2106,9 @@ int __i915_add_request(struct intel_ring_buffer *ring,
 		kfree(request);
 		return ret;
 	}
+
+	/* make sure that we keep the GPU on */
+	i915_rpm_get_ring(dev_priv->dev);
 
 	request->seqno = intel_ring_get_seqno(ring);
 	request->ring = ring;
@@ -2429,8 +2466,10 @@ i915_gem_retire_work_handler(struct work_struct *work)
 	if (!dev_priv->ums.mm_suspended && !idle)
 		queue_delayed_work(dev_priv->wq, &dev_priv->mm.retire_work,
 				   round_jiffies_up_relative(HZ));
-	if (idle)
+	if (idle) {
 		intel_mark_idle(dev);
+		i915_rpm_put_ring(dev);
+	}
 
 	mutex_unlock(&dev->struct_mutex);
 }
@@ -2546,6 +2585,8 @@ out:
  *
  * @obj: object which may be in use on another ring.
  * @to: ring we wish to use the object on. May be NULL.
+ * @add_request: do we need to add a request to track operations
+ *    submitted on ring with sync_to function
  *
  * This code is meant to abstract object synchronization with the GPU.
  * Calling with NULL implies synchronizing the object with the CPU
@@ -2555,7 +2596,7 @@ out:
  */
 int
 i915_gem_object_sync(struct drm_i915_gem_object *obj,
-		     struct intel_ring_buffer *to)
+		     struct intel_ring_buffer *to, bool add_request)
 {
 	struct intel_ring_buffer *from = obj->ring;
 	u32 seqno;
@@ -2578,12 +2619,15 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 		return ret;
 
 	ret = to->sync_to(to, from, seqno);
-	if (!ret)
+	if (!ret) {
 		/* We use last_read_seqno because sync_to()
 		 * might have just caused seqno wrap under
 		 * the radar.
 		 */
 		from->sync_seqno[idx] = obj->last_read_seqno;
+		if (add_request)
+			i915_add_request_wo_flush(to);
+	}
 
 	return ret;
 }
@@ -3587,7 +3631,7 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	int ret;
 
 	if (pipelined != obj->ring) {
-		ret = i915_gem_object_sync(obj, pipelined);
+		ret = i915_gem_object_sync(obj, pipelined, true);
 		if (ret)
 			return ret;
 	}
@@ -4139,6 +4183,9 @@ void i915_gem_free_object(struct drm_gem_object *gem_obj)
 	if (obj->base.import_attach)
 		drm_prime_gem_destroy(&obj->base, NULL);
 
+	if (obj->ops->release)
+		obj->ops->release(obj);
+
 	drm_gem_object_release(&obj->base);
 	i915_gem_info_remove_obj(dev_priv, obj->base.size);
 
@@ -4374,13 +4421,6 @@ int i915_gem_init(struct drm_device *dev)
 
 	mutex_lock(&dev->struct_mutex);
 
-	if (IS_VALLEYVIEW(dev)) {
-		/* VLVA0 (potential hack), BIOS isn't actually waking us */
-		I915_WRITE(VLV_GTLC_WAKE_CTRL, 1);
-		if (wait_for((I915_READ(VLV_GTLC_PW_STATUS) & 1) == 1, 10))
-			DRM_DEBUG_DRIVER("allow wake ack timed out\n");
-	}
-
 	i915_gem_init_global_gtt(dev);
 
 	ret = i915_gem_init_hw(dev);
@@ -4515,7 +4555,7 @@ i915_gem_load(struct drm_device *dev)
 
 	dev_priv->slab =
 		kmem_cache_create("i915_gem_object",
-				  sizeof(struct drm_i915_gem_object), 0,
+				  sizeof(union drm_i915_gem_objects), 0,
 				  SLAB_HWCACHE_ALIGN,
 				  NULL);
 
@@ -4844,9 +4884,13 @@ unsigned long i915_gem_obj_offset(struct drm_i915_gem_object *o,
 
 	BUG_ON(list_empty(&o->vma_list));
 	list_for_each_entry(vma, &o->vma_list, vma_link) {
-		if (vma->vm == vm)
-			return vma->node.start;
-
+		if (vma->vm == vm) {
+			if (i915_gem_is_userptr_object(o))
+				return (vma->node.start +
+					i915_gem_userptr_obj_pageoffset(o));
+			else
+				return vma->node.start;
+		}
 	}
 	return -1;
 }
@@ -4915,4 +4959,31 @@ i915_gem_obj_lookup_or_create_vma(struct drm_i915_gem_object *obj,
 		vma = i915_gem_vma_create(obj, vm);
 
 	return vma;
+}
+
+/**
+* Reads/writes datatype for the object.
+*/
+int
+i915_gem_access_datatype(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct drm_i915_gem_access_datatype *args = data;
+	struct drm_i915_gem_object *obj;
+
+	obj = to_intel_bo(drm_gem_object_lookup(dev, file, args->handle));
+	if (&obj->base == NULL)
+		return -ENOENT;
+
+	mutex_lock(&dev->struct_mutex);
+
+	if (args->write)
+		obj->datatype = args->datatype;
+	else
+		args->datatype = obj->datatype;
+
+	drm_gem_object_unreference(&obj->base);
+	mutex_unlock(&dev->struct_mutex);
+
+	return 0;
 }

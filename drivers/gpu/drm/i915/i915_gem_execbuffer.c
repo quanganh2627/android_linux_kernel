@@ -111,6 +111,11 @@ eb_lookup_objects(struct eb_objects *eb,
 		drm_gem_object_reference(&obj->base);
 		list_add_tail(&obj->exec_list, &eb->objects);
 
+		/* Mark each buffer as r/w by default
+		 * If we are changing gt_ro, we need to make sure that it
+		 * gets re-mapped on gtt to update the ptes */
+		obj->gt_old_ro = obj->gt_ro;
+		obj->gt_ro = 0;
 		obj->exec_entry = &exec[i];
 		if (eb->and < 0) {
 			eb->lut[i] = obj;
@@ -305,8 +310,11 @@ i915_gem_execbuffer_relocate_entry(struct drm_i915_gem_object *obj,
 		return -EFAULT;
 
 	reloc->delta += target_offset;
-	if (use_cpu_reloc(obj))
+	if (use_cpu_reloc(obj)) {
+		if (i915_gem_is_userptr_object(obj))
+			reloc->offset += i915_gem_userptr_obj_pageoffset(obj);
 		ret = relocate_entry_cpu(obj, reloc);
+	}
 	else
 		ret = relocate_entry_gtt(obj, reloc);
 
@@ -575,7 +583,8 @@ i915_gem_execbuffer_reserve(struct intel_ring_buffer *ring,
 
 			if ((entry->alignment &&
 			     obj_offset & (entry->alignment - 1)) ||
-			    (need_mappable && !obj->map_and_fenceable))
+			    (need_mappable && !obj->map_and_fenceable) ||
+			    (obj->gt_old_ro != obj->gt_ro))
 				ret = i915_vma_unbind(i915_gem_obj_to_vma(obj, vm));
 			else
 				ret = i915_gem_execbuffer_reserve_object(obj, ring, vm, need_relocs);
@@ -732,7 +741,7 @@ i915_gem_execbuffer_move_to_gpu(struct intel_ring_buffer *ring,
 	int ret;
 
 	list_for_each_entry(obj, objects, exec_list) {
-		ret = i915_gem_object_sync(obj, ring);
+		ret = i915_gem_object_sync(obj, ring, false);
 		if (ret)
 			return ret;
 
@@ -846,7 +855,7 @@ i915_gem_execbuffer_retire_commands(struct drm_device *dev,
 	ring->gpu_caches_dirty = true;
 
 	/* Add a breadcrumb for the completion of the batch buffer */
-	(void)__i915_add_request(ring, file, obj, NULL);
+	(void)__i915_add_request(ring, file, obj, NULL, true);
 }
 
 static int
@@ -886,6 +895,8 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	struct drm_i915_gem_object *batch_obj;
 	struct drm_clip_rect *cliprects = NULL;
 	struct intel_ring_buffer *ring;
+	void *priv_data = NULL;
+	u32 priv_length = 0;
 	u32 ctx_id = i915_execbuffer2_get_context_id(*args);
 	u32 exec_start, exec_len;
 	u32 mask, flags;
@@ -981,34 +992,53 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	}
 
 	if (args->num_cliprects != 0) {
-		if (ring != &dev_priv->ring[RCS]) {
-			DRM_DEBUG("clip rectangles are only valid with the render ring\n");
-			return -EINVAL;
-		}
-
 		if (INTEL_INFO(dev)->gen >= 5) {
-			DRM_DEBUG("clip rectangles are only valid on pre-gen5\n");
-			return -EINVAL;
-		}
+			/*Gen5 & later definition of cliprects */
+			priv_data = kmalloc(args->num_cliprects,
+					GFP_KERNEL);
+			if (priv_data == NULL) {
+				ret = -ENOMEM;
+				goto pre_mutex_err;
+			}
 
-		if (args->num_cliprects > UINT_MAX / sizeof(*cliprects)) {
-			DRM_DEBUG("execbuf with %u cliprects\n",
-				  args->num_cliprects);
-			return -EINVAL;
-		}
+			priv_length = args->num_cliprects;
+			if (copy_from_user(priv_data,
+					   (void __user *)(uintptr_t)
+					   args->cliprects_ptr,
+					   priv_length)) {
+				ret = -EFAULT;
+				goto pre_mutex_err;
+			}
+		} else {
+			/* Pre-Gen5 definition of cliprects */
+			if (ring != &dev_priv->ring[RCS]) {
+				DRM_DEBUG("clip rects only valid"\
+					  "with the render ring\n");
+				return -EINVAL;
+			}
 
-		cliprects = kmalloc(args->num_cliprects * sizeof(*cliprects),
-				    GFP_KERNEL);
-		if (cliprects == NULL) {
-			ret = -ENOMEM;
-			goto pre_mutex_err;
-		}
+			if (args->num_cliprects >
+					UINT_MAX / sizeof(*cliprects)) {
+				DRM_DEBUG("execbuf with %u cliprects\n",
+					  args->num_cliprects);
+				return -EINVAL;
+			}
 
-		if (copy_from_user(cliprects,
-				   to_user_ptr(args->cliprects_ptr),
-				   sizeof(*cliprects)*args->num_cliprects)) {
-			ret = -EFAULT;
-			goto pre_mutex_err;
+			cliprects = kmalloc(
+				     args->num_cliprects * sizeof(*cliprects),
+				     GFP_KERNEL);
+			if (cliprects == NULL) {
+				ret = -ENOMEM;
+				goto pre_mutex_err;
+			}
+
+			if (copy_from_user(cliprects,
+					   to_user_ptr(args->cliprects_ptr),
+					   sizeof(*cliprects) *
+					   args->num_cliprects)) {
+				ret = -EFAULT;
+				goto pre_mutex_err;
+			}
 		}
 	}
 
@@ -1038,6 +1068,9 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	batch_obj = list_entry(eb->objects.prev,
 			       struct drm_i915_gem_object,
 			       exec_list);
+
+	/* Mark exec buffers as read-only from GPU side by default */
+	batch_obj->gt_ro = 1;
 
 	/* Move the objects en-masse into the GTT, evicting if necessary. */
 	need_relocs = (args->flags & I915_EXEC_NO_RELOC) == 0;
@@ -1106,6 +1139,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		args->batch_start_offset;
 	exec_len = args->batch_len;
 	if (cliprects) {
+		/* Non-NULL cliprects only possible for Gen <= 4 */
 		for (i = 0; i < args->num_cliprects; i++) {
 			ret = i915_emit_box(dev, &cliprects[i],
 					    args->DR1, args->DR4);
@@ -1114,14 +1148,17 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 
 			ret = ring->dispatch_execbuffer(ring,
 							exec_start, exec_len,
-							flags);
+							flags,
+							NULL, 0);
 			if (ret)
 				goto err;
 		}
 	} else {
+		/* Execution path for all Gen >= 5 */
 		ret = ring->dispatch_execbuffer(ring,
 						exec_start, exec_len,
-						flags);
+						flags,
+						priv_data, priv_length);
 		if (ret)
 			goto err;
 	}

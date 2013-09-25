@@ -268,11 +268,13 @@ static void gen6_ppgtt_clear_range(struct i915_address_space *vm,
 static void gen6_ppgtt_insert_entries(struct i915_address_space *vm,
 				      struct sg_table *pages,
 				      unsigned first_entry,
-				      enum i915_cache_level cache_level)
+				      enum i915_cache_level cache_level,
+					  int gt_ro)
 {
 	struct i915_hw_ppgtt *ppgtt =
 		container_of(vm, struct i915_hw_ppgtt, base);
 	gen6_gtt_pte_t *pt_vaddr;
+	gen6_gtt_pte_t pte;
 	unsigned act_pt = first_entry / I915_PPGTT_PT_ENTRIES;
 	unsigned act_pte = first_entry % I915_PPGTT_PT_ENTRIES;
 	struct sg_page_iter sg_iter;
@@ -282,7 +284,15 @@ static void gen6_ppgtt_insert_entries(struct i915_address_space *vm,
 		dma_addr_t page_addr;
 
 		page_addr = sg_page_iter_dma_address(&sg_iter);
-		pt_vaddr[act_pte] = vm->pte_encode(page_addr, cache_level);
+		pte  = vm->pte_encode(page_addr, cache_level);
+		if (IS_VALLEYVIEW(vm->dev)) {
+			/* Handle read-only request */
+			if (gt_ro)
+				pte &= ~BYT_PTE_WRITEABLE;
+			else
+				pte |= BYT_PTE_WRITEABLE;
+		}
+		pt_vaddr[act_pte] = pte;
 		if (++act_pte == I915_PPGTT_PT_ENTRIES) {
 			kunmap_atomic(pt_vaddr);
 			act_pt++;
@@ -436,7 +446,8 @@ void i915_ppgtt_bind_object(struct i915_hw_ppgtt *ppgtt,
 {
 	ppgtt->base.insert_entries(&ppgtt->base, obj->pages,
 				   i915_gem_obj_ggtt_offset(obj) >> PAGE_SHIFT,
-				   cache_level);
+				   cache_level,
+				   obj->gt_ro);
 }
 
 void i915_ppgtt_unbind_object(struct i915_hw_ppgtt *ppgtt,
@@ -525,18 +536,28 @@ int i915_gem_gtt_prepare_object(struct drm_i915_gem_object *obj)
 static void gen6_ggtt_insert_entries(struct i915_address_space *vm,
 				     struct sg_table *st,
 				     unsigned int first_entry,
-				     enum i915_cache_level level)
+				     enum i915_cache_level level,
+				     int gt_ro)
 {
 	struct drm_i915_private *dev_priv = vm->dev->dev_private;
 	gen6_gtt_pte_t __iomem *gtt_entries =
 		(gen6_gtt_pte_t __iomem *)dev_priv->gtt.gsm + first_entry;
+	gen6_gtt_pte_t pte;
 	int i = 0;
 	struct sg_page_iter sg_iter;
 	dma_addr_t addr;
 
 	for_each_sg_page(st->sgl, &sg_iter, st->nents, 0) {
 		addr = sg_page_iter_dma_address(&sg_iter);
-		iowrite32(vm->pte_encode(addr, level), &gtt_entries[i]);
+		pte  = vm->pte_encode(addr, level);
+		if (IS_VALLEYVIEW(vm->dev)) {
+			/* Handle read-only request */
+			if (gt_ro)
+				pte &= ~BYT_PTE_WRITEABLE;
+			else
+				pte |= BYT_PTE_WRITEABLE;
+		}
+		iowrite32(pte, &gtt_entries[i]);
 		i++;
 	}
 
@@ -547,8 +568,7 @@ static void gen6_ggtt_insert_entries(struct i915_address_space *vm,
 	 * hardware should work, we must keep this posting read for paranoia.
 	 */
 	if (i != 0)
-		WARN_ON(readl(&gtt_entries[i-1]) !=
-			vm->pte_encode(addr, level));
+		WARN_ON(readl(&gtt_entries[i-1]) != pte);
 
 	/* This next bit makes the above posting read even more important. We
 	 * want to flush the TLBs only after we're certain all the PTE updates
@@ -583,11 +603,13 @@ static void gen6_ggtt_clear_range(struct i915_address_space *vm,
 static void i915_ggtt_insert_entries(struct i915_address_space *vm,
 				     struct sg_table *st,
 				     unsigned int pg_start,
-				     enum i915_cache_level cache_level)
+				     enum i915_cache_level cache_level,
+				     int gt_ro)
 {
 	unsigned int flags = (cache_level == I915_CACHE_NONE) ?
 		AGP_USER_MEMORY : AGP_USER_CACHED_MEMORY;
-
+	/* Precautionary check */
+	BUG_ON(IS_VALLEYVIEW(vm->dev));
 	intel_gtt_insert_sg_entries(st, pg_start, flags);
 
 }
@@ -609,7 +631,8 @@ void i915_gem_gtt_bind_object(struct drm_i915_gem_object *obj,
 
 	dev_priv->gtt.base.insert_entries(&dev_priv->gtt.base, obj->pages,
 					  entry,
-					  cache_level);
+					  cache_level,
+					  obj->gt_ro);
 
 	obj->has_global_gtt_mapping = 1;
 }

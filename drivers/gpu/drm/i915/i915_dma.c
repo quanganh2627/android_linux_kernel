@@ -444,6 +444,7 @@ static int i915_dispatch_cmdbuffer(struct drm_device * dev,
 				   struct drm_clip_rect *cliprects,
 				   void *cmdbuf)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	int nbox = cmd->num_cliprects;
 	int i = 0, count, ret;
 
@@ -470,6 +471,7 @@ static int i915_dispatch_cmdbuffer(struct drm_device * dev,
 	}
 
 	i915_emit_breadcrumb(dev);
+	i915_add_request_wo_flush(LP_RING(dev_priv));
 	return 0;
 }
 
@@ -532,6 +534,7 @@ static int i915_dispatch_batchbuffer(struct drm_device * dev,
 	}
 
 	i915_emit_breadcrumb(dev);
+	i915_add_request_wo_flush(LP_RING(dev_priv));
 	return 0;
 }
 
@@ -585,6 +588,7 @@ static int i915_dispatch_flip(struct drm_device * dev)
 		ADVANCE_LP_RING();
 	}
 
+	i915_add_request_wo_flush(LP_RING(dev_priv));
 	master_priv->sarea_priv->pf_current_page = dev_priv->dri1.current_page;
 	return 0;
 }
@@ -758,6 +762,7 @@ static int i915_emit_irq(struct drm_device * dev)
 		OUT_RING(dev_priv->dri1.counter);
 		OUT_RING(MI_USER_INTERRUPT);
 		ADVANCE_LP_RING();
+		i915_add_request_wo_flush(LP_RING(dev_priv));
 	}
 
 	return dev_priv->dri1.counter;
@@ -988,7 +993,7 @@ static int i915_getparam(struct drm_device *dev, void *data,
 	case I915_PARAM_HAS_SEMAPHORES:
 		value = i915_semaphore_is_enabled(dev);
 		break;
-	case I915_PARAM_HAS_PRIME_VMAP_FLUSH:
+	case I915_PARAM_HAS_VMAP:
 		value = 1;
 		break;
 	case I915_PARAM_HAS_SECURE_BATCHES:
@@ -1002,6 +1007,9 @@ static int i915_getparam(struct drm_device *dev, void *data,
 		break;
 	case I915_PARAM_HAS_EXEC_HANDLE_LUT:
 		value = 1;
+		break;
+	case I915_PARAM_HAS_DPST:
+		value = IS_VALLEYVIEW(dev);
 		break;
 	default:
 		DRM_DEBUG("Unknown parameter %d\n", param->param);
@@ -1483,6 +1491,7 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	spin_lock_init(&dev_priv->uncore.lock);
 	spin_lock_init(&dev_priv->mm.object_stat_lock);
 	mutex_init(&dev_priv->dpio_lock);
+	mutex_init(&dev_priv->new_dpio_lock);
 	mutex_init(&dev_priv->rps.hw_lock);
 	mutex_init(&dev_priv->modeset_restore_lock);
 
@@ -1528,6 +1537,13 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 		ret = -EIO;
 		goto put_bridge;
 	}
+
+	/* RS state has to be initialized to pull render/media power wells out
+	* of sleep. This is required before initializing gem, which touches
+	* render/media registers
+	*/
+	if (IS_VALLEYVIEW(dev))
+		vlv_rs_sleepstateinit(dev, true);
 
 	intel_uncore_early_sanitize(dev);
 
@@ -1598,9 +1614,35 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 		goto out_mtrrfree;
 	}
 
+	/* Creating our own private workqueue for handling the
+	 * MMIO based flips, so as to avoid the block of the
+	 * display thread (who issued the flip ioctl), due to the
+	 * synchronization needed between the Rendering & flip stages.
+	 * The synchronization will require a sw wait for the ongoing
+	 * rendering operation, if any, to complete, before issuing the
+	 * MMIO flip call. Because of this work queue, the wait would
+	 * be done by the worker thread.
+	 *
+	 * Also since the flip work has to be processed at earliest, HIGHPRI
+	 * flag is used here.
+	 * Also we need serialized execution, hence using max_active = 1
+	 * and NON_REENTRANT.
+	 */
+	dev_priv->flipwq = alloc_workqueue("i915_flip",
+				WQ_UNBOUND | WQ_NON_REENTRANT | WQ_HIGHPRI,
+				1);
+
+	if (dev_priv->flipwq == NULL) {
+		DRM_ERROR("Failed to create flip workqueue.\n");
+		ret = -ENOMEM;
+		destroy_workqueue(dev_priv->wq);
+		goto out_mtrrfree;
+	}
+
 	/* This must be called before any calls to HAS_PCH_* */
 	intel_detect_pch(dev);
 
+	i915_pm_init(dev);
 	intel_irq_init(dev);
 	intel_pm_init(dev);
 	intel_uncore_sanitize(dev);
@@ -1675,6 +1717,7 @@ out_gem_unload:
 
 	intel_teardown_gmbus(dev);
 	intel_teardown_mchbar(dev);
+	destroy_workqueue(dev_priv->flipwq);
 	destroy_workqueue(dev_priv->wq);
 out_mtrrfree:
 	arch_phys_wc_del(dev_priv->gtt.mtrr);
@@ -1715,6 +1758,8 @@ int i915_driver_unload(struct drm_device *dev)
 		DRM_ERROR("failed to idle hardware: %d\n", ret);
 	i915_gem_retire_requests(dev);
 	mutex_unlock(&dev->struct_mutex);
+
+	i915_pm_deinit(dev);
 
 	/* Cancel the retire work handler, which should be idle now. */
 	cancel_delayed_work_sync(&dev_priv->mm.retire_work);
@@ -1781,6 +1826,7 @@ int i915_driver_unload(struct drm_device *dev)
 	intel_teardown_mchbar(dev);
 
 	destroy_workqueue(dev_priv->wq);
+	destroy_workqueue(dev_priv->flipwq);
 	pm_qos_remove_request(&dev_priv->pm_qos);
 
 	dev_priv->gtt.base.cleanup(&dev_priv->gtt.base);
@@ -1920,6 +1966,11 @@ struct drm_ioctl_desc i915_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(I915_SET_CSC, intel_enable_CSC, DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(I915_GET_PSR_SUPPORT, intel_edp_get_psr_support,
 								DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(I915_GEM_ACCESS_DATATYPE, i915_gem_access_datatype,
+							DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(I915_GEM_USERPTR, i915_gem_userptr_ioctl,
+						DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(I915_DPST_CONTEXT, i915_dpst_context, DRM_UNLOCKED),
 };
 
 int i915_max_ioctl = DRM_ARRAY_SIZE(i915_ioctls);
