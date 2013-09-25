@@ -1413,6 +1413,17 @@ typedef struct drm_i915_private {
 
 	u16 is_mipi;
 	u16 mipi_panel_id;
+
+#ifdef CONFIG_DRM_VXD_BYT
+	struct drm_psb_private *vxd_priv;
+	int (*vxd_driver_open)(struct drm_device *dev, struct drm_file *file);
+	void (*vxd_lastclose)(struct drm_device *dev);
+	long (*vxd_ioctl)(struct file *filp,
+		unsigned int cmd, unsigned long arg);
+	int (*vxd_release)(struct inode *inode, struct file *filp);
+	int (*psb_mmap)(struct file *filp, struct vm_area_struct *vma);
+	int (*psb_msvdx_interrupt)(void *pvData);
+#endif
 } drm_i915_private_t;
 
 static inline struct drm_i915_private *to_i915(const struct drm_device *dev)
@@ -1678,6 +1689,10 @@ struct drm_i915_file_private {
 	struct idr context_idr;
 
 	struct i915_ctx_hang_stats hang_stats;
+
+#ifdef CONFIG_DRM_VXD_BYT
+	struct psb_fpriv *pPriv;
+#endif
 };
 
 #define INTEL_INFO(dev)	(to_i915(dev)->info)

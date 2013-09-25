@@ -933,6 +933,9 @@
  * These defines should cover us well from SNB->HSW with minor exceptions
  * it can also work on ILK.
  */
+#ifdef CONFIG_DRM_VXD_BYT
+#define VED_BLOCK_INTERRUPT			(1 << 23)
+#endif
 #define GT_BLT_FLUSHDW_NOTIFY_INTERRUPT		(1 << 26)
 #define GT_BLT_CS_ERROR_INTERRUPT		(1 << 25)
 #define GT_BLT_USER_INTERRUPT			(1 << 22)

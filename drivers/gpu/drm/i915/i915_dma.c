@@ -54,6 +54,11 @@
 #define ADVANCE_LP_RING() \
 	intel_ring_advance(LP_RING(dev_priv))
 
+#ifdef CONFIG_DRM_VXD_BYT
+struct drm_device *i915_drm_dev;
+EXPORT_SYMBOL(i915_drm_dev);
+#endif
+
 /**
  * Lock test for when it's just for synchronization of ring access.
  *
@@ -1706,6 +1711,10 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	if (IS_GEN5(dev))
 		intel_gpu_ips_init(dev_priv);
 
+#ifdef CONFIG_DRM_VXD_BYT
+	/* Delay vxd driver load to vxd module init */
+	i915_drm_dev = dev;
+#endif
 	return 0;
 
 out_gem_unload:
@@ -1856,6 +1865,12 @@ int i915_driver_open(struct drm_device *dev, struct drm_file *file)
 
 	idr_init(&file_priv->context_idr);
 
+#ifdef CONFIG_DRM_VXD_BYT
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	if (dev_priv->vxd_driver_open)
+		return dev_priv->vxd_driver_open(dev, file);
+#endif
 	return 0;
 }
 
@@ -1880,6 +1895,11 @@ void i915_driver_lastclose(struct drm_device * dev)
 	 * up anything. */
 	if (!dev_priv)
 		return;
+
+#ifdef CONFIG_DRM_VXD_BYT
+	if (dev_priv->vxd_lastclose)
+		dev_priv->vxd_lastclose(dev);
+#endif
 
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
 		intel_fb_restore_mode(dev);
