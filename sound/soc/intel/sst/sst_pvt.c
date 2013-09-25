@@ -453,34 +453,3 @@ void sst_clean_stream(struct stream_info *stream)
 	mutex_unlock(&stream->lock);
 }
 
-/*
- * sst_create_and_send_uevent - dynamically create, send and destroy uevent
- * @name - Name of the uevent
- * @envp - Event parameters
- */
-int sst_create_and_send_uevent(char *name, char *envp[])
-{
-	struct kset *set;
-	struct kobject *obj;
-	int ret = 0;
-
-	set = kset_create_and_add("SSTEVENTS", NULL, &sst_drv_ctx->dev->kobj);
-	if (!set) {
-		pr_err("kset creation failed\n");
-		return -ENOMEM;
-	}
-	obj = kobject_create_and_add(name, &sst_drv_ctx->dev->kobj);
-	if (!obj) {
-		pr_err("kboject creation failed\n");
-		ret = -ENOMEM;
-		goto free_kset;
-	}
-	obj->kset = set;
-	ret = kobject_uevent_env(obj, KOBJ_ADD, envp);
-	if (ret)
-		pr_err("sst uevent send failed - %d\n", ret);
-	kobject_put(obj);
-free_kset:
-	kset_unregister(set);
-	return ret;
-}

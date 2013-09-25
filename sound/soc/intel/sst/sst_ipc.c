@@ -606,10 +606,16 @@ static int send_vtsv_result_event(void *data, int size)
 	int offset = 0;
 	u8 *tmp;
 	int i = 0;
+	int ret;
+
+	if (!data) {
+		pr_err("Data pointer Null into %s\n", __func__);
+		return -EINVAL;
+	}
 
 	if (size > MAX_VTSV_RESULT_SIZE) {
 		pr_err("VTSV result size exceeds expected value, no uevent sent\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	sprintf(res_size, "VTSV_RESULT_SIZE=%d", size);
@@ -621,7 +627,11 @@ static int send_vtsv_result_event(void *data, int size)
 		size--;
 	}
 	envp[offset] = NULL;
-	return sst_create_and_send_uevent("SST_VOICE_TRIGGER", envp);
+
+	ret = kobject_uevent_env(&sst_drv_ctx->dev->kobj, KOBJ_CHANGE, envp);
+	if (ret)
+		pr_err("VTSV event send failed: ret = %d\n", ret);
+	return ret;
 }
 
 static void process_fw_async_large_msg(void *data, u32 msg_size)

@@ -686,7 +686,6 @@ int sst_acpi_remove(struct platform_device *pdev);
 void sst_save_shim64(struct intel_sst_drv *ctx, void __iomem *shim,
 		     struct sst_shim_regs64 *shim_regs);
 int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx);
-int sst_create_and_send_uevent(char *name, char *envp[]);
 
 static inline int sst_pm_runtime_put(struct intel_sst_drv *sst_drv)
 {
