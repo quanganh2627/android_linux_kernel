@@ -1355,9 +1355,10 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	pgoff_t page_offset;
 	unsigned long pfn;
-	int ret = 0;
+	int ret = 0,err = 0;;
 	bool write = !!(vmf->flags & FAULT_FLAG_WRITE);
 
+	i915_rpm_get_callback(dev);
 	/* We don't use vmf->pgoff since that has the fake offset */
 	page_offset = ((unsigned long)vmf->virtual_address - vma->vm_start) >>
 		PAGE_SHIFT;
@@ -1409,7 +1410,8 @@ out:
 		 * chance to clean up the mess. Otherwise return the proper
 		 * SIGBUS. */
 		if (i915_terminally_wedged(&dev_priv->gpu_error))
-			return VM_FAULT_SIGBUS;
+			err = VM_FAULT_SIGBUS;
+		break;
 	case -EAGAIN:
 		/* Give the error handler a chance to run and move the
 		 * objects off the GPU active list. Next time we service the
@@ -1427,15 +1429,20 @@ out:
 		 * EBUSY is ok: this just means that another thread
 		 * already did the job.
 		 */
-		return VM_FAULT_NOPAGE;
+		err = VM_FAULT_NOPAGE;
+		break;
 	case -ENOMEM:
-		return VM_FAULT_OOM;
+		err = VM_FAULT_OOM;
+		break;
 	case -ENOSPC:
-		return VM_FAULT_SIGBUS;
+		err = VM_FAULT_SIGBUS;
+		break;
 	default:
 		WARN_ONCE(ret, "unhandled error in i915_gem_fault: %i\n", ret);
-		return VM_FAULT_SIGBUS;
+		err = VM_FAULT_SIGBUS;
 	}
+	i915_rpm_put_callback(dev);
+	return err;
 }
 
 /**
