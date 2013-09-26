@@ -39,6 +39,8 @@
 #include <linux/notifier.h>
 #include <linux/miscdevice.h>
 #include <linux/atomic.h>
+#include <linux/acpi.h>
+#include <linux/acpi_gpio.h>
 
 /* Status register bits */
 #define STATUS_POR_BIT		(1 << 1)
@@ -1917,13 +1919,28 @@ static void configure_interrupts(struct max17042_chip *chip)
 	}
 }
 
+#ifdef CONFIG_ACPI
+extern void *max17042_platform_data(void *info);
+#endif
 static int max17042_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct max17042_chip *chip;
-	int ret, i;
+	int ret, i, gpio;
+	struct acpi_gpio_info gpio_info;
 
+#ifdef CONFIG_ACPI
+	client->dev.platform_data = max17042_platform_data(NULL);
+	dev_info(&client->dev, "%s: %d: dev->irq = %d\n",
+			 __func__, __LINE__, client->irq);
+	gpio = acpi_get_gpio_by_index(&client->dev, 0, &gpio_info);
+	dev_info(&client->dev, "%s: %d: gpio no = %d\n",
+			 __func__, __LINE__, gpio);
+	client->irq = gpio_to_irq(gpio);
+	dev_info(&client->dev, "%s: %d: irq = %d\n",
+			 __func__, __LINE__, client->irq);
+#endif
 	if (!client->dev.platform_data) {
 		dev_err(&client->dev, "Platform Data is NULL");
 		return -EFAULT;
@@ -2212,11 +2229,23 @@ static const struct dev_pm_ops max17042_pm_ops = {
 	.runtime_idle		= max17042_runtime_idle,
 };
 
+#ifdef CONFIG_ACPI
+static struct acpi_device_id max17042_acpi_match[] = {
+	{"MAX17047", 0},
+	{}
+};
+MODULE_DEVICE_TABLE(acpi, max17042_acpi_match);
+
+#endif
+
 static struct i2c_driver max17042_i2c_driver = {
 	.driver	= {
 		.name	= DRV_NAME,
 		.owner	= THIS_MODULE,
 		.pm	= &max17042_pm_ops,
+#ifdef CONFIG_ACPI
+		.acpi_match_table = ACPI_PTR(max17042_acpi_match),
+#endif
 	},
 	.probe		= max17042_probe,
 	.remove		= max17042_remove,

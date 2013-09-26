@@ -67,8 +67,11 @@ static bool msic_battery_check(struct max17042_platform_data *pdata)
 {
 	struct sfi_table_simple *sb;
 	char *mrfl_batt_str = "INTN0001";
-
+#ifdef CONFIG_SFI
 	sb = (struct sfi_table_simple *)get_oem0_table();
+#else
+	sb = NULL;
+#endif
 	if (sb == NULL) {
 		pr_info("invalid battery detected\n");
 		snprintf(pdata->battid, BATTID_LEN + 1, "UNKNOWNB");
@@ -142,12 +145,13 @@ static bool msic_battery_check(struct max17042_platform_data *pdata)
  */
 int mfld_fg_restore_config_data(const char *name, void *data, int len)
 {
-	int mip_offset, ret;
-
+	int ret = 0;
+#ifdef CONFIG_X86_MDFLD
+	int mip_offset;
 	/* Read the fuel gauge config data from umip */
 	mip_offset = UMIP_REF_FG_TBL + BATT_FG_TBL_BODY;
 	ret = intel_scu_ipc_read_mip((u8 *)data, len, mip_offset, 0);
-
+#endif
 	return ret;
 }
 EXPORT_SYMBOL(mfld_fg_restore_config_data);
@@ -161,12 +165,13 @@ EXPORT_SYMBOL(mfld_fg_restore_config_data);
  */
 int mfld_fg_save_config_data(const char *name, void *data, int len)
 {
-	int mip_offset, ret;
-
+	int ret = 0;
+#ifdef CONFIG_X86_MDFLD
+	int mip_offset;
 	/* write the fuel gauge config data to umip */
 	mip_offset = UMIP_REF_FG_TBL + BATT_FG_TBL_BODY;
 	ret = intel_scu_ipc_write_umip((u8 *)data, len, mip_offset);
-
+#endif
 	return ret;
 }
 EXPORT_SYMBOL(mfld_fg_save_config_data);
@@ -373,8 +378,7 @@ static void init_callbacks(struct max17042_platform_data *pdata)
 		pdata->battery_pack_temp = pmic_get_battery_pack_temp;
 		pdata->get_vmin_threshold = mrfl_get_vsys_min;
 		pdata->get_vmax_threshold = mrfl_get_volt_max;
-	} else if (intel_mid_identify_cpu() ==
-				INTEL_MID_CPU_CHIP_VALLEYVIEW2) {
+	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
 		pdata->battery_status = smb347_get_charging_status;
 		pdata->get_vmin_threshold = byt_get_vsys_min;
 		pdata->reset_chip = true;
@@ -436,8 +440,7 @@ static void init_platform_params(struct max17042_platform_data *pdata)
 			pdata->file_sys_storage_enabled = 1;
 			pdata->soc_intr_mode_enabled = true;
 		}
-	} else if (intel_mid_identify_cpu() ==
-				INTEL_MID_CPU_CHIP_VALLEYVIEW2) {
+	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
 		char byt_t_ffrd8_batt_str[] = "INTN0001";
 		pdata->enable_current_sense = true;
 		pdata->technology = POWER_SUPPLY_TECHNOLOGY_LION;
@@ -495,14 +498,10 @@ void *max17042_platform_data(void *info)
 	struct i2c_board_info *i2c_info = (struct i2c_board_info *)info;
 	int intr = get_gpio_by_name("max_fg_alert");
 
-	i2c_info->irq = intr + INTEL_MID_IRQ_OFFSET;
 
-	if (intel_mid_identify_cpu() ==
-				INTEL_MID_CPU_CHIP_VALLEYVIEW2) {
-		intr = acpi_get_gpio("\\_SB.GPO2", 0x12);
-		intr =  148; /* GPIO_S5_18  = SUS0_18. SUS0_0 = 130 */
-		i2c_info->irq = gpio_to_irq(intr);
-	}
+	if (!INTEL_MID_BOARD(1, TABLET, BYT))
+		i2c_info->irq = intr + INTEL_MID_IRQ_OFFSET;
+
 
 	init_tgain_toff(&platform_data);
 	init_callbacks(&platform_data);

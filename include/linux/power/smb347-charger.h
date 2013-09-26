@@ -16,6 +16,7 @@
 
 #include <linux/types.h>
 #include <linux/power_supply.h>
+#include <linux/power/battery_id.h>
 
 enum {
 	/* use the default compensation method */
@@ -100,6 +101,13 @@ struct smb347_charger_platform_data {
 	 * register map[offset, value].
 	 */
 	u16	char_config_regs[MAXSMB347_CONFIG_DATA_SIZE];
+
+	char **supplied_to;
+	size_t num_supplicants;
+	size_t num_throttle_states;
+	unsigned long supported_cables;
+	struct power_supply_throttle *throttle_states;
+	struct ps_batt_chg_prof *chg_profile;
 };
 
 #ifdef CONFIG_CHARGER_SMB347
