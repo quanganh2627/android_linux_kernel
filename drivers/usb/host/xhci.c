@@ -3689,6 +3689,12 @@ int xhci_alloc_dev(struct usb_hcd *hcd, struct usb_device *udev)
 	int ret;
 	union xhci_trb *cmd_trb;
 
+	/* Need to wait xhci->cmd_ring_state to be RUNNING before
+	 * issue ENABLE_SLOT command.
+	 */
+	while (!(xhci->cmd_ring_state & CMD_RING_STATE_RUNNING))
+		msleep(200);
+
 	spin_lock_irqsave(&xhci->lock, flags);
 	cmd_trb = xhci->cmd_ring->dequeue;
 	ret = xhci_queue_slot_control(xhci, TRB_ENABLE_SLOT, 0);
@@ -3701,7 +3707,7 @@ int xhci_alloc_dev(struct usb_hcd *hcd, struct usb_device *udev)
 	spin_unlock_irqrestore(&xhci->lock, flags);
 
 	/* XXX: how much time for xHC slot assignment? */
-	timeleft = wait_for_completion_interruptible_timeout(&xhci->addr_dev,
+	timeleft = wait_for_completion_interruptible_timeout(&xhci->enable_slot,
 			XHCI_CMD_DEFAULT_TIMEOUT);
 	if (timeleft <= 0) {
 		xhci_warn(xhci, "%s while waiting for a slot\n",
