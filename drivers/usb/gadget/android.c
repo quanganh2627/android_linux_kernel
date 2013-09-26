@@ -1499,6 +1499,16 @@ static int android_create_device(struct android_dev *dev)
 	return 0;
 }
 
+static void android_free_device(struct android_dev *dev)
+{
+	struct device_attribute **attrs = android_usb_attributes;
+	struct device_attribute *attr;
+
+	while ((attr = *attrs++))
+		device_remove_file(dev->dev, attr);
+
+	device_destroy(android_class, dev->dev->devt);
+}
 
 static int __init init(void)
 {
@@ -1542,6 +1552,7 @@ static int __init init(void)
 	return 0;
 
 err_create:
+	android_free_device(dev);
 	kfree(dev);
 err_dev:
 	class_destroy(android_class);
