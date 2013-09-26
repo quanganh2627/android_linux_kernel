@@ -36,6 +36,7 @@
 #include <linux/acpi_gpio.h>
 #include <linux/power_supply.h>
 #include <linux/extcon/extcon-fsa9285.h>
+#include <linux/wakelock.h>
 
 /* FSA9285 I2C registers */
 #define FSA9285_REG_DEVID		0x01
@@ -126,6 +127,8 @@
 #define FSA9285_EXTCON_DOCK		"Dock"
 #define FSA9285_EXTCON_USB_HOST		"USB-Host"
 
+#define MAX_RETRY			3
+
 static const char *fsa9285_extcon_cable[] = {
 	FSA9285_EXTCON_SDP,
 	FSA9285_EXTCON_DCP,
@@ -149,6 +152,8 @@ struct fsa9285_chip {
 
 	bool	vbus_drive;
 	bool	a_bus_drop;
+
+	struct wake_lock wakelock;
 };
 
 static struct fsa9285_chip *chip_ptr;
@@ -158,11 +163,15 @@ static int fsa9285_write_reg(struct i2c_client *client,
 		int reg, int value)
 {
 	int ret;
+	int retry;
 
-	ret = i2c_smbus_write_byte_data(client, reg, value);
-
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+	for (retry = 0; retry < MAX_RETRY; retry++) {
+		ret = i2c_smbus_write_byte_data(client, reg, value);
+		if (ret < 0)
+			dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+		else
+			break;
+	}
 
 	return ret;
 }
@@ -170,11 +179,15 @@ static int fsa9285_write_reg(struct i2c_client *client,
 static int fsa9285_read_reg(struct i2c_client *client, int reg)
 {
 	int ret;
+	int retry;
 
-	ret = i2c_smbus_read_byte_data(client, reg);
-
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+	for (retry = 0; retry < MAX_RETRY; retry++) {
+		ret = i2c_smbus_read_byte_data(client, reg);
+		if (ret < 0)
+			dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+		else
+			break;
+	}
 
 	return ret;
 }
@@ -272,6 +285,8 @@ static int fsa9285_detect_dev(struct fsa9285_chip *chip)
 			cable_props.chrg_type =
 					POWER_SUPPLY_CHARGER_TYPE_USB_ACA;
 			cable_props.mA = FSA_CHARGE_CUR_ACA;
+			if (!wake_lock_active(&chip->wakelock))
+				wake_lock(&chip->wakelock);
 		} else {
 			/* unknown device */
 			dev_warn(&chip->client->dev, "unknown ID detceted\n");
@@ -304,6 +319,8 @@ static int fsa9285_detect_dev(struct fsa9285_chip *chip)
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_DCP;
 		cable_props.mA = FSA_CHARGE_CUR_DCP;
+		if (!wake_lock_active(&chip->wakelock))
+			wake_lock(&chip->wakelock);
 	} else if (devtype & DEVTYPE_DOCK) {
 		dev_info(&chip->client->dev,
 				"Dock connecetd\n");
@@ -312,6 +329,8 @@ static int fsa9285_detect_dev(struct fsa9285_chip *chip)
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK;
 		cable_props.mA = FSA_CHARGE_CUR_ACA;
+		if (!wake_lock_active(&chip->wakelock))
+			wake_lock(&chip->wakelock);
 	} else {
 		dev_warn(&chip->client->dev,
 			"ID or VBUS change event\n");
@@ -388,6 +407,8 @@ static int fsa9285_detect_dev(struct fsa9285_chip *chip)
 			notify_charger = false;
 			cable = NULL;
 		}
+		if (wake_lock_active(&chip->wakelock))
+			wake_unlock(&chip->wakelock);
 	} else {
 		if (notify_otg)
 			atomic_notifier_call_chain(&chip->otg->notifier,
@@ -586,6 +607,8 @@ static int fsa9285_probe(struct i2c_client *client,
 	if (ret)
 		goto intr_reg_failed;
 
+	wake_lock_init(&chip->wakelock, WAKE_LOCK_SUSPEND,
+						"fsa_charger_wakelock");
 	/* device detection */
 	ret = fsa9285_detect_dev(chip);
 	if (ret < 0)
