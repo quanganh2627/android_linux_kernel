@@ -196,7 +196,7 @@ static int mrfld_8958_set_bias_level_post(struct snd_soc_card *card,
 	default:
 		break;
 	}
-	dapm->bias_level = level;
+	card->dapm.bias_level = level;
 	pr_debug("card(%s)->bias_level %u\n", card->name,
 			card->dapm.bias_level);
 	return 0;
