@@ -30,6 +30,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <asm/intel-mid.h>
 
 #include "dmaengine.h"
 
@@ -1843,7 +1844,14 @@ static int intel_mid_dma_probe(struct pci_dev *pdev,
 	pr_debug("MDMA: CH %d, base %d, block len %d, Periphral mask %x\n",
 				info->max_chan, info->ch_base,
 				info->block_size, info->pimr_mask);
-
+	/* REVERT ME: forcing failure of Audio DMA on CRC HVP  */
+	/* Temporary workaround waiting for root causing issue */
+	if ((info->pci_id == INTEL_MRFLD_DMAC0_ID)
+		&& (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CARBONCANYON)
+		&& (intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_HVP)) {
+		pr_err("Temporary WA : forcing failure of DMAC0 for CRC HVP\n");
+		goto err_enable_device;
+	}
 	err = pci_enable_device(pdev);
 	if (err)
 		goto err_enable_device;
