@@ -444,13 +444,15 @@ static int mrfld_8958_init(struct snd_soc_pcm_runtime *runtime)
 
 	ctx->jack_retry = 0;
 	ret = snd_soc_jack_new(codec, "Intel MID Audio Jack",
-			       SND_JACK_HEADSET | SND_JACK_HEADPHONE | SND_JACK_BTN_0,
-			       &ctx->jack);
+			       SND_JACK_HEADSET | SND_JACK_HEADPHONE |
+				SND_JACK_BTN_0 | SND_JACK_BTN_1,
+				&ctx->jack);
 	if (ret) {
 		pr_err("jack creation failed\n");
 		return ret;
 	}
 
+	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_1, KEY_MEDIA);
 	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
 
 	wm8958_mic_detect(codec, &ctx->jack, NULL, NULL,
