@@ -38,10 +38,13 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/delay.h>
+#include <linux/lnw_gpio.h>
 
 #include <linux/mmc/host.h>
 #include <linux/mmc/pm.h>
 #include <linux/mmc/sdhci.h>
+
+#include <asm/spid.h>
 
 #include "sdhci.h"
 
@@ -67,6 +70,8 @@ struct sdhci_acpi_slot {
 	unsigned int	caps2;
 	mmc_pm_flag_t	pm_caps;
 	unsigned int	flags;
+	int (*probe_slot) (struct platform_device *);
+	int (*remove_slot) (struct platform_device *);
 };
 
 struct sdhci_acpi_host {
@@ -74,6 +79,7 @@ struct sdhci_acpi_host {
 	const struct sdhci_acpi_slot	*slot;
 	struct platform_device		*pdev;
 	bool				use_runtime_pm;
+	int				cd_gpio;
 };
 
 static inline bool sdhci_acpi_flag(struct sdhci_acpi_host *c, unsigned int flag)
@@ -101,8 +107,106 @@ static void sdhci_acpi_int_hw_reset(struct sdhci_host *host)
 	usleep_range(300, 1000);
 }
 
+static int sdhci_acpi_power_up_host(struct sdhci_host *host)
+{
+	int ret = -ENODEV;
+	struct sdhci_acpi_host *c = sdhci_priv(host);
+	acpi_handle handle;
+	struct acpi_device *device;
+
+	if (!c || !c->pdev)
+		return -ENODEV;
+
+	handle = ACPI_HANDLE(&c->pdev->dev);
+	if (acpi_bus_get_device(handle, &device))
+		return -ENODEV;
+
+	ret = acpi_device_set_power(device, ACPI_STATE_D0);
+	if (ret)
+		return ret;
+	/*
+	 * after power up host, let's have a little test
+	 */
+	if (sdhci_readl(host, SDHCI_HOST_VERSION) ==
+			0xffffffff) {
+		pr_err("%s: power up sdhci host failed\n",
+				__func__);
+		return -EPERM;
+	}
+
+	pr_info("%s: host controller power up is done\n", __func__);
+
+	return 0;
+}
+
+static int sdhci_acpi_get_cd(struct sdhci_host *host)
+{
+	bool present;
+	struct sdhci_acpi_host *c = sdhci_priv(host);
+
+	if (host->quirks2 & SDHCI_QUIRK2_BAD_SD_CD) {
+		/* present doesn't work */
+		if (gpio_is_valid(c->cd_gpio))
+			return gpio_get_value(c->cd_gpio) ? 0 : 1;
+	}
+
+	/* If nonremovable or polling, assume that the card is always present */
+	if ((host->mmc->caps & MMC_CAP_NONREMOVABLE) ||
+			(host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION))
+		present = true;
+	else
+		present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
+			SDHCI_CARD_PRESENT;
+
+	return present;
+}
+
+static int sdhci_acpi_get_tuning_count(struct sdhci_host *host)
+{
+	struct sdhci_acpi_host *c = sdhci_priv(host);
+	acpi_handle handle;
+	struct acpi_device *device;
+	struct acpi_device_info *info;
+	const char *hid, *uid = NULL;
+	acpi_status status;
+	int tuning_count = 0;
+
+	if (!c || !c->pdev)
+		return 0;
+
+	handle = ACPI_HANDLE(&c->pdev->dev);
+	if (acpi_bus_get_device(handle, &device))
+		return -ENODEV;
+
+	hid = acpi_device_hid(device);
+	status = acpi_get_object_info(handle, &info);
+	if (!ACPI_FAILURE(status) && (info->valid & ACPI_VALID_UID))
+		uid = info->unique_id.string;
+
+	if (!strcmp(hid, "80860F14") && !strcmp(uid, "1"))
+		tuning_count = 8;
+
+	return tuning_count;
+}
+
+static void  sdhci_acpi_platform_reset_exit(struct sdhci_host *host, u8 mask)
+{
+	if (host->quirks2 & SDHCI_QUIRK2_POWER_PIN_GPIO_MODE) {
+		if (mask & SDHCI_RESET_ALL) {
+			/* reset back to 3.3v signaling */
+			gpio_set_value(host->gpio_1p8_en, 0);
+			/* disable the VDD power */
+			gpio_set_value(host->gpio_pwr_en, 1);
+		}
+	}
+}
+
 static const struct sdhci_ops sdhci_acpi_ops_dflt = {
 	.enable_dma = sdhci_acpi_enable_dma,
+	.power_up_host	= sdhci_acpi_power_up_host,
+	.get_cd		= sdhci_acpi_get_cd,
+	.get_tuning_count = sdhci_acpi_get_tuning_count,
+	.platform_reset_exit = sdhci_acpi_platform_reset_exit,
 };
 
 static const struct sdhci_ops sdhci_acpi_ops_int = {
@@ -114,22 +218,105 @@ static const struct sdhci_acpi_chip sdhci_acpi_chip_int = {
 	.ops = &sdhci_acpi_ops_int,
 };
 
+static int sdhci_acpi_emmc_probe_slot(struct platform_device *pdev)
+{
+	struct sdhci_acpi_host *c = platform_get_drvdata(pdev);
+	struct sdhci_host *host;
+
+	if (!c || !c->host)
+		return 0;
+
+	host = c->host;
+
+	if (!INTEL_MID_BOARDV2(TABLET, BYT, BLB, PRO) &&
+			!INTEL_MID_BOARDV2(TABLET, BYT, BLB, ENG))
+		sdhci_alloc_panic_host(host);
+
+	return 0;
+}
+
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
-	.chip    = &sdhci_acpi_chip_int,
-	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE | MMC_CAP_HW_RESET,
-	.caps2   = MMC_CAP2_HC_ERASE_SZ,
+	.quirks2 = SDHCI_QUIRK2_CARD_CD_DELAY | SDHCI_QUIRK2_WAIT_FOR_IDLE |
+		SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE | MMC_CAP_HW_RESET
+		| MMC_CAP_1_8V_DDR,
+	.caps2   = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_POLL_R1B_BUSY |
+		MMC_CAP2_BOOTPART_NOACC | MMC_CAP2_RPMBPART_NOACC |
+		MMC_CAP2_HS200_1_8V_SDR,
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
+	.probe_slot	= sdhci_acpi_emmc_probe_slot,
 };
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sdio = {
-	.quirks2 = SDHCI_QUIRK2_HOST_OFF_CARD_ON,
+	.quirks2 = SDHCI_QUIRK2_HOST_OFF_CARD_ON |
+		SDHCI_QUIRK2_CAN_VDD_300 | SDHCI_QUIRK2_CAN_VDD_330 |
+		SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.caps    = MMC_CAP_NONREMOVABLE | MMC_CAP_POWER_OFF_CARD,
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
-	.pm_caps = MMC_PM_KEEP_POWER,
+	.pm_caps = MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ |
+		MMC_PM_WAKE_SDIO_IRQ,
 };
 
+#define BYT_SD_1P8_EN	40
+#define BYT_SD_PWR_EN	41
+static int sdhci_acpi_sd_probe_slot(struct platform_device *pdev)
+{
+	struct sdhci_acpi_host *c = platform_get_drvdata(pdev);
+	struct sdhci_host *host;
+	int err;
+
+	if (!c || !c->host || !c->slot)
+		return 0;
+
+	host = c->host;
+
+	/* On BYT-M, SD card is using to store ipanic as a W/A */
+	if (INTEL_MID_BOARDV2(TABLET, BYT, BLB, PRO) ||
+			INTEL_MID_BOARDV2(TABLET, BYT, BLB, ENG))
+		sdhci_alloc_panic_host(host);
+
+	c->cd_gpio = acpi_get_gpio_by_index(&pdev->dev, 0, NULL);
+
+	/* change the GPIO pin to GPIO mode */
+	if (c->slot->quirks2 & SDHCI_QUIRK2_POWER_PIN_GPIO_MODE) {
+		/* change to GPIO mode */
+		lnw_gpio_set_alt(BYT_SD_PWR_EN, 0);
+		err = gpio_request(BYT_SD_PWR_EN, "sd_pwr_en");
+		if (err)
+			return -ENODEV;
+		host->gpio_pwr_en = BYT_SD_PWR_EN;
+		/* disable the power by default */
+		gpio_direction_output(host->gpio_pwr_en, 0);
+		gpio_set_value(host->gpio_pwr_en, 1);
+
+		/* change to GPIO mode */
+		lnw_gpio_set_alt(BYT_SD_1P8_EN, 0);
+		err = gpio_request(BYT_SD_1P8_EN, "sd_1p8_en");
+		if (err) {
+			gpio_free(host->gpio_pwr_en);
+			return -ENODEV;
+		}
+		host->gpio_1p8_en = BYT_SD_1P8_EN;
+		/* 3.3v signaling by default */
+		gpio_direction_output(host->gpio_1p8_en, 0);
+		gpio_set_value(host->gpio_1p8_en, 0);
+	}
+
+	host->mmc->caps2 |= MMC_CAP2_PWCTRL_POWER;
+
+	/* Bayley Bay board */
+	if (INTEL_MID_BOARD(2, TABLET, BYT, BLB, PRO) ||
+			INTEL_MID_BOARD(2, TABLET, BYT, BLB, ENG))
+		host->quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
+
+	return 0;
+}
+
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sd = {
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+	.caps2   = MMC_CAP2_FIXED_NCRC,
 	.flags   = SDHCI_ACPI_SD_CD | SDHCI_ACPI_RUNTIME_PM,
+	.probe_slot	= sdhci_acpi_sd_probe_slot,
 };
 
 struct sdhci_acpi_uid_slot {
@@ -142,6 +329,7 @@ static const struct sdhci_acpi_uid_slot sdhci_acpi_uids[] = {
 	{ "80860F14" , "1" , &sdhci_acpi_slot_int_emmc },
 	{ "80860F14" , "3" , &sdhci_acpi_slot_int_sd   },
 	{ "INT33BB"  , "2" , &sdhci_acpi_slot_int_sdio },
+	{ "INT33BB"  , "3" , &sdhci_acpi_slot_int_sd   },
 	{ "INT33C6"  , NULL, &sdhci_acpi_slot_int_sdio },
 	{ "PNP0D40"  },
 	{ },
@@ -253,7 +441,7 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 	struct resource *iomem;
 	resource_size_t len;
 	const char *hid;
-	int err, gpio;
+	int err;
 
 	if (acpi_bus_get_device(handle, &device))
 		return -ENODEV;
@@ -278,13 +466,12 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 	if (IS_ERR(host))
 		return PTR_ERR(host);
 
-	gpio = acpi_get_gpio_by_index(dev, 0, NULL);
-
 	c = sdhci_priv(host);
 	c->host = host;
 	c->slot = sdhci_acpi_get_slot(handle, hid);
 	c->pdev = pdev;
 	c->use_runtime_pm = sdhci_acpi_flag(c, SDHCI_ACPI_RUNTIME_PM);
+	c->cd_gpio = -ENODEV;
 
 	platform_set_drvdata(pdev, c);
 
@@ -314,6 +501,11 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 	}
 
 	if (c->slot) {
+		if (c->slot->probe_slot) {
+			err = c->slot->probe_slot(pdev);
+			if (err)
+				goto err_free;
+		}
 		if (c->slot->chip) {
 			host->ops            = c->slot->chip->ops;
 			host->quirks        |= c->slot->chip->quirks;
@@ -335,8 +527,9 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 	if (err)
 		goto err_free;
 
-	if (sdhci_acpi_flag(c, SDHCI_ACPI_SD_CD)) {
-		if (sdhci_acpi_add_own_cd(dev, gpio, host->mmc))
+	if (sdhci_acpi_flag(c, SDHCI_ACPI_SD_CD) &&
+			c->cd_gpio != -ENODEV) {
+		if (sdhci_acpi_add_own_cd(dev, c->cd_gpio, host->mmc))
 			c->use_runtime_pm = false;
 	}
 
@@ -367,6 +560,9 @@ static int sdhci_acpi_remove(struct platform_device *pdev)
 		pm_runtime_disable(dev);
 		pm_runtime_put_noidle(dev);
 	}
+
+	if (c->slot && c->slot->remove_slot)
+		c->slot->remove_slot(pdev);
 
 	dead = (sdhci_readl(c->host, SDHCI_INT_STATUS) == ~0);
 	sdhci_remove_host(c->host, dead);
