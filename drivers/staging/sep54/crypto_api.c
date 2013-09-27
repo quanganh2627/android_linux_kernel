@@ -127,6 +127,7 @@ static struct crypto_alg blkcipher_algs_base = {
 
 /* Block cipher specific attributes */
 static struct crypto_alg dx_ablkcipher_algs[] = {
+#ifdef USE_SEP54_AES
 	{			/* ecb(aes) */
 	 .cra_name = "ecb(aes)",
 	 .cra_driver_name = MODULE_NAME "-aes-ecb",
@@ -172,6 +173,7 @@ static struct crypto_alg dx_ablkcipher_algs[] = {
 				  .ivsize = SEP_AES_IV_SIZE}
 		   }
 	 },
+#endif /* USE_SEP54_AES */
 	{			/* ecb(des) */
 	 .cra_name = "ecb(des)",
 	 .cra_driver_name = MODULE_NAME "-des-ecb",
@@ -351,6 +353,7 @@ static struct dx_digest_alg dx_digest_algs[] = {
 		   .halg.digestsize = SHA256_DIGEST_SIZE,
 		   .halg.statesize = SHA256_BLOCK_SIZE}
 	 },
+#ifdef USE_SEP54_AES
 	{			/* xcbc(aes) */
 	 .hash_type = DXDI_HASH_NONE,
 	 .mac_type = DXDI_MAC_AES_XCBC_MAC,
@@ -379,6 +382,7 @@ static struct dx_digest_alg dx_digest_algs[] = {
 		   .halg.digestsize = SEP_AES_BLOCK_SIZE,
 		   .halg.statesize = SEP_AES_BLOCK_SIZE}
 	 }
+#endif /* USE_SEP54_AES */
 };				/*dx_ahash_algs[] */
 
 #define DX_DIGEST_NUM \
