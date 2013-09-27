@@ -1099,7 +1099,7 @@ static int byt_thermal_probe(struct platform_device *pdev)
 	}
 
 	/* Register with IIO to sample temperature values */
-	tdata->iio_chan = iio_channel_get_all(dev);
+	tdata->iio_chan = iio_channel_get_all(&pdev->dev);
 	if (tdata->iio_chan == NULL) {
 		dev_err(&pdev->dev, "tdata->iio_chan is null\n");
 		ret = -EINVAL;
