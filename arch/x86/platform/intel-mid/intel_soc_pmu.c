@@ -1280,6 +1280,13 @@ int __ref pmu_pci_set_power_state(struct pci_dev *pdev, pci_power_t state)
 	if (status)
 		goto unlock;
 
+	/* HSI not used in MRFLD. IGNORE HSI Transition to D0 for MRFLD.
+	 * Sometimes it is turned ON during resume in the absence of a driver
+	 */
+	if (platform_is(INTEL_ATOM_MRFLD) && (sub_sys_index == 0x0) &&
+			(sub_sys_pos == 0x5) && (state == PCI_D0))
+		goto unlock;
+
 	if (pci_need_record_power_state(pdev)) {
 		record = get_new_record_history();
 		record->cpu = raw_smp_processor_id();
