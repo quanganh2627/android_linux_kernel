@@ -48,6 +48,8 @@
 #define SYSCLK_RATE        24576000
 #define DEFAULT_MCLK       19200000
 
+static int jack_det;
+
 static inline struct snd_soc_codec *mrfld_8958_get_codec(struct snd_soc_card *card)
 {
 	bool found = false;
@@ -112,6 +114,15 @@ static int mrfld_8958_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	unsigned int value = 0;
+
+	if (!jack_det) {
+		value = snd_soc_read(codec_dai->codec, WM8994_INTERRUPT_STATUS_2_MASK);
+		pr_err("interrupt mask 2: %x", value);
+		snd_soc_write(codec_dai->codec, WM8994_INTERRUPT_STATUS_2_MASK, value);
+
+		jack_det++;
+	}
 
 	return mrfld_wm8958_set_clk_fmt(codec_dai);
 }
