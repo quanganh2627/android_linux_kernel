@@ -32,7 +32,6 @@
 #include <linux/slab.h>
 #include <linux/vlv2_plat_clock.h>
 #include <linux/acpi_gpio.h>
-#include <linux/extcon-mid.h>
 #include <asm/intel-mid.h>
 #include <asm/platform_byt_audio.h>
 #include <sound/pcm.h>
@@ -60,22 +59,6 @@ static struct snd_soc_jack_gpio hs_gpio = {
 		.debounce_time		= 100,
 		.jack_status_check	= byt_hp_detection,
 };
-
-static inline void byt_jack_report(int status)
-{
-	switch (status) {
-	case SND_JACK_HEADPHONE:
-		mid_extcon_headset_report(HEADSET_NO_MIC);
-		break;
-	case SND_JACK_HEADSET:
-		mid_extcon_headset_report(HEADSET_WITH_MIC);
-		break;
-	default:
-		mid_extcon_headset_report(HEADSET_PULL_OUT);
-		break;
-	}
-	pr_debug("%s: headset reported: 0x%x\n", __func__, status);
-}
 
 static void set_mic_bias(struct snd_soc_codec *codec,
 			 const char *bias_widget, bool enable)
@@ -113,8 +96,6 @@ static int byt_hp_detection(void)
 		} else /* RT5640_NO_JACK */
 			jack_type = 0;
 
-		byt_jack_report(jack_type);
-
 		if (jack_type != SND_JACK_HEADSET) {
 			set_mic_bias(codec, "micbias1", false);
 			set_mic_bias(codec, "LDO2", false);
@@ -127,7 +108,6 @@ static int byt_hp_detection(void)
 		gpio->debounce_time = 100;
 		status = rt5640_headset_detect(codec, false);
 		jack_type = 0;
-		byt_jack_report(jack_type);
 		set_mic_bias(codec, "micbias1", false);
 		set_mic_bias(codec, "LDO2", false);
 		break;

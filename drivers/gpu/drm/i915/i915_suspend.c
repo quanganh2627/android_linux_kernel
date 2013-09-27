@@ -541,6 +541,9 @@ static int __i915_drm_thaw(struct drm_device *dev)
 		mutex_lock(&dev->struct_mutex);
 
 		error = i915_gem_init_hw(dev);
+		if (error)
+			DRM_ERROR("get_init_hw failed with error %x\n", error);
+
 		mutex_unlock(&dev->struct_mutex);
 
 		/* We need working interrupts for modeset enabling ... */
@@ -931,6 +934,9 @@ static int valleyview_thaw(struct drm_device *dev)
 		mutex_lock(&dev->struct_mutex);
 
 		error = i915_gem_init_hw(dev);
+		if (error)
+			DRM_ERROR("get_init_hw failed with error %x\n", error);
+
 		mutex_unlock(&dev->struct_mutex);
 
 		/* We need working interrupts for modeset enabling ... */
@@ -976,12 +982,13 @@ void i915_pm_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	if (IS_VALLEYVIEW(dev)) {
-		dev_priv->pm.drm_freeze = valleyview_freeze;
-		dev_priv->pm.drm_thaw = valleyview_thaw;
+		dev_priv->pm.funcs.drm_freeze = valleyview_freeze;
+		dev_priv->pm.funcs.drm_thaw = valleyview_thaw;
 	} else {
-		dev_priv->pm.drm_freeze = __i915_drm_freeze;
-		dev_priv->pm.drm_thaw = __i915_drm_thaw;
+		dev_priv->pm.funcs.drm_freeze = __i915_drm_freeze;
+		dev_priv->pm.funcs.drm_thaw = __i915_drm_thaw;
 	}
+	dev_priv->pm.shutdown_in_progress = false;
 	i915_rpm_init(dev);
 }
 

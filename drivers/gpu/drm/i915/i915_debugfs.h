@@ -29,6 +29,9 @@
 #ifndef _I915_DEBUGFS_H_
 #define _I915_DEBUGFS_H_
 
+/* Header file for Color management through debugfs */
+#include "intel_clrmgr.h"
+
 #define MAX_BUFFER_STR_LEN	200
 
 #define READ_TOKEN	        "READ"

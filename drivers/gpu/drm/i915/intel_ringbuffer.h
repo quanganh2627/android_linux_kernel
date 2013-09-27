@@ -33,6 +33,11 @@ struct  intel_hw_status_page {
 #define I915_READ_IMR(ring) I915_READ(RING_IMR((ring)->mmio_base))
 #define I915_WRITE_IMR(ring, val) I915_WRITE(RING_IMR((ring)->mmio_base), val)
 
+#define I915_READ_MODE(ring) \
+	I915_READ(RING_MI_MODE((ring)->mmio_base))
+#define I915_WRITE_MODE(ring, val) \
+	I915_WRITE(RING_MI_MODE((ring)->mmio_base), val)
+
 enum intel_ring_hangcheck_action {
 	HANGCHECK_WAIT,
 	HANGCHECK_ACTIVE,
@@ -120,6 +125,10 @@ struct  intel_ring_buffer {
 	u32		semaphore_register[I915_NUM_RINGS];
 	/* mboxes this ring signals to */
 	u32		signal_mbox[I915_NUM_RINGS];
+
+	int		(*start)(struct intel_ring_buffer *ring);
+	int		(*stop)(struct intel_ring_buffer *ring);
+	int		(*invalidate_tlb)(struct intel_ring_buffer *ring);
 
 	/**
 	 * List of objects currently involved in rendering from the

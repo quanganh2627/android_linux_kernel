@@ -1047,7 +1047,7 @@ void ironlake_edp_panel_vdd_on(struct intel_dp *intel_dp)
 	 * If the panel wasn't on, delay before accessing aux channel
 	 */
 	if (!ironlake_edp_have_panel_power(intel_dp)) {
-		DRM_DEBUG_KMS("eDP was not running\n");
+		DRM_DEBUG_KMS("eDP was not running; waiting for VDD on\n");
 		msleep(intel_dp->panel_power_up_delay);
 	}
 }
@@ -1172,9 +1172,9 @@ void ironlake_edp_panel_off(struct intel_dp *intel_dp)
 	WARN(!intel_dp->want_panel_vdd, "Need VDD to turn off panel\n");
 
 	pp = ironlake_get_pp_control(intel_dp);
-	/* We need to switch off panel power _and_ force vdd, for otherwise some
+	/* We need to switch off panel power, for otherwise some
 	 * panels get very unhappy and cease to work. */
-	pp &= ~(POWER_TARGET_ON | EDP_FORCE_VDD | PANEL_POWER_RESET | EDP_BLC_ENABLE);
+	pp &= ~(POWER_TARGET_ON | PANEL_POWER_RESET | EDP_BLC_ENABLE);
 
 	pp_ctrl_reg = IS_VALLEYVIEW(dev) ? PIPEA_PP_CONTROL : PCH_PP_CONTROL;
 
@@ -3606,6 +3606,13 @@ intel_dp_init_panel_power_sequencer(struct drm_device *dev,
 	intel_dp->panel_power_down_delay = get_delay(t10);
 	intel_dp->panel_power_cycle_delay = get_delay(t11_t12);
 #undef get_delay
+	/* Currrently the delays are set at 200ms.
+	 * It is a very conservative value. EDP panel can
+	 * come up within 100ms. Hard coding it to 100ms for now.
+	 * TODO : Work with IAFW team and get it programmed correctly.
+	 */
+	intel_dp->panel_power_up_delay = 100;
+	intel_dp->backlight_off_delay = 100;
 
 	DRM_DEBUG_KMS("panel power up delay %d, power down delay %d, power cycle delay %d\n",
 		      intel_dp->panel_power_up_delay, intel_dp->panel_power_down_delay,

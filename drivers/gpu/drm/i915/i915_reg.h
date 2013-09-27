@@ -649,6 +649,7 @@
 #define RING_SYNC_0(base)	((base)+0x40)
 #define RING_SYNC_1(base)	((base)+0x44)
 #define RING_SYNC_2(base)	((base)+0x48)
+#define RING_MI_MODE(base)		((base)+0x9c)
 #define GEN6_RVSYNC	(RING_SYNC_0(RENDER_RING_BASE))
 #define GEN6_RBSYNC	(RING_SYNC_1(RENDER_RING_BASE))
 #define GEN6_RVESYNC	(RING_SYNC_2(RENDER_RING_BASE))
@@ -765,6 +766,8 @@
 #define MI_MODE		0x0209c
 # define VS_TIMER_DISPATCH				(1 << 6)
 # define MI_FLUSH_ENABLE				(1 << 12)
+# define MODE_STOP					(1 << 8)
+# define MODE_IDLE					(1 << 9)
 # define ASYNC_FLIP_PERF_DISABLE			(1 << 14)
 
 #define GEN6_GT_MODE	0x20d0
@@ -812,6 +815,8 @@
 					will not assert AGPBUSY# and will only
 					be delivered when out of C3. */
 #define   INSTPM_FORCE_ORDERING				(1<<7) /* GEN6+ */
+#define   INSTPM_TLB_INVALIDATE	(1<<9)
+#define   INSTPM_SYNC_FLUSH	(1<<5)
 #define ACTHD	        0x020c8
 #define FW_BLC		0x020d8
 #define FW_BLC2		0x020dc
@@ -933,6 +938,9 @@
  * These defines should cover us well from SNB->HSW with minor exceptions
  * it can also work on ILK.
  */
+#ifdef CONFIG_DRM_VXD_BYT
+#define VED_BLOCK_INTERRUPT			(1 << 23)
+#endif
 #define GT_BLT_FLUSHDW_NOTIFY_INTERRUPT		(1 << 26)
 #define GT_BLT_CS_ERROR_INTERRUPT		(1 << 25)
 #define GT_BLT_USER_INTERRUPT			(1 << 22)
@@ -3518,7 +3526,9 @@ EDP_PSR_SW_TIMER
 #define   DISPPLANE_RGBX101010			(0x8<<26)
 #define   DISPPLANE_RGBA101010			(0x9<<26)
 #define   DISPPLANE_BGRX101010			(0xa<<26)
+#define   DISPPLANE_BGRA101010			(0xb<<26)
 #define   DISPPLANE_RGBX161616			(0xc<<26)
+#define   DISPPLANE_RGBA161616			(0xd<<26)
 #define   DISPPLANE_RGBX888			(0xe<<26)
 #define   DISPPLANE_RGBA888			(0xf<<26)
 #define   DISPPLANE_STEREO_ENABLE		(1<<25)
@@ -3606,6 +3616,18 @@ EDP_PSR_SW_TIMER
 #define _DSPBOFFSET		(dev_priv->info->display_mmio_offset + 0x711A4)
 #define _DSPBSURFLIVE		(dev_priv->info->display_mmio_offset + 0x711AC)
 #define _VLV_DSPBADDR		(dev_priv->info->display_mmio_offset + 0x7117C)
+
+/* Sprite Contrast and Brightness Registers */
+#define SPRITEA_CB_REG		0x721d0
+#define SPRITEB_CB_REG		0x722d0
+#define SPRITEC_CB_REG		0x723d0
+#define SPRITED_CB_REG		0x724d0
+
+/* Sprite Hue and Saturation Registers */
+#define SPRITEA_HS_REG         0x721d4
+#define SPRITEB_HS_REG         0x721d4
+#define SPRITEC_HS_REG         0x723d4
+#define SPRITED_HS_REG         0x724d4
 
 /* Sprite A control */
 #define _DVSACNTR		0x72180

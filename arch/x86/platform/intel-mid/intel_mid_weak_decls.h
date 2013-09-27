@@ -20,3 +20,4 @@ extern void * __init get_penwell_ops(void) __attribute__((weak));
 extern void * __init get_cloverview_ops(void) __attribute__((weak));
 extern void * __init get_tangier_ops(void) __attribute__((weak));
 extern void * __init get_anniedale_ops(void) __attribute__((weak));
+extern void * __init get_carboncanyon_ops(void) __attribute__((weak));

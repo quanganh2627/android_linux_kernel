@@ -37,30 +37,15 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/jack.h>
+#include <linux/input.h>
+
+#include <linux/mfd/wm8994/core.h>
 #include <linux/mfd/wm8994/registers.h>
+#include <linux/mfd/wm8994/pdata.h>
 #include "../../codecs/wm8994.h"
 
 #define SYSCLK_RATE        24576000
 #define DEFAULT_MCLK       19200000
-
-/* set_osc_clk0-	enable/disables the osc clock0
- * addr:		address of the register to write to
- * enable:		bool to enable or disable the clock
- */
-static inline void set_osc_clk0(void __iomem *addr, bool enable)
-{
-	u32 osc_clk_ctrl;
-
-	osc_clk_ctrl = readl(addr);
-	if (enable)
-		osc_clk_ctrl |= BIT(31);
-	else
-		osc_clk_ctrl &= ~(BIT(31));
-
-	pr_debug("%s: enable:%d val 0x%x", __func__, enable, osc_clk_ctrl);
-
-	writel(osc_clk_ctrl, addr);
-}
 
 static inline struct snd_soc_codec *mrfld_8958_get_codec(struct snd_soc_card *card)
 {
@@ -141,7 +126,6 @@ static int mrfld_wm8958_compr_set_params(struct snd_compr_stream *cstream)
 struct mrfld_8958_mc_private {
 	struct snd_soc_jack jack;
 	int jack_retry;
-	void __iomem    *osc_clk0_reg;
 };
 
 static int mrfld_8958_set_bias_level(struct snd_soc_card *card,
@@ -216,28 +200,10 @@ static int mrfld_8958_set_bias_level_post(struct snd_soc_card *card,
 	return 0;
 }
 
-static int mrfld_8958_enable_osc_clk(struct snd_soc_dapm_widget *w,
-				struct snd_kcontrol *k, int event)
-{
-	struct snd_soc_dapm_context *dapm = w->dapm;
-	struct snd_soc_card *card = dapm->card;
-	struct mrfld_8958_mc_private *ctx = snd_soc_card_get_drvdata(card);
-
-	if (SND_SOC_DAPM_EVENT_ON(event))
-		set_osc_clk0(ctx->osc_clk0_reg, true);
-	else if (SND_SOC_DAPM_EVENT_OFF(event))
-		set_osc_clk0(ctx->osc_clk0_reg, false);
-
-	return 0;
-}
-
 static const struct snd_soc_dapm_widget widgets[] = {
 	SND_SOC_DAPM_HP("Headphones", NULL),
 	SND_SOC_DAPM_MIC("AMIC", NULL),
 	SND_SOC_DAPM_MIC("DMIC", NULL),
-	SND_SOC_DAPM_SUPPLY("OSC_Clock0", SND_SOC_NOPM, 0, 0,
-			mrfld_8958_enable_osc_clk,
-			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 };
 
 static const struct snd_soc_dapm_route map[] = {
@@ -260,25 +226,121 @@ static const struct snd_soc_dapm_route map[] = {
 	{ "IN1LP", NULL, "AMIC" },
 
 	/* SWM map link the SWM outs to codec AIF */
-	{ "AIF1DAC1L", "NULL", "Codec OUT0" },
-	{ "AIF1DAC1R", "NULL", "Codec OUT0" },
-	{ "AIF1DAC2L", "NULL", "Codec OUT1" },
-	{ "AIF1DAC2R", "NULL", "Codec OUT1" },
+	{ "AIF1DAC1L", "NULL", "Codec OUT0"  },
+	{ "AIF1DAC1R", "NULL", "Codec OUT0"  },
+	{ "AIF1DAC2L", "NULL", "Codec OUT1"  },
+	{ "AIF1DAC2R", "NULL", "Codec OUT1"  },
 	{ "Codec IN0", "NULL", "AIF1ADC1L" },
 	{ "Codec IN0", "NULL", "AIF1ADC1R" },
 	{ "Codec IN1", "NULL", "AIF1ADC2L" },
 	{ "Codec IN1", "NULL", "AIF1ADC2R" },
-
-	{ "AIF1DAC1L", "NULL", "OSC_Clock0" },
-	{ "AIF1DAC1R", "NULL", "OSC_Clock0" },
-	{ "AIF1DAC2L", "NULL", "OSC_Clock0" },
-	{ "AIF1DAC2R", "NULL", "OSC_Clock0" },
-
-	{ "AIF1ADC1L", "NULL", "OSC_Clock0" },
-	{ "AIF1ADC1R", "NULL", "OSC_Clock0" },
-	{ "AIF1ADC2L", "NULL", "OSC_Clock0" },
-	{ "AIF1ADC2R", "NULL", "OSC_Clock0" },
 };
+
+static const struct wm8958_micd_rate micdet_rates[] = {
+	{ 32768,       true,  1, 4 },
+	{ 32768,       false, 1, 1 },
+	{ 44100 * 256, true,  7, 10 },
+	{ 44100 * 256, false, 7, 10 },
+};
+
+static void wm8958_custom_micd_set_rate(struct snd_soc_codec *codec)
+{
+	struct wm8994_priv *wm8994 = snd_soc_codec_get_drvdata(codec);
+	struct wm8994 *control = dev_get_drvdata(codec->dev->parent);
+	int best, i, sysclk, val;
+	bool idle;
+	const struct wm8958_micd_rate *rates;
+	int num_rates;
+
+	idle = !wm8994->jack_mic;
+
+	sysclk = snd_soc_read(codec, WM8994_CLOCKING_1);
+	if (sysclk & WM8994_SYSCLK_SRC)
+		sysclk = wm8994->aifclk[1];
+	else
+		sysclk = wm8994->aifclk[0];
+
+	if (control->pdata.micd_rates) {
+		rates = control->pdata.micd_rates;
+		num_rates = control->pdata.num_micd_rates;
+	} else {
+		rates = micdet_rates;
+		num_rates = ARRAY_SIZE(micdet_rates);
+	}
+
+	best = 0;
+	for (i = 0; i < num_rates; i++) {
+		if (rates[i].idle != idle)
+			continue;
+		if (abs(rates[i].sysclk - sysclk) <
+		    abs(rates[best].sysclk - sysclk))
+			best = i;
+		else if (rates[best].idle != idle)
+			best = i;
+	}
+
+	val = rates[best].start << WM8958_MICD_BIAS_STARTTIME_SHIFT
+		| rates[best].rate << WM8958_MICD_RATE_SHIFT;
+
+	dev_dbg(codec->dev, "MICD rate %d,%d for %dHz %s\n",
+		rates[best].start, rates[best].rate, sysclk,
+		idle ? "idle" : "active");
+
+	snd_soc_update_bits(codec, WM8958_MIC_DETECT_1,
+			    WM8958_MICD_BIAS_STARTTIME_MASK |
+			    WM8958_MICD_RATE_MASK, val);
+}
+
+static void wm8958_custom_mic_id(void *data, u16 status)
+{
+	struct snd_soc_codec *codec = data;
+	struct wm8994_priv *wm8994 = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "wm8958 custom mic id called with status %x\n",
+		status);
+
+	/* Either nothing present or just starting detection */
+	if (!(status & WM8958_MICD_STS)) {
+		/* If nothing present then clear our statuses */
+		dev_dbg(codec->dev, "Detected open circuit\n");
+
+		schedule_delayed_work(&wm8994->open_circuit_work,
+				      msecs_to_jiffies(2500));
+		return;
+	}
+
+	/* If the measurement is showing a high impedence we've got a
+	 * microphone.
+	 */
+	if (status & 0x600) {
+		dev_dbg(codec->dev, "Detected microphone\n");
+
+		wm8994->mic_detecting = false;
+		wm8994->jack_mic = true;
+
+		wm8958_custom_micd_set_rate(codec);
+
+		snd_soc_jack_report(wm8994->micdet[0].jack, SND_JACK_HEADSET,
+				    SND_JACK_HEADSET);
+	}
+
+
+	if (status & 0xfc) {
+		dev_dbg(codec->dev, "Detected headphone\n");
+
+		/* Partial inserts of headsets with complete insert
+		 * after an indeterminate amount of time require
+		 * continouous micdetect enabled (until open circuit
+		 * or headset is detected)
+		 * */
+		wm8994->mic_detecting = true;
+
+		wm8958_custom_micd_set_rate(codec);
+
+		snd_soc_jack_report(wm8994->micdet[0].jack, SND_JACK_HEADPHONE,
+				    SND_JACK_HEADSET);
+	}
+}
 
 static int mrfld_8958_init(struct snd_soc_pcm_runtime *runtime)
 {
@@ -328,7 +390,10 @@ static int mrfld_8958_init(struct snd_soc_pcm_runtime *runtime)
 		return ret;
 	}
 
-	wm8958_mic_detect(codec, &ctx->jack, NULL, NULL, NULL, NULL);
+	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
+
+	wm8958_mic_detect(codec, &ctx->jack, NULL, NULL,
+			  wm8958_custom_mic_id, codec);
 
 	snd_soc_update_bits(codec, WM8994_AIF1_DAC1_FILTERS_1, WM8994_AIF1DAC1_MUTE, 0);
 	snd_soc_update_bits(codec, WM8994_AIF1_DAC2_FILTERS_1, WM8994_AIF1DAC2_MUTE, 0);
@@ -496,13 +561,11 @@ static struct snd_soc_card snd_soc_card_mrfld = {
 	.num_dapm_routes = ARRAY_SIZE(map),
 };
 
-#define MERR_OSC_CLKOUT_CTRL0_REG_ADDR  0xFF00BC04
-#define MERR_OSC_CLKOUT_CTRL0_REG_SIZE  4
-
 static int snd_mrfld_8958_mc_probe(struct platform_device *pdev)
 {
 	int ret_val = 0;
 	struct mrfld_8958_mc_private *drv;
+	struct mrfld_audio_platform_data *pdata;
 
 	pr_debug("Entry %s\n", __func__);
 
@@ -511,17 +574,7 @@ static int snd_mrfld_8958_mc_probe(struct platform_device *pdev)
 		pr_err("allocation failed\n");
 		return -ENOMEM;
 	}
-
-	/* ioremap the register */
-	drv->osc_clk0_reg = devm_ioremap(&pdev->dev,
-					MERR_OSC_CLKOUT_CTRL0_REG_ADDR,
-					MERR_OSC_CLKOUT_CTRL0_REG_SIZE);
-	if (!drv->osc_clk0_reg) {
-		pr_err("osc clk0 ctrl ioremap failed\n");
-		ret_val = -1;
-		goto unalloc;
-	}
-
+	pdata = pdev->dev.platform_data;
 
 	/* register the soc card */
 	snd_soc_card_mrfld.dev = &pdev->dev;

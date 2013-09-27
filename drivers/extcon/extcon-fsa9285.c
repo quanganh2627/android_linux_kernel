@@ -142,6 +142,8 @@ struct fsa9285_chip {
 	u8	man_chg_cntl;
 };
 
+extern void *fsa9285_platform_data(void);
+
 static int fsa9285_write_reg(struct i2c_client *client,
 		int reg, int value)
 {
@@ -373,6 +375,7 @@ static int fsa9285_irq_init(struct fsa9285_chip *chip)
 {
 	struct i2c_client *client = chip->client;
 	int ret, gpio_num, cntl, man_sw, man_chg_cntl;
+	struct acpi_gpio_info gpio_info;
 
 	/* clear interrupt */
 	ret = fsa9285_read_reg(client, FSA9285_REG_INTR);
@@ -425,7 +428,7 @@ static int fsa9285_irq_init(struct fsa9285_chip *chip)
 #ifdef CONFIG_BYT_ULPMC_BATTERY
 	gpio_num = acpi_get_gpio("\\_SB.GPO2", 0x6);
 #else
-	gpio_num = acpi_get_gpio("\\_SB.GPO2", 0x1);
+	gpio_num = acpi_get_gpio_by_index(&client->dev, 0, &gpio_info);
 #endif
 	/* get irq number */
 	chip->client->irq = gpio_to_irq(gpio_num);
@@ -478,6 +481,9 @@ static int fsa9285_probe(struct i2c_client *client,
 
 	chip->client = client;
 	chip->pdata = dev->platform_data;
+#ifndef CONFIG_BYT_ULPMC_BATTERY
+	chip->pdata =   fsa9285_platform_data();
+#endif
 	i2c_set_clientdata(client, chip);
 
 	/* register with extcon */
@@ -614,11 +620,18 @@ static const struct i2c_device_id fsa9285_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, fsa9285_id);
 
+static const struct acpi_device_id acpi_fsa9285_id[] = {
+	{"SFSA9285", 0},
+	{}
+};
+MODULE_DEVICE_TABLE(acpi, acpi_fsa9285_id);
+
 static struct i2c_driver fsa9285_i2c_driver = {
 	.driver = {
 		.name = "fsa9285",
 		.owner	= THIS_MODULE,
 		.pm	= &fsa9285_pm_ops,
+		.acpi_match_table = ACPI_PTR(acpi_fsa9285_id),
 	},
 	.probe = fsa9285_probe,
 	.remove = fsa9285_remove,

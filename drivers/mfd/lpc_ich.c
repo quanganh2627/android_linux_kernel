@@ -207,6 +207,7 @@ enum lpc_chipsets {
 	LPC_LPT,	/* Lynx Point */
 	LPC_LPT_LP,	/* Lynx Point-LP */
 	LPC_WBG,	/* Wellsburg */
+	VLV_PCU,	/* Baytrail TCO */
 };
 
 struct lpc_ich_info lpc_chipset_info[] = {
@@ -491,6 +492,10 @@ struct lpc_ich_info lpc_chipset_info[] = {
 		.name = "Wellsburg",
 		.iTCO_version = 2,
 	},
+	[VLV_PCU] = {
+		.name = "Baytrail TCO",
+		.iTCO_version = 3,
+	},
 };
 
 /*
@@ -704,6 +709,7 @@ static DEFINE_PCI_DEVICE_TABLE(lpc_ich_ids) = {
 	{ PCI_VDEVICE(INTEL, 0x8d5d), LPC_WBG},
 	{ PCI_VDEVICE(INTEL, 0x8d5e), LPC_WBG},
 	{ PCI_VDEVICE(INTEL, 0x8d5f), LPC_WBG},
+	{ PCI_VDEVICE(INTEL, 0x0f1c), VLV_PCU},
 	{ 0, },			/* End of list */
 };
 MODULE_DEVICE_TABLE(pci, lpc_ich_ids);

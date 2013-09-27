@@ -565,7 +565,8 @@ static ssize_t sst_debug_rtpm_read(struct file *file, char __user *user_buf,
 {
 	struct intel_sst_drv *drv = file->private_data;
 	char *status;
-	int usage = atomic_read(&drv->dev->power.usage_count);
+
+	int usage = atomic_read(&drv->pm_usage_count);
 
 	pr_debug("RTPM usage: %d\n", usage);
 	status = drv->debugfs.runtime_pm_status ? "enabled\n" : "disabled\n";
@@ -579,13 +580,13 @@ static ssize_t sst_debug_rtpm_write(struct file *file,
 	struct intel_sst_drv *drv = file->private_data;
 	char buf[16];
 	int sz = min(count, sizeof(buf)-1);
-	int usage = atomic_read(&drv->dev->power.usage_count);
 
+	int usage = atomic_read(&drv->pm_usage_count);
+
+	pr_debug("RTPM Usage: %d\n", usage);
 	if (copy_from_user(buf, user_buf, sz))
 		return -EFAULT;
 	buf[sz] = 0;
-
-	pr_debug("RTPM Usage: %d\n", usage);
 
 	if (!strncmp(buf, "enable\n", sz)) {
 		/* already enabled? */

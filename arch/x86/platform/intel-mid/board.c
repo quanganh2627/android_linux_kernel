@@ -205,6 +205,8 @@ struct devs_id __initconst device_ids[] = {
 		&panel_handler},
 	{"PANEL_JDI_VID", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
+	{"ctp_lt_wm8994", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
+						&ipc_device_handler},
 
 	/* I2C devices for camera image subsystem */
 	{"lm3554", SFI_DEV_TYPE_I2C, 0, &lm3554_platform_data_func,
@@ -239,6 +241,7 @@ struct devs_id __initconst device_ids[] = {
 					&intel_register_i2c_camera_device},
 	{"audience_es305", SFI_DEV_TYPE_I2C, 0, &audience_platform_data,
 						NULL},
+	{"wm8994", SFI_DEV_TYPE_I2C, 0, &wm8994_platform_data, NULL},
 	{"PANEL_JDI_CMD", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
 

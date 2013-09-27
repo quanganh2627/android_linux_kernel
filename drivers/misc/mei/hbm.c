@@ -45,7 +45,7 @@ static void mei_hbm_me_cl_allocate(struct mei_device *dev)
 	kfree(dev->me_clients);
 	dev->me_clients = NULL;
 
-	dev_dbg(&dev->pdev->dev, "memory allocation for ME clients size=%zd.\n",
+	dev_dbg(&dev->pdev->dev, "memory allocation for ME clients size=%u.\n",
 		dev->me_clients_num * sizeof(struct mei_me_client));
 	/* allocate storage for ME clients representation */
 	clients = kcalloc(dev->me_clients_num,
@@ -170,7 +170,7 @@ int mei_hbm_start_req(struct mei_device *dev)
 		dev_err(&dev->pdev->dev, "version message writet failed\n");
 		dev->dev_state = MEI_DEV_RESETTING;
 		mei_reset(dev, 1);
-		return -ENODEV;
+		return -EIO;
 	}
 	dev->hbm_state = MEI_HBM_START;
 	dev->init_clients_timer = MEI_CLIENTS_INIT_TIMEOUT;

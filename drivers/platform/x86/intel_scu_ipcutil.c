@@ -120,6 +120,7 @@ struct chip_reset_event {
 };
 
 static struct chip_reset_event chip_reset_events[] = {
+	{ INTEL_MID_CPU_CHIP_CARBONCANYON, "RESETSRC0", "RESETSRC1" },
 	{ INTEL_MID_CPU_CHIP_TANGIER, "RESETSRC0", "RESETSRC1" },
 	{ INTEL_MID_CPU_CHIP_CLOVERVIEW, "RESETIRQ1", "RESETIRQ2" },
 	{ INTEL_MID_CPU_CHIP_PENWELL, "RESETIRQ1", "RESETIRQ2" },
@@ -343,7 +344,9 @@ EXPORT_SYMBOL_GPL(intel_scu_ipc_set_osc_clk0);
 /* Helpers to turn on/off msic vprog1 and vprog2 */
 int intel_scu_ipc_msic_vprog1(int on)
 {
-	if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER)
+	if ((oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_CARBONCANYON))
 		return intel_scu_ipc_iowrite8(MSIC_VPROG1_MRFLD_CTRL,
 			on ? MSIC_VPROG1_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
 	else
@@ -354,7 +357,9 @@ EXPORT_SYMBOL_GPL(intel_scu_ipc_msic_vprog1);
 
 int intel_scu_ipc_msic_vprog2(int on)
 {
-	if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER)
+	if ((oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_CARBONCANYON))
 		return intel_scu_ipc_iowrite8(MSIC_VPROG2_MRFLD_CTRL,
 			on ? MSIC_VPROG2_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
 	else
@@ -1172,7 +1177,9 @@ int intel_scu_ipc_read_oshob_extend_param(void __iomem *poshob_addr)
 	}
 
 	/* Set SCU and IA trace buffers. Size calculated in bytes here. */
-	if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER)
+	if ((oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_CARBONCANYON))
 		buff_size = OSHOB_SCU_BUF_MRFLD_DW_SIZE*4;
 	else
 		buff_size = OSHOB_SCU_BUF_BASE_DW_SIZE*4;
@@ -1279,13 +1286,17 @@ int intel_scu_ipc_read_oshob_def_param(void __iomem *poshob_addr)
 	oshob_info->oemnib_size = 0;
 
 	/* Set OSHOB total size */
-	if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER)
+	if ((oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_CARBONCANYON))
 		oshob_info->oshob_size = OSHOB_MRFLD_SIZE;
 	else
 		oshob_info->oshob_size = OSHOB_SIZE;
 
 	/* Set SCU and IA trace buffers. Size calculated in bytes here. */
-	if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER)
+	if ((oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_CARBONCANYON))
 		buff_size = OSHOB_SCU_BUF_MRFLD_DW_SIZE*4;
 	else
 		buff_size = OSHOB_SCU_BUF_BASE_DW_SIZE*4;
@@ -1366,8 +1377,11 @@ int intel_scu_ipc_read_oshob_info(void)
 	oshob_info->nvram_addr = 0;
 	oshob_info->nvram_size = 0;
 
-	if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) {
-		pr_info("(oshob) identified platform = INTEL_MID_CPU_CHIP_TANGIER\n");
+	if ((oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+		(oshob_info->platform_type ==
+			INTEL_MID_CPU_CHIP_CARBONCANYON)) {
+		pr_info("(oshob) identified platform = INTEL_MID_CPU_CHIP_TANGIER|ANNIEDALE|CARBONCANYON\n");
 
 		/* By default we already have 1 dword reserved in the OSHOB */
 		/* structures for SCU buffer. For Merrifield, SCU size to   */
@@ -1393,7 +1407,12 @@ int intel_scu_ipc_read_oshob_info(void)
 			goto unmap_oshob;
 		}
 
-		if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) {
+		if ((oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_TANGIER) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_CARBONCANYON)) {
 			pr_info("(extend oshob) SCU buffer size is %d bytes\n",
 				OSHOB_SCU_BUF_MRFLD_DW_SIZE*4);
 		} else {
@@ -1403,7 +1422,12 @@ int intel_scu_ipc_read_oshob_info(void)
 	} else {
 		ret = intel_scu_ipc_read_oshob_def_param(oshob_addr);
 
-		if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) {
+		if ((oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_TANGIER) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_CARBONCANYON)) {
 			pr_info("(default oshob) SCU buffer size is %d bytes\n",
 				OSHOB_SCU_BUF_MRFLD_DW_SIZE*4);
 		} else {
@@ -1736,7 +1760,8 @@ u32 intel_scu_ipc_get_fabricerror_buf1_offset(void)
 
 	if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_CLOVERVIEW)
 		return offsetof(struct scu_ipc_oshob_extend, fabricerrlog1);
-	else if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER)
+	else if ((oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE))
 		return offsetof(struct scu_ipc_oshob, fab_err_log) +
 				oshob_info->offs_add;
 	else {
@@ -1807,7 +1832,12 @@ static int intel_scu_ipc_oshob_stat(struct seq_file *m, void *unused)
 	     (oshob_info->oshob_minrev == OSHOB_REV_MIN_DEFAULT)) {
 		seq_printf(m, "DEFAULT OSHOB\n");
 		seq_printf(m, "OSHOB size : %d\n", oshob_info->oshob_size);
-		if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) {
+		if ((oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_TANGIER) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_CARBONCANYON)) {
 			seq_printf(m, "SCU trace : ");
 
 			for (i = 0; i < OSHOB_SCU_BUF_MRFLD_DW_SIZE; i++)
@@ -1824,7 +1854,12 @@ static int intel_scu_ipc_oshob_stat(struct seq_file *m, void *unused)
 						oshob_info->oshob_majrev,
 						oshob_info->oshob_minrev);
 		seq_printf(m, "OSHOB size : %d\n\n", oshob_info->oshob_size);
-		if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) {
+		if ((oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_TANGIER) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_CARBONCANYON)) {
 			seq_printf(m, "SCU trace : ");
 
 			for (i = 0; i < OSHOB_SCU_BUF_MRFLD_DW_SIZE; i++)
@@ -2155,7 +2190,12 @@ static int oshob_init(void)
 	if ((oshob_info->oshob_majrev == OSHOB_REV_MAJ_DEFAULT) &&
 	    (oshob_info->oshob_minrev == OSHOB_REV_MIN_DEFAULT)) {
 		/* Use default OSHOB here. Calculate in bytes here. */
-		if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER)
+		if ((oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_TANGIER) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_CARBONCANYON))
 			buff_size = OSHOB_SCU_BUF_MRFLD_DW_SIZE*4;
 		else
 			buff_size = OSHOB_SCU_BUF_BASE_DW_SIZE*4;
@@ -2183,7 +2223,12 @@ static int oshob_init(void)
 		}
 	    } else {
 		/* Use extended OSHOB here. Calculate in bytes here. */
-		if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER)
+		if ((oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_TANGIER) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+			(oshob_info->platform_type ==
+				INTEL_MID_CPU_CHIP_CARBONCANYON))
 			buff_size = OSHOB_SCU_BUF_MRFLD_DW_SIZE*4;
 		else
 			buff_size = OSHOB_SCU_BUF_BASE_DW_SIZE*4;
@@ -2211,7 +2256,12 @@ static int oshob_init(void)
 		}
 	}
 
-	if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) {
+	if ((oshob_info->platform_type ==
+			INTEL_MID_CPU_CHIP_TANGIER) ||
+		(oshob_info->platform_type ==
+			INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+		(oshob_info->platform_type ==
+			INTEL_MID_CPU_CHIP_CARBONCANYON)) {
 		for (i = 0; i < OSHOB_SCU_BUF_MRFLD_DW_SIZE; i++)
 			pr_warn("[BOOT] SCU_TR[%d]=0x%08x\n", i, scu_trace[i]);
 	} else

@@ -83,7 +83,8 @@ static void dump_trailer(const struct device *dev, char *buf, int len, int sz)
 static inline u8 ssp_cfg_get_mode(u8 ssp_cfg)
 {
 	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
-	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE ||
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CARBONCANYON)
 		return (ssp_cfg) & 0x03;
 	else
 		return (ssp_cfg) & 0x07;
@@ -92,7 +93,8 @@ static inline u8 ssp_cfg_get_mode(u8 ssp_cfg)
 static inline u8 ssp_cfg_get_spi_bus_nb(u8 ssp_cfg)
 {
 	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
-	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE ||
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CARBONCANYON)
 		return ((ssp_cfg) >> 2) & 0x07;
 	else
 		return ((ssp_cfg) >> 3) & 0x07;
@@ -101,7 +103,8 @@ static inline u8 ssp_cfg_get_spi_bus_nb(u8 ssp_cfg)
 static inline u8 ssp_cfg_is_spi_slave(u8 ssp_cfg)
 {
 	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
-	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE ||
+	    intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CARBONCANYON)
 		return (ssp_cfg) & 0x20;
 	else
 		return (ssp_cfg) & 0x40;
@@ -946,7 +949,8 @@ static int handle_message(struct ssp_drv_context *sspc)
 
 	/* [REVERT ME] Bug in status register clear for Tangier simulation */
 	if ((intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) ||
-	    (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)) {
+	    (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) ||
+	    (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CARBONCANYON)) {
 		if ((intel_mid_identify_sim() != INTEL_MID_CPU_SIMULATION_VP &&
 		    (intel_mid_identify_sim() != INTEL_MID_CPU_SIMULATION_HVP)))
 			write_SSSR(sspc->clear_sr, reg);
@@ -977,9 +981,11 @@ static int handle_message(struct ssp_drv_context *sspc)
 		sspc->len, sspc->n_bytes, chip->cr0, cr1);
 
 	/* first set CR1 */
-	write_SSCR1(cr1, reg);
+	if (intel_mid_identify_sim() != INTEL_MID_CPU_SIMULATION_SLE)
+		write_SSCR1(cr1, reg);
 
-	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER)
+	if ((intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) ||
+		(intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE))
 		write_SSFS((1 << chip->chip_select), reg);
 
 	/* Do bitbanging only if SSP not-enabled or not-synchronized */
@@ -989,15 +995,17 @@ static int handle_message(struct ssp_drv_context *sspc)
 			start_bitbanging(sspc);
 	} else {
 		/* (re)start the SSP */
-		if (ssp_timing_wr) {
-			chip->cr0 = 0x00C0000F;
-			write_SSCR0(chip->cr0, reg);
-			chip->cr0 = 0x00C12C0F;
-			write_SSCR0(chip->cr0, reg);
-			chip->cr0 = 0x00C12C8F;
-			write_SSCR0(chip->cr0, reg);
-		} else
-			write_SSCR0(chip->cr0, reg);
+		if (intel_mid_identify_sim() != INTEL_MID_CPU_SIMULATION_SLE) {
+			if (ssp_timing_wr) {
+				chip->cr0 = 0x00C0000F;
+				write_SSCR0(chip->cr0, reg);
+				chip->cr0 = 0x00C12C0F;
+				write_SSCR0(chip->cr0, reg);
+				chip->cr0 = 0x00C12C8F;
+				write_SSCR0(chip->cr0, reg);
+			} else
+				write_SSCR0(chip->cr0, reg);
+		}
 	}
 
 	if (likely(chip->dma_enabled)) {
@@ -1236,6 +1244,21 @@ static int intel_mid_ssp_spi_probe(struct pci_dev *pdev,
 		goto err_abort_probe;
 	}
 
+	/*
+	* KKSANAG
+	* Remove registering SSP6(pci:0000:00:07.2)
+	* or it will cause tons of unprovoked interrupts
+	* This issue will be fixed in RTL. Then no need of this
+	* fix
+	*/
+	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CARBONCANYON) {
+		dev_info(dev, "The devfn (%0xh)\n", pdev->devfn);
+		if (0x2 == (pdev->devfn & 0x03)) {
+			dev_info(dev, "The SSP6 needs to be disabled, causing spurious interrupts\n");
+			goto err_abort_probe;
+		}
+	}
+
 	dev_info(dev, "found PCI SSP controller (ID: %04xh:%04xh cfg: %02xh)\n",
 		pdev->vendor, pdev->device, ssp_cfg);
 
@@ -1319,7 +1342,8 @@ static int intel_mid_ssp_spi_probe(struct pci_dev *pdev,
 	status = request_irq(sspc->irq, ssp_int, IRQF_SHARED,
 		"intel_mid_ssp_spi", sspc);
 
-	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) {
+	if ((intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) ||
+		(intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)) {
 		if ((intel_mid_identify_sim() ==
 				INTEL_MID_CPU_SIMULATION_SLE) ||
 		    (intel_mid_identify_sim() ==
@@ -1329,7 +1353,8 @@ static int intel_mid_ssp_spi_probe(struct pci_dev *pdev,
 			 * also required in Si. */
 			disable_irq_nosync(sspc->irq);
 		}
-		if (intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_NONE)
+		if ((intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_NONE) ||
+		    (intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_SLE))
 			ssp_timing_wr = 1;
 	}
 
