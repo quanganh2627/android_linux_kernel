@@ -581,10 +581,10 @@ bool i915_semaphore_is_enabled(struct drm_device *dev)
 static int i915_drm_freeze(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	if (!dev_priv->pm.drm_freeze)
+	if (!dev_priv->pm.funcs.drm_freeze)
 		return -ENODEV;
 
-	return dev_priv->pm.drm_freeze(dev);
+	return dev_priv->pm.funcs.drm_freeze(dev);
 }
 
 int i915_suspend(struct drm_device *dev, pm_message_t state)
@@ -642,10 +642,10 @@ static int i915_drm_thaw(struct drm_device *dev, bool restore_gtt)
 		mutex_unlock(&dev->struct_mutex);
 	}
 
-	if (!dev_priv->pm.drm_thaw)
+	if (!dev_priv->pm.funcs.drm_thaw)
 		return -ENODEV;
 
-	error = dev_priv->pm.drm_thaw(dev);
+	error = dev_priv->pm.funcs.drm_thaw(dev);
 
 	return error;
 }
@@ -936,7 +936,6 @@ static int i915_pm_suspend(struct device *dev)
 	DRM_DEBUG_PM("PM Suspend finished\n");
 
 	return ret;
-
 }
 
 static int i915_rpm_suspend(struct device *dev)
@@ -948,7 +947,6 @@ static int i915_rpm_suspend(struct device *dev)
 	DRM_DEBUG_PM("Runtime PM Suspend finished\n");
 
 	return ret;
-
 }
 
 static int i915_pm_resume(struct device *dev)
@@ -1010,6 +1008,10 @@ static int i915_pm_shutdown(struct pci_dev *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+
+	dev_priv->pm.shutdown_in_progress = true;
+
 	if (!i915_is_device_suspended(drm_dev)) {
 		/* Device already in suspend state */
 		return 0;

@@ -32,6 +32,9 @@
 #ifdef CONFIG_PM_RUNTIME
 #include <linux/pm_runtime.h>
 #endif
+#include <linux/proc_fs.h>  /* Needed for procfs access */
+#include <linux/fs.h>	    /* For the basic file system */
+#include <linux/kernel.h>
 
 #define RPM_AUTOSUSPEND_DELAY 500
 
@@ -65,15 +68,81 @@
  *    in same path will end up in deadlock
  */
 
-/* To make sure ring get/put are in pair */
-static bool ring_active;
+#define RPM_PROC_ENTRY_FILENAME		"i915_rpm_op"
+#define RPM_PROC_ENTRY_DIRECTORY	"driver/i915rpm"
 
+int i915_rpm_get_procfs(struct inode *inode, struct file *file);
+int i915_rpm_put_procfs(struct inode *inode, struct file *file);
+/* proc file operations supported */
+static const struct file_operations rpm_file_ops = {
+	.owner		= THIS_MODULE,
+	.open		= i915_rpm_get_procfs,
+	.release	= i915_rpm_put_procfs,
+};
+
+static int i915_rpm_procfs_init(struct drm_device *drm_dev)
+{
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+	dev_priv->rpm.i915_proc_dir = NULL;
+	dev_priv->rpm.i915_proc_file = NULL;
+
+	/**
+	 * Create directory for rpm file(s)
+	 */
+	dev_priv->rpm.i915_proc_dir = proc_mkdir(RPM_PROC_ENTRY_DIRECTORY,
+						 NULL);
+	if (dev_priv->rpm.i915_proc_dir == NULL) {
+		DRM_ERROR("Could not initialize %s\n",
+				RPM_PROC_ENTRY_DIRECTORY);
+		return -ENOMEM;
+	}
+	/**
+	 * Create the /proc file
+	 */
+	dev_priv->rpm.i915_proc_file = proc_create_data(
+						RPM_PROC_ENTRY_FILENAME,
+						S_IRUGO | S_IWUSR,
+						dev_priv->rpm.i915_proc_dir,
+						&rpm_file_ops,
+						drm_dev);
+	/* check if file is created successfuly */
+	if (dev_priv->rpm.i915_proc_file == NULL) {
+		DRM_ERROR("Could not initialize %s/%s\n",
+			RPM_PROC_ENTRY_DIRECTORY, RPM_PROC_ENTRY_FILENAME);
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+static int i915_rpm_procfs_deinit(struct drm_device *drm_dev)
+{
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+	/* Clean up proc file */
+	if (dev_priv->rpm.i915_proc_file) {
+		remove_proc_entry(RPM_PROC_ENTRY_FILENAME,
+				 dev_priv->rpm.i915_proc_dir);
+		dev_priv->rpm.i915_proc_file = NULL;
+	}
+	if (dev_priv->rpm.i915_proc_dir) {
+		remove_proc_entry(RPM_PROC_ENTRY_DIRECTORY, NULL);
+		dev_priv->rpm.i915_proc_dir = NULL;
+	}
+	return 0;
+}
+
+/* RPM init */
 int i915_rpm_init(struct drm_device *drm_dev)
 {
 	int ret = 0;
 	struct device *dev = drm_dev->dev;
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+	ret = i915_rpm_procfs_init(drm_dev);
+	if (ret) {
+		DRM_ERROR("unable to initialize procfs entry");
+	}
 	ret = pm_runtime_set_active(dev);
-	ring_active = false;
+	dev_priv->rpm.ring_active = false;
+	atomic_set(&dev_priv->rpm.procfs_count, 0);
 	pm_runtime_allow(dev);
 	/* enable Auto Suspend */
 	pm_runtime_set_autosuspend_delay(dev, RPM_AUTOSUSPEND_DELAY);
@@ -93,6 +162,7 @@ int i915_rpm_deinit(struct drm_device *drm_dev)
 	if (dev->power.runtime_error)
 		DRM_ERROR("rpm init: error = %d\n", dev->power.runtime_error);
 
+	i915_rpm_procfs_deinit(drm_dev);
 	return 0;
 }
 
@@ -131,8 +201,8 @@ int i915_rpm_get_ring(struct drm_device *drm_dev)
 		idle &= list_empty(&ring->request_list);
 
 	if (idle) {
-		if (!ring_active) {
-			ring_active = true;
+		if (!dev_priv->rpm.ring_active) {
+			dev_priv->rpm.ring_active = true;
 			pm_runtime_get_noresume(drm_dev->dev);
 		}
 	}
@@ -142,11 +212,13 @@ int i915_rpm_get_ring(struct drm_device *drm_dev)
 
 int i915_rpm_put_ring(struct drm_device *drm_dev)
 {
-	if (ring_active) {
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+
+	if (dev_priv->rpm.ring_active) {
 		/* Mark last time it was busy and schedule a autosuspend */
 		pm_runtime_mark_last_busy(drm_dev->dev);
 		pm_runtime_put_autosuspend(drm_dev->dev);
-		ring_active = false;
+		dev_priv->rpm.ring_active = false;
 	}
 	return 0;
 }
@@ -199,6 +271,30 @@ int i915_rpm_put_ioctl(struct drm_device *drm_dev)
 
 	pm_runtime_mark_last_busy(drm_dev->dev);
 	return pm_runtime_put_autosuspend(drm_dev->dev);
+}
+
+/* these operations are caled from user mode (CoreU) to make sure
+ * Gfx is up before register accesses from user mode
+ */
+int i915_rpm_get_procfs(struct inode *inode, struct file *file)
+{
+	struct drm_device *dev = PDE_DATA(inode);
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	atomic_inc(&dev_priv->rpm.procfs_count);
+	pm_runtime_get_sync(dev->dev);
+	return 0;
+}
+
+int i915_rpm_put_procfs(struct inode *inode, struct file *file)
+{
+	struct drm_device *dev = PDE_DATA(inode);
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	pm_runtime_mark_last_busy(dev->dev);
+	pm_runtime_put_autosuspend(dev->dev);
+	atomic_dec(&dev_priv->rpm.procfs_count);
+	return 0;
 }
 
 /**
@@ -306,6 +402,10 @@ int i915_rpm_get_ioctl(struct drm_device *dev) {return 0; }
 int i915_rpm_put_ioctl(struct drm_device *dev) {return 0; }
 int i915_rpm_get_disp(struct drm_device *dev) {return 0; }
 int i915_rpm_put_disp(struct drm_device *dev) {return 0; }
+int i915_rpm_get_procfs(struct inode *inode,
+			      struct file *file) {return 0; }
+int i915_rpm_put_procfs(struct inode *inode,
+			      struct file *file) {return 0; }
 #ifdef CONFIG_DRM_VXD_BYT
 int i915_rpm_get_vxd(struct drm_device *dev) {return 0; }
 int i915_rpm_put_vxd(struct drm_device *dev) {return 0; }

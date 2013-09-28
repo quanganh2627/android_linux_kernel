@@ -29,7 +29,6 @@
 
 #ifndef _I915_DRV_H_
 #define _I915_DRV_H_
-
 #include <uapi/drm/i915_drm.h>
 
 #include "i915_reg.h"
@@ -414,9 +413,14 @@ struct intel_uncore {
 	unsigned int fw_mediacount;
 };
 
-struct drm_i915_pm_funcs {
+struct i915_pm_funcs {
 	int (*drm_freeze)(struct drm_device *dev);
 	int (*drm_thaw)(struct drm_device *dev);
+};
+
+struct i915_pm {
+	struct i915_pm_funcs funcs;
+	bool shutdown_in_progress;
 };
 
 #define DEV_INFO_FOR_EACH_FLAG(func, sep) \
@@ -461,6 +465,13 @@ struct intel_device_info {
 
 #undef DEFINE_FLAG
 #undef SEP_SEMICOLON
+
+enum hdmi_panel_fitter {
+	PFIT_OFF,
+	AUTOSCALE,
+	PILLARBOX,
+	LETTERBOX,
+};
 
 enum i915_cache_level {
 	I915_CACHE_NONE = 0,
@@ -883,6 +894,18 @@ struct intel_gen6_power_mgmt {
 	struct mutex hw_lock;
 };
 
+/* Runtime power management related */
+struct intel_gen7_rpm {
+	/* To track (num of get calls - num of put calls)
+	 * made by procfs
+	 */
+	atomic_t procfs_count;
+	/* To make sure ring get/put are in pair */
+	bool ring_active;
+	struct proc_dir_entry *i915_proc_dir;
+	struct proc_dir_entry *i915_proc_file;
+};
+
 /* defined intel_pm.c */
 extern spinlock_t mchdev_lock;
 
@@ -1204,7 +1227,7 @@ typedef struct drm_i915_private {
 	void __iomem *regs;
 
 	/** related to power management */
-	struct drm_i915_pm_funcs pm;
+	struct i915_pm pm;
 
 	struct intel_uncore uncore;
 
@@ -1357,6 +1380,9 @@ typedef struct drm_i915_private {
 	/* gen6+ rps state */
 	struct intel_gen6_power_mgmt rps;
 
+	/* Runtime power management related */
+	struct intel_gen7_rpm rpm;
+
 	/* ilk-only ips/rps state. Everything in here is protected by the global
 	 * mchdev_lock in intel_pm.c */
 	struct intel_ilk_power_mgmt ips;
@@ -1381,6 +1407,7 @@ typedef struct drm_i915_private {
 
 	struct drm_property *broadcast_rgb_property;
 	struct drm_property *force_audio_property;
+	struct drm_property *force_pfit_property;
 
 	bool hw_contexts_disabled;
 	uint32_t hw_context_size;
@@ -1411,6 +1438,11 @@ typedef struct drm_i915_private {
 	/* Old ums support infrastructure, same warning applies. */
 	struct i915_ums_state ums;
 
+	int planeid_gamma;
+	int planeid_csc;
+	bool gamma_enabled;
+	bool csc_enabled;
+	bool is_hdmi;
 	u16 is_mipi;
 	u16 mipi_panel_id;
 
@@ -2404,6 +2436,8 @@ int i915_set_plane_180_rotation(struct drm_device *dev, void *data,
 		struct drm_file *file);
 int i915_disp_screen_control(struct drm_device *dev, void *data,
 		struct drm_file *file);
+int i915_set_plane_alpha(struct drm_device *dev, void *data,
+			  struct drm_file *file);
 
 /* overlay */
 extern struct intel_overlay_error_state *intel_overlay_capture_error_state(struct drm_device *dev);

@@ -1326,6 +1326,9 @@ static bool vlv_compute_drain_latency(struct drm_device *dev,
 			DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;
 		*plane_dl = (64 * (*plane_prec_mult) * 4) / ((clock / 1000) *
 						     pixel_size);
+		/* Temp hack - Try raising priority to high to w/a
+		latency problems */
+		*plane_dl = 0;
 		latencyprogrammed = true;
 	}
 
@@ -1335,6 +1338,9 @@ static bool vlv_compute_drain_latency(struct drm_device *dev,
 			DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;
 		*cursor_dl = (64 * (*cursor_prec_mult) * 4) / ((clock / 1000) *
 							4);
+		/* Temp hack - Try raising priority to high to w/a
+		latency problems */
+		*cursor_dl = 0;
 		latencyprogrammed = true;
 	}
 	if (enable.EnSprite) {
@@ -1343,6 +1349,9 @@ static bool vlv_compute_drain_latency(struct drm_device *dev,
 			DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;
 		*sprite_dl = (64 * (*sprite_prec_mult) * 4) / ((clock / 1000) *
 						sprite_pixel_size);
+		/* Temp hack - Try raising priority to high to w/a
+		latency problems */
+		*sprite_dl = 0;
 		latencyprogrammed = true;
 	}
 
@@ -1366,57 +1375,68 @@ static void vlv_update_drain_latency(struct drm_device *dev)
 	int plane_prec_mult = 0, cursor_prec_mult = 0;
 	/* Precision multiplier is either 64 or 32 */
 	struct vlv_MA_component_enabled enable;
-	u32 val;
-
-	/* compute & update drain latency only if plane enabled */
 
 	enable.EnPlane = is_plane_enabled(dev_priv, 0);
-	enable.EnCursor = is_cursor_enabled(dev_priv, 0);
+	enable.EnCursor = false;
 	enable.EnSprite = false;
 
-	/* For plane A, Cursor A */
+	/* For plane A */
 	if (vlv_compute_drain_latency(dev, 0, &plane_prec_mult,
-		&planea_dl, &cursor_prec_mult, &cursora_dl, NULL,
-		NULL, 0, enable)) {
-		cursora_prec = (cursor_prec_mult ==
-				DRAIN_LATENCY_PRECISION_32) ?
-				DDL_CURSORA_PRECISION_32 :
-				DDL_CURSORA_PRECISION_64;
+		&planea_dl, NULL, NULL, NULL, NULL, 0, enable)) {
+
 		planea_prec = (plane_prec_mult ==
 				DRAIN_LATENCY_PRECISION_32) ?
 				DDL_PLANEA_PRECISION_32 :
 				DDL_PLANEA_PRECISION_64;
 
-		val = I915_READ(VLV_DDL1);
-		I915_WRITE(VLV_DDL1, val | cursora_prec |
-			(cursora_dl << DDL_CURSORA_SHIFT) |
-			planea_prec | planea_dl);
-	} else {
-		I915_WRITE(VLV_DDL1, 0);
-	}
-	enable.EnPlane = is_plane_enabled(dev_priv, 1);
-	enable.EnCursor = is_cursor_enabled(dev_priv, 1);
-	enable.EnSprite = false;
-	/* For plane B, Cursor B */
-	if (vlv_compute_drain_latency(dev, 1, &plane_prec_mult,
-		&planeb_dl, &cursor_prec_mult, &cursorb_dl, NULL,
-		NULL, 0, enable)) {
-		cursorb_prec = (cursor_prec_mult ==
+		I915_WRITE_BITS(VLV_DDL1, planea_prec | planea_dl, 0x000000ff);
+	} else
+		I915_WRITE_BITS(VLV_DDL1, 0x0000, 0x000000ff);
+
+	/* Cursor A */
+	enable.EnPlane = false;
+	enable.EnCursor = is_cursor_enabled(dev_priv, 0);
+
+	if (vlv_compute_drain_latency(dev, 0, NULL, NULL, &cursor_prec_mult,
+			&cursora_dl, NULL, NULL, 0, enable)) {
+		cursora_prec = (cursor_prec_mult ==
 				DRAIN_LATENCY_PRECISION_32) ?
-				DDL_CURSORB_PRECISION_32 :
-				DDL_CURSORB_PRECISION_64;
+				DDL_CURSORA_PRECISION_32 :
+				DDL_CURSORA_PRECISION_64;
+
+		I915_WRITE_BITS(VLV_DDL1, cursora_prec |
+			(cursora_dl << DDL_CURSORA_SHIFT), 0xff000000);
+	} else
+		I915_WRITE_BITS(VLV_DDL1, 0x0000, 0xff000000);
+
+	/* For plane B */
+	enable.EnPlane = is_plane_enabled(dev_priv, 1);
+	enable.EnCursor = false;
+	if (vlv_compute_drain_latency(dev, 1, &plane_prec_mult,
+		&planeb_dl, NULL, NULL, NULL, NULL, 0, enable)) {
+
 		planeb_prec = (plane_prec_mult ==
 				DRAIN_LATENCY_PRECISION_32) ?
 				DDL_PLANEB_PRECISION_32 :
 				DDL_PLANEB_PRECISION_64;
+		I915_WRITE_BITS(VLV_DDL2, planeb_prec | planeb_dl, 0x000000ff);
+	} else
+		I915_WRITE_BITS(VLV_DDL2, 0x0000, 0x000000ff);
 
-		val = I915_READ(VLV_DDL2);
-		I915_WRITE(VLV_DDL2, val | cursorb_prec |
-			(cursorb_dl << DDL_CURSORB_SHIFT) |
-			planeb_prec | planeb_dl);
-	} else {
-		I915_WRITE(VLV_DDL1, 0);
-	}
+	/* Cursor B */
+	enable.EnPlane = false;
+	enable.EnCursor = is_cursor_enabled(dev_priv, 1);
+	if (vlv_compute_drain_latency(dev, 1, NULL, NULL, &cursor_prec_mult,
+			&cursorb_dl, NULL, NULL, 0, enable)) {
+		cursorb_prec = (cursor_prec_mult ==
+				DRAIN_LATENCY_PRECISION_32) ?
+				DDL_CURSORB_PRECISION_32 :
+				DDL_CURSORB_PRECISION_64;
+
+		I915_WRITE_BITS(VLV_DDL2, cursorb_prec | (cursorb_dl <<
+				DDL_CURSORB_SHIFT), 0xff000000);
+	} else
+		I915_WRITE_BITS(VLV_DDL2, 0x0000, 0xff000000);
 }
 
 #define single_plane_enabled(mask) is_power_of_2(mask)
@@ -3116,15 +3136,16 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 	int sprite_prec = 0, sprite_dl = 0;
 	int sprite_prec_mult = 0;
 	struct vlv_MA_component_enabled enable;
-	u32 val;
 
 	if (!enabled)
 		return;
 
+	enable.EnPlane = false;
+	enable.EnCursor = false;
+
 	/* Sprite A */
 	enable.EnSprite = is_sprite_enabled(dev_priv, 0, 0);
 
-	val = I915_READ(VLV_DDL1);
 	if (vlv_compute_drain_latency(dev, 0, NULL, NULL, NULL, NULL,
 		&sprite_prec_mult, &sprite_dl, pixel_size, enable)) {
 		sprite_prec = (sprite_prec_mult ==
@@ -3132,65 +3153,57 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 				DDL_SPRITEA_PRECISION_32 :
 				DDL_SPRITEA_PRECISION_64;
 
-		I915_WRITE(VLV_DDL1, val |
-			(sprite_prec | (sprite_dl << DDL_SPRITEA_SHIFT)));
+		I915_WRITE_BITS(VLV_DDL1, sprite_prec | (sprite_dl
+				<< DDL_SPRITEA_SHIFT), 0x0000ff00);
 	} else {
-		I915_WRITE(VLV_DDL1, val &
-			(sprite_prec | (sprite_dl << DDL_SPRITEA_SHIFT)));
+		I915_WRITE_BITS(VLV_DDL1, 0x0000, 0x0000ff00);
 	}
 
 	/* Sprite B */
 	enable.EnSprite = is_sprite_enabled(dev_priv, 0, 1);
 
-	val = I915_READ(VLV_DDL1);
 	if (vlv_compute_drain_latency(dev, 0, NULL, NULL, NULL, NULL,
 		&sprite_prec_mult, &sprite_dl, pixel_size, enable)) {
 		sprite_prec = (sprite_prec_mult ==
 				DRAIN_LATENCY_PRECISION_32) ?
 				DDL_SPRITEB_PRECISION_32 :
 				DDL_SPRITEB_PRECISION_64;
-
-		I915_WRITE(VLV_DDL1, val |
-			(sprite_prec | (sprite_dl << DDL_SPRITEB_SHIFT)));
-	}  else {
-		I915_WRITE(VLV_DDL1, val &
-			(sprite_prec | (sprite_dl << DDL_SPRITEB_SHIFT)));
+		I915_WRITE_BITS(VLV_DDL1, sprite_prec | (sprite_dl
+				<< DDL_SPRITEB_SHIFT), 0x00ff0000);
+	} else {
+		I915_WRITE_BITS(VLV_DDL1, 0x0000, 0x00ff0000);
 	}
 
 	/* Sprite C */
 	enable.EnSprite = is_sprite_enabled(dev_priv, 1, 0);
 
-	val = I915_READ(VLV_DDL2);
-	if (vlv_compute_drain_latency(dev, 0, NULL, NULL, NULL, NULL,
+	if (vlv_compute_drain_latency(dev, 1, NULL, NULL, NULL, NULL,
 		&sprite_prec_mult, &sprite_dl, pixel_size, enable)) {
 		sprite_prec = (sprite_prec_mult ==
 				DRAIN_LATENCY_PRECISION_32) ?
 				DDL_SPRITEA_PRECISION_32 :
 				DDL_SPRITEA_PRECISION_64;
 
-		I915_WRITE(VLV_DDL2, val |
-			(sprite_prec | (sprite_dl << DDL_SPRITEA_SHIFT)));
+		I915_WRITE_BITS(VLV_DDL2, sprite_prec | (sprite_dl
+				<< DDL_SPRITEA_SHIFT), 0x0000ff00);
 	} else {
-		I915_WRITE(VLV_DDL2, val &
-		(sprite_prec | (sprite_dl << DDL_SPRITEA_SHIFT)));
+		I915_WRITE_BITS(VLV_DDL2, 0x0000, 0x0000ff00);
 	}
 
 	/* Sprite D */
 	enable.EnSprite = is_sprite_enabled(dev_priv, 1, 1);
 
-	val = I915_READ(VLV_DDL2);
-	if (vlv_compute_drain_latency(dev, 0, NULL, NULL, NULL, NULL,
+	if (vlv_compute_drain_latency(dev, 1, NULL, NULL, NULL, NULL,
 		&sprite_prec_mult, &sprite_dl, pixel_size, enable)) {
 		sprite_prec = (sprite_prec_mult ==
 				DRAIN_LATENCY_PRECISION_32) ?
 				DDL_SPRITEB_PRECISION_32 :
 				DDL_SPRITEB_PRECISION_64;
 
-		I915_WRITE(VLV_DDL2, val |
-			(sprite_prec | (sprite_dl << DDL_SPRITEB_SHIFT)));
+		I915_WRITE_BITS(VLV_DDL2, sprite_prec | (sprite_dl
+				<< DDL_SPRITEB_SHIFT), 0x00ff0000);
 	} else {
-		I915_WRITE(VLV_DDL2, val &
-			(sprite_prec | (sprite_dl << DDL_SPRITEB_SHIFT)));
+		I915_WRITE_BITS(VLV_DDL2, 0x0000, 0x00ff0000);
 	}
 
 	I915_WRITE(DSPFW4, (DSPFW4_SPRITEB_VAL << DSPFW4_SPRITEB_SHIFT) |
@@ -3863,6 +3876,8 @@ static int valleyview_rps_rpe_freq(struct drm_i915_private *dev_priv)
 
 int valleyview_rps_min_freq(struct drm_i915_private *dev_priv)
 {
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
 	return vlv_punit_read(dev_priv, PUNIT_REG_GPU_LFM) & 0xff;
 }
 
@@ -3993,6 +4008,9 @@ void bios_init_rps(struct drm_i915_private *dev_priv)
 
 	/* Write 0x0 to P-Unit offset 0x6 to enable Turbo */
 	u32 bios_punit_val;
+
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
 	bios_punit_val = vlv_punit_read(dev_priv, 0x6);
 	vlv_punit_write(dev_priv, 0x6, bios_punit_val & ~(1<<7));
 

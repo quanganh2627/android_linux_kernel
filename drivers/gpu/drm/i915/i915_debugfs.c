@@ -31,6 +31,7 @@
 #include <linux/slab.h>
 #include <linux/export.h>
 #include <linux/list_sort.h>
+#include <linux/string.h>
 #include <asm/msr-index.h>
 #include <drm/drmP.h>
 #include "intel_drv.h"
@@ -40,7 +41,6 @@
 #include "i915_debugfs.h"
 
 #define DRM_I915_RING_DEBUG 1
-
 
 #if defined(CONFIG_DEBUG_FS)
 
@@ -90,6 +90,493 @@ static inline const char *get_global_flag(struct drm_i915_gem_object *obj)
 {
 	return obj->has_global_gtt_mapping ? "g" : " ";
 }
+
+ssize_t i915_gamma_adjust_read(struct file *filp,
+		 char __user *ubuf,
+		 size_t max,
+		 loff_t *ppos)
+{
+	/* To do: Not implemented yet */
+	DRM_ERROR("Gamma adjust: Not implemented\n");
+	return -EINVAL;
+}
+
+ssize_t i915_gamma_adjust_write(struct file *filp,
+		  const char __user *ubuf,
+		  size_t count,
+		  loff_t *ppos)
+{
+	int ret = 0;
+	char *buf = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Gamma adjust: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Gamma adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (copy_from_user(buf, ubuf, count)) {
+		DRM_ERROR("Gamma adjust: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* Parse data and load the gamma  table */
+	ret = parse_clrmgr_input(gammaSoftlut, buf,
+		GAMMA_CORRECT_MAX_COUNT, count);
+	if (ret < 0)
+		DRM_ERROR("Gamma table loading failed\n");
+	else
+		DRM_DEBUG("Gamma table loading done\n");
+EXIT:
+	kfree(buf);
+	/* If error, return error*/
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+ssize_t i915_gamma_enable_read(struct file *filp,
+		 char __user *ubuf,
+		 size_t max,
+		 loff_t *ppos)
+{
+	int len = 0;
+	char buf[10] = {0,};
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	len = sprintf(buf, "%s\n",
+		dev_priv->gamma_enabled ? "Enabled" : "Disabled");
+	return simple_read_from_buffer(ubuf, max, ppos,
+	(const void *) buf, 10);
+}
+
+ssize_t i915_gamma_enable_write(struct file *filp,
+		  const char __user *ubuf,
+		  size_t count,
+		  loff_t *ppos)
+{
+	int ret = 0;
+	unsigned int status = 0;
+	struct drm_crtc *crtc = NULL;
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char *buf = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Gamma adjust: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Gamma enable: Out of mem\n");
+		return  -ENOMEM;
+	}
+
+	/* Get the data */
+	if (copy_from_user(buf, ubuf, count)) {
+		DRM_ERROR("Gamma adjust: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* Finally, get the status */
+	if (kstrtoul((const char *)buf, 10,
+		&status)) {
+		DRM_ERROR("Gamma enable: Invalid limit\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+	dev_priv->gamma_enabled = status;
+
+	/* Search for a CRTC,
+	Assumption: Either MIPI or EDP is fix panel */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		if (intel_pipe_has_type(crtc, dev_priv->is_mipi ?
+			INTEL_OUTPUT_DSI : INTEL_OUTPUT_EDP))
+			break;
+	}
+
+	/* No CRTC */
+	if (!crtc) {
+		DRM_ERROR("Gamma adjust: No local panel found\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* if gamma enabled, apply gamma correction on PIPE */
+	if (dev_priv->gamma_enabled) {
+		if (intel_crtc_enable_gamma(crtc, PIPEA)) {
+			DRM_ERROR("Apply gamma correction failed\n");
+			ret = -EINVAL;
+		} else
+			ret = count;
+	} else {
+		/* Disable gamma on this plane */
+		intel_crtc_disable_gamma(crtc, PIPEA);
+		ret = count;
+	}
+
+EXIT:
+	kfree(buf);
+	return ret;
+}
+
+const struct file_operations i915_gamma_adjust_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_gamma_adjust_read,
+	.write = i915_gamma_adjust_write,
+	.llseek = default_llseek,
+};
+
+const struct file_operations i915_gamma_enable_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_gamma_enable_read,
+	.write = i915_gamma_enable_write,
+	.llseek = default_llseek,
+};
+
+ssize_t i915_cb_adjust_read(struct file *filp,
+		 char __user *ubuf,
+		 size_t max,
+		 loff_t *ppos)
+{
+	/* To do: Not implemented yet */
+	DRM_ERROR("Contrast Brightness adjust: Read Not implemented\n");
+	return -EINVAL;
+}
+
+ssize_t i915_cb_adjust_write(struct file *filp,
+		  const char __user *ubuf,
+		  size_t count,
+		  loff_t *ppos)
+{
+	int ret = count;
+	u32 val = 0;
+	struct drm_device *dev = filp->private_data;
+	struct ContBrightlut *cb_ptr = NULL;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char *buf = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Contrast Brightness: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Contrast Brightness adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	cb_ptr = kzalloc(sizeof(struct ContBrightlut), GFP_KERNEL);
+	if (!cb_ptr) {
+		DRM_ERROR("Contrast Brightness adjust: insufficient memory\n");
+		kfree(buf);
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (copy_from_user(buf, ubuf, count)) {
+		DRM_ERROR("Contrast Brightness: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* Parse input data */
+	ret = parse_clrmgr_input(cb_ptr, buf, 2, count);
+	if (ret < 0)
+		DRM_ERROR("Contrast Brightness loading failed\n");
+	else
+		DRM_DEBUG("Contrast Brightness loading done\n");
+
+	if (cb_ptr->sprite_no < SPRITEA || cb_ptr->sprite_no > SPRITED ||
+			cb_ptr->sprite_no == PLANEB) {
+		DRM_ERROR("Sprite value out of range. Enter 2,3, 5 or 6\n");
+		goto EXIT;
+	}
+
+	DRM_DEBUG("sprite = %d Val=0x%x,\n", cb_ptr->sprite_no, cb_ptr->val);
+
+	if (intel_sprite_cb_adjust(dev_priv, cb_ptr))
+		DRM_ERROR("Contrast Brightness update failed\n");
+
+EXIT:
+	kfree(cb_ptr);
+	kfree(buf);
+	/* If cant read the full buffer, read from last left */
+	if (ret < count-1)
+		return ret;
+
+	return count;
+}
+
+ssize_t i915_hs_adjust_read(struct file *filp,
+		 char __user *ubuf,
+		 size_t max,
+		 loff_t *ppos)
+{
+	/* To do: Not implemented yet */
+	DRM_ERROR("Hue Saturation adjust: Read Not implemented\n");
+	return -EINVAL;
+}
+ssize_t i915_hs_adjust_write(struct file *filp,
+		  const char __user *ubuf,
+		  size_t count,
+		  loff_t *ppos)
+{
+	int ret = count;
+	struct drm_device *dev = filp->private_data;
+	struct HueSaturationlut *hs_ptr = NULL;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char *buf = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Hue Saturation: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Hue Saturation adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	hs_ptr = kzalloc(sizeof(struct HueSaturationlut), GFP_KERNEL);
+	if (!hs_ptr) {
+		DRM_ERROR("Hue Saturation adjust: insufficient memory\n");
+		kfree(buf);
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (copy_from_user(buf, ubuf, count)) {
+		DRM_ERROR("Hue Saturation: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* Parse input data */
+	ret = parse_clrmgr_input(hs_ptr, buf, 2, count);
+	if (ret < 0)
+		DRM_ERROR("Hue Saturation loading failed\n");
+	else
+		DRM_DEBUG("Hue Saturation loading done\n");
+
+	if (hs_ptr->sprite_no < SPRITEA || hs_ptr->sprite_no > SPRITED ||
+			hs_ptr->sprite_no == PLANEB) {
+		DRM_ERROR("sprite = %d Val=0x%x,\n", hs_ptr->sprite_no,
+					hs_ptr->val);
+		goto EXIT;
+	}
+
+	DRM_DEBUG("sprite = %d Val=0x%x,\n", hs_ptr->sprite_no, hs_ptr->val);
+
+	if (intel_sprite_hs_adjust(dev_priv, hs_ptr))
+		DRM_ERROR("Hue Saturation update failed\n");
+
+EXIT:
+	kfree(hs_ptr);
+	kfree(buf);
+	/* If cant read the full buffer, read from last left */
+	if (ret < count-1)
+		return ret;
+
+	return count;
+}
+
+ssize_t i915_csc_adjust_read(struct file *filp,
+		 char __user *ubuf,
+		 size_t max,
+		 loff_t *ppos)
+{
+	/* To do: Not implemented yet */
+	DRM_ERROR("CSC adjust: Not implemented\n");
+	return -EINVAL;
+}
+
+ssize_t i915_csc_adjust_write(struct file *filp,
+		  const char __user *ubuf,
+		  size_t count,
+		  loff_t *ppos)
+{
+	int ret = 0;
+	char *buf  = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("CSC adjust: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("CSC adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (copy_from_user(buf, ubuf, count)) {
+		DRM_ERROR("CSC adjust: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* Parse data and load the csc  table */
+	ret = parse_clrmgr_input(CSCSoftlut, buf,
+		CSC_MAX_COEFF_COUNT, count);
+	if (ret < 0)
+		DRM_ERROR("CSC table loading failed\n");
+	else
+		DRM_DEBUG("CSC table loading done\n");
+EXIT:
+	kfree(buf);
+	/* If cant read the full buffer, read from last left */
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+
+ssize_t i915_csc_enable_read(struct file *filp,
+		 char __user *ubuf,
+		 size_t max,
+		 loff_t *ppos)
+{
+	int len = 0;
+	char buf[10] = {0,};
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	len = sprintf(buf, "%s\n",
+		dev_priv->csc_enabled ? "Enabled" : "Disabled");
+	return simple_read_from_buffer(ubuf, max, ppos,
+	(const void *) buf, 10);
+}
+
+ssize_t i915_csc_enable_write(struct file *filp,
+		  const char __user *ubuf,
+		  size_t count,
+		  loff_t *ppos)
+{
+	int ret = 0;
+	unsigned int status = 0;
+	char *buf = NULL;
+	struct drm_crtc *crtc = NULL;
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("CSC enable: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("CSC enable: Out of mem\n");
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (copy_from_user(buf, ubuf, count)) {
+		DRM_ERROR("CSC enable: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* Finally, get the status */
+	if (kstrtoul((const char *)buf, 10,
+		&status)) {
+		DRM_ERROR("CSC enable: Invalid limit\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	dev_priv->csc_enabled = status;
+
+	/* Search for a CRTC,
+	Assumption: Either MIPI or EDP is fix panel */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		if (intel_pipe_has_type(crtc, dev_priv->is_mipi ?
+			INTEL_OUTPUT_DSI : INTEL_OUTPUT_EDP))
+			break;
+	}
+
+	/* No CRTC */
+	if (!crtc) {
+		DRM_ERROR("CSC enable: No local panel found\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* if CSC enabled, apply CSC correction */
+	if (dev_priv->csc_enabled) {
+		if (do_intel_enable_CSC(dev,
+			(void *) CSCSoftlut, crtc)) {
+			DRM_ERROR("CSC correction failed\n");
+			ret = -EINVAL;
+		} else
+			ret = count;
+	} else {
+		/* Disable CSC on this CRTC */
+		do_intel_disable_CSC(dev, crtc);
+		ret = count;
+	}
+
+EXIT:
+	kfree(buf);
+	return ret;
+}
+
+static const struct file_operations i915_cb_adjust_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_cb_adjust_read,
+	.write = i915_cb_adjust_write,
+	.llseek = default_llseek,
+};
+
+static const struct file_operations i915_hs_adjust_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_hs_adjust_read,
+	.write = i915_hs_adjust_write,
+	.llseek = default_llseek,
+};
+
+static const struct file_operations i915_csc_adjust_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_csc_adjust_read,
+	.write = i915_csc_adjust_write,
+	.llseek = default_llseek,
+};
+
+static const struct file_operations i915_csc_enable_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_csc_enable_read,
+	.write = i915_csc_enable_write,
+	.llseek = default_llseek,
+};
+
 
 static void
 describe_obj(struct seq_file *m, struct drm_i915_gem_object *obj)
@@ -3110,6 +3597,43 @@ int i915_debugfs_init(struct drm_minor *minor)
 		if (ret)
 			return ret;
 	}
+
+	ret = i915_debugfs_create(minor->debugfs_root, minor,
+					"cb_adjust",
+					&i915_cb_adjust_fops);
+	if (ret)
+		return ret;
+
+	ret = i915_debugfs_create(minor->debugfs_root, minor,
+					"hs_adjust",
+					&i915_hs_adjust_fops);
+	if (ret)
+		return ret;
+
+	ret = i915_debugfs_create(minor->debugfs_root, minor,
+					"csc_adjust",
+					&i915_csc_adjust_fops);
+	if (ret)
+		return ret;
+
+	ret = i915_debugfs_create(minor->debugfs_root, minor,
+					"csc_enable",
+					&i915_csc_enable_fops);
+
+	if (ret)
+		return ret;
+
+	ret = i915_debugfs_create(minor->debugfs_root, minor,
+					"gamma_adjust",
+					&i915_gamma_adjust_fops);
+	if (ret)
+		return ret;
+
+	ret = i915_debugfs_create(minor->debugfs_root, minor,
+					"gamma_enable",
+					&i915_gamma_enable_fops);
+	if (ret)
+		return ret;
 
 	return drm_debugfs_create_files(i915_debugfs_list,
 					I915_DEBUGFS_ENTRIES,

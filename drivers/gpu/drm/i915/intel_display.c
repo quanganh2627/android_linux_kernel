@@ -1224,6 +1224,19 @@ bool is_cursor_enabled(struct drm_i915_private *dev_priv,
 	return ret;
 }
 
+bool is_maxfifo_needed(struct drm_i915_private *dev_priv)
+{
+	if (!(is_plane_enabled(dev_priv, PLANE_A) &&
+		is_plane_enabled(dev_priv, PLANE_B)) &&
+		!(is_sprite_enabled(dev_priv, PIPE_A, PLANE_A) ||
+		is_sprite_enabled(dev_priv, PIPE_A, PLANE_B) ||
+		is_sprite_enabled(dev_priv, PIPE_B, PLANE_A) ||
+		is_sprite_enabled(dev_priv, PIPE_B, PLANE_B)))
+		return true;
+	else
+		return false;
+}
+
 static void assert_planes_disabled(struct drm_i915_private *dev_priv,
 				   enum pipe pipe)
 {
@@ -4078,7 +4091,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	if (!intel_crtc->active)
 		return;
 
-	if ((pipe == 0) && (dev_priv->is_mipi)) {
+	if ((pipe == 0) && (dev_priv->is_mipi || dev_priv->is_hdmi)) {
 		/* XXX: Disable PPS */
 		/* temporary fix for the IA firwware issue */
 		I915_WRITE_BITS(VLV_PIPE_PP_CONTROL(pipe), 0xabcd0000, 0xffff0000);
@@ -4120,7 +4133,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	intel_update_fbc(dev);
 	intel_update_watermarks(dev);
 
-	if ((pipe == 0) && (dev_priv->is_mipi)) {
+	if ((pipe == 0) && (dev_priv->is_mipi || dev_priv->is_hdmi)) {
 		/* Ensure that port, plane, pipe, pf, pll are all disabled
 		 * XXX Fis the register constants
 		 */
@@ -5935,48 +5948,6 @@ static void lpt_init_pch_refclk(struct drm_device *dev)
 		lpt_disable_clkout_dp(dev);
 }
 
-int intel_enable_CSC(struct drm_device *dev, void *data, struct drm_file *priv)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct CSC_Coeff *wgCSCCoeff = data;
-	struct drm_mode_object *obj;
-	struct drm_crtc *crtc;
-	struct intel_crtc *intel_crtc;
-	u32 pipeconf;
-	int pipe;
-	u32 csc_reg;
-	int i = 0, j = 0;
-
-	obj = drm_mode_object_find(dev, wgCSCCoeff->crtc_id,
-			DRM_MODE_OBJECT_CRTC);
-	if (!obj) {
-		DRM_DEBUG_DRIVER("Unknown CRTC ID %d\n", wgCSCCoeff->crtc_id);
-			return -EINVAL;
-	}
-
-	crtc = obj_to_crtc(obj);
-	DRM_DEBUG_DRIVER("[CRTC:%d]\n", crtc->base.id);
-	intel_crtc = to_intel_crtc(crtc);
-	pipe = intel_crtc->pipe;
-	DRM_DEBUG_DRIVER("pipe = %d\n", pipe);
-	pipeconf = I915_READ(PIPECONF(pipe));
-	pipeconf |= PIPECONF_CSC_ENABLE;
-
-	if (pipe == 0)
-		csc_reg = _PIPEACSC;
-	else if (pipe == 1)
-		csc_reg = _PIPEBCSC;
-
-	I915_WRITE(PIPECONF(pipe), pipeconf);
-	POSTING_READ(PIPECONF(pipe));
-
-	for (i = 0; i < 6; i++) {
-		I915_WRITE(csc_reg + j, wgCSCCoeff->VLV_CSC_Coeff[i].Value);
-		j = j + 0x4;
-	}
-
-	return 0;
-}
 
 /*
  * Initialize reference clocks when the driver loads
@@ -9796,12 +9767,16 @@ intel_modeset_stage_output_state(struct drm_device *dev,
 	struct drm_crtc *new_crtc;
 	struct intel_connector *connector;
 	struct intel_encoder *encoder;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ro;
 
 	/* The upper layers ensure that we either disable a crtc or have a list
 	 * of connectors. For paranoia, double-check this. */
 	WARN_ON(!set->fb && (set->num_connectors != 0));
 	WARN_ON(set->fb && (set->num_connectors == 0));
+
+	if (dev_priv->pm.shutdown_in_progress)
+		return -EINVAL;
 
 	list_for_each_entry(connector, &dev->mode_config.connector_list,
 			    base.head) {
@@ -10077,6 +10052,34 @@ static void intel_shared_dpll_init(struct drm_device *dev)
 		      dev_priv->num_shared_dpll);
 }
 
+/*
+Simulate like a hpd event at sleep/resume
+hpd_on =0 >  while suspend, this will clear the modes
+hpd_on =1 >  only at resume  */
+void i915_simulate_hpd(struct drm_device *dev, int hpd_on)
+{
+	struct drm_connector *connector = NULL;
+
+	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+		if (connector->polled == DRM_CONNECTOR_POLL_HPD) {
+			if (hpd_on) {
+				/* Resuming, detect and read modes again */
+				connector->funcs->fill_modes(connector,
+				dev->mode_config.max_width,
+				dev->mode_config.max_height);
+			} else {
+				/* Suspend, reset previous detects and modes */
+				if (connector->funcs->reset)
+					connector->funcs->reset(connector);
+			}
+			DRM_DEBUG_KMS("Simulated HPD %s for connector %s\n",
+			(hpd_on ? "On" : "Off"),
+			drm_get_connector_name(connector));
+		}
+	}
+	drm_sysfs_hotplug_event(dev);
+}
+
 extern void intel_cancel_fbc_work(struct drm_i915_private *dev_priv);
 static int display_disable_wq(struct drm_device *drm_dev)
 {
@@ -10135,6 +10138,9 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	struct drm_crtc *crtc;
 	struct intel_encoder *intel_encoder;
 
+	/* Force a re-detection on Hot-pluggable displays */
+	i915_simulate_hpd(dev, false);
+
 	/* ignore lid events during suspend */
 	mutex_lock(&dev_priv->modeset_restore_lock);
 	dev_priv->modeset_restore = MODESET_SUSPENDED;
@@ -10174,6 +10180,9 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	i915_rpm_get_disp(dev);
+
+	/* Re-detect hot pluggable displays */
+	i915_simulate_hpd(dev, true);
 
 	drm_kms_helper_poll_enable(dev);
 	display_save_restore_hotplug(dev, RESTOREHPD);

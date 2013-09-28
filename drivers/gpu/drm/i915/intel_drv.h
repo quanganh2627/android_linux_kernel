@@ -104,6 +104,47 @@
 #define INTEL_DSI_COMMAND_MODE	0
 #define INTEL_DSI_VIDEO_MODE	1
 
+/* CSC correction */
+#define CSC_MAX_COEFF_COUNT		6
+#define CLR_MGR_PARSE_MAX		128
+#define PIPECONF_GAMMA			(1<<24)
+#define GAMMA_CORRECT_MAX_COUNT 	256
+#define GAMMA_SP_MAX_COUNT 		6
+/* Gamma correction defines */
+#define GAMMA_MAX_VAL			1024
+#define SHIFTBY6(val) (val<<6)
+#define PIPEA_GAMMA_MAX_RED		0x70010
+#define PIPEA_GAMMA_MAX_GREEN		0x70014
+#define PIPEA_GAMMA_MAX_BLUE		0x70018
+/* Sprite gamma correction regs */
+#define GAMMA_SPA_GAMC0			0x721F4
+#define GAMMA_SPA_GAMC1			0x721F0
+#define GAMMA_SPA_GAMC2			0x721EC
+#define GAMMA_SPA_GAMC3			0x721E8
+#define GAMMA_SPA_GAMC4			0x721E4
+#define GAMMA_SPA_GAMC5			0x721E0
+
+#define GAMMA_SPB_GAMC0			0x721F4
+#define GAMMA_SPB_GAMC1			0x721F0
+#define GAMMA_SPB_GAMC2			0x721EC
+#define GAMMA_SPB_GAMC3			0x721E8
+#define GAMMA_SPB_GAMC4			0x721E4
+#define GAMMA_SPB_GAMC5			0x721E0
+
+#define GAMMA_SPA_CNTRL			0x72180
+#define GAMMA_SPB_CNTRL			0x72280
+#define GAMMA_ENABLE_SPR		(1<<30)
+#define GAMMA_SP_MAX_COUNT		6
+
+
+/* Color manager features */
+enum ClrMgrFeatures {
+	ClrMgrCsc = 1,
+	ClrMgrGamma,
+	ClrMgrContrBright,
+	ClrMgrHueSat,
+};
+
 struct intel_framebuffer {
 	struct drm_framebuffer base;
 	struct drm_i915_gem_object *obj;
@@ -424,6 +465,7 @@ struct intel_hdmi {
 	bool has_hdmi_sink;
 	bool has_audio;
 	enum hdmi_force_audio force_audio;
+	enum hdmi_panel_fitter pfit;
 	bool rgb_quant_range_selectable;
 	void (*write_infoframe)(struct drm_encoder *encoder,
 				enum hdmi_infoframe_type type,
@@ -537,6 +579,7 @@ extern void intel_attach_force_audio_property(struct drm_connector *connector);
 extern void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
 
 extern bool intel_pipe_has_type(struct drm_crtc *crtc, int type);
+extern void intel_attach_force_pfit_property(struct drm_connector *connector);
 extern void intel_crt_init(struct drm_device *dev);
 extern void intel_hdmi_init(struct drm_device *dev,
 			    int hdmi_reg, enum port port);
@@ -857,4 +900,5 @@ bool is_sprite_enabled(struct drm_i915_private *dev_priv,
 			enum pipe pipe, enum plane plane);
 bool is_cursor_enabled(struct drm_i915_private *dev_priv,
 			enum pipe pipe);
+bool is_maxfifo_needed(struct drm_i915_private *dev_priv);
 #endif /* __INTEL_DRV_H__ */

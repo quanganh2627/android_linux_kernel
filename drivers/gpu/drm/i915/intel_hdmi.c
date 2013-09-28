@@ -652,6 +652,22 @@ static void intel_hdmi_mode_set(struct intel_encoder *encoder)
 	else
 		hdmi_val |= SDVO_PIPE_SEL(crtc->pipe);
 
+	if (intel_hdmi->pfit) {
+		u32 val = 0;
+		if (intel_hdmi->pfit == AUTOSCALE)
+			val =  PFIT_ENABLE | (crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
+		if (intel_hdmi->pfit == PILLARBOX)
+			val =  PFIT_ENABLE | (crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
+		else if (intel_hdmi->pfit == LETTERBOX)
+			val =  PFIT_ENABLE | (crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
+		DRM_DEBUG_DRIVER("pfit val = %x", val);
+
+		I915_WRITE(PFIT_CONTROL, val);
+	}
+
 	I915_WRITE(intel_hdmi->hdmi_reg, hdmi_val);
 	POSTING_READ(intel_hdmi->hdmi_reg);
 
@@ -707,6 +723,7 @@ static void intel_enable_hdmi(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&encoder->base);
+	struct intel_crtc *crtc = to_intel_crtc(encoder->base.crtc);
 	u32 temp;
 	u32 enable_bits = SDVO_ENABLE;
 
@@ -732,6 +749,22 @@ static void intel_enable_hdmi(struct intel_encoder *encoder)
 
 	I915_WRITE(intel_hdmi->hdmi_reg, temp);
 	POSTING_READ(intel_hdmi->hdmi_reg);
+
+	if (intel_hdmi->pfit) {
+		u32 val = 0;
+		if (intel_hdmi->pfit == AUTOSCALE)
+			val =  PFIT_ENABLE | (intel_crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
+		if (intel_hdmi->pfit == PILLARBOX)
+			val =  PFIT_ENABLE | (intel_crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
+		else if (intel_hdmi->pfit == LETTERBOX)
+			val =  PFIT_ENABLE | (intel_crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
+		DRM_DEBUG_DRIVER("pfit val = %x", val);
+
+		I915_WRITE(PFIT_CONTROL, val);
+	}
 
 	/* HW workaround, need to write this twice for issue that may result
 	 * in first write getting masked.
@@ -883,6 +916,7 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	struct edid *edid;
 	enum drm_connector_status status = connector_status_disconnected;
 
+	dev_priv->is_hdmi = false;
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s]\n",
 		      connector->base.id, drm_get_connector_name(connector));
 
@@ -896,6 +930,7 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	if (edid) {
 		if (edid->input & DRM_EDID_INPUT_DIGITAL) {
 			status = connector_status_connected;
+			dev_priv->is_hdmi = true;
 			if (intel_hdmi->force_audio != HDMI_AUDIO_OFF_DVI)
 				intel_hdmi->has_hdmi_sink =
 						drm_detect_hdmi_monitor(edid);
@@ -904,6 +939,20 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 				drm_rgb_quant_range_selectable(edid);
 		}
 		kfree(edid);
+	}
+
+	/* Disable CRTC on HDMI hot un-plug */
+	if (status == connector_status_disconnected) {
+		if (intel_encoder->base.crtc) {
+			struct drm_crtc *crtc = intel_encoder->base.crtc;
+			struct drm_device *dev = crtc->dev;
+			connector->encoder = NULL;
+			drm_helper_disable_unused_functions(dev);
+
+			/* Enable Max Fifo on HDMI hot un-plg */
+			if (is_maxfifo_needed(dev_priv))
+				I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
+		}
 	}
 
 	if (status == connector_status_connected) {
@@ -1010,6 +1059,15 @@ intel_hdmi_set_property(struct drm_connector *connector,
 		    old_range == intel_hdmi->color_range)
 			return 0;
 
+		goto done;
+	}
+
+	if (property == dev_priv->force_pfit_property) {
+		if (val == intel_hdmi->pfit)
+			return 0;
+
+		DRM_DEBUG_DRIVER("val = %d", val);
+		intel_hdmi->pfit = val;
 		goto done;
 	}
 
@@ -1151,6 +1209,7 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
 {
 	intel_attach_force_audio_property(connector);
 	intel_attach_broadcast_rgb_property(connector);
+	intel_attach_force_pfit_property(connector);
 	intel_hdmi->color_range_auto = true;
 }
 
@@ -1168,8 +1227,9 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 			   DRM_MODE_CONNECTOR_HDMIA);
 	drm_connector_helper_add(connector, &intel_hdmi_connector_helper_funcs);
 
-	connector->interlace_allowed = 1;
+	connector->interlace_allowed = 0;
 	connector->doublescan_allowed = 0;
+	intel_hdmi->pfit = 0;
 
 	switch (port) {
 	case PORT_B:

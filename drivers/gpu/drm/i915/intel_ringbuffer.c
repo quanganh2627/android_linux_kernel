@@ -470,6 +470,9 @@ static int init_ring_common(struct intel_ring_buffer *ring)
 	}
 
 	memset(&ring->hangcheck, 0, sizeof(ring->hangcheck));
+	/* invalidate TLB */
+	if (ring->invalidate_tlb)
+		ring->invalidate_tlb(ring);
 
 out:
 	if (HAS_FORCE_WAKE(dev))
@@ -1283,6 +1286,76 @@ static int init_phys_status_page(struct intel_ring_buffer *ring)
 	return 0;
 }
 
+static int
+gen6_ring_stop(struct intel_ring_buffer *ring)
+{
+	struct drm_device *dev = ring->dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	/* check if ring is already stopped */
+	if (I915_READ_MODE(ring) & MODE_STOP)
+		return -EALREADY;
+
+	/* Request the ring to go idle */
+	I915_WRITE_MODE(ring, _MASKED_BIT_ENABLE(MODE_STOP));
+
+	/* Wait for idle */
+	if (wait_for_atomic((I915_READ_MODE(ring) & MODE_IDLE) != 0, 1000)) {
+		DRM_ERROR("%s :timed out trying to stop ring", ring->name);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static int
+gen6_ring_start(struct intel_ring_buffer *ring)
+{
+	struct drm_device *dev = ring->dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	uint32_t mode;
+
+	/* Clear the MI_MODE stop bit */
+	I915_WRITE_MODE(ring, _MASKED_BIT_DISABLE(MODE_STOP));
+	mode = I915_READ_MODE(ring);    /* Barrier read */
+
+	return 0;
+}
+
+/* gen6_ring_invalidate_tlb
+ * GFX soft resets do not invalidate TLBs, it is up to
+ * GFX driver to explicitly invalidate TLBs post reset.
+ */
+static int gen6_ring_invalidate_tlb(struct intel_ring_buffer *ring)
+{
+	struct drm_device *dev = ring->dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	u32 reg;
+	int ret;
+
+	if ((INTEL_INFO(dev)->gen < 6) || (!ring->stop) || (!ring->start))
+		return -EINVAL;
+
+	/* stop the ring before sync_flush */
+	ret = ring->stop(ring);
+	if ((ret) && (ret != -EALREADY))
+		DRM_ERROR("%s: unable to stop the ring\n", ring->name);
+
+	/* Invalidate TLB */
+	reg = RING_INSTPM(ring->mmio_base);
+	I915_WRITE(reg, _MASKED_BIT_ENABLE(INSTPM_TLB_INVALIDATE |
+				INSTPM_SYNC_FLUSH));
+	if (wait_for((I915_READ(reg) & INSTPM_SYNC_FLUSH) == 0, 1000))
+		DRM_ERROR("%s: wait for SyncFlush to complete timed out\n",
+				ring->name);
+
+	/* only start if stop was sucessfull */
+	if (!ret)
+		ring->start(ring);
+
+	return 0;
+}
+
 static int intel_init_ring_buffer(struct drm_device *dev,
 				  struct intel_ring_buffer *ring)
 {
@@ -1878,6 +1951,9 @@ int intel_init_render_ring_buffer(struct drm_device *dev)
 		ring->signal_mbox[VCS] = GEN6_VRSYNC;
 		ring->signal_mbox[BCS] = GEN6_BRSYNC;
 		ring->signal_mbox[VECS] = GEN6_VERSYNC;
+		ring->start = gen6_ring_start;
+		ring->stop = gen6_ring_stop;
+		ring->invalidate_tlb = gen6_ring_invalidate_tlb;
 	} else if (IS_GEN5(dev)) {
 		ring->add_request = pc_render_add_request;
 		ring->flush = gen4_render_ring_flush;
@@ -2041,6 +2117,9 @@ int intel_init_bsd_ring_buffer(struct drm_device *dev)
 		ring->signal_mbox[VCS] = GEN6_NOSYNC;
 		ring->signal_mbox[BCS] = GEN6_BVSYNC;
 		ring->signal_mbox[VECS] = GEN6_VEVSYNC;
+		ring->start = gen6_ring_start;
+		ring->stop = gen6_ring_stop;
+		ring->invalidate_tlb = gen6_ring_invalidate_tlb;
 	} else {
 		ring->mmio_base = BSD_RING_BASE;
 		ring->flush = bsd_ring_flush;
@@ -2090,6 +2169,9 @@ int intel_init_blt_ring_buffer(struct drm_device *dev)
 	ring->signal_mbox[VCS] = GEN6_VBSYNC;
 	ring->signal_mbox[BCS] = GEN6_NOSYNC;
 	ring->signal_mbox[VECS] = GEN6_VEBSYNC;
+	ring->start = gen6_ring_start;
+	ring->stop = gen6_ring_stop;
+	ring->invalidate_tlb = gen6_ring_invalidate_tlb;
 	ring->init = init_ring_common;
 
 	return intel_init_ring_buffer(dev, ring);

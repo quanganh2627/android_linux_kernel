@@ -698,6 +698,7 @@ static void i915_hotplug_work_func(struct work_struct *work)
 	bool hpd_disabled = false;
 	bool changed = false;
 	u32 hpd_event_bits;
+	char *envp[] = {"hdcp_hpd", NULL};
 
 	/* HPD irq before everything is fully set up. */
 	if (!dev_priv->enable_hotplug_processing)
@@ -752,6 +753,8 @@ static void i915_hotplug_work_func(struct work_struct *work)
 	}
 	mutex_unlock(&mode_config->mutex);
 
+	/* HDCPD needs a uevent, every time when there is a hotplug */
+	kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_CHANGE, envp);
 	if (changed)
 		drm_kms_helper_hotplug_event(dev);
 }
@@ -828,6 +831,8 @@ static u32 vlv_calc_delay_from_C0_counters(struct drm_i915_private *dev_priv)
 	u8 new_delay;
 
 	dev_priv->rps.ei_interrupt_count++;
+
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 
 	/* read the CZ clock time stamp from P-unint &
 	* render/media C0 counters from MMIO reg
@@ -1288,7 +1293,7 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 			 */
 			if (pipe_stats[pipe] & 0x8000ffff) {
 				if (pipe_stats[pipe] & PIPE_FIFO_UNDERRUN_STATUS)
-					DRM_DEBUG_DRIVER("pipe %c underrun\n",
+					DRM_ERROR("pipe %c underrun\n",
 							 pipe_name(pipe));
 				I915_WRITE(reg, pipe_stats[pipe]);
 			}

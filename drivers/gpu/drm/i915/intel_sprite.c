@@ -37,6 +37,167 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 
+void
+__alpha_setting_noncursor(u32 pixformat, int plane, u32 *dspcntr, int alpha)
+{
+	/* For readability, can split to individual cases */
+	/* 5 no alphas, 6-9 common, a-d reserved for sprite, e-f common */
+	switch (pixformat) {
+	case DISPPLANE_RGBX888:
+	case DISPPLANE_RGBA888:
+		if (alpha)
+			*dspcntr |= DISPPLANE_RGBA888;
+		else
+			*dspcntr |= DISPPLANE_RGBX888;
+		break;
+	case DISPPLANE_BGRX888:
+	case DISPPLANE_BGRA888:
+		if (alpha)
+			*dspcntr |= DISPPLANE_BGRA888;
+		else
+			*dspcntr |= DISPPLANE_BGRX888;
+		break;
+	case DISPPLANE_RGBX101010:
+	case DISPPLANE_RGBA101010:
+		if (alpha)
+			*dspcntr |= DISPPLANE_RGBA101010;
+		else
+			*dspcntr |= DISPPLANE_RGBX101010;
+		break;
+	case DISPPLANE_BGRX101010:
+	case DISPPLANE_BGRA101010:
+		if (alpha)
+			*dspcntr |= DISPPLANE_BGRA101010;
+		else
+			*dspcntr |= DISPPLANE_BGRX101010;
+		break;
+	case DISPPLANE_RGBX161616:
+	case DISPPLANE_RGBA161616:
+		if ((plane == PLANEA) || (plane == PLANEB)) {
+			if (alpha)
+				*dspcntr |= DISPPLANE_RGBA161616;
+			else
+				*dspcntr |= DISPPLANE_RGBX161616;
+		}
+		break;
+	default:
+		DRM_ERROR("Unknown pixel format 0x%08x\n", pixformat);
+		break;
+	}
+}
+
+void
+__alpha_setting_cursor(u32 pixformat, int plane, u32 *dspcntr, int alpha)
+{
+	/* For readability, can split to individual cases */
+	switch (pixformat) {
+	case CURSOR_MODE_128_32B_AX:
+	case CURSOR_MODE_128_ARGB_AX:
+		if (alpha)
+			*dspcntr |= CURSOR_MODE_128_ARGB_AX;
+		else
+			*dspcntr |= CURSOR_MODE_128_32B_AX;
+		break;
+
+	case CURSOR_MODE_256_ARGB_AX:
+	case CURSOR_MODE_256_32B_AX:
+		if (alpha)
+			*dspcntr |= CURSOR_MODE_256_ARGB_AX;
+		else
+			*dspcntr |= CURSOR_MODE_256_32B_AX;
+		break;
+
+	case CURSOR_MODE_64_ARGB_AX:
+	case CURSOR_MODE_64_32B_AX:
+		if (alpha)
+			*dspcntr |= CURSOR_MODE_64_ARGB_AX;
+		else
+			*dspcntr |= CURSOR_MODE_64_32B_AX;
+		break;
+	default:
+		DRM_ERROR("Unknown pixel format:Cursor 0x%08x\n", pixformat);
+		break;
+	}
+}
+/*
+ * enable/disable alpha for planes
+ */
+int
+i915_set_plane_alpha(struct drm_device *dev, void *data, struct drm_file *file)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_set_plane_alpha *alphadata = data;
+	int plane = alphadata->plane;
+	bool alpha = alphadata->alpha;
+	bool IsCursor = false;
+	u32 dspcntr;
+	u32 reg;
+	u32 pixformat;
+	u32 mask = DISPPLANE_PIXFORMAT_MASK;
+
+	DRM_DEBUG_DRIVER("In i915_set_plane_alpha\n");
+
+	switch (plane) {
+	case PLANEA:
+		reg = DSPCNTR(0);
+		break;
+	case PLANEB:
+		reg = DSPCNTR(1);
+		break;
+	case SPRITEA:
+		reg = SPCNTR(0, 0);
+		break;
+	case SPRITEB:
+		reg = SPCNTR(0, 1);
+		break;
+	case SPRITEC:
+		reg = SPCNTR(1, 0);
+		break;
+	case SPRITED:
+		reg = SPCNTR(1, 1);
+		break;
+	case CURSORA:
+		reg = CURCNTR(0);
+		mask = CURSOR_MODE;
+		IsCursor = true;
+		break;
+	case CURSORB:
+		reg = CURCNTR(1);
+		mask = CURSOR_MODE;
+		IsCursor = true;
+		break;
+	default:
+		DRM_ERROR("No plane selected properly\n");
+		return -EINVAL;
+	}
+
+	dspcntr = I915_READ(reg);
+	DRM_DEBUG_DRIVER("dspcntr = %x\n", dspcntr);
+
+	pixformat = dspcntr & mask;
+	dspcntr &= ~mask;
+	DRM_DEBUG_DRIVER("pixformat = %x, alpha = %x\n", pixformat, alpha);
+
+	if (pixformat) {
+		if (!IsCursor)
+			__alpha_setting_noncursor(pixformat, plane,
+						&dspcntr, alpha);
+		else
+			__alpha_setting_cursor(pixformat, plane,
+						&dspcntr, alpha);
+
+		DRM_DEBUG_DRIVER("Reg should be written with = %x\n", dspcntr);
+
+		if (pixformat != (dspcntr & mask)) {
+			I915_WRITE(reg, dspcntr);
+			DRM_DEBUG_DRIVER("Reg written with = %x\n", dspcntr);
+		}
+	} else
+		DRM_DEBUG_DRIVER("Plane might not be enabled/configured!\n");
+
+	return 0;
+}
+
 /*
  * enable/disable primary plane alpha channel based on the z-order
  */
@@ -55,19 +216,16 @@ i915_set_primary_alpha(struct drm_i915_private *dev_priv, int zorder, int plane)
 
 	reg = DSPCNTR(plane);
 	dspcntr = I915_READ(reg);
+
+	if (!(dspcntr & DISPLAY_PLANE_ENABLE))
+		return;
+
 	pixformat = dspcntr & DISPPLANE_PIXFORMAT_MASK;
 	dspcntr &= ~DISPPLANE_PIXFORMAT_MASK;
 
 	DRM_DEBUG_DRIVER("pixformat = %x, alpha = %d", pixformat, alpha);
 
 	switch (pixformat) {
-	case DISPPLANE_BGRX555:
-	case DISPPLANE_BGRA555:
-		if (alpha)
-			dspcntr |= DISPPLANE_BGRA555;
-		else
-			dspcntr |= DISPPLANE_BGRX555;
-		break;
 	case DISPPLANE_BGRX888:
 	case DISPPLANE_BGRA888:
 		if (alpha)
@@ -81,6 +239,25 @@ i915_set_primary_alpha(struct drm_i915_private *dev_priv, int zorder, int plane)
 			dspcntr |= DISPPLANE_RGBA888;
 		else
 			dspcntr |= DISPPLANE_RGBX888;
+		break;
+	case DISPPLANE_BGRX101010:
+	case DISPPLANE_BGRA101010:
+		if (alpha)
+			dspcntr |= DISPPLANE_BGRA101010;
+		else
+			dspcntr |= DISPPLANE_BGRX101010;
+		break;
+	case DISPPLANE_RGBX101010:
+	case DISPPLANE_RGBA101010:
+		if (alpha)
+			dspcntr |= DISPPLANE_RGBA101010;
+		else
+			dspcntr |= DISPPLANE_RGBX101010;
+	case DISPPLANE_BGRX565:
+		dspcntr |= DISPPLANE_BGRX565;
+		break;
+	case DISPPLANE_8BPP:
+		dspcntr |= DISPPLANE_8BPP;
 		break;
 	default:
 		DRM_ERROR("Unknown pixel format 0x%08x\n", pixformat);
@@ -111,6 +288,8 @@ void i915_set_sprite_alpha(struct drm_i915_private *dev_priv, int zorder,
 		alpha = false;
 
 	spcntr = I915_READ(SPCNTR(pipe, plane));
+	if (!(spcntr & DISPLAY_PLANE_ENABLE))
+		return;
 	pixformat = spcntr & SP_PIXFORMAT_MASK;
 	spcntr &= ~SP_PIXFORMAT_MASK;
 
@@ -130,6 +309,19 @@ void i915_set_sprite_alpha(struct drm_i915_private *dev_priv, int zorder,
 			spcntr |= SP_FORMAT_RGBA8888;
 		else
 			spcntr |= SP_FORMAT_RGBX8888;
+		break;
+	case SP_FORMAT_RGBA1010102:
+	case SP_FORMAT_RGBX1010102:
+		if (alpha)
+			spcntr |= SP_FORMAT_RGBA1010102;
+		else
+			spcntr |= SP_FORMAT_RGBX1010102;
+		break;
+	case SP_FORMAT_YUV422:
+		spcntr |= SP_FORMAT_YUV422;
+		break;
+	case SP_FORMAT_BGR565:
+		spcntr |= SP_FORMAT_BGR565;
 		break;
 	default:
 		DRM_ERROR("Unknown pixel format 0x%08x\n", pixformat);
@@ -151,7 +343,6 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 	u32 order = zorder->order;
 	int s1_zorder, s1_bottom, s2_zorder, s2_bottom;
 	int pipe = (order >> 31) & 0x1;
-	int plane = pipe;
 	int z_order = order & 0x000F;
 
 	s1_zorder = (order >> 3) & 0x1;
@@ -274,6 +465,15 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	src_h--;
 	crtc_w--;
 	crtc_h--;
+	/*
+	 * Disable Max Fifo configuration when sprite plane is enabled.
+	 * Do not disable if Max Fifo is already disabled.
+	 */
+
+	if (I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN) {
+		I915_WRITE(FW_BLC_SELF_VLV,
+			I915_READ(FW_BLC_SELF_VLV) & ~FW_CSPWRDWNEN);
+	}
 
 	I915_WRITE(SPSTRIDE(pipe, plane), fb->pitches[0]);
 	if (rotate)
@@ -327,6 +527,13 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 
 	I915_WRITE(SPCNTR(pipe, plane), I915_READ(SPCNTR(pipe, plane)) &
 		   ~SP_ENABLE);
+	/*
+	 * Check if Max Fifo configuration is required when sprite
+	 * is disabled.
+	 */
+
+	if (is_maxfifo_needed(dev_priv))
+		I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 	/* Activate double buffered register update */
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), 0);
 	POSTING_READ(SPSURF(pipe, plane));
