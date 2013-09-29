@@ -187,7 +187,6 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 	u8			rev;
 	u32			temp;
 	int			retval;
-	int			force_otg_hc_mode = 0;
 
 	ehci->caps = hcd->regs;
 
@@ -248,8 +247,6 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 #ifdef CONFIG_USB_OTG
 			ehci->has_otg = 1;
 #endif
-			force_otg_hc_mode = 1;
-
 			hcd->has_sram = 1;
 			/*
 			 * Disable SRAM for CLVP A0 due to the silicon issue.
@@ -415,9 +412,6 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 		ehci->frame_index_bug = 1;
 		break;
 	}
-
-	if (force_otg_hc_mode)
-		ehci_reset(ehci);
 
 	/* optional debug port, normally in the first BAR */
 	temp = pci_find_capability(pdev, PCI_CAP_ID_DBG);
@@ -643,7 +637,7 @@ static int ehci_pci_resume(struct usb_hcd *hcd, bool hibernated)
 
 #else
 
-#define ehci_suspend		NULL
+#define ehci_pci_suspend	NULL
 #define ehci_pci_resume		NULL
 #endif	/* CONFIG_PM */
 
