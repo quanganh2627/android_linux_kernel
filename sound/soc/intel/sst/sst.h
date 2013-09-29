@@ -55,7 +55,6 @@
  * platform data to SST driver
  */
 #define MRFLD_FW_VIRTUAL_BASE 0xC0000000
-#define MRFLD_FW_LSP_DDR_BASE 0xC5E00000
 #define MRFLD_FW_DDR_BASE_OFFSET 0x0
 #define MRFLD_FW_FEATURE_BASE_OFFSET 0x4
 #define MRFLD_FW_BSS_RESET_BIT 0
@@ -632,7 +631,8 @@ int intel_sst_release_cntrl(struct inode *i_node, struct file *file_ptr);
 
 int sst_load_fw(void);
 int sst_load_library(struct snd_sst_lib_download *lib, u8 ops);
-int sst_load_all_modules_elf(struct intel_sst_drv *ctx);
+int sst_load_all_modules_elf(struct intel_sst_drv *ctx,
+		struct sst_module_info *mod_table, int mod_table_size);
 int sst_get_next_lib_mem(struct sst_mem_mgr *mgr, int size,
 			u32 *lib_base);
 void sst_post_download_ctp(struct intel_sst_drv *ctx);

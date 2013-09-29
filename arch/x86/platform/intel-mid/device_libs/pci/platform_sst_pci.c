@@ -39,6 +39,11 @@
 #define SST_V1_MAILBOX_RECV	0x800
 #define SST_V2_MAILBOX_RECV	0x400
 
+#define MRFLD_FW_LSP_DDR_BASE 0xC5E00000
+#define MRFLD_FW_MOD_END (MRFLD_FW_LSP_DDR_BASE + 0x1FFFFF)
+#define MRFLD_FW_MOD_TABLE_OFFSET 0x80000
+#define MRFLD_FW_MOD_TABLE_SIZE 0x100
+
 struct sst_platform_info sst_data;
 
 static struct sst_ssp_info ssp_inf_ctp = {
@@ -158,6 +163,14 @@ static const struct sst_ipc_info mrfld_ipc_info = {
 	.mbox_recv_off = SST_V2_MAILBOX_RECV,
 };
 
+static const struct sst_lib_dnld_info  mrfld_lib_dnld_info = {
+	.mod_base           = MRFLD_FW_LSP_DDR_BASE,
+	.mod_end            = MRFLD_FW_MOD_END,
+	.mod_table_offset   = MRFLD_FW_MOD_TABLE_OFFSET,
+	.mod_table_size     = MRFLD_FW_MOD_TABLE_SIZE,
+	.mod_ddr_dnld       = true,
+};
+
 static int set_ctp_sst_config(struct sst_platform_info *sst_info)
 {
 	unsigned int conf_len;
@@ -177,6 +190,7 @@ static int set_ctp_sst_config(struct sst_platform_info *sst_info)
 	sst_info->probe_data = &ctp_sst_info;
 	sst_info->ipc_info = &ctp_ipc_info;
 	sst_info->debugfs_data = &ctp_debugfs_data;
+	sst_info->lib_info = NULL;
 
 	return 0;
 }
@@ -189,6 +203,7 @@ static void set_mrfld_sst_config(struct sst_platform_info *sst_info)
 	sst_info->probe_data = &mrfld_sst_info;
 	sst_info->ipc_info = &mrfld_ipc_info;
 	sst_info->debugfs_data = &mrfld_debugfs_data;
+	sst_info->lib_info = &mrfld_lib_dnld_info;
 
 	return ;
 

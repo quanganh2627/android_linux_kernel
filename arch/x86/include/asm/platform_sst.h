@@ -110,6 +110,14 @@ struct sst_ipc_info {
 	unsigned int mbox_recv_off;
 };
 
+struct sst_lib_dnld_info {
+	unsigned int mod_base;
+	unsigned int mod_end;
+	unsigned int mod_table_offset;
+	unsigned int mod_table_size;
+	bool mod_ddr_dnld;
+};
+
 struct sst_platform_info {
 	const struct sst_info *probe_data;
 	const struct sst_ssp_info *ssp_data;
@@ -117,6 +125,7 @@ struct sst_platform_info {
 	const struct sst_platform_config_data *pdata;
 	const struct sst_ipc_info *ipc_info;
 	const struct sst_platform_debugfs_data *debugfs_data;
+	const struct sst_lib_dnld_info *lib_info;
 };
 
 #endif

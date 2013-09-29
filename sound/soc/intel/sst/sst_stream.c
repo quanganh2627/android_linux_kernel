@@ -718,6 +718,11 @@ int sst_request_vtsv_file(char *fname, struct intel_sst_drv *ctx,
 	const struct firmware *file;
 	u32 ddr_virt_addr, file_base;
 
+	if (!ctx->pdata->lib_info) {
+		pr_err("lib_info pointer NULL\n");
+		return -EINVAL;
+	}
+
 	pr_debug("Requesting VTSV file %s now...\n", fname);
 	retval = request_firmware(&file, fname, ctx->dev);
 	if (file == NULL) {
@@ -735,7 +740,7 @@ int sst_request_vtsv_file(char *fname, struct intel_sst_drv *ctx,
 		*out_file = (void *)file_base;
 	}
 	ddr_virt_addr = (u32)ctx->ddr +
-			(u32)(*out_file - MRFLD_FW_LSP_DDR_BASE);
+			(u32)(*out_file - ctx->pdata->lib_info->mod_base);
 	memcpy((void *)ddr_virt_addr, file->data, file->size);
 	*out_size = file->size;
 	release_firmware(file);

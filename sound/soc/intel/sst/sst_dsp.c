@@ -43,6 +43,13 @@
 #include "../platform_ipc_v2.h"
 #include "sst.h"
 
+static struct sst_module_info sst_modules_mrfld[] = {
+	{"mp3_dec", SST_CODEC_TYPE_MP3, 0, SST_LIB_NOT_FOUND},
+	{"aac_dec", SST_CODEC_TYPE_AAC, 0, SST_LIB_NOT_FOUND},
+	{"audclass_lib", SST_ALGO_AUDCLASSIFIER, 0, SST_LIB_NOT_FOUND},
+	{"vtsv_lib", SST_ALGO_VTSV, 0, SST_LIB_NOT_FOUND},
+};
+
 /**
  * intel_sst_reset_dsp_medfield - Resetting SST DSP
  *
@@ -1363,7 +1370,7 @@ void sst_post_download_mrfld(struct intel_sst_drv *ctx)
 	 * downloaded */
 	pr_debug("%s: lib_dwnld = %u\n", __func__, ctx->lib_dwnld_reqd);
 	if (ctx->lib_dwnld_reqd) {
-		sst_load_all_modules_elf(ctx);
+		sst_load_all_modules_elf(ctx, sst_modules_mrfld, ARRAY_SIZE(sst_modules_mrfld));
 		ctx->lib_dwnld_reqd = false;
 	}
 }
@@ -1377,6 +1384,19 @@ void sst_post_download_byt(struct intel_sst_drv *ctx)
 {
 	sst_dccm_config_write(ctx->dram, ctx->ddr_base);
 	sst_fill_config(ctx, 2 * sizeof(u32));
+}
+
+static void sst_init_lib_mem_mgr(struct intel_sst_drv *ctx)
+{
+	struct sst_mem_mgr *mgr = &ctx->lib_mem_mgr;
+	const struct sst_lib_dnld_info *lib_info = ctx->pdata->lib_info;
+
+	memset(mgr, 0, sizeof(*mgr));
+	mgr->current_base = lib_info->mod_base + lib_info->mod_table_offset
+						+ lib_info->mod_table_size;
+	mgr->avail = lib_info->mod_end - mgr->current_base + 1;
+
+	pr_debug("current base = 0x%x , avail = 0x%x\n", mgr->current_base, mgr->avail);
 }
 
 /**
@@ -1400,8 +1420,11 @@ int sst_load_fw(void)
 		ret_val = sst_request_fw(sst_drv_ctx);
 		if (ret_val)
 			return ret_val;
-		if (!sst_drv_ctx->use_32bit_ops)
-			sst_drv_ctx->lib_dwnld_reqd = true;
+		/* If static module download(download at boot time) is supported,
+		   set the flag to indicate lib download is to be done */
+		if (sst_drv_ctx->pdata->lib_info)
+			if (sst_drv_ctx->pdata->lib_info->mod_ddr_dnld)
+				sst_drv_ctx->lib_dwnld_reqd = true;
 	}
 
 	BUG_ON(!sst_drv_ctx->fw_in_mem);
@@ -1550,19 +1573,6 @@ wake:
 	return error;
 }
 
-
-#define MRFLD_FW_MOD_TABLE_OFFSET 0x80000
-#define MRFLD_FW_MOD_START (MRFLD_FW_LSP_DDR_BASE + MRFLD_FW_MOD_TABLE_OFFSET)
-#define MRFLD_FW_MOD_DWNLD_START (MRFLD_FW_MOD_START + 0x100)
-#define MRFLD_FW_MOD_END (MRFLD_FW_LSP_DDR_BASE + 0x1FFFFF)
-
-struct sst_module_info sst_modules_mrfld[] = {
-	{"mp3_dec", SST_CODEC_TYPE_MP3, 0, SST_LIB_NOT_FOUND},
-	{"aac_dec", SST_CODEC_TYPE_AAC, 0, SST_LIB_NOT_FOUND},
-	{"audclass_lib", SST_ALGO_AUDCLASSIFIER, 0, SST_LIB_NOT_FOUND},
-	{"vtsv_lib", SST_ALGO_VTSV, 0, SST_LIB_NOT_FOUND},
-};
-
 /* In relocatable elf file, there can be  relocatable variables and functions.
  * Variables are kept in Global Address Offset Table (GOT) and functions in
  * Procedural Linkage Table (PLT). In current codec binaries only relocatable
@@ -1657,13 +1667,6 @@ static int sst_relocate_elf(char *in_elf, int elf_size, u32 rel_base,
 	pr_debug("program header entries updated\n");
 
 	return retval;
-}
-
-static void sst_init_lib_mem_mgr(struct sst_mem_mgr *mgr)
-{
-	memset(mgr, 0, sizeof(*mgr));
-	mgr->current_base = MRFLD_FW_MOD_DWNLD_START;
-	mgr->avail = MRFLD_FW_MOD_END - MRFLD_FW_MOD_DWNLD_START + 1;
 }
 
 #define ALIGN_256 0x100
@@ -1786,7 +1789,8 @@ mem_error:
 	return -ENOMEM;
 }
 
-int sst_load_all_modules_elf(struct intel_sst_drv *ctx)
+int sst_load_all_modules_elf(struct intel_sst_drv *ctx, struct sst_module_info *mod_table,
+								int num_modules)
 {
 	int retval = 0;
 	int i;
@@ -1794,17 +1798,18 @@ int sst_load_all_modules_elf(struct intel_sst_drv *ctx)
 	struct sst_module_info *mod = NULL;
 	char *out_elf;
 	unsigned int lib_size = 0;
+	unsigned int mod_table_offset = ctx->pdata->lib_info->mod_table_offset;
 	u32 lib_base;
 
 	pr_debug("In %s", __func__);
 
-	sst_init_lib_mem_mgr(&ctx->lib_mem_mgr);
+	sst_init_lib_mem_mgr(ctx);
 
-	for (i = 0; i < ARRAY_SIZE(sst_modules_mrfld); i++) {
-		mod = &sst_modules_mrfld[i];
+	for (i = 0; i < num_modules; i++) {
+		mod = &mod_table[i];
 
 		retval = sst_request_lib_elf(mod, &fw_lib,
-						ctx->pci_id, &ctx->pci->dev);
+						ctx->pci_id, ctx->dev);
 		if (retval < 0)
 			continue;
 		lib_size = fw_lib->size;
@@ -1842,8 +1847,7 @@ int sst_load_all_modules_elf(struct intel_sst_drv *ctx)
 	}
 
 	/* write module table to DDR */
-	sst_fill_fw_module_table(sst_modules_mrfld,
-			ARRAY_SIZE(sst_modules_mrfld),
-			(unsigned long)(ctx->ddr + MRFLD_FW_MOD_TABLE_OFFSET));
+	sst_fill_fw_module_table(mod_table, num_modules,
+			(unsigned long)(ctx->ddr + mod_table_offset));
 	return retval;
 }
