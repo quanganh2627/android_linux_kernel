@@ -245,6 +245,7 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
 	int			ret;
+	struct usb_phy		*usb_phy;
 
 	is_on = !!is_on;
 
@@ -267,6 +268,18 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 		 * or soft reset.
 		 */
 		spin_unlock_irqrestore(&dwc->lock, flags);
+
+		/* WORKAROUND:
+		 * In saltbay_pr2, usb2 phy would hang if we don't perform
+		 * a ulpi read here.
+		 */
+		usb_phy = usb_get_phy(USB_PHY_TYPE_USB2);
+		if (usb_phy &&
+			usb_phy_io_read(usb_phy, ULPI_VENDOR_ID_LOW) < 0)
+			dev_err(dwc->dev,
+				"ULPI not working upon soft connect\n");
+		usb_put_phy(usb_phy);
+
 		dwc3_core_init(dwc);
 		spin_lock_irqsave(&dwc->lock, flags);
 
