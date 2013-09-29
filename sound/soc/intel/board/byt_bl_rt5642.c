@@ -493,20 +493,11 @@ static const struct snd_kcontrol_new byt_mc_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Ext Spk"),
 };
 
-
-static int byt_aif1_hw_params(struct snd_pcm_substream *substream,
-			     struct snd_pcm_hw_params *params)
+/* Sets dai format and pll */
+static int byt_set_dai_fmt_pll(struct snd_soc_dai *codec_dai, int unsigned fmt,
+				int source, unsigned int freq_out)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	unsigned int fmt;
 	int ret;
-
-	pr_debug("Enter:%s", __func__);
-	/* I2S Slave Mode`*/
-	fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
-	      SND_SOC_DAIFMT_CBS_CFS;
-
 	/* Set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai, fmt);
 	if (ret < 0) {
@@ -514,13 +505,28 @@ static int byt_aif1_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
-	ret = snd_soc_dai_set_pll(codec_dai, 0, RT5640_PLL1_S_MCLK,
-				  BYT_PLAT_CLK_3_HZ, params_rate(params) * 512);
+	ret = snd_soc_dai_set_pll(codec_dai, 0, source,
+				  BYT_PLAT_CLK_3_HZ, freq_out * 512);
 	if (ret < 0) {
 		pr_err("can't set codec pll: %d\n", ret);
 		return ret;
 	}
 	return 0;
+}
+static int byt_aif1_hw_params(struct snd_pcm_substream *substream,
+			     struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	unsigned int fmt;
+
+	pr_debug("Enter:%s", __func__);
+	/* I2S Slave Mode*/
+	fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+	      SND_SOC_DAIFMT_CBS_CFS;
+	return byt_set_dai_fmt_pll(codec_dai, fmt, RT5640_PLL1_S_MCLK,
+						params_rate(params));
+
 }
 
 static int byt_aif2_hw_params(struct snd_pcm_substream *substream,
@@ -533,23 +539,16 @@ static int byt_aif2_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 
 	pr_debug("Enter:%s", __func__);
-	/* I2S  Slave Mode`*/
+	/* I2S  Slave Mode*/
 	fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 	      SND_SOC_DAIFMT_CBS_CFS;
-
-	/* Set codec DAI configuration */
-	ret = snd_soc_dai_set_fmt(codec_dai, fmt);
+	ret = byt_set_dai_fmt_pll(codec_dai, fmt, RT5640_PLL1_S_MCLK,
+						params_rate(params));
 	if (ret < 0) {
-		pr_err("can't set codec DAI configuration %d\n", ret);
+		pr_err("can't set codec dai fmt/pll: %d\n", ret);
 		return ret;
 	}
 
-	ret = snd_soc_dai_set_pll(codec_dai, 0, RT5640_PLL1_S_MCLK,
-				  BYT_PLAT_CLK_3_HZ, params_rate(params) * 512);
-	if (ret < 0) {
-		pr_err("can't set codec pll: %d\n", ret);
-		return ret;
-	}
 	if (ctx->tristate_buffer_gpio >= 0)
 		gpio_set_value(ctx->tristate_buffer_gpio, 1);
 
@@ -564,6 +563,19 @@ static int byt_aif2_hw_free(struct snd_pcm_substream *substream)
 	if (ctx->tristate_buffer_gpio >= 0)
 		gpio_set_value(ctx->tristate_buffer_gpio, 0);
 	return 0;
+}
+
+static int byt_compr_set_params(struct snd_compr_stream *cstream)
+{
+	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	unsigned int fmt;
+
+	pr_debug("Enter:%s", __func__);
+	/* I2S  Slave Mode*/
+	fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+	      SND_SOC_DAIFMT_CBS_CFS;
+	return byt_set_dai_fmt_pll(codec_dai, fmt, RT5640_PLL1_S_MCLK, 48000);
 }
 
 static int byt_set_bias_level(struct snd_soc_card *card,
@@ -891,6 +903,9 @@ static struct snd_soc_ops byt_aif2_ops = {
 	.hw_params = byt_aif2_hw_params,
 	.hw_free = byt_aif2_hw_free,
 };
+static struct snd_soc_compr_ops byt_compr_ops = {
+	.set_params = byt_compr_set_params,
+};
 
 static struct snd_soc_ops byt_comms_dai_link_ops = {
 	.startup = byt_comms_dai_link_startup,
@@ -921,6 +936,17 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.init = NULL,
 		.ignore_suspend = 1,
 		.ops = &byt_aif2_ops,
+	},
+	[BYT_AUD_COMPR_DEV] = {
+		.name = "Baytrail Compressed Audio",
+		.stream_name = "Compress",
+		.cpu_dai_name = "Compress-cpu-dai",
+		.codec_dai_name = "rt5640-aif1",
+		.codec_name = "rt5640.2-001c",
+		.platform_name = "sst-platform",
+		.init = NULL,
+		.ignore_suspend = 1,
+		.compr_ops = &byt_compr_ops,
 	},
 	[BYT_COMMS_BT] = {
 		.name = "Baytrail Comms BT SCO",

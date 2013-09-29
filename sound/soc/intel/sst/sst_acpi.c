@@ -130,12 +130,21 @@ static const struct sst_ipc_info byt_ipc_info = {
 	.mbox_recv_off = 0x400,
 };
 
+static const struct sst_lib_dnld_info  byt_lib_dnld_info = {
+	.mod_base           = SST_BYT_IMR_VIRT_START,
+	.mod_end            = SST_BYT_IMR_VIRT_END,
+	.mod_table_offset   = BYT_FW_MOD_TABLE_OFFSET,
+	.mod_table_size     = BYT_FW_MOD_TABLE_SIZE,
+	.mod_ddr_dnld       = true,
+};
+
 struct sst_platform_info byt_ffrd10_platform_data = {
 	.probe_data = &byt_fwparse_info,
 	.ssp_data = NULL,
 	.bdata = &sst_byt_ffrd10_bdata,
 	.pdata = &sst_byt_pdata,
 	.ipc_info = &byt_ipc_info,
+	.lib_info = NULL,
 };
 
 struct sst_platform_info byt_ffrd8_platform_data = {
@@ -144,6 +153,7 @@ struct sst_platform_info byt_ffrd8_platform_data = {
 	.bdata = &sst_byt_ffrd8_bdata,
 	.pdata = &sst_byt_pdata,
 	.ipc_info = &byt_ipc_info,
+	.lib_info = &byt_lib_dnld_info,
 };
 
 int sst_workqueue_init(struct intel_sst_drv *ctx)

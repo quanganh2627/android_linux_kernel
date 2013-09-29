@@ -51,6 +51,11 @@ static struct sst_module_info sst_modules_mrfld[] = {
 	{"geq_lib", SST_ALGO_GEQ, 0, SST_LIB_NOT_FOUND},
 };
 
+static struct sst_module_info sst_modules_byt[] = {
+	{"mp3_dec", SST_CODEC_TYPE_MP3, 0, SST_LIB_NOT_FOUND},
+	{"aac_dec", SST_CODEC_TYPE_AAC, 0, SST_LIB_NOT_FOUND},
+};
+
 /**
  * intel_sst_reset_dsp_medfield - Resetting SST DSP
  *
@@ -1385,6 +1390,13 @@ void sst_post_download_byt(struct intel_sst_drv *ctx)
 {
 	sst_dccm_config_write(ctx->dram, ctx->ddr_base);
 	sst_fill_config(ctx, 2 * sizeof(u32));
+
+	pr_debug("%s: lib_dwnld = %u\n", __func__, ctx->lib_dwnld_reqd);
+	if (ctx->lib_dwnld_reqd) {
+		sst_load_all_modules_elf(ctx, sst_modules_byt,
+					ARRAY_SIZE(sst_modules_byt));
+		ctx->lib_dwnld_reqd = false;
+	}
 }
 
 static void sst_init_lib_mem_mgr(struct intel_sst_drv *ctx)
