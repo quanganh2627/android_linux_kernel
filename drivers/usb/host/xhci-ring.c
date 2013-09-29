@@ -66,6 +66,8 @@
 
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
+#include <acpi/acpi.h>
+#include "../../acpi/acpica/achware.h"
 #include "xhci.h"
 
 static int handle_cmd_in_cmd_wait_list(struct xhci_hcd *xhci,
@@ -2798,6 +2800,51 @@ hw_died:
 
 	return IRQ_HANDLED;
 }
+
+#ifdef CONFIG_ACPI
+irqreturn_t xhci_byt_pm_irq(int irq, struct usb_hcd *hcd)
+{
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	u32			gpe_sts;
+	u32			gpe_en;
+	u32			pme_sts;
+
+	/* PME status from PMC side for XHCI */
+	pme_sts = readl(xhci->pmc_base_addr + 0xc0);
+
+	/* GPE_PME status from ACPI register */
+	acpi_hw_register_read(0xf1, &gpe_sts);
+
+	xhci_dbg(xhci, "xhci_pm_irq: pmc_pme_sts = 0x%x, gpe_sts = 0x%x\n",
+			pme_sts, gpe_sts);
+
+	/* 0x2000(bit 13) is PME_B0_STS for XHCI */
+	if (gpe_sts & 0x2000) {
+		if (work_busy(&xhci->pm_check)) {
+			xhci_dbg(xhci, "pm_check work busy\n");
+			return IRQ_HANDLED;
+		}
+
+		/* clear PME_B0 bit in GPE0_EN(0xf2) to disable interrupt */
+		acpi_hw_register_read(0xf2, &gpe_en);
+		gpe_en = gpe_en & (~0x2000);
+		acpi_hw_register_write(0xf2, gpe_en);
+		xhci_dbg(xhci, "clear GPE_EN\n");
+
+		spin_lock(&xhci->lock);
+		if (!xhci->pm_check_flag) {
+			xhci_dbg(xhci, "schedule work to handle PME\n");
+			xhci->pm_check_flag = 1;
+			schedule_work(&xhci->pm_check);
+		}
+		spin_unlock(&xhci->lock);
+
+		return IRQ_HANDLED;
+	}
+
+	return IRQ_NONE;
+}
+#endif
 
 irqreturn_t xhci_msi_irq(int irq, struct usb_hcd *hcd)
 {
