@@ -1663,7 +1663,7 @@ static void sst_init_lib_mem_mgr(struct sst_mem_mgr *mgr)
 {
 	memset(mgr, 0, sizeof(*mgr));
 	mgr->current_base = MRFLD_FW_MOD_DWNLD_START;
-	mgr->avail = MRFLD_FW_MOD_END - MRFLD_FW_MOD_START;
+	mgr->avail = MRFLD_FW_MOD_END - MRFLD_FW_MOD_DWNLD_START + 1;
 }
 
 #define ALIGN_256 0x100
@@ -1674,10 +1674,10 @@ int sst_get_next_lib_mem(struct sst_mem_mgr *mgr, int size,
 	int retval = 0;
 
 	pr_debug("library orig size = 0x%x", size);
-	if (size > mgr->avail)
-		return -ENOMEM;
 	if (size % ALIGN_256)
 		size += (ALIGN_256 - (size % ALIGN_256));
+	if (size > mgr->avail)
+		return -ENOMEM;
 
 	*lib_base = mgr->current_base;
 	mgr->current_base += size;
