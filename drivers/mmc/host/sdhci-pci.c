@@ -790,23 +790,30 @@ static int intel_mrfl_mmc_probe_slot(struct sdhci_pci_slot *slot)
 {
 	int ret = 0;
 
-	if ((PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_EMMC_0) ||
-		(PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_EMMC_1))
-		slot->host->mmc->caps |= MMC_CAP_8_BIT_DATA |
-					 MMC_CAP_NONREMOVABLE |
-					 MMC_CAP_1_8V_DDR;
-
-	if (PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_EMMC_0)
+	switch (PCI_FUNC(slot->chip->pdev->devfn)) {
+	case INTEL_MRFL_EMMC_0:
 		sdhci_alloc_panic_host(slot->host);
-
-	if (PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_EMMC_0)
+		slot->host->mmc->caps |= MMC_CAP_8_BIT_DATA |
+					MMC_CAP_NONREMOVABLE |
+					MMC_CAP_1_8V_DDR;
+		slot->host->mmc->caps2 |= MMC_CAP2_POLL_R1B_BUSY |
+					MMC_CAP2_INIT_CARD_SYNC |
+					MMC_CAP2_CACHE_CTRL;
+		if (slot->chip->pdev->revision == 0x1) { /* B0 stepping */
+			/* WA for async abort silicon issue */
+			slot->host->quirks2 |= SDHCI_QUIRK2_CARD_CD_DELAY |
+					SDHCI_QUIRK2_WAIT_FOR_IDLE;
+		}
 		mrfl_ioapic_rte_reg_addr_map(slot);
-
-	slot->host->mmc->caps2 |= MMC_CAP2_INIT_CARD_SYNC |
-		MMC_CAP2_POLL_R1B_BUSY;
-
-	if (PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_SDIO)
+		break;
+	case INTEL_MRFL_SD:
+		slot->host->quirks2 |= SDHCI_QUIRK2_WAIT_FOR_IDLE;
+		slot->host->mmc->caps2 |= MMC_CAP2_FIXED_NCRC;
+		break;
+	case INTEL_MRFL_SDIO:
 		slot->host->mmc->caps |= MMC_CAP_NONREMOVABLE;
+		break;
+	}
 
 	if (slot->data->platform_quirks & PLFM_QUIRK_NO_HIGH_SPEED) {
 		slot->host->quirks2 |= SDHCI_QUIRK2_DISABLE_HIGH_SPEED;
@@ -821,9 +828,6 @@ static int intel_mrfl_mmc_probe_slot(struct sdhci_pci_slot *slot)
 			PCI_FUNC(slot->chip->pdev->devfn));
 		ret = -ENODEV;
 	}
-
-	if (PCI_FUNC(slot->chip->pdev->devfn) == INTEL_MRFL_SD)
-		slot->host->mmc->caps2 |= MMC_CAP2_FIXED_NCRC;
 
 	return ret;
 }
@@ -1872,6 +1876,8 @@ static int sdhci_pci_get_tuning_count(struct sdhci_host *host)
 
 	switch (slot->chip->pdev->device) {
 	case PCI_DEVICE_ID_INTEL_BYT_EMMC45:
+		tuning_count = 4; /* using 8 seconds, this can be tuning */
+	case PCI_DEVICE_ID_INTEL_MRFL_MMC:
 		tuning_count = 4; /* using 8 seconds, this can be tuning */
 	default:
 		break;
