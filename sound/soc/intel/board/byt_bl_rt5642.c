@@ -458,7 +458,7 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	codec_gpio = acpi_get_gpio_by_index(&pdev->dev, 0, NULL);  /* GPIO_SUS4 */
+	codec_gpio = acpi_get_gpio("\\_SB.GPO2", 4); /* GPIO_SUS4 */
 	pr_debug("%s: GPIOs - codec %d", __func__, codec_gpio);
 	hs_gpio.gpio = codec_gpio;
 
