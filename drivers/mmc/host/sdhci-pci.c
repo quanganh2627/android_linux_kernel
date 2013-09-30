@@ -718,6 +718,12 @@ static int byt_sd_probe_slot(struct sdhci_pci_slot *slot)
 			INTEL_MID_BOARDV2(TABLET, BYT, BLB, ENG))
 		sdhci_alloc_panic_host(slot->host);
 
+	slot->host->mmc->qos = kzalloc(sizeof(struct pm_qos_request),
+			GFP_KERNEL);
+	if (slot->host->mmc->qos)
+		pm_qos_add_request(slot->host->mmc->qos, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
+
 	return 0;
 }
 
@@ -728,6 +734,10 @@ static void byt_sd_remove_slot(struct sdhci_pci_slot *slot, int dead)
 			gpio_free(slot->host->gpio_1p8_en);
 		if (gpio_is_valid(slot->host->gpio_pwr_en))
 			gpio_free(slot->host->gpio_pwr_en);
+	}
+	if (slot->host->mmc->qos) {
+		pm_qos_remove_request(slot->host->mmc->qos);
+		kfree(slot->host->mmc->qos);
 	}
 }
 
