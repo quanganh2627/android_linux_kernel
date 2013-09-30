@@ -13,7 +13,7 @@
 #include "power_supply.h"
 #include "power_supply_charger.h"
 
-struct work_struct otg_work;
+struct work_struct notifier_work;
 #define MAX_CHARGER_COUNT 5
 
 static LIST_HEAD(algo_list);
@@ -75,11 +75,11 @@ static struct charger_cable cable_list[] = {
 static int get_supplied_by_list(struct power_supply *psy,
 				struct power_supply *psy_lst[]);
 
-static int otg_handle_notification(struct notifier_block *nb,
+static int handle_cable_notification(struct notifier_block *nb,
 				   unsigned long event, void *data);
 struct usb_phy *otg_xceiver;
-struct notifier_block otg_nb = {
-		   .notifier_call = otg_handle_notification,
+struct notifier_block nb = {
+		   .notifier_call = handle_cable_notification,
 		};
 static void configure_chrgr_source(struct charger_cable *cable_lst);
 
@@ -88,25 +88,18 @@ struct charger_cable *get_cable(unsigned long usb_chrgr_type)
 
 	switch (usb_chrgr_type) {
 	case POWER_SUPPLY_CHARGER_TYPE_USB_SDP:
-		pr_info("%s:%d SDP\n", __FILE__, __LINE__);
 		return &cable_list[0];
 	case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
-		pr_info("%s:%d CDP\n", __FILE__, __LINE__);
 		return &cable_list[1];
 	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
-		pr_info("%s:%d DCP\n", __FILE__, __LINE__);
 		return &cable_list[2];
 	case POWER_SUPPLY_CHARGER_TYPE_USB_ACA:
-		pr_info("%s:%d ACA\n", __FILE__, __LINE__);
 		return &cable_list[3];
 	case POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK:
-		pr_info("%s:%d ACA DOCK\n", __FILE__, __LINE__);
 		return &cable_list[4];
 	case POWER_SUPPLY_CHARGER_TYPE_AC:
-		pr_info("%s:%d AC\n", __FILE__, __LINE__);
 		return &cable_list[6];
 	case POWER_SUPPLY_CHARGER_TYPE_SE1:
-		pr_info("%s:%d SE1\n", __FILE__, __LINE__);
 		return &cable_list[5];
 	}
 
@@ -114,10 +107,9 @@ struct charger_cable *get_cable(unsigned long usb_chrgr_type)
 }
 
 
-static void otg_event_worker(struct work_struct *work)
+static void notifier_event_worker(struct work_struct *work)
 {
 	configure_chrgr_source(cable_list);
-
 }
 
 static int process_cable_props(struct power_supply_cable_props *cap)
@@ -125,89 +117,85 @@ static int process_cable_props(struct power_supply_cable_props *cap)
 
 	struct charger_cable *cable = NULL;
 
+	pr_info("%s: event:%d, type:%d, mA:%d\n",
+		__func__, cap->chrg_evt, cap->chrg_type, cap->mA);
+
 	cable = get_cable(cap->chrg_type);
 	if (!cable) {
 
-		pr_err("%s:%d Error in getting charger cable from get_cable\n",
-				__FILE__, __LINE__);
+		pr_err("%s:Error in getting charger cable\n", __func__);
 		return -EINVAL;
 	}
 
 	switch (cap->chrg_evt) {
 	case POWER_SUPPLY_CHARGER_EVENT_CONNECT:
-		printk(KERN_ERR "%s:%d Connected inlmt=%d\n",
-				__FILE__, __LINE__, cap->mA);
 		cable->cable_props.cable_stat = EXTCON_CHRGR_CABLE_CONNECTED;
 		break;
 	case POWER_SUPPLY_CHARGER_EVENT_UPDATE:
-		printk(KERN_ERR "%s:%d Connected\n", __FILE__, __LINE__);
 		cable->cable_props.cable_stat = EXTCON_CHRGR_CABLE_UPDATED;
 		break;
 	case POWER_SUPPLY_CHARGER_EVENT_DISCONNECT:
-		printk(KERN_ERR "%s:%d Disconnected inlmt=%d\n",
-			__FILE__, __LINE__, cap->mA);
 		cable->cable_props.cable_stat = EXTCON_CHRGR_CABLE_DISCONNECTED;
 		break;
 	case POWER_SUPPLY_CHARGER_EVENT_SUSPEND:
-		printk(KERN_ERR "%s:%d Suspended inlmt=%d\n",
-			__FILE__, __LINE__, cap->mA);
 		cable->cable_props.cable_stat = EXTCON_CHRGR_CABLE_SUSPENDED;
 		break;
 	default:
-		printk(KERN_ERR "%s:%d Invalid event\n", __FILE__, __LINE__);
-		break;
+		pr_err("%s:Invalid cable event\n", __func__);
+		return -EINVAL;
 	}
 
 	cable->cable_props.mA = cap->mA;
-	schedule_work(&otg_work);
+	schedule_work(&notifier_work);
 
 	return 0;
 
 }
 
-static int otg_handle_notification(struct notifier_block *nb,
+static int handle_cable_notification(struct notifier_block *nb,
 				   unsigned long event, void *data)
 {
+	struct power_supply_cable_props cap;
 
-	struct power_supply_cable_props *cap;
+	memcpy(&cap, data, sizeof(struct power_supply_cable_props));
 
-	cap = (struct power_supply_cable_props *)data;
-
-	if (event != USB_EVENT_CHARGER)
+	if (event != USB_EVENT_CHARGER && event != POWER_SUPPLY_CABLE_EVENT)
 		return NOTIFY_DONE;
 
-	process_cable_props(cap);
-
+	process_cable_props(&cap);
 
 	return NOTIFY_OK;
 }
 
-int otg_register(void)
+static int register_notifier(void)
 {
 	int retval;
 
 	otg_xceiver = usb_get_phy(USB_PHY_TYPE_USB2);
-
-	if (IS_ERR(otg_xceiver)) {
-		pr_err("%s:%d failure to get otg transceiver\n",
-					__FILE__, __LINE__);
-		goto otg_reg_failed;
+	if (!otg_xceiver) {
+		pr_err("failure to get otg transceiver\n");
+		retval = -EIO;
+		goto notifier_reg_failed;
 	}
-	retval = usb_register_notifier(otg_xceiver, &otg_nb);
+	retval = usb_register_notifier(otg_xceiver, &nb);
 	if (retval) {
-		pr_err("%s:%d failure to register otg notifier\n",
-			__FILE__, __LINE__);
-		goto otg_reg_failed;
+		pr_err("failure to register otg notifier\n");
+		goto notifier_reg_failed;
 	}
 
-	INIT_WORK(&otg_work, otg_event_worker);
+	retval = power_supply_reg_notifier(&nb);
+	if (retval) {
+		pr_err("failure to register power_supply notifier\n");
+		goto notifier_reg_failed;
 
+	}
+
+	INIT_WORK(&notifier_work, notifier_event_worker);
 
 	return 0;
 
-otg_reg_failed:
-
-	return -EIO;
+notifier_reg_failed:
+	return retval;
 }
 
 static int charger_cable_notifier(struct notifier_block *nb,
@@ -223,7 +211,7 @@ static void init_charger_cables(struct charger_cable *cable_lst, int count)
 	const char *cable_name;
 	struct power_supply_cable_props cap;
 
-	otg_register();
+	register_notifier();
 
 	while (--count) {
 		cable = cable_lst++;
@@ -254,7 +242,7 @@ static void init_charger_cables(struct charger_cable *cable_lst, int count)
 		}
 	}
 
-	if (!IS_ERR(otg_xceiver) && !otg_get_chrg_status(otg_xceiver, &cap))
+	if (!otg_get_chrg_status(otg_xceiver, &cap))
 		process_cable_props(&cap);
 
 }
@@ -317,7 +305,7 @@ static inline void cache_chrgr_prop(struct charger_props *chrgr_prop_new)
 
 	chrgr_cache = kzalloc(sizeof(*chrgr_cache), GFP_KERNEL);
 	if (chrgr_cache == NULL) {
-		pr_err("%s:%dError in allocating memory\n", __FILE__, __LINE__);
+		pr_err("%s:Error in allocating memory\n", __func__);
 		return;
 	}
 
@@ -338,7 +326,6 @@ update_props:
 
 static inline bool is_chrgr_prop_changed(struct power_supply *psy)
 {
-
 	struct charger_props chrgr_prop_cache, chrgr_prop;
 
 	get_cur_chrgr_prop(psy, &chrgr_prop);
@@ -350,7 +337,6 @@ static inline bool is_chrgr_prop_changed(struct power_supply *psy)
 		return true;
 	}
 
-	pr_devel("%s\n", __func__);
 	dump_charger_props(&chrgr_prop);
 	dump_charger_props(&chrgr_prop_cache);
 
@@ -362,14 +348,12 @@ static inline bool is_chrgr_prop_changed(struct power_supply *psy)
 }
 static void cache_successive_samples(long *sample_array, long new_sample)
 {
-
 	int i;
 
 	for (i = 0; i < MAX_CUR_VOLT_SAMPLES - 1; ++i)
 		*(sample_array + i) = *(sample_array + i + 1);
 
 	*(sample_array + i) = new_sample;
-
 }
 
 static inline void cache_bat_prop(struct batt_props *bat_prop_new)
@@ -386,7 +370,7 @@ static inline void cache_bat_prop(struct batt_props *bat_prop_new)
 
 	bat_cache = kzalloc(sizeof(*bat_cache), GFP_KERNEL);
 	if (bat_cache == NULL) {
-		pr_err("%s:%dError in allocating memory\n", __FILE__, __LINE__);
+		pr_err("%s:Error in allocating memory\n", __func__);
 		return;
 	}
 	INIT_LIST_HEAD(&bat_cache->node);
@@ -418,7 +402,6 @@ update_props:
 static inline int get_bat_prop_cache(struct power_supply *psy,
 				     struct batt_props *bat_cache)
 {
-
 	struct batt_props *bat_prop;
 	int ret = -ENODEV;
 
@@ -456,7 +439,6 @@ static inline void get_cur_bat_prop(struct power_supply *psy,
 
 static inline bool is_batt_prop_changed(struct power_supply *psy)
 {
-
 	struct batt_props bat_prop_cache, bat_prop;
 
 	/* Get cached battery property. If no cached property available
@@ -468,7 +450,6 @@ static inline bool is_batt_prop_changed(struct power_supply *psy)
 		return true;
 	}
 
-	pr_devel("%s\n", __func__);
 	dump_battery_props(&bat_prop);
 	dump_battery_props(&bat_prop_cache);
 
@@ -499,7 +480,6 @@ static inline bool is_supplied_to_has_ext_pwr_changed(struct power_supply *psy)
 
 static inline bool is_supplied_by_changed(struct power_supply *psy)
 {
-
 	int cnt;
 	struct power_supply *chrgr_lst[MAX_CHARGER_COUNT];
 
@@ -515,7 +495,6 @@ static inline bool is_supplied_by_changed(struct power_supply *psy)
 
 static inline bool is_trigger_charging_algo(struct power_supply *psy)
 {
-
 	/* trigger charging alorithm if battery or
 	 * charger properties are changed. Also no need to
 	 * invoke algorithm for power_supply_changed from
@@ -589,8 +568,6 @@ static int get_battery_status(struct power_supply *psy)
 
 
 	while (cnt--) {
-
-
 		if (IS_PRESENT(chrgr_lst[cnt]))
 			status = POWER_SUPPLY_STATUS_NOT_CHARGING;
 
@@ -662,13 +639,11 @@ static int trigger_algo(struct power_supply *psy)
 	struct ps_batt_chg_prof chrg_profile;
 	int cnt;
 
-
 	if (psy->type != POWER_SUPPLY_TYPE_BATTERY)
 		return 0;
 
 	if (get_batt_prop(&chrg_profile)) {
-		pr_err("Error in getting charge profile:%s:%d\n", __FILE__,
-		       __LINE__);
+		pr_err("%s:Error in getting charge profile\n", __func__);
 		return -EINVAL;
 	}
 
@@ -677,32 +652,14 @@ static int trigger_algo(struct power_supply *psy)
 
 	algo = power_supply_get_charging_algo(psy, &chrg_profile);
 	if (!algo) {
-		pr_err("Error in getting charging algo!!\n");
+		pr_err("%s:Error in getting charging algo!!\n", __func__);
 		return -EINVAL;
 	}
 
 	bat_prop.algo_stat = algo->get_next_cc_cv(bat_prop,
 						chrg_profile, &cc, &cv);
 
-	switch (bat_prop.algo_stat) {
-	case PSY_ALGO_STAT_CHARGE:
-		pr_devel("%s:Algo_status: Charging Enabled\n", __func__);
-		break;
-	case PSY_ALGO_STAT_FULL:
-		pr_devel("%s:Algo_status: Battery is Full\n", __func__);
-		break;
-	case PSY_ALGO_STAT_MAINT:
-		pr_devel("%s:Algo_status: Maintenance charging started\n",
-			__func__);
-		break;
-	case PSY_ALGO_STAT_UNKNOWN:
-		pr_devel("%s:Algo Status: unknown\n", __func__);
-		break;
-	case PSY_ALGO_STAT_NOT_CHARGE:
-		pr_devel("%s:Algo Status: charging not enabled\n",
-			__func__);
-		break;
-	}
+	pr_info("%s:Algo_status:%d\n", __func__, bat_prop.algo_stat);
 
 	cache_bat_prop(&bat_prop);
 
@@ -767,7 +724,6 @@ static void __power_supply_trigger_charging_handler(struct power_supply *psy)
 	int i;
 	struct power_supply *psb = NULL;
 
-
 	mutex_lock(&psy_chrgr.evt_lock);
 
 	if (is_trigger_charging_algo(psy)) {
@@ -807,7 +763,6 @@ static int __trigger_charging_handler(struct device *dev, void *data)
 {
 	struct power_supply *psy = dev_get_drvdata(dev);
 
-
 	__power_supply_trigger_charging_handler(psy);
 
 	return 0;
@@ -815,10 +770,8 @@ static int __trigger_charging_handler(struct device *dev, void *data)
 
 static void trigger_algo_psy_class(struct work_struct *work)
 {
-
 	class_for_each_device(power_supply_class, NULL, NULL,
 			__trigger_charging_handler);
-
 }
 
 static bool is_cable_connected(void)
@@ -836,7 +789,6 @@ static bool is_cable_connected(void)
 
 void power_supply_trigger_charging_handler(struct power_supply *psy)
 {
-
 	if (!psy_chrgr.is_cable_evt_reg || !is_cable_connected())
 		return;
 
@@ -856,25 +808,23 @@ static inline int get_battery_thresholds(struct power_supply *psy,
 	struct charging_algo *algo;
 	struct ps_batt_chg_prof chrg_profile;
 
-
 	/* FIXME: Get iterm only for supplied_to arguments*/
 	if (get_batt_prop(&chrg_profile)) {
-		pr_err("Error in getting charge profile:%s:%d\n", __FILE__,
-		       __LINE__);
+		pr_err("%s:Error in getting charge profile\n", __func__);
 		return -EINVAL;
 	}
 
 	algo = power_supply_get_charging_algo(psy, &chrg_profile);
 	if (!algo) {
-		pr_err("Error in getting charging algo!!\n");
+		pr_err("%s:Error in getting charging algo!!\n", __func__);
 		return -EINVAL;
 	}
 
 	if (algo->get_batt_thresholds) {
 		algo->get_batt_thresholds(chrg_profile, bat_thresh);
 	} else {
-		pr_err("Error in getting battery thresholds from %s:%s\n",
-			algo->name, __func__);
+		pr_err("%s:Error in getting battery thresholds from: %s\n",
+			__func__, algo->name);
 		return -EINVAL;
 	}
 	return 0;
@@ -951,11 +901,9 @@ static int select_chrgr_cable(struct device *dev, void *data)
 		}
 
 	} else {
-
 		disable_charger(psy);
 		update_charger_online(psy);
 	}
-
 
 	mutex_unlock(&psy_chrgr.evt_lock);
 	power_supply_trigger_charging_handler(NULL);
@@ -966,10 +914,8 @@ static int select_chrgr_cable(struct device *dev, void *data)
 
 static void configure_chrgr_source(struct charger_cable *cable_lst)
 {
-
 	class_for_each_device(power_supply_class, NULL,
 			      cable_lst, select_chrgr_cable);
-
 }
 
 static void charger_cable_event_worker(struct work_struct *work)
@@ -981,9 +927,9 @@ static void charger_cable_event_worker(struct work_struct *work)
 	if (cable->edev->
 	    get_cable_properties(extcon_cable_name[cable->extcon_cable_type],
 				 (void *)&cable_props)) {
-		pr_err("Erron in getting cable(%s) properties from extcon device(%s):%s:%d",
-				extcon_cable_name[cable->extcon_cable_type],
-				cable->edev->name, __FILE__, __LINE__);
+		pr_err("%s:Error in getting cable(%s) properties from extcon device(%s)",
+			__func__, extcon_cable_name[cable->extcon_cable_type],
+				cable->edev->name);
 		return;
 	} else {
 		if (cable_props.cable_stat != cable->cable_props.cable_stat) {
@@ -998,7 +944,6 @@ static void charger_cable_event_worker(struct work_struct *work)
 static int charger_cable_notifier(struct notifier_block *nb,
 				  unsigned long stat, void *ptr)
 {
-
 	struct charger_cable *cable =
 	    container_of(nb, struct charger_cable, nb);
 
@@ -1035,7 +980,8 @@ int psy_charger_throttle_charger(struct power_supply *psy,
 			set_inlmt(psy, THROTTLE_CC_VALUE(psy, state));
 			break;
 		default:
-			pr_err("Invalid throttle action for %s\n", psy->name);
+			pr_err("%s:Invalid throttle action for %s\n",
+						__func__, psy->name);
 			ret = -EINVAL;
 			break;
 	}
@@ -1069,7 +1015,6 @@ static inline void flush_charger_context(struct power_supply *psy)
 {
 	struct charger_props *chrgr_prop, *tmp;
 
-
 	list_for_each_entry_safe(chrgr_prop, tmp,
 				&psy_chrgr.chrgr_cache_lst, node) {
 		if (!strcmp(chrgr_prop->name, psy->name)) {
@@ -1087,13 +1032,12 @@ EXPORT_SYMBOL(power_supply_unregister_charger);
 
 int power_supply_register_charging_algo(struct charging_algo *algo)
 {
-
 	struct charging_algo *algo_new;
 
 	algo_new = kzalloc(sizeof(*algo_new), GFP_KERNEL);
 	if (algo_new == NULL) {
 		pr_err("%s: Error allocating memory for algo!!", __func__);
-		return -1;
+		return -ENOMEM;
 	}
 	memcpy(algo_new, algo, sizeof(*algo_new));
 
@@ -1145,7 +1089,6 @@ static struct charging_algo *get_charging_algo_by_type
 struct charging_algo *power_supply_get_charging_algo
 	(struct power_supply *psy, struct ps_batt_chg_prof *batt_prof)
 {
-
 	return get_charging_algo_by_type(batt_prof->chrg_prof_type);
 
 }
