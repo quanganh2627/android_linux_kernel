@@ -4432,7 +4432,7 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 	/* Make sure FIFO errors are masked */
 	snd_soc_update_bits(codec, WM8994_INTERRUPT_STATUS_2_MASK,
 			    WM8994_IM_FIFOS_ERR_EINT_MASK,
-			    1 << WM8994_IM_FIFOS_ERR_EINT_MASK);
+			    1 << WM8994_IM_FIFOS_ERR_EINT_SHIFT);
 
 	return 0;
 
