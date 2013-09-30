@@ -274,6 +274,10 @@ int intel_enable_dsi_pll(struct intel_dsi *intel_dsi)
 
 	tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
 	tmp |= DSI_PLL_VCO_EN;
+	/* enable DPLL ref clock */
+	I915_WRITE_BITS(_DPLL_A, DPLL_REFA_CLK_ENABLE_VLV,
+						DPLL_REFA_CLK_ENABLE_VLV);
+	udelay(1000);
 	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, tmp);
 
 	mutex_unlock(&dev_priv->dpio_lock);
@@ -299,6 +303,10 @@ int intel_disable_dsi_pll(struct intel_dsi *intel_dsi)
 	tmp &= ~DSI_PLL_VCO_EN;
 	tmp |= DSI_PLL_LDO_GATE;
 	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, tmp);
+	if ((I915_READ(PIPECONF(PIPE_A)) & PIPECONF_ENABLE == 0) &&
+		(I915_READ(PIPECONF(PIPE_B)) & PIPECONF_ENABLE == 0))
+		I915_WRITE_BITS(_DPLL_A, 0x00000000, DPLL_REFA_CLK_ENABLE_VLV);
+
 	mutex_unlock(&dev_priv->dpio_lock);
 
 	return 0;
