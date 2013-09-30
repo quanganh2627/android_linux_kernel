@@ -1325,6 +1325,12 @@ typedef struct drm_i915_private {
 		u32 signal;
 		u32 blc_adjustment;
 		bool enabled;
+		bool feature_control;
+#ifdef CONFIG_DEBUG_FS
+		u32 bin_data[DPST_BIN_COUNT];
+		u32 luma_data[DPST_LUMA_COUNT];
+		u32 num_interrupt;
+#endif
 	} dpst;
 
 	/* PCH chipset type */
@@ -2390,6 +2396,8 @@ int i915_dpst_context(struct drm_device *dev, void *data,
 u32 i915_dpst_get_brightness(struct drm_device *dev);
 void i915_dpst_set_brightness(struct drm_device *dev, u32 brightness_val);
 void i915_dpst_irq_handler(struct drm_device *dev);
+int i915_dpst_disable_hist_interrupt(struct drm_device *dev);
+int i915_dpst_enable_hist_interrupt(struct drm_device *dev);
 
 /* intel_acpi.c */
 #ifdef CONFIG_ACPI

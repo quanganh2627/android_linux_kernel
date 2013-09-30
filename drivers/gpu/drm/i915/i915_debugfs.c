@@ -39,6 +39,8 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 #include "i915_debugfs.h"
+#include <linux/moduleparam.h>
+#include "linux/mfd/intel_mid_pmic.h"
 
 #define DRM_I915_RING_DEBUG 1
 
@@ -2550,6 +2552,264 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_max_freq_fops,
 			i915_max_freq_get, i915_max_freq_set,
 			"%llu\n");
 
+/* Helper function to enable and disable dpst based on input */
+int
+i915_dpst_enable_disable(struct drm_device *dev, unsigned int val)
+{
+	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	/* 1=> Enable DPST, else disable. */
+	if (val == 1)
+		i915_dpst_enable_hist_interrupt(dev);
+	else
+		i915_dpst_disable_hist_interrupt(dev);
+
+	return 0;
+}
+
+
+static int
+i915_dpst_status(struct drm_device *dev, char *buf, int *len)
+{
+	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "DPST Enabled: %s\n",
+			yesno(dev_priv->dpst.enabled ? 1 : 0));
+
+	return 0;
+}
+
+static int
+i915_dpst_irq_count(struct drm_device *dev, char *buf, int *len)
+{
+	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "DPST Interrupt Count: %d\n",
+					dev_priv->dpst.num_interrupt);
+
+	return 0;
+}
+
+static int
+i915_dpst_dump_reg(struct drm_device *dev, char *buf, int *len)
+{
+	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
+	u32 btgr_data,  hcr_data, bpcr_data, dpst_set_level;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	btgr_data = I915_READ(BLC_HIST_GUARD);
+	hcr_data = I915_READ(BLC_HIST_BIN);
+	bpcr_data = I915_READ(BLC_PWM_CTL);
+	dpst_set_level = I915_READ(BLC_PWM_CTL) & 0xffff;
+
+	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "IEBTGR: 0x%x & IEHCR: 0x%x",
+				btgr_data, hcr_data);
+
+	*len += snprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len),
+			" & IEBPCR: 0x%x DPST_SET_LEVEL: 0x%x\n",
+			 bpcr_data, dpst_set_level);
+
+	return 0;
+}
+
+static int
+i915_dpst_get_bin_data(struct drm_device *dev, char *buf, int *len)
+{
+	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
+	int index;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "Bin Data:\n");
+
+	for (index = 0; index < DPST_BIN_COUNT; index++)
+		*len += snprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len),
+				"%d ", dev_priv->dpst.bin_data[index]);
+
+	*len += snprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len), "\n");
+
+	return 0;
+}
+
+static int
+i915_dpst_get_luma_data(struct drm_device *dev, char *buf, int *len)
+{
+	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
+	int index;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "LUMA Data:\n");
+
+	for (index = 0; index < DPST_LUMA_COUNT; index++)
+		*len += snprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len),
+				"%d ", dev_priv->dpst.luma_data[index]);
+
+	*len += snprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len), "\n");
+
+	return 0;
+}
+
+
+static int
+i915_read_dpst_api(struct file *filp,
+			char __user *ubuf,
+			size_t max,
+			loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
+	char buf[200], control[10], operation[20], val[20], format[20];
+	int len = 0, ret, no_of_tokens;
+	u32 dpst_set_level;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (i915_debugfs_vars.dpst.dpst_input == 0)
+		return len;
+
+	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+			sizeof(control), sizeof(operation), sizeof(val));
+
+	no_of_tokens = sscanf(i915_debugfs_vars.dpst.dpst_vars,
+				format, control, operation, val);
+	if (no_of_tokens < 3)
+		return len;
+
+	len = sizeof(i915_debugfs_vars.dpst.dpst_vars);
+
+	if (strcmp(operation, STATUS_TOKEN) == 0) {
+		ret = i915_dpst_status(dev, buf, &len);
+		if (ret)
+			return ret;
+
+	} else if (strcmp(operation, ENABLE_TOKEN) == 0) {
+
+		/* 1 => Enable DPST only for video playback scenarios
+		 * when source content is 18 bpp, for higher bpp source
+		 * content DPST is enabled always */
+			ret = i915_dpst_enable_disable(dev, 1);
+			if (ret)
+				return ret;
+		dev_priv->dpst.feature_control = true;
+		i915_dpst_status(dev, buf, &len);
+
+	} else if (strcmp(operation, DISABLE_TOKEN) == 0) {
+
+		/* 0 => Disable DPST */
+		dev_priv->dpst.feature_control = false;
+		ret = i915_dpst_enable_disable(dev, 0);
+		if (ret)
+			return ret;
+
+		i915_dpst_status(dev, buf, &len);
+
+	} else if (strcmp(operation, DPST_DUMP_REG_TOKEN) == 0) {
+		i915_dpst_dump_reg(dev, buf, &len);
+
+	} else if (strcmp(operation, DPST_GET_BIN_DATA_TOKEN) == 0) {
+		i915_dpst_get_bin_data(dev, buf, &len);
+
+	} else if (strcmp(operation, DPST_GET_LUMA_DATA_TOKEN) == 0) {
+		i915_dpst_get_luma_data(dev, buf, &len);
+
+	} else if (strcmp(operation, DPST_IRQ_COUNT_TOKEN) == 0) {
+		i915_dpst_irq_count(dev, buf, &len);
+
+	} else if (strcmp(operation, DPST_FACTOR_TOKEN) == 0) {
+		len = snprintf(buf, sizeof(buf),
+				"DPST Backlight Factor: %d\n",
+				(dev_priv->dpst.blc_adjustment / 100));
+
+	} else if (strcmp(operation, DPST_LEVEL_TOKEN) == 0) {
+		dpst_set_level = I915_READ(BLC_PWM_CTL) & 0xffff;
+
+		len = snprintf(buf, sizeof(buf),
+					"User Applied Backlight Level: 0x%x\n",
+					(dev_priv->backlight.level));
+
+		if (len < 0)
+			return len;
+
+		if (dev_priv->is_mipi) {
+
+#ifdef CONFIG_CRYSTAL_COVE
+			len += snprintf(&buf[len], (sizeof(buf) - len),
+					"DPST Applied Backlight Level: 0x%x\n",
+					intel_mid_pmic_readb(0x4E));
+#else
+			len += snprintf(&buf[len], (sizeof(buf) - len),
+					"DPST Applied Backlight not supported\n");
+#endif
+		} else {
+			len += snprintf(&buf[len], (sizeof(buf) - len),
+					"DPST Applied Backlight Level: 0x%x\n",
+					dpst_set_level);
+		}
+	} else
+		len = snprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	i915_debugfs_vars.dpst.dpst_input = 0;
+	simple_read_from_buffer(ubuf, max, ppos, buf, len);
+
+	return len;
+}
+
+
+static ssize_t
+i915_write_dpst_api(struct file *filp,
+			const char __user *ubuf,
+			size_t cnt,
+			loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	/* Reset the string */
+	memset(i915_debugfs_vars.dpst.dpst_vars, 0, MAX_BUFFER_STR_LEN);
+	if (cnt > 0) {
+		if (cnt > sizeof(i915_debugfs_vars.dpst.dpst_vars) - 1)
+			return -EINVAL;
+		if (copy_from_user(i915_debugfs_vars.dpst.dpst_vars,
+						ubuf, cnt))
+			return -EFAULT;
+		i915_debugfs_vars.dpst.dpst_vars[cnt] = 0;
+
+		/* Enable read */
+		i915_debugfs_vars.dpst.dpst_input = 1;
+	}
+
+	return cnt;
+}
+
+static const struct file_operations i915_dpst_fops = {
+.owner = THIS_MODULE,
+.open = simple_open,
+.read = i915_read_dpst_api,
+.write = i915_write_dpst_api,
+.llseek = default_llseek,
+};
+
+
 /* Helper function to set min freq turbo based on input */
 static int
 i915_set_min_freq(struct drm_device *dev, int val)
@@ -3580,6 +3840,7 @@ static struct i915_debugfs_files {
 	{"i915_rc6_status", &i915_rc6_status_fops},
 	{"i915_turbo_api", &i915_turbo_fops},
 	{"i915_rps_init", &i915_rps_init_fops},
+	{"i915_dpst_api", &i915_dpst_fops},
 };
 
 int i915_debugfs_init(struct drm_minor *minor)

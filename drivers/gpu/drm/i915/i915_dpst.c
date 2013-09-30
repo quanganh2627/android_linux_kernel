@@ -61,7 +61,7 @@ i915_dpst_clear_hist_interrupt(struct drm_device *dev)
 	return 0;
 }
 
-static int
+int
 i915_dpst_enable_hist_interrupt(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -97,7 +97,7 @@ i915_dpst_enable_hist_interrupt(struct drm_device *dev)
 	return 0;
 }
 
-static int
+int
 i915_dpst_disable_hist_interrupt(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;

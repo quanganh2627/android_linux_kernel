@@ -1308,8 +1308,13 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 				intel_prepare_page_flip(dev, pipe);
 				intel_finish_page_flip(dev, pipe);
 			}
-			if (pipe_stats[pipe] & PIPE_DPST_EVENT_STATUS)
+			if (pipe_stats[pipe] & PIPE_DPST_EVENT_STATUS) {
+
+#ifdef CONFIG_DEBUG_FS
+				dev_priv->dpst.num_interrupt++;
+#endif
 				i915_dpst_irq_handler(dev);
+			}
 		}
 
 		/* Consume port.  Then clear IIR or we'll miss events */
