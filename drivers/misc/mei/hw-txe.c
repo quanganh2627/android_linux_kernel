@@ -678,8 +678,8 @@ static int mei_txe_hw_reset(struct mei_device *dev, bool intr_enable)
 	 */
 	if (aliveness_req != hw->aliveness)
 		if (mei_txe_aliveness_poll(dev, aliveness_req) < 0) {
-			dev_dbg(&dev->pdev->dev,
-				"wait for aliveness failed ... bailing out\n");
+			dev_err(&dev->pdev->dev,
+				"wait for aliveness settle failed ... bailing out\n");
 			return -ENODEV;
 		}
 
@@ -691,7 +691,7 @@ static int mei_txe_hw_reset(struct mei_device *dev, bool intr_enable)
 	if (aliveness_req) {
 		mei_txe_aliveness_set(dev, 0);
 		if (mei_txe_aliveness_poll(dev, 0) < 0) {
-			dev_dbg(&dev->pdev->dev,
+			dev_err(&dev->pdev->dev,
 				"wait for aliveness failed ... bailing out\n");
 			return -ENODEV;
 		}
