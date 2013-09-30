@@ -540,6 +540,7 @@ static struct sdhci_pci_data *get_sdhci_platform_data(struct pci_dev *pdev)
 		pdata = &byt_sdhci_pci_data[SDIO_INDEX];
 		pdata->quirks = sdhci_pdata_quirks;
 		pdata->register_embedded_control = sdhci_embedded_control;
+		break;
 	case PCI_DEVICE_ID_INTEL_MOOR_EMMC:
 		pdata = &moor_sdhci_pci_data[EMMC0_INDEX];
 		if (intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_HVP)
