@@ -29,7 +29,6 @@
 #include "intel_drv.h"
 #include "i915_reg.h"
 #include <linux/console.h>
-#include <linux/intel_mid_pm.h>
 
 static u8 i915_read_indexed(struct drm_device *dev, u16 index_port, u16 data_port, u8 reg)
 {
@@ -706,8 +705,17 @@ static void valleyview_power_gate_disp(struct drm_i915_private *dev_priv)
 	int ret;
 
 	/* 1. Power Gate Display Controller */
-	pmu_nc_set_power_state(VLV_DISPLAY_ISLAND,
-			OSPM_ISLAND_DOWN, VLV_IOSFSB_PWRGT_CNT_CTRL);
+    ret = set_power_state_with_timeout(dev_priv,
+            VLV_IOSFSB_PWRGT_CNT_CTRL,
+            VLV_PWRGT_DISP_CNT_MASK,
+            VLV_IOSFSB_PWRGT_STATUS,
+            VLV_PWRGT_DISP_CNT_MASK,
+            VLV_PWRGT_DISP_CNT_MASK);
+    if (ret) {
+        dev_err(&dev_priv->bridge_dev->dev,
+        "Power gate DISP Controller timed out, suspend might fail\n");
+    }
+
 
 	/* 2. Power Gate DPIO - RX/TX Lanes */
 	ret = set_power_state_with_timeout(dev_priv,
@@ -755,8 +763,16 @@ static void valleyview_power_ungate_disp(struct drm_i915_private *dev_priv)
 	}
 
 	/* 3. Power ungate display controller */
-	pmu_nc_set_power_state(VLV_DISPLAY_ISLAND,
-			OSPM_ISLAND_UP, VLV_IOSFSB_PWRGT_CNT_CTRL);
+    ret = set_power_state_with_timeout(dev_priv,
+            VLV_IOSFSB_PWRGT_CNT_CTRL,
+            VLV_PWRGT_DISP_CNT_MASK,
+            VLV_IOSFSB_PWRGT_STATUS,
+            VLV_PWRGT_DISP_CNT_MASK,
+            0);
+    if (ret) {
+        dev_err(&dev_priv->bridge_dev->dev,
+        "Power ungate DISP Controller timed out, resume might fail\n");
+    }
 }
 
 /* follow the sequence below for VLV suspend*/
