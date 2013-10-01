@@ -47,10 +47,10 @@
 #define BYT_HS_INSERT_DET_DELAY         500
 #define BYT_HS_REMOVE_DET_DELAY         500
 #define BYT_BUTTON_DET_DELAY            100
-#define BYT_HS_DET_POLL_INTRVL          300
+#define BYT_HS_DET_POLL_INTRVL          100
 #define BYT_BUTTON_EN_DELAY             1500
 
-#define BYT_HS_DET_RETRY_COUNT          3
+#define BYT_HS_DET_RETRY_COUNT          6
 
 struct byt_mc_private {
 	struct snd_soc_jack jack;
@@ -218,23 +218,21 @@ static void byt_check_hs_insert_status(struct work_struct *work)
 
 	jack_type = byt_check_jack_type();
 
-	/* Report jack only if jack is headset or headphone. If no jack was detected,
-	   dont report it untill the last HS det try. This is to avoid reporting any temporary
-	   jack removal during the detection tries. This provides additional debounce that
-	   will help in the case of slow insertion */
-	if (jack_type)
+	/* Report jack immediately only if jack is headset. If headphone or no jack was detected,
+	   dont report it until the last HS det try. This is to avoid reporting any temporary
+	   jack removal or accessory change(eg, HP to HS) during the detection tries.
+	   This provides additional debounce that will help in the case of slow insertion.
+	   This also avoids the pause in audio due to accessory change from HP to HS */
+	if (ctx->hs_det_retry <= 0) /* end of retries; report the status */
 		snd_soc_jack_report(jack, jack_type, gpio->report);
-
-	if (ctx->hs_det_retry <= 0) {
-		if (!jack_type) /* If no jack is detected at the end of tries, report it*/
-			snd_soc_jack_report(jack, jack_type, gpio->report);
-	} else {
+	else {
 		/* Schedule another detection try if headphone or no jack is detected.
 		   During slow insertion of headset, first a headphone may be detected.
 		   Hence retry until headset is detected */
-		if (jack_type == SND_JACK_HEADSET)
+		if (jack_type == SND_JACK_HEADSET) {
 			ctx->hs_det_retry = 0; /* HS detected, no more retries needed */
-		else {
+			snd_soc_jack_report(jack, jack_type, gpio->report);
+		} else {
 			ctx->hs_det_retry--;
 			schedule_delayed_work(&ctx->hs_insert_work,
 					msecs_to_jiffies(ctx->hs_det_poll_intrvl));
