@@ -2233,7 +2233,8 @@ static int lapic_suspend(void)
 	 * AONT global timer will be updated with this big value at s0i3 entry,
 	 * and wont produce timer based wake up event.
 	 */
-	if (intel_mid_identify_cpu() != 0) {
+	if ((intel_mid_identify_cpu() != 0) ||
+			(boot_cpu_data.x86_model == 0x37)) {
 		apic_write(APIC_TMICT, ~0);
 		return 0;
 	}
@@ -2280,7 +2281,8 @@ static void lapic_resume(void)
 	 * On intel_mid, the resume flow is a bit different.
 	 * Refer explanation on lapic_suspend.
 	 */
-	if (intel_mid_identify_cpu() != 0) {
+	if ((intel_mid_identify_cpu() != 0) ||
+			(boot_cpu_data.x86_model == 0x37)) {
 		apic_write(APIC_TMICT, 10);
 		return;
 	}
