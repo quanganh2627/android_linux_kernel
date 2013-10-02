@@ -590,7 +590,7 @@ static int create_extcon_class(void)
 			return PTR_ERR(extcon_class);
 		extcon_class->dev_attrs = extcon_attrs;
 
-#if defined(CONFIG_ANDROID)
+#if defined(CONFIG_ANDROID) && !defined(CONFIG_SWITCH)
 		switch_class = class_compat_register("switch");
 		if (WARN(!switch_class, "cannot allocate"))
 			return -ENOMEM;

@@ -359,7 +359,9 @@ static inline void dispatch_sw_desc(struct desc_q *q_p,
 	const u32 desc_idx = GET_DESC_IDX(q_p->sent_cntr);
 
 	dump_desc(desc_p);
+	preempt_disable_notrace();
 	q_p->enqueue_time[desc_idx] = sched_clock();	/* Save start time */
+	preempt_enable_notrace();
 	/* copy descriptor to free entry in queue */
 	SEP_SW_DESC_COPY_TO_SEP(GET_DESC_PTR(q_p, desc_idx), desc_p);
 	q_p->sent_cntr++;

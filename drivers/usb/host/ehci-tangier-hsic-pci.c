@@ -457,7 +457,7 @@ static ssize_t hsic_host_resume_store(struct device *dev,
 	return -EINVAL;
 }
 
-static DEVICE_ATTR(host_resume, S_IWUSR | S_IROTH | S_IWOTH,
+static DEVICE_ATTR(host_resume, S_IWUSR | S_IWOTH,
 		NULL, hsic_host_resume_store);
 
 static ssize_t hsic_port_enable_show(struct device *dev,
