@@ -48,6 +48,21 @@ static struct sfi_to_mdm mdm_assoc_table[] = {
 	{"", MODEM_UNSUP},
 };
 
+struct cfg_match {
+	char cfg_name[SFI_NAME_LEN + 1];
+	char mdm_name[SFI_NAME_LEN + 1];
+	int cpu_type;
+};
+
+static struct cfg_match cfg_assoc_tbl[] = {
+	{"XMM7160_CONF_1", "XMM_7160_REV3", INTEL_MID_CPU_CHIP_TANGIER},
+	{"XMM7160_CONF_2", "XMM_7160_REV3_5", INTEL_MID_CPU_CHIP_TANGIER},
+	{"XMM7160_CONF_3", "XMM_7160", INTEL_MID_CPU_CHIP_VALLEYVIEW2},
+	{"XMM7160_CONF_4", "XMM_7160_REV3_5", INTEL_MID_CPU_CHIP_CLOVERVIEW},
+	{"XMM6360_CONF_1", "XMM_6360", INTEL_MID_CPU_CHIP_CLOVERVIEW},
+	{"XMM7260_CONF_1", "XMM_7160_REV1", INTEL_MID_CPU_CHIP_ANNIEDALE},
+};
+
 /* Modem data */
 static struct mdm_ctrl_mdm_data mdm_6260 = {
 	.pre_on_delay = 200,
@@ -145,6 +160,7 @@ void *cpu_data[] = {
  */
 static char modem_name[SFI_NAME_LEN];
 static char cpu_name[SFI_NAME_LEN];
+static char config_name[SFI_NAME_LEN];
 
 /*
  * Modem name accessor
@@ -170,9 +186,22 @@ static ssize_t cpu_name_show(struct kobject *kobj,
 /* Read-only element */
 static struct kobj_attribute cpu_name_attribute = __ATTR_RO(cpu_name);
 
+/*
+ * config name accessor
+ */
+static ssize_t config_name_show(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%s\n", config_name);
+}
+
+/* Read-only element */
+static struct kobj_attribute config_name_attribute = __ATTR_RO(config_name);
+
 static struct attribute *mdm_attrs[] = {
 	&modem_name_attribute.attr,
 	&cpu_name_attribute.attr,
+	&config_name_attribute.attr,
 	NULL, /* need to NULL terminate the list of attributes */
 };
 
@@ -264,6 +293,20 @@ int mcd_get_modem_ver(char *mdm_name)
 	return MODEM_UNSUP;
 }
 
+void mcd_get_config_ver(char *mdm_name, int mid_cpu)
+{
+	ssize_t i = 0;
+
+	for (i = 0; i < ARRAY_SIZE(cfg_assoc_tbl); i++) {
+		if (!strncmp(cfg_assoc_tbl[i].mdm_name, mdm_name, SFI_NAME_LEN)
+				&& (cfg_assoc_tbl[i].cpu_type == mid_cpu)) {
+			strncpy(config_name, cfg_assoc_tbl[i].cfg_name,
+					SFI_NAME_LEN);
+			break;
+		}
+	}
+}
+
 int mcd_get_cpu_ver(void)
 {
 	enum intel_mid_cpu_type mid_cpu = intel_mid_identify_cpu();
@@ -323,6 +366,7 @@ void *modem_platform_data(void *data)
 	mcd_info->mdm_ver = mcd_get_modem_ver(mdm_name);
 	mcd_info->cpu_ver = mcd_get_cpu_ver();
 	mcd_info->pmic_ver = mcd_get_pmic_ver();
+	mcd_get_config_ver(mdm_name, intel_mid_identify_cpu());
 
 	pr_info("SFI %s cpu: %d mdm: %d pmic: %d.\n", __func__,
 		mcd_info->cpu_ver, mcd_info->mdm_ver, mcd_info->pmic_ver);
@@ -462,6 +506,8 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 		goto Free_mdm_info;
 	}
 	mcd_reg_info->modem_data = modem_data[mcd_reg_info->mdm_ver];
+
+	mcd_get_config_ver(out_obj->string.pointer, intel_mid_identify_cpu());
 
 	/* PMIC */
 	if (mcd_reg_info->cpu_ver == CPU_VVIEW2)
