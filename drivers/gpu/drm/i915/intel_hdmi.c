@@ -955,12 +955,23 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		}
 	}
 
-	if (status == connector_status_connected) {
+	if ((status == connector_status_connected)
+			&& (status != i915_hdmi_state)) {
+		/* Added for HDMI Audio */
+		i915_hdmi_audio_signal_event(dev_priv->dev,
+				HAD_EVENT_HOT_PLUG);
 		if (intel_hdmi->force_audio != HDMI_AUDIO_AUTO)
 			intel_hdmi->has_audio =
 				(intel_hdmi->force_audio == HDMI_AUDIO_ON);
 		intel_encoder->type = INTEL_OUTPUT_HDMI;
+	} else if (status != i915_hdmi_state)  {
+		/* Added for HDMI Audio */
+		i915_hdmi_audio_signal_event(dev_priv->dev,
+			HAD_EVENT_HOT_UNPLUG);
 	}
+
+	/* Added for HDMI Audio */
+	i915_hdmi_state = status;
 
 	return status;
 }
@@ -969,14 +980,26 @@ static int intel_hdmi_get_modes(struct drm_connector *connector)
 {
 	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
 	struct drm_i915_private *dev_priv = connector->dev->dev_private;
+	/* Added for HDMI Audio */
+	int ret;
 
 	/* We should parse the EDID data and find out if it's an HDMI sink so
 	 * we can send audio to it.
 	 */
+	/* Added for HDMI Audio */
+#if 0
 
 	return intel_ddc_get_modes(connector,
 				   intel_gmbus_get_adapter(dev_priv,
 							   intel_hdmi->ddc_bus));
+#else
+	ret = intel_ddc_get_modes(connector,
+		intel_gmbus_get_adapter(dev_priv,
+			intel_hdmi->ddc_bus));
+	hdmi_get_eld(connector->eld);
+
+	return ret;
+#endif
 }
 
 static bool
@@ -1288,11 +1311,29 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 	}
 }
 
+/* Added for HDMI Audio */
+void i915_had_wq(struct work_struct *work)
+{
+	u8 data = 0;
+	struct drm_i915_private *dev_priv = container_of(work,
+		struct drm_i915_private, hdmi_audio_wq);
+
+	DRM_ERROR("Checking for HDMI connection at boot\n");
+	if (i915_hdmi_state == connector_status_connected) {
+		DRM_ERROR("hdmi_do_audio_wq: HDMI plugged in\n");
+		i915_hdmi_audio_signal_event(dev_priv->dev,
+			HAD_EVENT_HOT_PLUG);
+	}
+}
+
 void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_digital_port *intel_dig_port;
 	struct intel_encoder *intel_encoder;
 	struct intel_connector *intel_connector;
+	/* Added for HDMI Audio */
+	struct hdmi_audio_priv *hdmi_priv;
 
 	intel_dig_port = kzalloc(sizeof(struct intel_digital_port), GFP_KERNEL);
 	if (!intel_dig_port)
@@ -1332,4 +1373,17 @@ void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 	intel_dig_port->dp.output_reg = 0;
 
 	intel_hdmi_init_connector(intel_dig_port, intel_connector);
+	/* Added for HDMI Audio */
+	/* HDMI private data */
+	INIT_WORK(&dev_priv->hdmi_audio_wq, i915_had_wq);
+	hdmi_priv = kzalloc(sizeof(struct hdmi_audio_priv), GFP_KERNEL);
+	if (!hdmi_priv) {
+		pr_err("failed to allocate memory");
+	} else {
+		hdmi_priv->dev = dev;
+		hdmi_priv->hdmib_reg = GEN3_SDVOB;
+		hdmi_priv->monitor_type = MONITOR_TYPE_HDMI;
+		hdmi_priv->is_hdcp_supported = true;
+		i915_hdmi_audio_init(hdmi_priv);
+	}
 }
