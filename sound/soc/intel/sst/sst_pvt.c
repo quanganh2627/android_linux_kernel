@@ -387,6 +387,7 @@ int sst_create_ipc_msg(struct ipc_post **arg, bool large)
 	} else {
 		msg->mailbox_data = NULL;
 	}
+	msg->is_large = large;
 	*arg = msg;
 	return 0;
 }

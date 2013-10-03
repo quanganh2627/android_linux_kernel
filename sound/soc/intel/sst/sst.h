@@ -453,18 +453,16 @@ struct sst_vtsv_cache {
  * @shim_phy_add : SST shim phy addr
  * @shim_regs64: Struct to save shim registers
  * @ipc_dispatch_list : ipc messages dispatched
+ * @rx_list : to copy the process_reply/process_msg from DSP
  * @ipc_post_msg_wq : wq to post IPC messages context
- * @ipc_process_msg : wq to process msgs from FW context
- * @ipc_process_reply : wq to process reply from FW context
  * @ipc_post_msg : wq to post reply from FW context
  * @mad_ops : MAD driver operations registered
  * @mad_wq : MAD driver wq
  * @post_msg_wq : wq to post IPC messages
- * @process_msg_wq : wq to process msgs from FW
- * @process_reply_wq : wq to process reply from FW
  * @streams : sst stream contexts
  * @list_lock : sst driver list lock (deprecated)
  * @ipc_spin_lock : spin lock to handle audio shim access and ipc queue
+ * @rx_msg_lock : spin lock to handle the rx messages from the DSP
  * @scard_ops : sst card ops
  * @pci : sst pci device struture
  * @dev : pointer to current device struct
@@ -500,20 +498,18 @@ struct intel_sst_drv {
 	struct list_head        block_list;
 	struct list_head	ipc_dispatch_list;
 	struct sst_platform_info *pdata;
-	struct work_struct	ipc_post_msg_wq;
-	struct sst_ipc_msg_wq	ipc_process_msg;
-	struct sst_ipc_msg_wq	ipc_process_reply;
-	struct sst_ipc_msg_wq	ipc_post_msg;
+	struct sst_ipc_msg_wq   ipc_post_msg;
+	struct list_head	rx_list;
+	struct work_struct      ipc_post_msg_wq;
 	wait_queue_head_t	wait_queue;
 	struct workqueue_struct *mad_wq;
 	struct workqueue_struct *post_msg_wq;
-	struct workqueue_struct *process_msg_wq;
-	struct workqueue_struct *process_reply_wq;
 	unsigned int		tstamp;
 	struct stream_info	streams[MAX_NUM_STREAMS+1]; /*str_id 0 is not used*/
 	spinlock_t		ipc_spin_lock; /* lock for Shim reg access and ipc queue */
 	spinlock_t              block_lock; /* lock for adding block to block_list */
 	spinlock_t              pvt_id_lock; /* lock for allocating private id */
+	spinlock_t		rx_msg_lock;
 	struct pci_dev		*pci;
 	struct device		*dev;
 	unsigned int		pvt_id;
@@ -523,7 +519,6 @@ struct intel_sst_drv {
 	unsigned int		*fw_cntx;
 	unsigned int		fw_cntx_size;
 	unsigned int		csr_value;
-
 	struct sst_dma		dma;
 	void			*fw_in_mem;
 	struct sst_runtime_param runtime_param;
@@ -580,10 +575,10 @@ struct intel_sst_ops {
 	void (*clear_interrupt) (void);
 	int (*start) (void);
 	int (*reset) (void);
-	void (*process_reply) (struct work_struct *work);
+	void (*process_reply) (struct ipc_post *msg);
 	void (*post_message) (struct work_struct *work);
 	int (*sync_post_message) (struct ipc_post *msg);
-	void (*process_message) (struct work_struct *work);
+	void (*process_message) (struct ipc_post *msg);
 	void (*set_bypass)(bool set);
 	int (*save_dsp_context) (struct intel_sst_drv *sst);
 	void (*restore_dsp_context) (void);
@@ -610,8 +605,8 @@ int sst_drain_stream(int str_id, bool partial_drain);
 
 int sst_sync_post_message_mfld(struct ipc_post *msg);
 void sst_post_message_mfld(struct work_struct *work);
-void sst_process_message_mfld(struct work_struct *work);
-void sst_process_reply_mfld(struct work_struct *work);
+void sst_process_message_mfld(struct ipc_post *msg);
+void sst_process_reply_mfld(struct ipc_post *msg);
 int sst_start_mfld(void);
 int intel_sst_reset_dsp_mfld(void);
 void intel_sst_clear_intr_mfld(void);
@@ -620,10 +615,10 @@ void intel_sst_set_bypass_mfld(bool set);
 
 int sst_sync_post_message_mrfld(struct ipc_post *msg);
 void sst_post_message_mrfld(struct work_struct *work);
+void sst_process_message_mrfld(struct ipc_post *msg);
 int sst_sync_post_message_mrfld32(struct ipc_post *msg);
 void sst_post_message_mrfld32(struct work_struct *work);
-void sst_process_message_mrfld(struct work_struct *work);
-void sst_process_reply_mrfld(struct work_struct *work);
+void sst_process_reply_mrfld(struct ipc_post *msg);
 int sst_start_mrfld(void);
 int intel_sst_reset_dsp_mrfld(void);
 void intel_sst_clear_intr_mrfld(void);
@@ -848,7 +843,7 @@ static inline u32 sst_reg_read(void __iomem *addr, int offset)
 
 static inline u64 sst_reg_read64(void __iomem *addr, int offset)
 {
-	u64 val;
+	u64 val = 0;
 
 	memcpy_fromio(&val, addr + offset, sizeof(val));
 

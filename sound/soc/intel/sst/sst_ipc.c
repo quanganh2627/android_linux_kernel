@@ -149,6 +149,18 @@ static int sst_send_runtime_param(struct snd_sst_runtime_params *params)
 	return sst_send_ipc_msg_nowait(&msg);
 }
 
+static inline int get_stream_id_mrfld(u32 pipe_id)
+{
+	int i;
+
+	for (i = 1; i <= sst_drv_ctx->info.max_streams; i++)
+		if (pipe_id == sst_drv_ctx->streams[i].pipe_id)
+			return i;
+
+	pr_err("%s: no such pipe_id(%u)", __func__, pipe_id);
+	return -1;
+}
+
 void sst_post_message_mrfld(struct work_struct *work)
 {
 	struct ipc_post *msg;
@@ -474,10 +486,10 @@ void intel_sst_clear_intr_mrfld(void)
  * This function processes the FW init msg from FW
  * marks FW state and prints debug info of loaded FW
  */
-static int process_fw_init(struct sst_ipc_msg_wq *msg)
+static int process_fw_init(struct ipc_post *msg)
 {
 	struct ipc_header_fw_init *init =
-		(struct ipc_header_fw_init *)msg->mailbox;
+		(struct ipc_header_fw_init *)msg->mailbox_data;
 	int retval = 0;
 
 	pr_debug("*** FW Init msg came***\n");
@@ -511,24 +523,24 @@ ret:
 * This function is scheduled by ISR
 * It take a msg from process_queue and does action based on msg
 */
-void sst_process_message_mfld(struct work_struct *work)
+void sst_process_message_mfld(struct ipc_post *msg)
 {
-	struct sst_ipc_msg_wq *msg, *tmp;
 	int str_id;
+	struct stream_info *stream;
 
-	/* copy the message before enabling interrupts */
-	tmp = container_of(work, struct sst_ipc_msg_wq, wq);
-	msg = kzalloc(sizeof(*msg), GFP_KERNEL);
-	if (NULL == msg) {
-		pr_err("%s:memory alloc failed. msg didn't processed\n", __func__);
-		return;
-	}
-	memcpy(msg, tmp, sizeof(*msg));
 	str_id = msg->header.part.str_id;
-	intel_sst_clear_intr_mfld();
 	pr_debug("IPC process for %x\n", msg->header.full);
 	/* based on msg in list call respective handler */
 	switch (msg->header.part.msg_id) {
+	case IPC_SST_PERIOD_ELAPSED:
+		if (sst_validate_strid(str_id)) {
+			pr_err("stream id %d invalid\n", str_id);
+			break;
+		}
+		stream = &sst_drv_ctx->streams[str_id];
+		if (stream->period_elapsed)
+			stream->period_elapsed(stream->pcm_substream);
+		break;
 	case IPC_SST_BUF_UNDER_RUN:
 	case IPC_SST_BUF_OVER_RUN:
 		if (sst_validate_strid(str_id)) {
@@ -572,7 +584,6 @@ void sst_process_message_mfld(struct work_struct *work)
 		pr_err("Unhandled msg %x header %x\n",
 		msg->header.part.msg_id, msg->header.full);
 	}
-	kfree(msg);
 	return;
 }
 
@@ -585,25 +596,14 @@ void sst_process_message_mfld(struct work_struct *work)
 * It take a msg from process_queue and does action based on msg
 */
 
-void sst_process_message_mrfld(struct work_struct *work)
+void sst_process_message_mrfld(struct ipc_post *msg)
 {
-	struct sst_ipc_msg_wq *msg, *tmp;
 	int str_id;
 
-	/* copy the message before enabling interrupts */
-	tmp = container_of(work, struct sst_ipc_msg_wq, wq);
-	msg = kzalloc(sizeof(*msg), GFP_KERNEL);
-	if (NULL == msg) {
-		pr_err("%s:memory alloc failed. msg didn't processed\n", __func__);
-		return;
-	}
-	memcpy(msg, tmp, sizeof(*msg));
 	str_id = msg->mrfld_header.p.header_high.part.drv_id;
-	sst_drv_ctx->ops->clear_interrupt();
 
 	pr_debug("ProcesMsg:%d\n", msg->mrfld_header.p.header_high.part.msg_id);
 
-	kfree(msg);
 	return;
 }
 
@@ -659,28 +659,37 @@ static void process_fw_async_large_msg(void *data, u32 msg_size)
 		pr_err("Invalid async msg from FW\n");
 }
 
-void sst_process_reply_mrfld(struct work_struct *work)
+void sst_process_reply_mrfld(struct ipc_post *msg)
 {
-	struct sst_ipc_msg_wq *msg, *tmp;
+	int str_id;
 	unsigned int drv_id;
 	void *data = NULL;
 	union ipc_header_high msg_high;
-	u32 msg_low, msg_id;
-
-	/* copy the message before enabling interrupts */
-	tmp = container_of(work, struct sst_ipc_msg_wq, wq);
-	msg = kzalloc(sizeof(*msg), GFP_KERNEL);
-	if (NULL == msg) {
-		pr_err("%s:memory alloc failed. msg not processed\n", __func__);
-		return;
-	}
-	memcpy(msg, tmp, sizeof(*msg));
-	sst_drv_ctx->ops->clear_interrupt();
+	struct stream_info *stream;
+	u32 msg_low, msg_id = 0, pipe_id;
 
 	msg_high = msg->mrfld_header.p.header_high;
 	msg_low = msg->mrfld_header.p.header_low_payload;
 
 	drv_id = msg_high.part.drv_id;
+
+	if (!msg_high.part.large)
+		msg_id = msg_low & SST_ASYNC_MSG_MASK;
+
+	if ((msg_id == IPC_SST_PERIOD_ELAPSED_MRFLD) &&
+		(msg_high.part.msg_id == IPC_CMD)) {
+		pipe_id = msg_low >> 16;
+		str_id = get_stream_id_mrfld(pipe_id);
+		if (str_id > 0) {
+			pr_debug("Period elapsed rcvd!!!\n");
+			stream = &sst_drv_ctx->streams[str_id];
+			if (stream->period_elapsed)
+				stream->period_elapsed(stream->pcm_substream);
+			if (stream->compr_cb)
+				stream->compr_cb(stream->compr_cb_param);
+		}
+		goto end;
+	}
 	/* First process error responses */
 	if (msg_high.part.result && drv_id && !msg_high.part.large) {
 		/* 32-bit FW error code in msg_low */
@@ -702,7 +711,7 @@ void sst_process_reply_mrfld(struct work_struct *work)
 			data = kzalloc(msg_low, GFP_KERNEL);
 			if (!data)
 				goto end;
-			memcpy(data, (void *) msg->mailbox, msg_low);
+			memcpy(data, (void *) msg->mailbox_data, msg_low);
 			process_fw_async_large_msg(data, msg_low);
 			kfree(data);
 		}
@@ -715,7 +724,7 @@ void sst_process_reply_mrfld(struct work_struct *work)
 		data = kzalloc(msg_low, GFP_KERNEL);
 		if (!data)
 			goto end;
-		memcpy(data, (void *) msg->mailbox, msg_low);
+		memcpy(data, (void *) msg->mailbox_data, msg_low);
 		if (sst_wake_up_block(sst_drv_ctx, msg_high.part.result,
 				msg_high.part.drv_id,
 				msg_high.part.msg_id, data, msg_low))
@@ -726,7 +735,6 @@ void sst_process_reply_mrfld(struct work_struct *work)
 				msg_high.part.msg_id, NULL, 0);
 	}
 end:
-	kfree(msg);
 	return;
 }
 
@@ -739,25 +747,14 @@ end:
 * It take a reply msg from response_queue and
 * does action based on msg
 */
-void sst_process_reply_mfld(struct work_struct *work)
+void sst_process_reply_mfld(struct ipc_post *msg)
 {
-	struct sst_ipc_msg_wq *msg, *tmp;
 	void *data;
 	int str_id;
 
-	/* copy the message before enabling interrupts */
-	tmp = container_of(work, struct sst_ipc_msg_wq, wq);
-	msg = kzalloc(sizeof(*msg), GFP_KERNEL);
-	if (NULL == msg) {
-		pr_err("%s:memory alloc failed\n", __func__);
-		return;
-	}
-	memcpy(msg, tmp, sizeof(*msg));
 	str_id = msg->header.part.str_id;
 
-	intel_sst_clear_intr_mfld();
 	pr_debug("sst: IPC process reply for %x\n", msg->header.full);
-
 	if (!msg->header.part.large) {
 		if (!msg->header.part.data)
 			pr_debug("Success\n");
@@ -770,16 +767,14 @@ void sst_process_reply_mfld(struct work_struct *work)
 		data = kzalloc(msg->header.part.data, GFP_KERNEL);
 		if (!data) {
 			pr_err("sst: mem alloc failed\n");
-			kfree(msg);
 			return;
 		}
 
-		memcpy(data, (void *)msg->mailbox, msg->header.part.data);
+		memcpy(data, (void *)msg->mailbox_data, msg->header.part.data);
 		if (sst_wake_up_block(sst_drv_ctx, 0, str_id,
 				msg->header.part.msg_id, data,
 				msg->header.part.data))
 			kfree(data);
 	}
-	kfree(msg);
 	return;
 }

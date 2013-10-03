@@ -152,12 +152,10 @@ int sst_workqueue_init(struct intel_sst_drv *ctx)
 
 	INIT_LIST_HEAD(&ctx->memcpy_list);
 	INIT_LIST_HEAD(&ctx->libmemcpy_list);
-
+	INIT_LIST_HEAD(&sst_drv_ctx->rx_list);
 	INIT_LIST_HEAD(&ctx->ipc_dispatch_list);
 	INIT_LIST_HEAD(&ctx->block_list);
 	INIT_WORK(&ctx->ipc_post_msg.wq, ctx->ops->post_message);
-	INIT_WORK(&ctx->ipc_process_msg.wq, ctx->ops->process_message);
-	INIT_WORK(&ctx->ipc_process_reply.wq, ctx->ops->process_reply);
 	init_waitqueue_head(&ctx->wait_queue);
 
 	ctx->mad_wq = create_singlethread_workqueue("sst_mad_wq");
@@ -166,14 +164,6 @@ int sst_workqueue_init(struct intel_sst_drv *ctx)
 	ctx->post_msg_wq =
 		create_singlethread_workqueue("sst_post_msg_wq");
 	if (!ctx->post_msg_wq)
-		goto err_wq;
-	ctx->process_msg_wq =
-		create_singlethread_workqueue("sst_process_msg_wq");
-	if (!ctx->process_msg_wq)
-		goto err_wq;
-	ctx->process_reply_wq =
-		create_singlethread_workqueue("sst_proces_reply_wq");
-	if (!ctx->process_reply_wq)
 		goto err_wq;
 	return 0;
 err_wq:
@@ -186,7 +176,7 @@ void sst_init_locks(struct intel_sst_drv *ctx)
 	mutex_init(&ctx->sst_lock);
 	mutex_init(&ctx->mixer_ctrl_lock);
 	mutex_init(&ctx->csr_lock);
-
+	spin_lock_init(&sst_drv_ctx->rx_msg_lock);
 	spin_lock_init(&ctx->ipc_spin_lock);
 	spin_lock_init(&ctx->block_lock);
 	spin_lock_init(&ctx->pvt_id_lock);
@@ -199,10 +189,6 @@ int sst_destroy_workqueue(struct intel_sst_drv *ctx)
 		destroy_workqueue(ctx->mad_wq);
 	if (ctx->post_msg_wq)
 		destroy_workqueue(ctx->post_msg_wq);
-	if (ctx->process_msg_wq)
-		destroy_workqueue(ctx->process_msg_wq);
-	if (ctx->process_reply_wq)
-		destroy_workqueue(ctx->process_reply_wq);
 	return 0;
 }
 

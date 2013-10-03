@@ -42,7 +42,7 @@
 #define SST_SCU_LPE_MAILBOX 0x1000
 #define SST_LPE_SCU_MAILBOX 0x1400
 #define SST_SCU_LPE_LOG_BUF (SST_SCU_LPE_MAILBOX+16)
-#define REPLY_MSG 0x80
+#define PROCESS_MSG 0x80
 
 /* Message ID's for IPC messages */
 /* Bits B7: SST or IA/SC ; B6-B4: Msg Category; B3-B0: Msg Type */
@@ -620,6 +620,8 @@ struct snd_sst_control_routing {
 struct ipc_post {
 	struct list_head node;
 	union ipc_header header; /* driver specific */
+	bool is_large;
+	bool is_process_reply;
 	union ipc_header_mrfld mrfld_header;
 	char *mailbox_data;
 };

@@ -74,17 +74,6 @@ struct miscdevice lpe_ctrl = {
 	.fops = &intel_sst_fops_cntrl
 };
 
-static inline int get_stream_id_mrfld(u32 pipe_id)
-{
-	int i;
-	for (i = 1; i <= sst_drv_ctx->info.max_streams; i++)
-		if (pipe_id == sst_drv_ctx->streams[i].pipe_id)
-			return i;
-
-	pr_err("%s: no such pipe_id(%u)", __func__, pipe_id);
-	return -1;
-}
-
 static inline void set_imr_interrupts(struct intel_sst_drv *ctx, bool enable)
 {
 	union interrupt_reg imr;
@@ -102,52 +91,16 @@ static inline void set_imr_interrupts(struct intel_sst_drv *ctx, bool enable)
 	spin_unlock(&ctx->ipc_spin_lock);
 }
 
-static irqreturn_t intel_sst_irq_thread_mrfld(int irq, void *context)
-{
-	struct intel_sst_drv *drv = (struct intel_sst_drv *) context;
-	union ipc_header_mrfld header;
-	struct stream_info *stream;
-	unsigned int size = 0, msg_id = 0, pipe_id;
-	int str_id;
-
-	header.full = sst_shim_read64(drv->shim, SST_IPCD);
-	pr_debug("interrupt: header_high: 0x%x, header_low: 0x%x\n",
-				(unsigned int)header.p.header_high.full,
-				(unsigned int)header.p.header_low_payload);
-
-	if (!header.p.header_high.part.large)
-		msg_id = header.p.header_low_payload & SST_ASYNC_MSG_MASK;
-
-	if ((msg_id == IPC_SST_PERIOD_ELAPSED_MRFLD) &&
-	    (header.p.header_high.part.msg_id == IPC_CMD)) {
-		sst_drv_ctx->ops->clear_interrupt();
-		pipe_id = header.p.header_low_payload >> 16;
-		str_id = get_stream_id_mrfld(pipe_id);
-		if (str_id > 0) {
-			pr_debug("Period elapsed rcvd!!!\n");
-			stream = &sst_drv_ctx->streams[str_id];
-			if (stream->period_elapsed)
-				stream->period_elapsed(stream->pcm_substream);
-			if (stream->compr_cb)
-				stream->compr_cb(stream->compr_cb_param);
-		}
-		return IRQ_HANDLED;
-	}
-	if (header.p.header_high.part.large)
-		size = header.p.header_low_payload;
-	sst_drv_ctx->ipc_process_reply.mrfld_header = header;
-	memcpy_fromio(sst_drv_ctx->ipc_process_reply.mailbox,
-		      drv->mailbox + drv->mailbox_recv_offset, size);
-	queue_work(sst_drv_ctx->process_reply_wq,
-			&sst_drv_ctx->ipc_process_reply.wq);
-	return IRQ_HANDLED;
-}
+#define SST_IS_PROCESS_REPLY(header) ((header & PROCESS_MSG) ? true : false)
+#define SST_VALIDATE_MAILBOX_SIZE(size) ((size <= SST_MAILBOX_SIZE) ? true : false)
 
 static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 {
 	union interrupt_reg_mrfld isr;
 	union ipc_header_mrfld header;
 	union sst_imr_reg_mrfld imr;
+	struct ipc_post *msg = NULL;
+	unsigned int size = 0;
 	struct intel_sst_drv *drv = (struct intel_sst_drv *) context;
 	irqreturn_t retval = IRQ_HANDLED;
 
@@ -155,24 +108,41 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 	isr.full = sst_shim_read64(drv->shim, SST_ISRX);
 	if (isr.part.done_interrupt) {
 		/* Clear done bit */
-		spin_lock(&sst_drv_ctx->ipc_spin_lock);
-		header.full = sst_shim_read64(drv->shim, SST_IPCX);
+		spin_lock(&drv->ipc_spin_lock);
+		header.full = sst_shim_read64(drv->shim,
+					drv->ipc_reg.ipcx);
 		header.p.header_high.part.done = 0;
-		sst_shim_write64(drv->shim, SST_IPCX, header.full);
+		sst_shim_write64(drv->shim, drv->ipc_reg.ipcx, header.full);
 		/* write 1 to clear status register */;
 		isr.part.done_interrupt = 1;
 		sst_shim_write64(drv->shim, SST_ISRX, isr.full);
-		spin_unlock(&sst_drv_ctx->ipc_spin_lock);
-		queue_work(sst_drv_ctx->post_msg_wq,
-			&sst_drv_ctx->ipc_post_msg.wq);
+		spin_unlock(&drv->ipc_spin_lock);
+		queue_work(drv->post_msg_wq, &drv->ipc_post_msg.wq);
 		retval = IRQ_HANDLED;
 	}
 	if (isr.part.busy_interrupt) {
-		spin_lock(&sst_drv_ctx->ipc_spin_lock);
+		spin_lock(&drv->ipc_spin_lock);
 		imr.full = sst_shim_read64(drv->shim, SST_IMRX);
 		imr.part.busy_interrupt = 1;
 		sst_shim_write64(drv->shim, SST_IMRX, imr.full);
-		spin_unlock(&sst_drv_ctx->ipc_spin_lock);
+		spin_unlock(&drv->ipc_spin_lock);
+		header.full =  sst_shim_read64(drv->shim, drv->ipc_reg.ipcd);
+		sst_create_ipc_msg(&msg, header.p.header_high.part.large);
+		if (header.p.header_high.part.large) {
+			size = header.p.header_low_payload;
+			if (SST_VALIDATE_MAILBOX_SIZE(size))
+				memcpy_fromio(msg->mailbox_data,
+					drv->mailbox + drv->mailbox_recv_offset, size);
+			else
+				pr_err("Mailbox not copied.....\n");
+		}
+		msg->mrfld_header = header;
+		msg->is_process_reply =
+			SST_IS_PROCESS_REPLY(header.p.header_high.part.msg_id);
+		spin_lock(&drv->rx_msg_lock);
+		list_add_tail(&msg->node, &drv->rx_list);
+		spin_unlock(&drv->rx_msg_lock);
+		drv->ops->clear_interrupt();
 		retval = IRQ_WAKE_THREAD;
 	}
 	return retval;
@@ -181,24 +151,26 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 static irqreturn_t intel_sst_irq_thread_mfld(int irq, void *context)
 {
 	struct intel_sst_drv *drv = (struct intel_sst_drv *) context;
-	union ipc_header header;
-	unsigned int size = 0;
+	struct ipc_post *__msg, *msg = NULL;
+	unsigned long irq_flags;
 
-	header.full = sst_shim_read(drv->shim, drv->ipc_reg.ipcd);
-	if (header.part.large)
-		size = header.part.data;
-	if (header.part.msg_id & REPLY_MSG) {
-		sst_drv_ctx->ipc_process_msg.header = header;
-		memcpy_fromio(sst_drv_ctx->ipc_process_msg.mailbox,
-			drv->mailbox + drv->mailbox_recv_offset + 4, size);
-		queue_work(sst_drv_ctx->process_msg_wq,
-				&sst_drv_ctx->ipc_process_msg.wq);
-	} else {
-		sst_drv_ctx->ipc_process_reply.header = header;
-		memcpy_fromio(sst_drv_ctx->ipc_process_reply.mailbox,
-			drv->mailbox + drv->mailbox_recv_offset + 4, size);
-		queue_work(sst_drv_ctx->process_reply_wq,
-				&sst_drv_ctx->ipc_process_reply.wq);
+	if (list_empty(&drv->rx_list))
+		return IRQ_HANDLED;
+
+	list_for_each_entry_safe(msg, __msg, &drv->rx_list, node) {
+
+		if (msg->is_process_reply)
+			drv->ops->process_message(msg);
+		else
+			drv->ops->process_reply(msg);
+
+		spin_lock_irqsave(&drv->rx_msg_lock, irq_flags);
+		list_del(&msg->node);
+		spin_unlock_irqrestore(&drv->rx_msg_lock, irq_flags);
+
+		if (msg->is_large)
+			kfree(msg->mailbox_data);
+		kfree(msg);
 	}
 	return IRQ_HANDLED;
 }
@@ -217,9 +189,8 @@ static irqreturn_t intel_sst_intr_mfld(int irq, void *context)
 	union interrupt_reg isr;
 	union ipc_header header;
 	irqreturn_t retval = IRQ_HANDLED;
-	struct stream_info *stream;
-	unsigned int str_id;
-
+	struct ipc_post *msg = NULL;
+	unsigned int size = 0;
 	struct intel_sst_drv *drv = (struct intel_sst_drv *) context;
 
 	/* Interrupt arrived, check src */
@@ -228,16 +199,15 @@ static irqreturn_t intel_sst_intr_mfld(int irq, void *context)
 		/* Mask all interrupts till this one is processsed */
 		set_imr_interrupts(drv, false);
 		/* Clear done bit */
-		spin_lock(&sst_drv_ctx->ipc_spin_lock);
+		spin_lock(&drv->ipc_spin_lock);
 		header.full = sst_shim_read(drv->shim, drv->ipc_reg.ipcx);
 		header.part.done = 0;
-		sst_shim_write(sst_drv_ctx->shim, drv->ipc_reg.ipcx, header.full);
+		sst_shim_write(drv->shim, drv->ipc_reg.ipcx, header.full);
 		/* write 1 to clear status register */;
 		isr.part.done_interrupt = 1;
-		sst_shim_write(sst_drv_ctx->shim, SST_ISRX, isr.full);
-		spin_unlock(&sst_drv_ctx->ipc_spin_lock);
-		queue_work(sst_drv_ctx->post_msg_wq,
-			&sst_drv_ctx->ipc_post_msg.wq);
+		sst_shim_write(drv->shim, SST_ISRX, isr.full);
+		spin_unlock(&drv->ipc_spin_lock);
+		queue_work(drv->post_msg_wq, &sst_drv_ctx->ipc_post_msg.wq);
 
 		/* Un mask done and busy intr */
 		set_imr_interrupts(drv, true);
@@ -247,14 +217,22 @@ static irqreturn_t intel_sst_intr_mfld(int irq, void *context)
 		/* Mask all interrupts till we process it in bottom half */
 		set_imr_interrupts(drv, false);
 		header.full = sst_shim_read(drv->shim, drv->ipc_reg.ipcd);
-		if (header.part.msg_id == IPC_SST_PERIOD_ELAPSED) {
-			drv->ops->clear_interrupt();
-			str_id = header.part.str_id;
-			stream = &drv->streams[str_id];
-			if (stream->period_elapsed)
-				stream->period_elapsed(stream->pcm_substream);
-			return IRQ_HANDLED;
+		sst_create_ipc_msg(&msg, header.part.large);
+		if (header.part.large) {
+			size = header.part.data;
+			if (SST_VALIDATE_MAILBOX_SIZE(size))
+				memcpy_fromio(msg->mailbox_data,
+					drv->mailbox + drv->mailbox_recv_offset + 4, size);
+			else
+				pr_err("Mailbox not copied.....\n");
 		}
+		msg->header = header;
+		msg->is_process_reply =
+				SST_IS_PROCESS_REPLY(msg->header.part.msg_id);
+		spin_lock(&drv->rx_msg_lock);
+		list_add_tail(&msg->node, &drv->rx_list);
+		spin_unlock(&drv->rx_msg_lock);
+		drv->ops->clear_interrupt();
 		retval = IRQ_WAKE_THREAD;
 	}
 	return retval;
@@ -399,7 +377,7 @@ static int sst_save_dsp_context(struct intel_sst_drv *sst)
 
 static struct intel_sst_ops mrfld_ops = {
 	.interrupt = intel_sst_interrupt_mrfld,
-	.irq_thread = intel_sst_irq_thread_mrfld,
+	.irq_thread = intel_sst_irq_thread_mfld,
 	.clear_interrupt = intel_sst_clear_intr_mrfld,
 	.start = sst_start_mrfld,
 	.reset = intel_sst_reset_dsp_mrfld,
@@ -556,9 +534,8 @@ static int intel_sst_probe(struct pci_dev *pci,
 
 	INIT_LIST_HEAD(&sst_drv_ctx->ipc_dispatch_list);
 	INIT_LIST_HEAD(&sst_drv_ctx->block_list);
+	INIT_LIST_HEAD(&sst_drv_ctx->rx_list);
 	INIT_WORK(&sst_drv_ctx->ipc_post_msg.wq, ops->post_message);
-	INIT_WORK(&sst_drv_ctx->ipc_process_msg.wq, ops->process_message);
-	INIT_WORK(&sst_drv_ctx->ipc_process_reply.wq, ops->process_reply);
 	init_waitqueue_head(&sst_drv_ctx->wait_queue);
 
 	sst_drv_ctx->mad_wq = create_singlethread_workqueue("sst_mad_wq");
@@ -568,18 +545,11 @@ static int intel_sst_probe(struct pci_dev *pci,
 		create_singlethread_workqueue("sst_post_msg_wq");
 	if (!sst_drv_ctx->post_msg_wq)
 		goto free_mad_wq;
-	sst_drv_ctx->process_msg_wq =
-		create_singlethread_workqueue("sst_process_msg_wqq");
-	if (!sst_drv_ctx->process_msg_wq)
-		goto free_post_msg_wq;
-	sst_drv_ctx->process_reply_wq =
-		create_singlethread_workqueue("sst_proces_reply_wq");
-	if (!sst_drv_ctx->process_reply_wq)
-		goto free_process_msg_wq;
 
 	spin_lock_init(&sst_drv_ctx->ipc_spin_lock);
 	spin_lock_init(&sst_drv_ctx->block_lock);
 	spin_lock_init(&sst_drv_ctx->pvt_id_lock);
+	spin_lock_init(&sst_drv_ctx->rx_msg_lock);
 
 	sst_drv_ctx->ipc_reg.ipcx = SST_IPCX + sst_drv_ctx->pdata->ipc_info->ipc_offset;
 	sst_drv_ctx->ipc_reg.ipcd = SST_IPCD + sst_drv_ctx->pdata->ipc_info->ipc_offset;
@@ -849,10 +819,6 @@ do_release_regions:
 do_disable_device:
 	pci_disable_device(pci);
 do_free_mem:
-	destroy_workqueue(sst_drv_ctx->process_reply_wq);
-free_process_msg_wq:
-	destroy_workqueue(sst_drv_ctx->process_msg_wq);
-free_post_msg_wq:
 	destroy_workqueue(sst_drv_ctx->post_msg_wq);
 free_mad_wq:
 	destroy_workqueue(sst_drv_ctx->mad_wq);
@@ -899,8 +865,6 @@ static void intel_sst_remove(struct pci_dev *pci)
 	kfree(sst_drv_ctx->fw_cntx);
 	kfree(sst_drv_ctx->runtime_param.param.addr);
 	flush_scheduled_work();
-	destroy_workqueue(sst_drv_ctx->process_reply_wq);
-	destroy_workqueue(sst_drv_ctx->process_msg_wq);
 	destroy_workqueue(sst_drv_ctx->post_msg_wq);
 	destroy_workqueue(sst_drv_ctx->mad_wq);
 	pm_qos_remove_request(sst_drv_ctx->qos);
@@ -988,9 +952,6 @@ static int intel_sst_runtime_suspend(struct device *dev)
 	sst_set_fw_state_locked(ctx, SST_SUSPENDED);
 
 	flush_workqueue(ctx->post_msg_wq);
-	flush_workqueue(ctx->process_msg_wq);
-	flush_workqueue(ctx->process_reply_wq);
-
 	if (ctx->pci_id == SST_BYT_PCI_ID) {
 		/* save the shim registers because PMC doesn't save state */
 		sst_save_shim64(ctx, ctx->shim, ctx->shim_regs64);
@@ -1100,8 +1061,6 @@ static void sst_do_shutdown(struct intel_sst_drv *ctx)
 
 	sst_set_fw_state_locked(ctx, SST_SHUTDOWN);
 	flush_workqueue(ctx->post_msg_wq);
-	flush_workqueue(ctx->process_msg_wq);
-	flush_workqueue(ctx->process_reply_wq);
 	pvt_id = sst_assign_pvt_id(ctx);
 	retval = sst_create_block_and_ipc_msg(&msg, false,
 			ctx, &block,
