@@ -38,6 +38,7 @@
 #include "i915_drv.h"
 /*#include "i915_rpm.h"*/
 #include "i915_trace.h"
+#include "hdmi_audio_if.h"
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <linux/dma_remapping.h>
@@ -10202,11 +10203,10 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	}
 
 	/* TODO: uncomment after HDMI dependancies are merged */
-	/*
-	int ret = i915_hdmi_audio_suspend(drm_dev);
+	int ret = mid_hdmi_audio_suspend(dev);
 	if (ret != true)
 		DRM_ERROR("Error suspending HDMI audio\n");
-	*/
+
 	dev_priv->s0ixstat = false;
 	i915_rpm_put_disp(dev);
 	return 0;
@@ -10241,8 +10241,7 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 		/* Config may have changed between suspend and resume */
 		intel_resume_hotplug(dev);
 	}
-	/* TODO: uncomment after HDMI dependencies are merged */
-	/* i915_hdmi_audio_resume(drm_dev); */
+	mid_hdmi_audio_resume(dev);
 	dev_priv->s0ixstat = false;
 	return 0;
 }
