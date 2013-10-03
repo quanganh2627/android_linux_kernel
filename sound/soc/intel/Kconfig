@@ -55,6 +55,7 @@ config SND_MRFLD_MACHINE
 	select SND_SST_PLATFORM
 	select SND_SST_MACHINE
 	select SND_INTEL_SST
+	select SND_EFFECTS_OFFLOAD
 	select SND_INTEL_SST_RECOVERY
 	default n
 	help
