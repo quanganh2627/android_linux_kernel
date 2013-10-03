@@ -958,7 +958,8 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	if ((status == connector_status_connected)
 			&& (status != i915_hdmi_state)) {
 		/* Added for HDMI Audio */
-		i915_notify_had = 1;
+		if (intel_hdmi->has_audio)
+			i915_notify_had = 1;
 		if (intel_hdmi->force_audio != HDMI_AUDIO_AUTO)
 			intel_hdmi->has_audio =
 				(intel_hdmi->force_audio == HDMI_AUDIO_ON);
@@ -967,7 +968,8 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		/* Added for HDMI Audio */
 		mid_hdmi_audio_signal_event(dev_priv->dev,
 			HAD_EVENT_HOT_UNPLUG);
-		i915_notify_had = 0;
+		if (intel_hdmi->has_audio)
+			i915_notify_had = 0;
 	}
 
 	/* Added for HDMI Audio */
