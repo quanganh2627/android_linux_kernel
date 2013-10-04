@@ -255,6 +255,8 @@ static bool cs42l73_readable_register(struct device *dev, unsigned int reg)
 	case CS42L73_ESLMVSPMA:
 	case CS42L73_IM1:
 	case CS42L73_IM2:
+	case CS42L73_IS1:
+	case CS42L73_IS2:
 		return true;
 	default:
 		return false;
