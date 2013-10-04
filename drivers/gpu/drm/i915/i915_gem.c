@@ -2061,6 +2061,8 @@ i915_gem_init_seqno(struct drm_device *dev, u32 seqno)
 			ring->sync_seqno[j] = 0;
 	}
 
+	i915_sync_reset_timelines(dev_priv);
+
 	return 0;
 }
 
@@ -2105,6 +2107,22 @@ i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
 	}
 
 	*seqno = dev_priv->last_seqno = dev_priv->next_seqno++;
+	return 0;
+}
+
+int
+i915_gem_next_request_seqno(struct intel_ring_buffer *ring, u32 *seqno)
+{
+	int ret;
+
+	if (ring->outstanding_lazy_request == 0) {
+		ret = i915_gem_get_seqno(ring->dev,
+			&ring->outstanding_lazy_request);
+		if (ret)
+			return ret;
+	}
+
+	*seqno = ring->outstanding_lazy_request;
 	return 0;
 }
 

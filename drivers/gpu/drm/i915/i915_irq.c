@@ -37,6 +37,7 @@
 #include "intel_drv.h"
 /* Added for HDMI Audio */
 #include "hdmi_audio_if.h"
+#include "intel_sync.h"
 
 static const u32 hpd_ibx[] = {
 	[HPD_CRT] = SDE_CRT_HOTPLUG,
@@ -833,6 +834,7 @@ static void notify_ring(struct drm_device *dev,
 	trace_i915_gem_request_complete(ring, ring->last_irq_seqno);
 
 	wake_up_all(&ring->irq_queue);
+	i915_sync_timeline_advance(ring);
 }
 
 /**
@@ -2282,6 +2284,8 @@ static bool i915_hangcheck_hung(struct intel_hangcheck *hc)
 		/* Reset the counter*/
 		hc->count = 0;
 
+		i915_sync_hung_ring(ring);
+
 		if (!IS_GEN2(dev)) {
 			/* If the ring is hanging on a WAIT_FOR_EVENT
 			 * then simply poke the RB_WAIT bit
@@ -2581,6 +2585,9 @@ static void gen5_gt_irq_postinstall(struct drm_device *dev)
 		dev_priv->gt_irq_mask = ~GT_RENDER_L3_PARITY_ERROR_INTERRUPT;
 		gt_irqs |= GT_RENDER_L3_PARITY_ERROR_INTERRUPT;
 	}
+
+	if (IS_VALLEYVIEW(dev))
+		dev_priv->gt_irq_mask &= ~(I915_SYNC_USER_INTERRUPTS);
 
 	gt_irqs |= GT_RENDER_USER_INTERRUPT;
 	if (IS_GEN5(dev)) {

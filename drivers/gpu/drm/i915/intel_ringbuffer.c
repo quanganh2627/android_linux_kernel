@@ -1429,6 +1429,14 @@ static int intel_init_ring_buffer(struct drm_device *dev,
 		goto err_unpin;
 	}
 
+	/* Create a timeline for HW Native Sync support*/
+	ret = i915_sync_timeline_create(ring->dev, ring->name, ring);
+	if (ret) {
+		DRM_ERROR("Sync timeline creation failed for ring %s\n",
+			ring->name);
+		goto err_unmap;
+	}
+
 	ret = ring->init(ring);
 	if (ret)
 		goto err_unmap;
@@ -1444,6 +1452,8 @@ static int intel_init_ring_buffer(struct drm_device *dev,
 	return 0;
 
 err_unmap:
+	i915_sync_timeline_destroy(ring);
+
 	iounmap(ring->virtual_start);
 err_unpin:
 	i915_gem_object_unpin(obj);
@@ -1471,6 +1481,8 @@ void intel_cleanup_ring_buffer(struct intel_ring_buffer *ring)
 			  ring->name, ret);
 
 	I915_WRITE_CTL(ring, 0);
+
+	i915_sync_timeline_destroy(ring);
 
 	iounmap(ring->virtual_start);
 

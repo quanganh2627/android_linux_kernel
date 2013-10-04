@@ -33,6 +33,7 @@
 
 #include "i915_reg.h"
 #include "intel_bios.h"
+#include "intel_sync.h"
 #include "intel_ringbuffer.h"
 #include <linux/io-mapping.h>
 #include <linux/i2c.h>
@@ -2152,6 +2153,9 @@ int __must_check i915_gem_get_seqno(struct drm_device *dev, u32 *seqno);
 int __must_check i915_gem_set_seqno(struct drm_device *dev, u32 seqno);
 int __must_check i915_gem_object_get_fence(struct drm_i915_gem_object *obj);
 int __must_check i915_gem_object_put_fence(struct drm_i915_gem_object *obj);
+
+int __must_check i915_gem_next_request_seqno(struct intel_ring_buffer *ring,
+					     u32 *seqno);
 
 static inline bool
 i915_gem_object_pin_fence(struct drm_i915_gem_object *obj)
