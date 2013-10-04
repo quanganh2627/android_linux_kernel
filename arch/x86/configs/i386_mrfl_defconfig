@@ -3284,6 +3284,7 @@ CONFIG_INTEL_MID_POWER_BUTTON=y
 # CONFIG_INTEL_SCU_FLIS is not set
 # CONFIG_INTEL_SOC_PMC is not set
 # CONFIG_INTEL_BYT_EC is not set
+CONFIG_INTEL_MODEM_NVRAM=y
 
 #
 # Hardware Spinlock drivers
