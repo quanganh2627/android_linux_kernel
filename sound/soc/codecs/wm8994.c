@@ -540,13 +540,13 @@ static const struct soc_enum adc_osr =
 static const struct snd_kcontrol_new wm8994_snd_controls[] = {
 SOC_DOUBLE_R_TLV("AIF1ADC1 Volume", WM8994_AIF1_ADC1_LEFT_VOLUME,
 		 WM8994_AIF1_ADC1_RIGHT_VOLUME,
-		 1, 119, 0, digital_tlv),
+		 1, 120, 0, digital_tlv),
 SOC_DOUBLE_R_TLV("AIF1ADC2 Volume", WM8994_AIF1_ADC2_LEFT_VOLUME,
 		 WM8994_AIF1_ADC2_RIGHT_VOLUME,
-		 1, 119, 0, digital_tlv),
+		 1, 120, 0, digital_tlv),
 SOC_DOUBLE_R_TLV("AIF2ADC Volume", WM8994_AIF2_ADC_LEFT_VOLUME,
 		 WM8994_AIF2_ADC_RIGHT_VOLUME,
-		 1, 119, 0, digital_tlv),
+		 1, 120, 0, digital_tlv),
 
 SOC_ENUM("AIF1ADCL Source", aif1adcl_src),
 SOC_ENUM("AIF1ADCR Source", aif1adcr_src),
@@ -608,12 +608,12 @@ SOC_ENUM("ADC OSR", adc_osr),
 SOC_ENUM("DAC OSR", dac_osr),
 
 SOC_DOUBLE_R_TLV("DAC1 Volume", WM8994_DAC1_LEFT_VOLUME,
-		 WM8994_DAC1_RIGHT_VOLUME, 1, 96, 0, digital_tlv),
+		 WM8994_DAC1_RIGHT_VOLUME, 1, 112, 0, digital_tlv),
 SOC_DOUBLE_R("DAC1 Switch", WM8994_DAC1_LEFT_VOLUME,
 	     WM8994_DAC1_RIGHT_VOLUME, 9, 1, 1),
 
 SOC_DOUBLE_R_TLV("DAC2 Volume", WM8994_DAC2_LEFT_VOLUME,
-		 WM8994_DAC2_RIGHT_VOLUME, 1, 96, 0, digital_tlv),
+		 WM8994_DAC2_RIGHT_VOLUME, 1, 112, 0, digital_tlv),
 SOC_DOUBLE_R("DAC2 Switch", WM8994_DAC2_LEFT_VOLUME,
 	     WM8994_DAC2_RIGHT_VOLUME, 9, 1, 1),
 
