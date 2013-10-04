@@ -32,6 +32,9 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 	{ "BCM43241" },
 	{ "BCM2E1A" },
 
+  /* Telepĥony */
+	{ "MCD0001", 0 },
+
 	/* Baytrail Audio devices */
 	{ "HAD0F28", 0 },
 	{ "LPE0F28", 0 },
