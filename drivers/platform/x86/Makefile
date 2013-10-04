@@ -38,6 +38,7 @@ obj-$(CONFIG_ACPI_TOSHIBA)	+= toshiba_acpi.o
 obj-$(CONFIG_TOSHIBA_BT_RFKILL)	+= toshiba_bluetooth.o
 obj-$(CONFIG_INTEL_SCU_IPC)	+= intel_scu_ipc.o intel_scu_pmic.o intel_scu_mip.o intel_scu_fw_update.o
 obj-$(CONFIG_INTEL_SCU_IPC_UTIL) += intel_scu_ipcutil.o
+obj-$(CONFIG_INTEL_MODEM_NVRAM)	+= intel_modem_nvram.o
 obj-$(CONFIG_INTEL_SCU_FLIS)	+= intel_scu_flis.o
 obj-$(CONFIG_INTEL_IPS)		+= intel_ips.o
 obj-$(CONFIG_INTEL_SOC_PMC)	+= intel_soc_pmc.o
