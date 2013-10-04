@@ -97,6 +97,7 @@ struct pmc_dev {
 	struct semaphore nc_ready_lock;
 	u32 s3_residency;
 	u32 residency_total;
+	u32 s3_count;
 };
 
 char *states[] = {
@@ -261,8 +262,12 @@ static void print_residency_per_state(struct seq_file *s, int state, u32 count)
 		do_div(rem_res_reduced,  pmc_cxt->residency_total);
 	}
 	rem_time = do_div(time, USEC_PER_SEC);
-	seq_printf(s, "%s \t\t %.6llu.%.6u \t\t %.2llu.%.3llu\n", states[state],
+	seq_printf(s, "%s \t\t %.6llu.%.6u \t\t %.2llu.%.3llu", states[state],
 			time, rem_time, residency, rem_res_reduced);
+	if (state == MAX_PLATFORM_STATES)
+		seq_printf(s, " \t\t %u\n", pmc_cxt->s3_count);
+	else
+		seq_printf(s, " \t\t %s\n", "--");
 }
 
 static int pmc_devices_state_show(struct seq_file *s, void *unused)
@@ -270,6 +275,7 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 	struct pmc_dev *pmc_cxt = (struct pmc_dev *)s->private;
 	int i;
 	u32 val, nc_pwr_sts, reg;
+	unsigned int base_class, sub_class;
 	struct pci_dev *dev = NULL;
 	u16 pmcsr;
 	u32 s0ix_residency[MAX_PLATFORM_STATES];
@@ -281,9 +287,9 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 		s0ix_residency[i] = pmc_register_read(i);
 		pmc_cxt->residency_total += s0ix_residency[i];
 	}
-	s0ix_residency[S0I3] = s0ix_residency[S0I3] - pmc_cxt->s3_residency;
+	s0ix_residency[S0I3] -= pmc_cxt->s3_residency;
 
-	seq_puts(s, "State \t\t Time[sec] \t\t Residency[%%]\n");
+	seq_puts(s, "State \t\t Time[sec] \t\t Residency[%%] \t\t Count\n");
 	for (i = 0; i < MAX_PLATFORM_STATES; i++)
 		print_residency_per_state(s, i, s0ix_residency[i]);
 	print_residency_per_state(s, i, pmc_cxt->s3_residency);
@@ -301,6 +307,20 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 	seq_puts(s, "\nSOUTH COMPLEX DEVICES :\n");
 
 	while ((dev = pci_get_device(PCI_ID_ANY, PCI_ID_ANY, dev)) != NULL) {
+		/* find the base class info */
+		base_class = dev->class >> 16;
+		sub_class  = (dev->class & SUB_CLASS_MASK) >> 8;
+
+		if (base_class == PCI_BASE_CLASS_BRIDGE)
+			continue;
+
+		if ((base_class == PCI_BASE_CLASS_DISPLAY) && !sub_class)
+			continue;
+
+		if ((base_class == PCI_BASE_CLASS_MULTIMEDIA) &&
+				(sub_class == ISP_SUB_CLASS))
+			continue;
+
 		pci_read_config_word(dev, dev->pm_cap + PCI_PM_CTRL, &pmcsr);
 		val = pmcsr & PMC_D0I3_MASK;
 		seq_printf(s, "%9s %15s : %s\n", dev_name(&dev->dev),
@@ -387,13 +407,16 @@ static int pmc_suspend_enter(suspend_state_t state)
 
 	count_before_entry = pmc_register_read(S0I3);
 	trace_printk("s3_entry\n");
+
 	__monitor((void *)&temp, 0, 0);
 	smp_mb();
 	__mwait(BYT_S3_HINT, 1);
+
 	trace_printk("s3_exit\n");
+	pmc->s3_count += 1;
 	count_after_exit = pmc_register_read(S0I3);
 
-	pmc->s3_residency += count_after_exit - count_before_entry;
+	pmc->s3_residency += (count_after_exit - count_before_entry);
 
 	return 0;
 }
