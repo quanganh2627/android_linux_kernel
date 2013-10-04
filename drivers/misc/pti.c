@@ -21,6 +21,8 @@
  * compact JTAG, standard.
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
@@ -37,6 +39,10 @@
 #include <linux/uaccess.h>
 
 #include <asm/intel_scu_ipc.h>
+
+#ifdef CONFIG_INTEL_PTI_STM
+#include "stm.h"
+#endif
 
 #define DRIVERNAME		"pti"
 #define PCINAME			"pciPTI"
@@ -58,7 +64,7 @@
 #define APERTURE_LEN		0x400000  /* address length */
 
 #define SMIP_PTI_OFFSET	0x30C  /* offset to PTI config in MIP header */
-#define SMIP_PTI_EN		(1<<7) /* PTI enable bit in PTI configuration */
+#define SMIP_PTI_EN	(1<<7) /* PTI enable bit in PTI configuration */
 
 #define PTI_PNW_PCI_ID			0x082B
 #define PTI_CLV_PCI_ID			0x0900
@@ -119,7 +125,14 @@ struct pti_dev {
 	u8 ia_os[MAX_OS_IDS];
 	u8 ia_modem[MAX_MODEM_IDS];
 	struct pti_device_info *pti_dev_info;
+#ifdef CONFIG_INTEL_PTI_STM
+	struct stm_dev stm;
+#endif
 };
+
+static unsigned int stm_enabled;
+module_param(stm_enabled, uint, 0600);
+MODULE_PARM_DESC(stm_enabled, "set to 1 to enable stm");
 
 /*
  * This protects access to ia_app, ia_os, and ia_modem,
@@ -989,6 +1002,14 @@ static int pti_pci_probe(struct pci_dev *pdev,
 		goto err_rel_reg;
 	}
 
+#ifdef CONFIG_INTEL_PTI_STM
+	/* Initialize STM resources */
+	if ((stm_enabled) && (stm_dev_init(pdev, &drv_data->stm) != 0)) {
+		retval = -ENOMEM;
+		goto err_rel_reg;
+	}
+#endif
+
 	pci_set_drvdata(pdev, drv_data);
 
 	for (a = 0; a < PTITTY_MINOR_NUM; a++) {
@@ -1032,6 +1053,10 @@ static void pti_pci_remove(struct pci_dev *pdev)
 		tty_port_destroy(&drv_data->port[a]);
 	}
 
+#ifdef CONFIG_INTEL_PTI_STM
+	if (stm_enabled)
+		stm_dev_clean(pdev, &drv_data->stm);
+#endif
 	iounmap(drv_data->pti_ioaddr);
 	pci_release_region(pdev, GET_PCI_BAR(drv_data));
 	pci_set_drvdata(pdev, NULL);
