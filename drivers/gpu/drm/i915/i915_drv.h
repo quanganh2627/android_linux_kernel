@@ -885,7 +885,8 @@ struct intel_gen6_power_mgmt {
 	u32 cz_ts_down_ei;
 	u32 render_down_EI_C0;
 	u32 media_down_EI_C0;
-
+	bool enabled;
+	bool state;
 	struct delayed_work delayed_resume_work;
 
 	/*
@@ -893,6 +894,12 @@ struct intel_gen6_power_mgmt {
 	 * Must be taken after struct_mutex if nested.
 	 */
 	struct mutex hw_lock;
+};
+
+/* RC6 related */
+struct intel_rs_power_mgmt {
+	bool enabled;
+	bool state;
 };
 
 /* Runtime power management related */
@@ -1332,6 +1339,7 @@ typedef struct drm_i915_private {
 		u32 signal;
 		u32 blc_adjustment;
 		bool enabled;
+		bool state;
 		bool feature_control;
 #ifdef CONFIG_DEBUG_FS
 		u32 bin_data[DPST_BIN_COUNT];
@@ -1382,7 +1390,6 @@ typedef struct drm_i915_private {
 
 	/* Adding this to fallback to normal Turbo logic */
 	bool use_RC0_residency_for_turbo;
-	bool is_turbo_enabled;
 
 	struct {
 		atomic_t up_threshold;
@@ -1392,6 +1399,9 @@ typedef struct drm_i915_private {
 
 	/* gen6+ rps state */
 	struct intel_gen6_power_mgmt rps;
+
+	/* gen7 rc6 related */
+	struct intel_rs_power_mgmt rc6;
 
 	/* Runtime power management related */
 	struct intel_gen7_rpm rpm;

@@ -3907,7 +3907,7 @@ static void vlv_rps_timer_work(struct work_struct *work)
 	 */
 	mutex_lock(&dev_priv->rps.hw_lock);
 
-	if (!dev_priv->is_turbo_enabled)
+	if (!dev_priv->rps.enabled)
 		goto exit;
 
 	if (I915_READ(VLV_GTLC_SURVIVABILITY_REG) & VLV_GFX_CLK_STATUS_BIT) {
@@ -4097,7 +4097,7 @@ void bios_init_rps(struct drm_i915_private *dev_priv)
 bool vlv_turbo_initialize(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 val;
+	u32 val, hw_max, hw_min;
 	unsigned long flags;
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
@@ -4158,12 +4158,12 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 			 dev_priv->rps.cur_delay);
 
 	/* Bits [10:3] */
-	dev_priv->rps.max_delay = valleyview_rps_max_freq(dev_priv);
-	dev_priv->rps.hw_max = dev_priv->rps.max_delay;
-	DRM_DEBUG_DRIVER("max GPU freq: %d MHz (%u)\n",
+	dev_priv->rps.hw_max = hw_max = valleyview_rps_max_freq(dev_priv);
+
+	DRM_DEBUG_DRIVER("max HW supported GPU freq: %d MHz (%u)\n",
 			 vlv_gpu_freq(dev_priv->mem_freq,
-				      dev_priv->rps.max_delay),
-			 dev_priv->rps.max_delay);
+				      dev_priv->rps.hw_max),
+			 dev_priv->rps.hw_max);
 
 	/* Rpe is min freq */
 	dev_priv->rps.rpe_delay = valleyview_rps_rpe_freq(dev_priv);
@@ -4172,16 +4172,25 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 				      dev_priv->rps.rpe_delay),
 			 dev_priv->rps.rpe_delay);
 
-	dev_priv->rps.min_delay = valleyview_rps_min_freq(dev_priv);
-	dev_priv->rps.hw_min = dev_priv->rps.min_delay;
-	DRM_DEBUG_DRIVER("min GPU freq: %d MHz (%u)\n",
+	dev_priv->rps.hw_min = hw_min = valleyview_rps_min_freq(dev_priv);
+
+	DRM_DEBUG_DRIVER("min HW supported GPU freq: %d MHz (%u)\n",
 			 vlv_gpu_freq(dev_priv->mem_freq,
-				      dev_priv->rps.min_delay),
-			 dev_priv->rps.min_delay);
+				      dev_priv->rps.hw_min),
+			 dev_priv->rps.hw_min);
+
+	/* Preserve valid min/max settings */
+	if (dev_priv->rps.max_delay < hw_min ||
+	    dev_priv->rps.max_delay > hw_max)
+		dev_priv->rps.max_delay = hw_max;
 
 	/* For valleyview, min delay is Rpe */
 	if (IS_VALLEYVIEW(dev))
-		dev_priv->rps.min_delay = dev_priv->rps.rpe_delay;
+		hw_min = dev_priv->rps.rpe_delay;
+
+	if (dev_priv->rps.min_delay < hw_min ||
+	    dev_priv->rps.min_delay > dev_priv->rps.max_delay)
+		dev_priv->rps.min_delay = hw_min;
 
 	DRM_DEBUG_DRIVER("setting GPU freq to %d MHz (%u)\n",
 			 vlv_gpu_freq(dev_priv->mem_freq,
@@ -4212,7 +4221,7 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 	I915_WRITE(GEN6_PMIMR, dev_priv->pm_irq_mask);
 	spin_unlock_irqrestore(&dev_priv->rps.lock, flags);
 
-	dev_priv->is_turbo_enabled = true;
+	dev_priv->rps.enabled = true;
 
 	/* Use RC0 residency method for rps control as WA */
 	if (dev_priv->use_RC0_residency_for_turbo) {
@@ -4231,7 +4240,7 @@ void vlv_turbo_disable(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	unsigned long flags;
 
-	dev_priv->is_turbo_enabled = false;
+	dev_priv->rps.enabled = false;
 
 	I915_WRITE(GEN6_PMINTRMSK, 0xffffffff);
 	I915_WRITE(GEN6_PMIER, 0);
@@ -4272,12 +4281,19 @@ void valleyview_enable_rps(struct drm_device *dev)
 
 	bios_init_rps(dev_priv);
 
+	dev_priv->rc6.enabled = false;
+	dev_priv->rps.enabled = false;
+
 	/* 1. Setup RC6 */
-	vlv_rs_initialize(dev);
+	if (dev_priv->rc6.state)
+		vlv_rs_initialize(dev);
 
 	/* Setu Gfx Turbo */
 	if (i915_enable_turbo > 0)
-		vlv_turbo_initialize(dev);
+		if (dev_priv->rps.state)
+			vlv_turbo_initialize(dev);
+		else
+			vlv_turbo_disable(dev);
 }
 
 void ironlake_teardown_rc6(struct drm_device *dev)
@@ -6134,6 +6150,56 @@ void intel_pm_init(struct drm_device *dev)
 			  intel_gen6_powersave_work);
 }
 
+void vlv_rs_control(struct drm_device *dev,
+			bool enable)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 regdata = 0;
+	struct intel_ring_buffer *ring;
+	int i = 0;
+
+	regdata = I915_READ(VLV_RENDER_C_STATE_CONTROL_1_REG);
+
+	if (enable) {
+		regdata |= (1 << 28);
+		regdata |= (1 << 24);
+		regdata &= ~(1 << 23);
+
+		/* Set the Rc6 wake limit */
+		I915_WRITE(VLV_RC6_WAKE_RATE_LIMIT_REG,
+						VLV_RC6_WAKE_RATE_LIMIT);
+
+		/* Set the Evaluation interval (in units of micro-seconds) */
+		I915_WRITE(VLV_RC_EVALUATION_INTERVAL_REG,
+						VLV_EVALUATION_INTERVAL);
+
+		/* Set RC6 promotion timers */
+		I915_WRITE(VLV_RC6_RENDER_PROMOTION_TIMER_REG,
+					VLV_RC6_RENDER_PROMOTION_TIMER_TO);
+
+		/* Set the RC idle Hysteresis */
+		I915_WRITE(VLV_RC_IDLE_HYSTERESIS_REG, VLV_RC_IDLE_HYSTERESIS);
+
+		/* Set the idle count for each ring */
+		for_each_ring(ring, dev_priv, i) {
+			I915_WRITE(RING_MAX_IDLE(ring->mmio_base),
+						VLV_RING_IDLE_MAX_COUNT);
+		}
+
+		/* Enable RC state counters */
+		I915_WRITE(VLV_RC_COUNTER_ENABLE_REG, VLV_RC_COUNTER_CONTROL);
+
+		DRM_DEBUG_DRIVER("RC6 feature is enabled\n");
+	} else {
+		regdata &= ~(1 << 28);
+		regdata &= ~(1 << 24);
+
+		DRM_DEBUG_DRIVER("RC6 feature is disabled\n");
+	}
+
+	I915_WRITE(VLV_RENDER_C_STATE_CONTROL_1_REG, regdata);
+}
+
 void vlv_rs_sleepstateinit(struct drm_device *dev,
 					bool   disable_rs)
 {
@@ -6195,8 +6261,6 @@ void vlv_rs_sleepstateinit(struct drm_device *dev,
 			;
 	}
 
-	regdata = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
-
 	/*
 	 * Render and Media engines are awake at this point. Update the
 	 * FW counters to reflect the same
@@ -6209,16 +6273,8 @@ void vlv_rs_sleepstateinit(struct drm_device *dev,
 	 * Disable HW RC if requested. Will be requested during boot as
 	 * it will be enabled at a later point
 	 */
-	if (disable_rs) {
-
-		regdata = I915_READ(VLV_RENDER_C_STATE_CONTROL_1_REG);
-		regdata &= ~(VLV_EVAL_METHOD_ENABLE_BIT |
-					VLV_EVAL_METHOD_ENABLE_BIT |
-					VLV_TIMEOUT_METHOD_ENABLE_BIT);
-
-		I915_WRITE(VLV_RENDER_C_STATE_CONTROL_1_REG, regdata);
-
-	}
+	if (disable_rs)
+		vlv_rs_control(dev, !disable_rs);
 
 	return;
 }
@@ -6227,8 +6283,6 @@ void vlv_rs_sleepstateinit(struct drm_device *dev,
 bool vlv_rs_initialize(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_ring_buffer *ring;
-	int i = 0;
 	u32 regdata = 0;
 
 	/* bail out if BIOS hasnt programmed the PCBR value */
@@ -6238,30 +6292,6 @@ bool vlv_rs_initialize(struct drm_device *dev)
 		DRM_ERROR("FW or Driver hasnt set PCBR. Cannot enable RC6\n");
 		return 0;
 	}
-
-	/* Selecting the Time-Out method rather than eval interval method */
-
-	/* Set the Rc6 wake limit */
-	I915_WRITE(VLV_RC6_WAKE_RATE_LIMIT_REG, VLV_RC6_WAKE_RATE_LIMIT);
-
-	/* Set the Evaluation interval (in units of micro-seconds) */
-	I915_WRITE(VLV_RC_EVALUATION_INTERVAL_REG, VLV_EVALUATION_INTERVAL);
-
-	/* Set RC6 promotion timers */
-	I915_WRITE(VLV_RC6_RENDER_PROMOTION_TIMER_REG,
-	VLV_RC6_RENDER_PROMOTION_TIMER_TO);
-
-	/* Set the RC idle Hysteresis */
-	I915_WRITE(VLV_RC_IDLE_HYSTERESIS_REG, VLV_RC_IDLE_HYSTERESIS);
-
-	/* Set the idle count for each ring */
-	for_each_ring(ring, dev_priv, i) {
-		I915_WRITE(RING_MAX_IDLE(ring->mmio_base),
-					VLV_RING_IDLE_MAX_COUNT);
-	}
-
-	/* Enable RC state counters */
-	I915_WRITE(VLV_RC_COUNTER_ENABLE_REG, VLV_RC_COUNTER_CONTROL);
 
 	/* Control enabling of RC6 feature based on kernel param. Doing
 	* this here rather than at the start of this routine as S0ix
@@ -6274,17 +6304,7 @@ bool vlv_rs_initialize(struct drm_device *dev)
 		return 0;
 	}
 
-	/* Enable RC6 by setting the control register */
-	regdata = I915_READ(VLV_RENDER_C_STATE_CONTROL_1_REG);
-
-	regdata |= (1 << 28); /* Timeout method */
-	regdata |= (1 << 24); /* Context Restore request sequence maintain */
-	regdata &= ~(1 << 23); /* Context Save request sequence maintain */
-
-	I915_WRITE(VLV_RENDER_C_STATE_CONTROL_1_REG, regdata);
-
-	/* Let the engines go to RC6 by clearing FW */
-	vlv_force_wake_put(dev_priv, FORCEWAKE_ALL);
+	vlv_rs_setstate(dev, true);
 
 	DRM_DEBUG_DRIVER("RC6 is enabled\n");
 
@@ -6302,15 +6322,14 @@ void vlv_rs_setstate(struct drm_device *dev, bool enable)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 regdata = 0;
 
-	regdata = I915_READ(VLV_RENDER_C_STATE_CONTROL_1_REG);
+	if (dev_priv->rc6.enabled == enable)
+		return;
+
+	dev_priv->rc6.enabled = enable;
 
 	if (enable) {
-		regdata |= (1 << 28);
-		regdata |= (1 << 24);
-		regdata &= ~(1 << 23);
-
-		/* Enable RC6 in control register */
-		I915_WRITE(VLV_RENDER_C_STATE_CONTROL_1_REG, regdata);
+		/* Enable RC6 by setting the control register */
+		vlv_rs_control(dev, true);
 
 		/* Let engines go into RS by disabling FW */
 		vlv_force_wake_put(dev_priv, FORCEWAKE_ALL);
@@ -6321,9 +6340,8 @@ void vlv_rs_setstate(struct drm_device *dev, bool enable)
 		/* Forcewake all engines first */
 		vlv_force_wake_get(dev_priv, FORCEWAKE_ALL);
 
-		regdata &= ~(1 << 28);
-		regdata &= ~(1 << 24);
-		I915_WRITE(VLV_RENDER_C_STATE_CONTROL_1_REG, regdata);
+		/* Disable RC6 by setting the control register */
+		vlv_rs_control(dev, false);
 
 		DRM_DEBUG_DRIVER("RC6 feature is disabled\n");
 	}
