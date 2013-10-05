@@ -2347,7 +2347,8 @@ out:
 	 * If SYSCLK will be less than 50kHz adjust AIFnCLK dividers
 	 * for detection.
 	 */
-	if (max(wm8994->aifclk[0], wm8994->aifclk[1]) < 50000) {
+	if (max(wm8994->aifclk[0], wm8994->aifclk[1]) < 50000 &&
+		!wm8994->aifdiv[0]) {
 		dev_dbg(codec->dev, "Configuring AIFs for 128fs\n");
 
 		wm8994->aifdiv[0] = snd_soc_read(codec, WM8994_AIF1_RATE)
