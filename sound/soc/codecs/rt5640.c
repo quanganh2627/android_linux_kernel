@@ -598,20 +598,15 @@ int rt5640_detect_hs_type(struct snd_soc_codec *codec, int jack_insert)
 		   checking the status. */
 		msleep(HEADSET_DET_DELAY);
 		/* Make sure jack is still connected at this point before checking for HS*/
-		if (!rt5640_check_jd_status(codec)) {
-			if (rt5640_check_bp_status(codec)) {
-				/*Over current detected;i.e there is a  short between mic and
-				  ground ring. i.e the accessory does not have mic. i.e accessory
-				  is Headphone*/
-				rt5640->jack_type = RT5640_HEADPHO_DET;
-				pr_debug("%s:detected headphone", __func__);
-			} else {
-				rt5640->jack_type = RT5640_HEADSET_DET;
-				pr_debug("%s:detected headset", __func__);
-			}
+		if (rt5640_check_bp_status(codec)) {
+			/*Over current detected;i.e there is a  short between mic and
+			  ground ring. i.e the accessory does not have mic. i.e accessory
+			  is Headphone*/
+			rt5640->jack_type = RT5640_HEADPHO_DET;
+			pr_debug("%s:detected headphone", __func__);
 		} else {
-			pr_debug("%s:NO Jack detected", __func__);
-			rt5640->jack_type = RT5640_NO_JACK;
+			rt5640->jack_type = RT5640_HEADSET_DET;
+			pr_debug("%s:detected headset", __func__);
 		}
 		snd_soc_update_bits(codec, RT5640_IRQ_CTRL2,
 				    RT5640_MB1_OC_CLR, 0);
