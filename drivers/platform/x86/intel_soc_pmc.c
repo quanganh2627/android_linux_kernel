@@ -460,8 +460,8 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 
 	pci_set_drvdata(pdev, pmc_cxt);
 
-	/* /sys/kernel/debug/pmc_states */
-	d = debugfs_create_file("pmc_states", S_IFREG | S_IRUGO,
+	/* /sys/kernel/debug/mid_pmu_states */
+	d = debugfs_create_file("mid_pmu_states", S_IFREG | S_IRUGO,
 				NULL, pmc_cxt, &devices_state_operations);
 	if (!d) {
 		dev_err(&pdev->dev, "Can not create a debug file\n");
