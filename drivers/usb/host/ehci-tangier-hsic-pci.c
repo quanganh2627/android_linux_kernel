@@ -592,15 +592,21 @@ static ssize_t hsic_autosuspend_enable_store(struct device *dev,
 		if (hsic.autosuspend_enable == 0) {
 			dev_dbg(dev, "Modem dev autosuspend disable\n");
 			usb_disable_autosuspend(hsic.modem_dev);
-			usb_disable_autosuspend(hsic.rh_dev);
 		} else {
-			dev_dbg(dev, "Enable auto suspend\n");
+			dev_dbg(dev, "Modem dev autosuspend enable\n");
 			usb_enable_autosuspend(hsic.modem_dev);
-			usb_enable_autosuspend(hsic.rh_dev);
 			hsic_wakeup_irq_init();
 		}
 	}
-
+	if (hsic.rh_dev != NULL) {
+		if (hsic.autosuspend_enable == 0) {
+			dev_dbg(dev, "Port dev autosuspend disable\n");
+			usb_disable_autosuspend(hsic.rh_dev);
+		} else {
+			dev_dbg(dev, "Port dev autosuspend enable\n");
+			usb_enable_autosuspend(hsic.rh_dev);
+		}
+	}
 	mutex_unlock(&hsic.hsic_mutex);
 	return size;
 }
