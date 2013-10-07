@@ -529,11 +529,12 @@ void intel_panel_set_backlight(struct drm_device *dev, u32 level, u32 max)
 	if (dev_priv->backlight.device)
 		dev_priv->backlight.device->props.brightness = level;
 
-	if (dev_priv->backlight.enabled)
+	if (dev_priv->backlight.enabled) {
 		if (dev_priv->dpst.enabled)
 			i915_dpst_set_brightness(dev, level);
 		else
 			intel_panel_actually_set_backlight(dev, level);
+	}
 out:
 	spin_unlock_irqrestore(&dev_priv->backlight.lock, flags);
 }

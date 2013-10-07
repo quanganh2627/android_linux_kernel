@@ -661,7 +661,6 @@ static void vlv_punit_write32_bits(struct drm_i915_private *dev_priv,
 				u32 reg, u32 val, u32 mask)
 {
 	u32 tmp;
-	int status;
 
 	tmp = vlv_punit_read(dev_priv, reg);
 
@@ -796,7 +795,6 @@ static void valleyview_power_ungate_disp(struct drm_i915_private *dev_priv)
 static int valleyview_freeze(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_crtc *crtc;
 	u32 reg;
 
 	pci_save_state(dev->pdev);

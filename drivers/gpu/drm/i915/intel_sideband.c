@@ -30,9 +30,10 @@ static int vlv_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
 			   u32 port, u32 opcode, u32 addr, u32 *val)
 {
 	u32 cmd, be = 0xf, bar = 0;
+	bool is_read;
 	devfn = 0x00;
 
-	bool is_read = (opcode == PUNIT_OPCODE_REG_READ ||
+	is_read = (opcode == PUNIT_OPCODE_REG_READ ||
 			opcode == DPIO_OPCODE_REG_READ);
 
 	if (port == IOSF_PORT_PMC)

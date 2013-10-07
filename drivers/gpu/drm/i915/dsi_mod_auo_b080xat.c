@@ -148,7 +148,8 @@ void b080xat_disable_panel_power(struct intel_dsi_device *dsi)
 
 void b080xat_disable(struct intel_dsi_device *dsi)
 {
-	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
+	/*struct intel_dsi *intel_dsi =
+				container_of(dsi, struct intel_dsi, dev);*/
 
 	DRM_DEBUG_KMS("\n");
 

@@ -168,7 +168,7 @@ ssize_t i915_gamma_enable_write(struct file *filp,
 		  loff_t *ppos)
 {
 	int ret = 0;
-	unsigned int status = 0;
+	unsigned long status = 0;
 	struct drm_crtc *crtc = NULL;
 	struct drm_device *dev = filp->private_data;
 	drm_i915_private_t *dev_priv = dev->dev_private;
@@ -267,7 +267,6 @@ ssize_t i915_cb_adjust_write(struct file *filp,
 		  loff_t *ppos)
 {
 	int ret = count;
-	u32 val = 0;
 	struct drm_device *dev = filp->private_data;
 	struct ContBrightlut *cb_ptr = NULL;
 	drm_i915_private_t *dev_priv = dev->dev_private;
@@ -2556,8 +2555,6 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_max_freq_fops,
 int
 i915_dpst_enable_disable(struct drm_device *dev, unsigned int val)
 {
-	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
-
 	if (!(IS_VALLEYVIEW(dev)))
 		return -ENODEV;
 
@@ -2995,7 +2992,6 @@ static const struct file_operations i915_rps_init_fops = {
 static int
 i915_rpm_enabled(struct drm_device *drm_dev, char *buf, int *len)
 {
-	int ret;
 	struct device *dev = drm_dev->dev;
 
 	if (!(IS_VALLEYVIEW(drm_dev)))
@@ -3010,7 +3006,6 @@ i915_rpm_enabled(struct drm_device *drm_dev, char *buf, int *len)
 static int
 i915_rpm_control(struct drm_device *drm_dev, long unsigned int val)
 {
-	int ret, cur_status;
 	struct device *dev = drm_dev->dev;
 
 	if (!(IS_VALLEYVIEW(drm_dev)))
@@ -3029,8 +3024,6 @@ i915_rpm_control(struct drm_device *drm_dev, long unsigned int val)
 static int
 i915_display_pm(struct drm_device *drm_dev, long unsigned int val)
 {
-	int ret;
-
 	if (!(IS_VALLEYVIEW(drm_dev)))
 		return -ENODEV;
 
@@ -3052,10 +3045,8 @@ i915_read_rpm_api(struct file *filp,
 		loff_t *ppos)
 {
 	struct drm_device *drm_dev = filp->private_data;
-	drm_i915_private_t *dev_priv = drm_dev->dev_private;
-	struct device *dev = drm_dev->dev;
 	char buf[200], control[10], operation[20], val[20], format[20];
-	int len = 0, ret, no_of_tokens, pval;
+	int len = 0, ret, no_of_tokens;
 
 	if (!(IS_VALLEYVIEW(drm_dev)))
 		return -ENODEV;
@@ -3111,7 +3102,6 @@ i915_read_rpm_api(struct file *filp,
 		ret = i915_display_pm(drm_dev, 0);
 		if (ret)
 			return ret;
-
 	} else
 		len = snprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
 
