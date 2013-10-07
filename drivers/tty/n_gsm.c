@@ -498,7 +498,8 @@ static void gsm_print_packet(const char *hdr, int addr, int cr,
 		if (!(control & 0x01)) {
 			pr_cont("I N(S)%d N(R)%d",
 				(control & 0x0E) >> 1, (control & 0xE0) >> 5);
-		} else switch (control & 0x0F) {
+		} else
+			switch (control & 0x0F) {
 			case RR:
 				pr_cont("RR(%d)", (control & 0xE0) >> 5);
 				break;
@@ -979,7 +980,7 @@ static void gsm_dlci_data_kick(struct gsm_dlci *dlci)
 	unsigned long flags;
 	int sweep;
 
-	if (dlci->constipated) 
+	if (dlci->constipated)
 		return;
 
 	spin_lock_irqsave(&dlci->gsm->tx_lock, flags);
@@ -1152,7 +1153,7 @@ static void gsm_control_modem(struct gsm_mux *gsm, u8 *data, int clen)
 static void gsm_control_rls(struct gsm_mux *gsm, u8 *data, int clen)
 {
 	struct tty_port *port;
-	unsigned int addr = 0 ;
+	unsigned int addr = 0;
 	u8 bits;
 	int len = clen;
 	u8 *dp = data;
@@ -1595,16 +1596,16 @@ static void gsm_dlci_data(struct gsm_dlci *dlci, u8 *data, int clen)
 				if (len == 0)
 					return;
 			}
-		tty = tty_port_tty_get(port);
-		if (tty) {
-			gsm_process_modem(tty, dlci, modem, clen);
-			tty_kref_put(tty);
-		}
-	/* Line state will go via DLCI 0 controls only */
-	case 1:
-	default:
-		tty_insert_flip_string(port, data, len);
-		tty_flip_buffer_push(port);
+			tty = tty_port_tty_get(port);
+			if (tty) {
+				gsm_process_modem(tty, dlci, modem, clen);
+				tty_kref_put(tty);
+			}
+		/* Line state will go via DLCI 0 controls only */
+		case 1:
+		default:
+			tty_insert_flip_string(port, data, len);
+			tty_flip_buffer_push(port);
 	}
 }
 
@@ -2540,9 +2541,8 @@ static void gsmld_write_wakeup(struct tty_struct *tty)
 	clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
 	spin_lock_irqsave(&gsm->tx_lock, flags);
 	gsm_data_kick(gsm);
-	if (gsm->tx_bytes < TX_THRESH_LO) {
+	if (gsm->tx_bytes < TX_THRESH_LO)
 		gsm_dlci_data_sweep(gsm);
-	}
 	spin_unlock_irqrestore(&gsm->tx_lock, flags);
 }
 
@@ -2857,7 +2857,7 @@ static int gsm_mux_net_start_xmit(struct sk_buff *skb,
 static void gsm_mux_net_tx_timeout(struct net_device *net)
 {
 	/* Tell syslog we are hosed. */
-	dev_dbg(&net->dev, "Tx timed out.\n");
+	dev_dbg((struct device *)&net->dev, "Tx timed out.\n");
 
 	/* Update statistics */
 	STATS(net).tx_errors++;
@@ -3143,9 +3143,10 @@ static int gsmtty_install(struct tty_driver *driver, struct tty_struct *tty)
 	gsm = gsm_mux[mux];
 	if (gsm->dead)
 		return -EL2HLT;
-	/* If DLCI 0 is not yet fully open return an error. This is ok from a locking
-	   perspective as we don't have to worry about this if DLCI0 is lost */
-	if (gsm->dlci[0] && gsm->dlci[0]->state != DLCI_OPEN) 
+	/* If DLCI 0 is not yet fully open return an error. This is ok from a
+	 * locking perspective as we don't have to worry about this if DLCI0
+	 * is lost */
+	if (gsm->dlci[0] && gsm->dlci[0]->state != DLCI_OPEN)
 		return -EL2NSYNC;
 	dlci = gsm->dlci[line];
 	if (dlci == NULL) {
