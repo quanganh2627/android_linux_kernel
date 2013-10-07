@@ -250,9 +250,8 @@ enum max170xx_chip_type {MAX17042, MAX17050};
 /* No of times we should reset I2C lines */
 #define NR_I2C_RESET_CNT	8
 
-#define VBATT_MAX 4200
-#define VBATT_MIN 3400
-
+#define VBATT_MAX 4200000	/* 4200mV */
+#define VBATT_MIN 3400000	/* 3400mV */
 /* default fuel gauge cell data for debug purpose only */
 static uint16_t cell_char_tbl[] = {
 	/* Data to be written from 0x80h */
@@ -366,16 +365,16 @@ static void update_runtime_params(struct max17042_chip *chip);
  * capacity value against a given voltage */
 static unsigned int voltage_capacity_lookup(unsigned int val)
 {
-	unsigned int max = VBATT_MAX;
-	unsigned int min = VBATT_MIN;
+	unsigned int max = VBATT_MAX / 1000;
+	unsigned int min = VBATT_MIN / 1000;
 	unsigned int capacity;
 	unsigned int total_diff;
 	unsigned int val_diff;
 
-	if (val > VBATT_MAX)
+	if (val > max)
 		return 100;
 
-	if (val < VBATT_MIN)
+	if (val < min)
 		return 0;
 
 	total_diff = max - min;
@@ -872,7 +871,7 @@ static int max17042_get_property(struct power_supply *psy,
 		val->intval = (ret >> 7) * 10000; /* Units of LSB = 10mV */
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
-		val->intval = chip->voltage_max * 1000;
+		val->intval = chip->voltage_max;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		/*
@@ -1794,7 +1793,7 @@ static ssize_t set_shutdown_voltage(struct device *dev,
 	unsigned long value;
 	if (kstrtoul(buf, 10, &value))
 		return -EINVAL;
-	if ((value < VBATT_MIN * 1000) || (value > VBATT_MAX * 1000))
+	if ((value < VBATT_MIN) || (value > VBATT_MAX))
 		return -EINVAL;
 	shutdown_volt = value;
 	return count;
