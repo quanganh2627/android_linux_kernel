@@ -61,10 +61,30 @@ static unsigned long __init mfld_calibrate_tsc(void)
 		ratio = 16;
 	}
 	rdmsr(MSR_FSB_FREQ, lo, hi);
-	if ((lo & 0x7) == 0x7)
-		fsb = FSB_FREQ_83SKU;
-	else
+	switch (lo & BSEL_SOC_FUSE_MASK) {
+	case BSEL_SOC_FUSE_001:
+		fsb = FSB_FREQ_133SKU;
+		break;
+	case BSEL_SOC_FUSE_101:
 		fsb = FSB_FREQ_100SKU;
+		break;
+	case BSEL_SOC_FUSE_111:
+		fsb = FSB_FREQ_83SKU;
+		break;
+	default:
+		pr_err("%s: unsupported BSEL_SOC_FUSE: %d, fall back to 83SKU",
+					__func__, lo & BSEL_SOC_FUSE_MASK);
+		fsb = FSB_FREQ_83SKU;
+		break;
+	}
+
+	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CLOVERVIEW
+		&& fsb == FSB_FREQ_133SKU) {
+		pr_warn("See a Clovertrail+ B0/B1/B2 processor and will correct its tsc info!\n");
+		/* The 133MHz FSB for CLVP+ is actually 133.120 MHz */
+		fsb = 133120;
+	}
+
 	fast_calibrate = ratio * fsb;
 	pr_debug("read penwell tsc %lu khz\n", fast_calibrate);
 	lapic_timer_frequency = fsb * 1000 / HZ;
