@@ -146,8 +146,12 @@ struct fsa9285_chip {
 	u8	cntl;
 	u8	man_sw;
 	u8	man_chg_cntl;
+
+	bool	vbus_drive;
+	bool	a_bus_drop;
 };
 
+static struct fsa9285_chip *chip_ptr;
 extern void *fsa9285_platform_data(void);
 
 static int fsa9285_write_reg(struct i2c_client *client,
@@ -173,6 +177,33 @@ static int fsa9285_read_reg(struct i2c_client *client, int reg)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	return ret;
+}
+
+static void fsa9285_vbus_cntl_state(struct usb_phy *phy)
+{
+	struct fsa9285_chip *chip = chip_ptr;
+	int ret = 0;
+
+	if (!chip)
+		return;
+
+	if (phy->vbus_state == VBUS_DISABLED) {
+		dev_info(&chip->client->dev,
+			"a_bus_drop event(true)\n");
+		chip->a_bus_drop = true;
+		if (chip->vbus_drive)
+			ret = chip->pdata->disable_vbus();
+	} else {
+		dev_info(&chip->client->dev,
+			"a_bus_drop event(false)\n");
+		chip->a_bus_drop = false;
+		if (chip->vbus_drive)
+			ret = chip->pdata->enable_vbus();
+	}
+
+	if (ret < 0)
+		dev_warn(&chip->client->dev,
+			"pmic vbus control failed\n");
 }
 
 static int fsa9285_detect_dev(struct fsa9285_chip *chip)
@@ -301,13 +332,14 @@ static int fsa9285_detect_dev(struct fsa9285_chip *chip)
 	}
 
 	/* VBUS control */
-	if (drive_vbus)
+	if (drive_vbus && !chip->a_bus_drop)
 		ret = chip->pdata->enable_vbus();
 	else
 		ret = chip->pdata->disable_vbus();
 	if (ret < 0)
 		dev_warn(&chip->client->dev,
 			"pmic vbus control failed\n");
+	chip->vbus_drive = drive_vbus;
 
 	/* handle SDP case before enabling CHG_DETB */
 	if (w_man_chg_cntl & CHGCTRL_ASSERT_CHG_DETB)
@@ -525,6 +557,7 @@ static int fsa9285_probe(struct i2c_client *client,
 	chip->pdata =   fsa9285_platform_data();
 #endif
 	i2c_set_clientdata(client, chip);
+	chip_ptr = chip;
 
 	/* register with extcon */
 	chip->edev = kzalloc(sizeof(struct extcon_dev), GFP_KERNEL);
@@ -547,6 +580,7 @@ static int fsa9285_probe(struct i2c_client *client,
 		dev_warn(&client->dev, "Failed to get otg transceiver!!\n");
 		goto otg_reg_failed;
 	}
+	chip->otg->a_bus_drop = fsa9285_vbus_cntl_state;
 
 	ret = fsa9285_irq_init(chip);
 	if (ret)
