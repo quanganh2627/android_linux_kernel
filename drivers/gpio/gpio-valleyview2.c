@@ -35,6 +35,7 @@
 #include <linux/io.h>
 #include <asm/intel_vlv2.h>
 #include <linux/pnp.h>
+#include "gpiodebug.h"
 
 #define GPIO_PATH_MAX	64
 
@@ -141,6 +142,7 @@ struct vlv_gpio {
 	unsigned		*gpio_to_pad;
 	int			irq_base;
 	unsigned		*gpio_conf;
+	struct gpio_debug	*debug;
 };
 
 static void __iomem *vlv_gpio_reg(struct gpio_chip *chip, unsigned offset,
@@ -432,12 +434,15 @@ static void vlv_gpio_irq_dispatch(struct vlv_gpio *vg)
 	u32 base, pin, mask;
 	void __iomem *reg;
 	u32 pending;
+	struct gpio_debug *debug = vg->debug;
 
 	for (base = 0; base < vg->chip.ngpio; base += 32) {
 		reg = vlv_gpio_reg(&vg->chip, base, VV_INT_STAT_REG);
 		pending = vlv_readl(reg);
 		while (pending) {
 			pin = __ffs(pending);
+			DEFINE_DEBUG_IRQ_CONUNT_INCREASE(vg->chip.base +
+				base + pin);
 			mask = BIT(pin);
 			vlv_writel(mask, reg);
 			generic_handle_irq(vg->irq_base + base + pin);
@@ -531,6 +536,237 @@ static void vlv_gpio_irq_init_hw(struct vlv_gpio *vg)
 		vlv_writel(0xffffffff, reg);
 	}
 }
+static char conf_reg_msg[] =
+	"\nGPIO configuration register:\n"
+	"\t[ 2: 0]\tpinmux\n"
+	"\t[ 4: 4]\tidynwk2ken\n"
+	"\t[ 8: 7]\tpullmode\n"
+	"\t[10: 9]\tpullstrength\n"
+	"\t[11:11]\tbypass_flop\n"
+	"\t[14:13]\tHysteresis control\n"
+	"\t[15:15]\tHysteresis enable, active low\n"
+	"\t[16:16]\tfast_clkgate\n"
+	"\t[17:17]\tslow_clkgate\n"
+	"\t[18:18]\tfilter_show\n"
+	"\t[19:19]\tglitch filter enable\n"
+	"\t[20:20]\tdebounce enable\n"
+	"\t[23:23]\tstrap val\n"
+	"\t[24:24]\tset level irq, not edge irq\n"
+	"\t[25:25]\trising edge, or high level irq\n"
+	"\t[26:26]\tfalling edge, or low level irq\n"
+	"\t[27:27]\tdirect_irq_en\n"
+	"\t[28:28]\t25 ohm compensation of hflvt buffers\n"
+	"\t[29:29]\tdisable second mask\n"
+	"\t[30:30]\tconfigure logic 1 when use 1.5v IO, logic 0 when use 3.3v IO\n"
+	"\t[31:31]\tOpen Drain enable\n";
+
+static char *pinvalue[] = {"low", "high"};
+static char *pindirection[] = {"both", "in", "out", "disable"};
+static char *irqtype[] = {"irq_none", "edge_rising", "edge_falling",
+		"edge_both", "level_high", "level_low"};
+static char *pinmux[] = {"mux0", "mux1", "mux2", "mux3", "mux4", "mux5",
+		"mux6", "mux7"};
+static char *pullmode[] = {"nopull", "pullup", "pulldown"};
+static char *pullstrength[] = {"2k", "10k", "20k", "40k"};
+static char *enable[] = {"disable", "enable"};
+
+static int vlv_get_normal(struct gpio_control *control, void *private_data,
+		unsigned gpio)
+{
+	struct vlv_gpio *vg = private_data;
+	void __iomem *reg;
+	u32 offset = gpio - vg->chip.base;
+	u32 value;
+	u32 shift = control->shift;
+	u32 mask = control->mask;
+	int num;
+
+	reg = vlv_gpio_reg(&vg->chip, offset, control->reg);
+	value = vlv_readl(reg);
+
+	num = (value & (mask << shift)) >> shift;
+	if (num < control->num)
+		return num;
+
+	return -1;
+}
+
+static int vlv_set_normal(struct gpio_control *control, void *private_data,
+		unsigned gpio, unsigned int num)
+{
+	struct vlv_gpio *vg = private_data;
+	void __iomem *reg;
+	unsigned long flags;
+	u32 offset = gpio - vg->chip.base;
+	u32 value;
+	u32 shift = control->shift;
+	u32 mask = control->mask;
+
+	reg = vlv_gpio_reg(&vg->chip, offset, control->reg);
+
+	spin_lock_irqsave(&vg->lock, flags);
+	value = vlv_readl(reg);
+	value &= ~(mask << shift);
+	value |= (num & mask) << shift;
+	vlv_writel(value, reg);
+	spin_unlock_irqrestore(&vg->lock, flags);
+
+	return 0;
+}
+
+static int vlv_get_irqtype(struct gpio_control *control, void *private_data,
+		unsigned gpio)
+{
+	struct vlv_gpio *vg = private_data;
+	void __iomem *reg;
+	u32 offset = gpio - vg->chip.base;
+	u32 value;
+	u32 shift = control->shift;
+	u32 mask = control->mask;
+	int num;
+
+	reg = vlv_gpio_reg(&vg->chip, offset, control->reg);
+	value = vlv_readl(reg);
+
+	if (value & (1<<control->rshift)) { /* level irq */
+		value = (value & (mask << shift)) >> shift;
+		if (value == 0x01)
+			num = 4;
+		else if (value == 0x10)
+			num = 5;
+		else
+			num = 0;
+	} else { /* edge irq or no irqtype */
+		num = (value & (mask << shift)) >> shift;
+	}
+
+	if (num < control->num)
+		return num;
+
+	return -1;
+}
+
+#define VLV_NORMAL_CONTROL(xtype, xinfo, xnum, xreg, xshift, xmask) \
+{	.type = xtype, .pininfo = xinfo, .num = xnum, .reg = xreg, \
+	.shift = xshift, .mask = xmask, .get = vlv_get_normal, \
+	.set = vlv_set_normal}
+#define VLV_IRQTYPE_CONTROL(xtype, xinfo, xnum, xreg, xshift, xmask, xrshift) \
+{	.type = xtype, .pininfo = xinfo, .num = xnum, .reg = xreg, \
+	.shift = xshift, .mask = xmask, .rshift = xrshift, \
+	.get = vlv_get_irqtype, .set = NULL}
+
+static struct gpio_control vlv_gpio_controls[] = {
+VLV_NORMAL_CONTROL(TYPE_PIN_VALUE, pinvalue, 2, VV_VAL_REG, 0, 0x1),
+VLV_NORMAL_CONTROL(TYPE_DIRECTION, pindirection, 4, VV_VAL_REG, 1, 0x3),
+VLV_IRQTYPE_CONTROL(TYPE_IRQ_TYPE, irqtype, 6, VV_CONF0_REG, 25, 0x3, 24),
+VLV_NORMAL_CONTROL(TYPE_PINMUX, pinmux, 8, VV_CONF0_REG, 0, 0x7),
+VLV_NORMAL_CONTROL(TYPE_PULLMODE, pullmode, 3, VV_CONF0_REG, 7, 0x3),
+VLV_NORMAL_CONTROL(TYPE_PULLSTRENGTH, pullstrength, 4, VV_CONF0_REG, 9, 0x3),
+VLV_NORMAL_CONTROL(TYPE_OPEN_DRAIN, enable, 2, VV_CONF0_REG, 31, 0x1),
+VLV_NORMAL_CONTROL(TYPE_DEBOUNCE, enable, 2, VV_CONF0_REG, 20, 0x1),
+};
+
+static unsigned int vlv_get_conf_reg(struct gpio_debug *debug, unsigned gpio)
+{
+	struct vlv_gpio *vg = debug->private_data;
+	void __iomem *reg;
+	u32 offset = gpio - vg->chip.base;
+	u32 value;
+
+	reg = vlv_gpio_reg(&vg->chip, offset, VV_CONF0_REG);
+	value = vlv_readl(reg);
+
+	return value;
+}
+
+static void vlv_set_conf_reg(struct gpio_debug *debug, unsigned gpio,
+		unsigned int value)
+{
+	struct vlv_gpio *vg = debug->private_data;
+	void __iomem *reg;
+	u32 offset = gpio - vg->chip.base;
+	unsigned long flags;
+
+	reg = vlv_gpio_reg(&vg->chip, offset, VV_CONF0_REG);
+
+	spin_lock_irqsave(&vg->lock, flags);
+	vlv_writel(value, reg);
+	spin_unlock_irqrestore(&vg->lock, flags);
+}
+
+static char **vlv_get_avl_pininfo(struct gpio_debug *debug, unsigned gpio,
+		unsigned int type, unsigned *num)
+{
+	struct gpio_control *control;
+
+	control = find_gpio_control(vlv_gpio_controls,
+			ARRAY_SIZE(vlv_gpio_controls), type);
+	if (control == NULL)
+		return NULL;
+
+	*num = control->num;
+
+	return control->pininfo;
+}
+
+
+static char *vlv_get_cul_pininfo(struct gpio_debug *debug, unsigned gpio,
+		unsigned int type)
+{
+	struct vlv_gpio *vg = debug->private_data;
+	struct gpio_control *control;
+	int num;
+
+	control = find_gpio_control(vlv_gpio_controls,
+			ARRAY_SIZE(vlv_gpio_controls), type);
+	if (control == NULL)
+		return NULL;
+
+	num = control->get(control, vg, gpio);
+	if (num == -1)
+		return NULL;
+
+	return *(control->pininfo + num);
+
+}
+
+static void vlv_set_pininfo(struct gpio_debug *debug, unsigned gpio,
+		unsigned int type, const char *info)
+{
+	struct vlv_gpio *vg = debug->private_data;
+	struct gpio_control *control;
+	int num;
+
+	control = find_gpio_control(vlv_gpio_controls,
+			ARRAY_SIZE(vlv_gpio_controls), type);
+	if (control == NULL)
+		return;
+
+	num = find_pininfo_num(control, info);
+	if (num == -1)
+		return;
+
+	if (control->set)
+		control->set(control, vg, gpio, num);
+
+}
+
+static int vlv_get_register_msg(char **buf, unsigned long *size)
+{
+	*buf = conf_reg_msg;
+	*size = strlen(conf_reg_msg);
+
+	return 0;
+}
+
+static struct gpio_debug_ops vlv_gpio_debug_ops = {
+	.get_conf_reg = vlv_get_conf_reg,
+	.set_conf_reg = vlv_set_conf_reg,
+	.get_avl_pininfo = vlv_get_avl_pininfo,
+	.get_cul_pininfo = vlv_get_cul_pininfo,
+	.set_pininfo = vlv_set_pininfo,
+	.get_register_msg = vlv_get_register_msg,
+};
 
 static int
 vlv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
@@ -545,6 +781,7 @@ vlv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 	int gpio_base, irq_base;
 	char path[GPIO_PATH_MAX];
 	int nbanks = sizeof(vlv_banks_pnp) / sizeof(struct gpio_bank_pnp);
+	struct gpio_debug *debug;
 
 	vg = devm_kzalloc(dev, sizeof(struct vlv_gpio), GFP_KERNEL);
 	if (!vg) {
@@ -616,6 +853,21 @@ vlv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 	if (ret) {
 		dev_err(&pdev->dev, "failed adding vlv-gpio chip\n");
 		goto err;
+	}
+
+	debug = gpio_debug_alloc();
+	if (debug) {
+		debug->chip = gc;
+		debug->ops = &vlv_gpio_debug_ops;
+		debug->private_data = vg;
+		vg->debug = debug;
+
+		ret = gpio_debug_register(debug);
+		if (ret) {
+			dev_err(&pdev->dev, "gpio_add_debug_debugfs error %d\n",
+				ret);
+			gpio_debug_remove(debug);
+		}
 	}
 
 	vlv_gpio_irq_init_hw(vg);
