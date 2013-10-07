@@ -80,6 +80,36 @@ static const struct file_operations rpm_file_ops = {
 	.release	= i915_rpm_put_procfs,
 };
 
+bool i915_pm_runtime_enabled(struct device *dev)
+{
+	return pm_runtime_enabled(dev);
+}
+
+void i915_rpm_enable(struct device *dev)
+{
+	int cur_status = pm_runtime_enabled(dev);
+
+	if (!cur_status) {
+		pm_runtime_enable(dev);
+		pm_runtime_allow(dev);
+	}
+
+	return;
+}
+
+void i915_rpm_disable(struct drm_device *drm_dev)
+{
+	struct device *dev = drm_dev->dev;
+	int cur_status = pm_runtime_enabled(dev);
+
+	if (cur_status) {
+		pm_runtime_forbid(dev);
+		pm_runtime_disable(dev);
+	}
+
+	return;
+}
+
 static int i915_rpm_procfs_init(struct drm_device *drm_dev)
 {
 	struct drm_i915_private *dev_priv = drm_dev->dev_private;

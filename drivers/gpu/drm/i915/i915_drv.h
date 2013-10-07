@@ -2534,6 +2534,10 @@ int i915_rpm_put_ioctl(struct drm_device *dev);
 int i915_rpm_get_disp(struct drm_device *dev);
 int i915_rpm_put_disp(struct drm_device *dev);
 
+bool i915_pm_runtime_enabled(struct device *dev);
+void i915_rpm_disable(struct drm_device *drm_dev);
+void i915_rpm_enable(struct device *dev);
+
 #ifdef CONFIG_DRM_VXD_BYT
 int i915_rpm_get_vxd(struct drm_device *dev);
 int i915_rpm_put_vxd(struct drm_device *dev);

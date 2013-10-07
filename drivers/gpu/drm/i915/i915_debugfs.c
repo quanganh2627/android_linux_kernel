@@ -2991,6 +2991,175 @@ static const struct file_operations i915_rps_init_fops = {
 	.llseek = default_llseek,
 };
 
+/* Helper function for the rpm related operations */
+static int
+i915_rpm_enabled(struct drm_device *drm_dev, char *buf, int *len)
+{
+	int ret;
+	struct device *dev = drm_dev->dev;
+
+	if (!(IS_VALLEYVIEW(drm_dev)))
+		return -ENODEV;
+
+	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "RPM Enabled: %s\n",
+				yesno(i915_pm_runtime_enabled(dev)));
+
+	return 0;
+}
+
+static int
+i915_rpm_control(struct drm_device *drm_dev, long unsigned int val)
+{
+	int ret, cur_status;
+	struct device *dev = drm_dev->dev;
+
+	if (!(IS_VALLEYVIEW(drm_dev)))
+		return -ENODEV;
+
+	/* 1=> Enable RPM(D0IX), else disable. */
+
+	if (val == 1)
+		i915_rpm_enable(dev);
+	else
+		i915_rpm_disable(drm_dev);
+
+	return 0;
+}
+
+static int
+i915_display_pm(struct drm_device *drm_dev, long unsigned int val)
+{
+	int ret;
+
+	if (!(IS_VALLEYVIEW(drm_dev)))
+		return -ENODEV;
+
+	/* 1=> Suspend RPM(D0IX), else Resume. */
+
+	if (val)
+		display_runtime_suspend(drm_dev);
+	else
+		display_runtime_resume(drm_dev);
+
+	return 0;
+}
+
+
+static int
+i915_read_rpm_api(struct file *filp,
+		char __user *ubuf,
+		size_t max,
+		loff_t *ppos)
+{
+	struct drm_device *drm_dev = filp->private_data;
+	drm_i915_private_t *dev_priv = drm_dev->dev_private;
+	struct device *dev = drm_dev->dev;
+	char buf[200], control[10], operation[20], val[20], format[20];
+	int len = 0, ret, no_of_tokens, pval;
+
+	if (!(IS_VALLEYVIEW(drm_dev)))
+		return -ENODEV;
+
+	if (i915_debugfs_vars.rpm.rpm_input == 0)
+		return len;
+
+	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+		sizeof(control), sizeof(operation), sizeof(val));
+
+	no_of_tokens = sscanf(i915_debugfs_vars.rpm.rpm_vars,
+				format, control, operation, val);
+
+	if (no_of_tokens < 3)
+		return len;
+
+	if (strcmp(operation, STATUS_TOKEN) == 0) {
+		ret = i915_rpm_enabled(drm_dev, buf, &len);
+		if (ret)
+			return ret;
+
+	} else if (strcmp(operation, ENABLE_TOKEN) == 0) {
+		/*
+		* 1=> Enable RPM, else disable.
+		*/
+		ret = i915_rpm_control(drm_dev, 1);
+		if (ret)
+			return ret;
+
+		i915_rpm_enabled(drm_dev, buf, &len);
+	} else if (strcmp(operation, DISABLE_TOKEN) == 0) {
+		/*
+		* 1=> Enable RPM, else disable.
+		*/
+		ret = i915_rpm_control(drm_dev, 0);
+		if (ret)
+			return ret;
+
+		i915_rpm_enabled(drm_dev, buf, &len);
+
+	} else if (strcmp(operation, RPM_DISPLAY_RUNTIME_SUSPEND_TOKEN) == 0) {
+		/*
+		* 1=> Suspend RPM(D0IX), else Resume.
+		*/
+		ret = i915_display_pm(drm_dev, 1);
+		if (ret)
+			return ret;
+
+	} else if (strcmp(operation, RPM_DISPLAY_RUNTIME_RESUME_TOKEN) == 0) {
+		/*
+		* 1=> Suspend RPM(D0IX), else Resume.
+		*/
+		ret = i915_display_pm(drm_dev, 0);
+		if (ret)
+			return ret;
+
+	} else
+		len = snprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	i915_debugfs_vars.rpm.rpm_input = 0;
+	simple_read_from_buffer(ubuf, max, ppos, buf, len);
+
+	return len;
+}
+
+static ssize_t
+i915_write_rpm_api(struct file *filp,
+		const char __user *ubuf,
+		size_t cnt,
+		loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	/* Reset the string */
+	memset(i915_debugfs_vars.rpm.rpm_vars, 0, MAX_BUFFER_STR_LEN);
+
+	if (cnt > 0) {
+		if (cnt > sizeof(i915_debugfs_vars.rpm.rpm_vars) - 1)
+			return -EINVAL;
+		if (copy_from_user(i915_debugfs_vars.rpm.rpm_vars, ubuf, cnt))
+			return -EFAULT;
+
+		i915_debugfs_vars.rpm.rpm_vars[cnt] = 0;
+
+		/* Enable read */
+		i915_debugfs_vars.rpm.rpm_input = 1;
+	}
+
+	return cnt;
+}
+
+static const struct file_operations i915_rpm_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_read_rpm_api,
+	.write = i915_write_rpm_api,
+	.llseek = default_llseek,
+};
 
 static int
 i915_read_turbo_api(struct file *filp,
@@ -3841,6 +4010,7 @@ static struct i915_debugfs_files {
 	{"i915_turbo_api", &i915_turbo_fops},
 	{"i915_rps_init", &i915_rps_init_fops},
 	{"i915_dpst_api", &i915_dpst_fops},
+	{"i915_rpm_api", &i915_rpm_fops},
 };
 
 int i915_debugfs_init(struct drm_minor *minor)
