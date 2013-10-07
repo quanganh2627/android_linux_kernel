@@ -467,6 +467,12 @@ static int mrfld_8958_init(struct snd_soc_pcm_runtime *runtime)
 
 	snd_soc_update_bits(codec, WM8994_AIF1_DAC1_FILTERS_1, WM8994_AIF1DAC1_MUTE, 0);
 	snd_soc_update_bits(codec, WM8994_AIF1_DAC2_FILTERS_1, WM8994_AIF1DAC2_MUTE, 0);
+
+	/* Micbias1 is always off, so for pm optimizations make sure the micbias1
+	 * discharge bit is set to floating to avoid discharge in disable state
+	 */
+	snd_soc_update_bits(codec, WM8958_MICBIAS1, WM8958_MICB1_DISCH, 0);
+
 	return 0;
 }
 
