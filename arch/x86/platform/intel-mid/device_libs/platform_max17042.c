@@ -385,7 +385,6 @@ static void init_callbacks(struct max17042_platform_data *pdata)
 		pdata->get_vmin_threshold = mrfl_get_vsys_min;
 		pdata->get_vmax_threshold = mrfl_get_volt_max;
 	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
-		pdata->battery_status = smb347_get_charging_status;
 		pdata->get_vmin_threshold = byt_get_vsys_min;
 		pdata->get_vmax_threshold = byt_get_vbatt_max;
 		pdata->reset_chip = true;
@@ -505,10 +504,8 @@ void *max17042_platform_data(void *info)
 	struct i2c_board_info *i2c_info = (struct i2c_board_info *)info;
 	int intr = get_gpio_by_name("max_fg_alert");
 
-
 	if (!INTEL_MID_BOARD(1, TABLET, BYT))
 		i2c_info->irq = intr + INTEL_MID_IRQ_OFFSET;
-
 
 	init_tgain_toff(&platform_data);
 	init_callbacks(&platform_data);
