@@ -433,14 +433,21 @@ static int mrfld_8958_init(struct snd_soc_pcm_runtime *runtime)
 	mrfld_8958_set_bias_level(card, dapm, SND_SOC_BIAS_OFF);
 	card->dapm.idle_bias_off = true;
 
-	/* mark pins as NC */
-
+	/* these pins are not used in SB config so mark as nc
+	 *
+	 * LINEOUT1, 2
+	 * IN1R
+	 * DMICDAT2
+	 */
+	snd_soc_dapm_nc_pin(dapm, "DMIC2DAT");
+	snd_soc_dapm_nc_pin(dapm, "LINEOUT1P");
+	snd_soc_dapm_nc_pin(dapm, "LINEOUT1N");
+	snd_soc_dapm_nc_pin(dapm, "LINEOUT2P");
+	snd_soc_dapm_nc_pin(dapm, "LINEOUT2N");
+	snd_soc_dapm_nc_pin(dapm, "IN1RN");
+	snd_soc_dapm_nc_pin(dapm, "IN1RP");
 
 	snd_soc_dapm_sync(dapm);
-	/* FIXME
-	 * set all the nc_pins, set all the init control
-	 * and add any machine controls here
-	 */
 
 	ctx->jack_retry = 0;
 	ret = snd_soc_jack_new(codec, "Intel MID Audio Jack",
