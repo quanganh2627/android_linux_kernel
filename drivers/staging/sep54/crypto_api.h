@@ -36,6 +36,9 @@
 int dx_crypto_api_init(struct sep_drvdata *drvdata);
 void dx_crypto_api_fini(void);
 
+int hwk_init(void);
+void hwk_fini(void);
+
 #endif /*__CRYPTO_API_H__*/
 
 

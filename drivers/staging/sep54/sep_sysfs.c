@@ -34,6 +34,7 @@
 #include "dx_driver_abi.h"
 #include "desc_mgr.h"
 #include "sep_log.h"
+#include "sep_sysfs.h"
 
 #define MAX_QUEUE_NAME_LEN 50
 
@@ -299,7 +300,10 @@ static ssize_t sys_queue_stats_sep_lat_show(struct kobject *kobj,
 /* TOP LEVEL ATTRIBUTES */
 
 static struct kobj_attribute sys_top_level_attrs[] = {
-	__ATTR(fw_ver, 0444, sys_fw_ver_show, NULL)
+	__ATTR(fw_ver, 0444, sys_fw_ver_show, NULL),
+#ifdef SEP_HWK_UNIT_TEST
+	__ATTR(hwk_self_test, 0666, sys_hwk_st_show, sys_hwk_st_start)
+#endif
 };
 
 struct kobj_attribute sys_queue_level_attrs[] = {

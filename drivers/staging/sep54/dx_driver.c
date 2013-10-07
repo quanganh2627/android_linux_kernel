@@ -4498,6 +4498,9 @@ static int sep_setup(struct device *dev,
 		rc = dx_crypto_api_init(drvdata);
 		if (unlikely(rc != 0))
 			goto failed10;
+		rc = hwk_init();
+		if (unlikely(rc != 0))
+			goto failed10;
 	}
 #if MAX_SEPAPP_SESSION_PER_CLIENT_CTX > 0
 	dx_sepapp_init(drvdata);
@@ -4591,8 +4594,10 @@ static void sep_pci_remove(struct pci_dev *pdev)
 	if (!drvdata)
 		return;
 	dx_sep_req_fini(drvdata);
-	if (!disable_linux_crypto)
+	if (!disable_linux_crypto) {
 		dx_crypto_api_fini();
+		hwk_fini();
+	}
 	/* Disable interrupts */
 	WRITE_REGISTER(drvdata->cc_base + DX_CC_REG_OFFSET(HOST, IMR), ~0);
 
