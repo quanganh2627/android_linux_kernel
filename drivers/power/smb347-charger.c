@@ -512,7 +512,7 @@ static int smb347_enable_suspend(struct smb347_charger *smb)
 	if (ret < 0)
 		goto en_sus_err;
 
-	ret = (ret & ~CMD_A_CHG_ENABLED) | CMD_A_SUSPEND_ENABLED;
+	ret |= CMD_A_SUSPEND_ENABLED;
 
 	ret = smb347_write(smb, CMD_A, ret);
 	if (ret < 0)
@@ -540,7 +540,7 @@ static int smb347_disable_suspend(struct smb347_charger *smb)
 	if (ret < 0)
 		goto dis_sus_err;
 
-	ret = (ret & ~CMD_A_SUSPEND_ENABLED) | CMD_A_CHG_ENABLED;
+	ret &= ~CMD_A_SUSPEND_ENABLED;
 
 	ret = smb347_write(smb, CMD_A, ret);
 	if (ret < 0)
