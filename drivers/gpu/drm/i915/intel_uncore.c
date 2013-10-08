@@ -166,14 +166,6 @@ static int __gen6_gt_wait_for_fifo(struct drm_i915_private *dev_priv)
 	return ret;
 }
 
-static void vlv_force_wake_reset(struct drm_i915_private *dev_priv)
-{
-	__raw_i915_write32(dev_priv, FORCEWAKE_VLV,
-			   _MASKED_BIT_DISABLE(0xffff));
-	/* something from same cacheline, but !FORCEWAKE_VLV */
-	__raw_posting_read(dev_priv, FORCEWAKE_ACK_VLV);
-}
-
 static void __vlv_force_wake_get(struct drm_i915_private *dev_priv,
 				int fw_engine)
 {
@@ -334,7 +326,12 @@ void intel_uncore_sanitize(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	if (IS_VALLEYVIEW(dev)) {
-		vlv_force_wake_reset(dev_priv);
+		/* RS state has to be initialized to pull render/media power
+		* wells out of sleep. This is required before initializing gem,
+		* which touches render/media registers
+		*/
+		vlv_rs_sleepstateinit(dev, true);
+		return;
 	} else if (INTEL_INFO(dev)->gen >= 6) {
 		__gen6_gt_force_wake_reset(dev_priv);
 		if (IS_IVYBRIDGE(dev) || IS_HASWELL(dev))

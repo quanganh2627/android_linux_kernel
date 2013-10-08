@@ -6314,10 +6314,6 @@ void vlv_rs_setstate(struct drm_device *dev, bool enable)
 		/* Forcewake all engines first */
 		vlv_force_wake_get(dev_priv, FORCEWAKE_ALL);
 
-		dev_priv->uncore.fw_rendercount = 1;
-		dev_priv->uncore.fw_mediacount = 1;
-
-
 		regdata &= ~(1 << 28);
 		regdata &= ~(1 << 24);
 		I915_WRITE(VLV_RENDER_C_STATE_CONTROL_1_REG, regdata);
