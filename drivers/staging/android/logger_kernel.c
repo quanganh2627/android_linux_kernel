@@ -156,15 +156,12 @@ static void
 logger_console_write(struct console *console, const char *s, unsigned int count)
 {
 	struct logger_log *log_bot = get_log_from_name(LOGGER_LOG_KERNEL_BOT);
-	struct logger_log *log_kernel = get_log_from_name(LOGGER_LOG_KERNEL);
 
 	if (!log_bot)
 		return;
 
 	flush_to_bottom_log(log_bot, s, count);
 
-	if (unlikely(!log_kernel))
-		return;
 	if (unlikely(!keventd_up()))
 		return;
 	if (!oops_in_progress && !in_nmi())
@@ -182,57 +179,16 @@ static struct console logger_console = {
 	.index	= -1,
 };
 
-/*
- * Kernel bottom buffer must be allocated in console init phase to ensure
- * that the first kernel logs will be retrieved when the kernel log device
- * will be registered. The bottom buffer is not registered
- */
-static int __init create_console_log(char *log_name, int size)
+static int __init logger_console_init(void)
 {
-	int ret = 0;
-	struct logger_log *log;
-	unsigned char *buffer;
+	INIT_WORK(&write_console_wq, write_console);
 
-	buffer = vmalloc(size);
-	if (buffer == NULL)
-		return -ENOMEM;
-
-	log = kzalloc(sizeof(struct logger_log), GFP_KERNEL);
-	if (log == NULL) {
-		ret = -ENOMEM;
-		goto out_free_buffer;
-	}
-	log->buffer = buffer;
-
-	log->misc.minor = MISC_DYNAMIC_MINOR;
-	log->misc.name = kstrdup(log_name, GFP_KERNEL);
-	if (log->misc.name == NULL) {
-		ret = -ENOMEM;
-		goto out_free_log;
-	}
-
-	INIT_LIST_HEAD(&log->readers);
-	INIT_LIST_HEAD(&log->plugins);
-	mutex_init(&log->mutex);
-	log->w_off = 0;
-	log->head = 0;
-	log->size = size;
-
-	INIT_LIST_HEAD(&log->logs);
-	list_add_tail(&log->logs, &log_list);
-
-	pr_info("created %luK log '%s'\n",
-		(unsigned long) log->size >> 10, log->misc.name);
-
+	pr_info("register logcat console\n");
+	register_console(&logger_console);
 	return 0;
-
-out_free_log:
-	kfree(log);
-
-out_free_buffer:
-	vfree(buffer);
-	return ret;
 }
+
+console_initcall(logger_console_init);
 
 static int init_log_reader(const char *name)
 {
@@ -254,32 +210,9 @@ static int init_log_reader(const char *name)
 	reader->r_off = log->head;
 	list_add_tail(&reader->list, &log->readers);
 	mutex_unlock(&log->mutex);
-	pr_info("created %d log reader '%s'\n", reader->r_off, log->misc.name);
 
 	return 0;
 }
-
-static int __init logger_console_init(void)
-{
-	int ret;
-
-	INIT_WORK(&write_console_wq, write_console);
-
-	ret = create_console_log(LOGGER_LOG_KERNEL_BOT, 256 * 1024);
-	if (unlikely(ret))
-		goto out;
-
-	ret = init_log_reader(LOGGER_LOG_KERNEL_BOT);
-	if (unlikely(ret))
-		goto out;
-
-	register_console(&logger_console);
-	pr_info("register logcat console\n");
-out:
-	return ret;
-}
-
-console_initcall(logger_console_init);
 
 static int __init logger_kernel_init(void)
 {
@@ -289,7 +222,14 @@ static int __init logger_kernel_init(void)
 	if (unlikely(ret))
 		goto out;
 
+	ret = create_log(LOGGER_LOG_KERNEL_BOT, 256*1024);
+	if (unlikely(ret))
+		goto out;
+
+	ret = init_log_reader(LOGGER_LOG_KERNEL_BOT);
+
 out:
 	return ret;
 }
+
 device_initcall(logger_kernel_init);
