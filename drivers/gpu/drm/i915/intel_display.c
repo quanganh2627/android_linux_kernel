@@ -4115,7 +4115,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	intel_crtc_update_cursor(crtc, false);
 	intel_disable_planes(crtc);
 	intel_disable_plane(dev_priv, plane, pipe);
-
+	mdelay(1);
 	intel_disable_pipe(dev_priv, pipe);
 
 	i9xx_pfit_disable(intel_crtc);
