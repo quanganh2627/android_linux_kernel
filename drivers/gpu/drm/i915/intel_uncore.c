@@ -83,6 +83,32 @@ static void __gen6_gt_force_wake_get(struct drm_i915_private *dev_priv,
 	__gen6_gt_wait_for_thread_c0(dev_priv);
 }
 
+void gen6_gt_force_wake_restore(struct drm_i915_private *dev_priv)
+{
+	/* Restore the current expected force wake state with the
+	* hardware. This may be required following a reset.
+	*
+	* WARNING: Caller *MUST* hold uncore.lock whilst calling this.
+	*
+	* uncore.lock isn't taken in this function to allow the caller the
+	* flexibility to do other work immediately before/after
+	* whilst holding the lock*/
+
+	if (IS_VALLEYVIEW(dev_priv->dev))
+		return vlv_force_wake_restore(dev_priv, FORCEWAKE_ALL);
+
+	if (dev_priv->uncore.forcewake_count) {
+		/* It was enabled, so re-enable it */
+		dev_priv->uncore.funcs.force_wake_get(dev_priv, FORCEWAKE_ALL);
+	} else {
+		/* It was disabled, so disable it */
+		dev_priv->uncore.funcs.force_wake_put(dev_priv, FORCEWAKE_ALL);
+	}
+
+	dev_priv->uncore.fifo_count =
+		__raw_i915_read32(dev_priv, GT_FIFO_FREE_ENTRIES);
+}
+
 static void __gen6_gt_force_wake_mt_reset(struct drm_i915_private *dev_priv)
 {
 	__raw_i915_write32(dev_priv, FORCEWAKE_MT, _MASKED_BIT_DISABLE(0xffff));
@@ -268,6 +294,36 @@ void vlv_force_wake_put(struct drm_i915_private *dev_priv,
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
+
+void vlv_force_wake_restore(struct drm_i915_private *dev_priv,
+				int fw_engine)
+{
+	/* Restore the current force wake state with the hardware
+	*  WARNING: Caller *MUST* hold uncore.lock whilst calling this function
+	*/
+
+	if (FORCEWAKE_RENDER & fw_engine) {
+		if (dev_priv->uncore.fw_rendercount)
+			dev_priv->uncore.funcs.force_wake_get(dev_priv,
+				FORCEWAKE_RENDER);
+		else
+			dev_priv->uncore.funcs.force_wake_put(dev_priv,
+				FORCEWAKE_RENDER);
+	}
+
+	if (FORCEWAKE_MEDIA & fw_engine) {
+		if (dev_priv->uncore.fw_mediacount)
+			dev_priv->uncore.funcs.force_wake_get(dev_priv,
+				FORCEWAKE_MEDIA);
+		else
+			dev_priv->uncore.funcs.force_wake_put(dev_priv,
+				FORCEWAKE_MEDIA);
+	}
+
+	dev_priv->uncore.fifo_count =
+		__raw_i915_read32(dev_priv, GT_FIFO_FREE_ENTRIES);
+}
+
 
 void intel_uncore_early_sanitize(struct drm_device *dev)
 {
@@ -691,14 +747,7 @@ static int gen6_do_reset(struct drm_device *dev)
 	/* Spin waiting for the device to ack the reset request */
 	ret = wait_for((__raw_i915_read32(dev_priv, GEN6_GDRST) & GEN6_GRDOM_FULL) == 0, 500);
 
-	/* If reset with a user forcewake, try to restore, otherwise turn it off */
-	if (dev_priv->uncore.forcewake_count)
-		dev_priv->uncore.funcs.force_wake_get(dev_priv, FORCEWAKE_ALL);
-	else
-		dev_priv->uncore.funcs.force_wake_put(dev_priv, FORCEWAKE_ALL);
-
-	/* Restore fifo count */
-	dev_priv->uncore.fifo_count = __raw_i915_read32(dev_priv, GT_FIFO_FREE_ENTRIES);
+	gen6_gt_force_wake_restore(dev_priv);
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 	return ret;
@@ -706,14 +755,292 @@ static int gen6_do_reset(struct drm_device *dev)
 
 int intel_gpu_reset(struct drm_device *dev)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret = -ENODEV;
+
 	switch (INTEL_INFO(dev)->gen) {
 	case 7:
-	case 6: return gen6_do_reset(dev);
-	case 5: return ironlake_do_reset(dev);
-	case 4: return i965_do_reset(dev);
-	case 2: return i8xx_do_reset(dev);
-	default: return -ENODEV;
+	case 6:
+			ret = gen6_do_reset(dev);
+			break;
+	case 5:
+			ret = ironlake_do_reset(dev);
+			break;
+	case 4:
+			ret = i965_do_reset(dev);
+			break;
+	case 2:
+			ret = i8xx_do_reset(dev);
+			break;
+
+	default:
+			ret = -ENODEV;
+			break;
 	}
+
+	dev_priv->gpu_error.total_resets++;
+
+	DRM_DEBUG_TDR("total_resets %d\n", dev_priv->gpu_error.total_resets);
+
+	return ret;
+}
+
+
+static int gen6_do_engine_reset(struct drm_device *dev,
+				enum intel_ring_id engine)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int	ret = -ENODEV;
+	unsigned long irqflags;
+	char *reset_event[2];
+	reset_event[1] = NULL;
+
+	/* Hold uncore.lock across reset to prevent any register access
+	 * with forcewake not set correctly
+	 */
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+
+	/* Reset the engine */
+	/* GEN6_GDRST is not in the gt power well so no need to check
+	* for fifo space for the write or forcewake the chip for
+	* the read
+	*/
+	switch (engine) {
+	case RCS:
+		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_RENDER);
+
+		dev_priv->hangcheck[RCS].total++;
+
+		/* Spin waiting for the device to ack the reset request */
+		ret = wait_for_atomic_us((__raw_i915_read32(dev_priv,
+					GEN6_GDRST)
+					& GEN6_GRDOM_RENDER) == 0, 500);
+		DRM_DEBUG_TDR("RCS Reset\n");
+		break;
+
+
+	case BCS:
+		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_BLT);
+		dev_priv->hangcheck[BCS].total++;
+
+		/* Spin waiting for the device to ack the reset request */
+		ret = wait_for_atomic_us((__raw_i915_read32(dev_priv,
+					GEN6_GDRST)
+					& GEN6_GRDOM_BLT) == 0, 500);
+		DRM_DEBUG_TDR("BCS Reset\n");
+		break;
+
+
+	case VCS:
+		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_MEDIA);
+		dev_priv->hangcheck[VCS].total++;
+
+		/* Spin waiting for the device to ack the reset request */
+		ret = wait_for_atomic_us((__raw_i915_read32(dev_priv,
+					GEN6_GDRST)
+					& GEN6_GRDOM_MEDIA) == 0, 500);
+		DRM_DEBUG_TDR("VCS Reset\n");
+		break;
+
+
+	default:
+		DRM_ERROR("Unexpected engine\n");
+		break;
+	}
+
+	gen6_gt_force_wake_restore(dev_priv);
+
+	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
+
+	/* Do uevent outside of spinlock as uevent can sleep */
+	reset_event[0] = kasprintf(GFP_KERNEL, "RESET RING=%d", engine);
+	kobject_uevent_env(&dev->primary->kdev.kobj,
+		KOBJ_CHANGE, reset_event);
+	kfree(reset_event[0]);
+
+	return ret;
+}
+
+
+int intel_gpu_engine_reset(struct drm_device *dev, enum intel_ring_id engine)
+{
+	/* Reset an individual engine */
+	int ret = -ENODEV;
+
+	if (!dev)
+		return -EINVAL;
+
+	switch (INTEL_INFO(dev)->gen) {
+	case 7:
+	case 6:
+			ret = gen6_do_engine_reset(dev, engine);
+			break;
+	default:
+			DRM_ERROR("Engine reset not supported\n");
+			ret = -ENODEV;
+			break;
+	}
+
+	return ret;
+}
+
+
+int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
+{
+	/* TDR Version 1:
+	* Reset the ring that is hung
+	*
+	* WARNING: Hold dev->struct_mutex before entering
+	*          this function
+	*/
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring = &dev_priv->ring[ringid];
+	struct drm_crtc *crtc;
+	struct intel_crtc *intel_crtc;
+	int ret = 0;
+	int pipe = 0;
+	struct intel_unpin_work *unpin_work;
+	uint32_t ring_flags = 0;
+	uint32_t head;
+	struct drm_i915_gem_request *request;
+	u32 completed_seqno;
+	u32 acthd;
+
+	acthd = intel_ring_get_active_head(ring);
+	completed_seqno = ring->get_seqno(ring, false);
+
+	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
+
+	/* Take wake lock to prevent power saving mode */
+	if (HAS_FORCE_WAKE(dev))
+		gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
+
+	/* Search the request list to see which batch buffer caused
+	* the hang. Only checks requests that haven't yet completed.*/
+	list_for_each_entry(request, &ring->request_list, list) {
+		if (request && (request->seqno > completed_seqno))
+			i915_set_reset_status(ring, request, acthd);
+	}
+
+	/* Check if the ring has hung on a MI_DISPLAY_FLIP command.
+	* The pipe value will be stored in the HWS page if it has.
+	* At the moment this should only happen for the blitter but
+	* each ring has its own status page so this should work for
+	* all rings*/
+	pipe = intel_read_status_page(ring, I915_GEM_PGFLIP_INDEX);
+	if (pipe) {
+		/* Clear it to avoid responding to it twice*/
+		intel_write_status_page(ring, I915_GEM_PGFLIP_INDEX, 0);
+	}
+
+	/* Clear any simulated hang flags */
+	if (dev_priv->gpu_error.stop_rings) {
+		DRM_DEBUG_TDR("Simulated gpu hang, rst stop_rings bits %08x\n",
+			(0x1 << ringid));
+		dev_priv->gpu_error.stop_rings &= ~(0x1 << ringid);
+	}
+
+	DRM_DEBUG_TDR("Resetting ring %d\n", ringid);
+
+	ret = intel_ring_disable(ring);
+
+	if (ret != 0) {
+		DRM_ERROR("Failed to disable ring %d\n", ringid);
+		goto handle_hung_ring_error;
+	}
+
+	/* Sample the current ring head position */
+	head = I915_READ(RING_HEAD(ring->mmio_base)) & HEAD_ADDR;
+	DRM_DEBUG_TDR("head 0x%08X, last_head 0x%08X\n",
+		      head, dev_priv->hangcheck[ringid].last_head);
+	if (head == dev_priv->hangcheck[ringid].last_head) {
+		/* The ring has not advanced since the last
+		* time it hung so force it to advance to the
+		* next QWORD. In most cases the ring head
+		* pointer will automatically advance to the
+		* next instruction as soon as it has read the
+		* current instruction, without waiting for it
+		* to complete. This seems to be the default
+		* behaviour, however an MBOX wait inserted
+		* directly to the VCS/BCS rings does not behave
+		* in the same way, instead the head pointer
+		* will still be pointing at the MBOX instruction
+		* until it completes.*/
+		ring_flags = FORCE_ADVANCE;
+		DRM_DEBUG_TDR("Force ring head to advance\n");
+	}
+	dev_priv->hangcheck[ringid].last_head = head;
+
+	ret = intel_ring_save(ring, ring_flags);
+
+	if (ret != 0) {
+		DRM_ERROR("Failed to save ring state\n");
+		goto handle_hung_ring_error;
+	}
+
+	ret = intel_gpu_engine_reset(dev, ringid);
+
+	if (ret != 0) {
+		DRM_ERROR("Failed to reset ring\n");
+		goto handle_hung_ring_error;
+	}
+
+	/* Clear last_acthd in hangcheck timer for this ring */
+	dev_priv->hangcheck[ringid].last_acthd = 0;
+
+	/* Clear reset flags to allow future hangchecks */
+	atomic_set(&dev_priv->hangcheck[ringid].flags, 0);
+
+	ret = intel_ring_restore(ring);
+
+	if (ret != 0) {
+		DRM_ERROR("Failed to restore ring state\n");
+		goto handle_hung_ring_error;
+	}
+
+	/* Correct driver state */
+	intel_ring_resample(ring);
+
+	DRM_ERROR("Reset ring %d (GPU Hang)\n", ringid);
+
+	ret = intel_ring_enable(ring);
+
+	if (ret != 0) {
+		DRM_ERROR("Failed to enable ring\n");
+		goto handle_hung_ring_error;
+	}
+
+	/* Wake up anything waiting on this rings queue */
+	wake_up_all(&ring->irq_queue);
+
+	/* Note: This will not happen when MMIO based page flipping is used.
+	* Page flipping should continue unhindered as it will
+	* not be relying on a ring.*/
+	if (pipe &&
+		((pipe - 1) < ARRAY_SIZE(dev_priv->pipe_to_crtc_mapping))) {
+		/* The pipe value in the status page if offset by 1 */
+		pipe -= 1;
+
+		/* The ring hung on a page flip command so we
+		* must manually release the pending flip queue */
+		crtc = dev_priv->pipe_to_crtc_mapping[pipe];
+		intel_crtc = to_intel_crtc(crtc);
+		unpin_work = intel_crtc->unpin_work;
+
+		if (unpin_work && unpin_work->pending_flip_obj) {
+			intel_prepare_page_flip(dev, intel_crtc->pipe);
+			intel_finish_page_flip(dev, intel_crtc->pipe);
+			DRM_DEBUG_TDR("Released stuck page flip for pipe %d\n",
+				pipe);
+		}
+	}
+
+handle_hung_ring_error:
+	/* Release power lock */
+	if (HAS_FORCE_WAKE(dev))
+		gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
+
+	return ret;
 }
 
 void intel_uncore_clear_errors(struct drm_device *dev)

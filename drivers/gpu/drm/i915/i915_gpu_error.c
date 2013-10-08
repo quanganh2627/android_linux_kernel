@@ -218,6 +218,8 @@ static void i915_ring_error_state(struct drm_i915_error_state_buf *m,
 				  struct drm_i915_error_state *error,
 				  unsigned ring)
 {
+	uint32_t j;
+
 	BUG_ON(ring >= I915_NUM_RINGS); /* shut up confused gcc */
 	err_printf(m, "%s command stream:\n", ring_str(ring));
 	err_printf(m, "  HEAD: 0x%08x\n", error->head[ring]);
@@ -226,7 +228,10 @@ static void i915_ring_error_state(struct drm_i915_error_state_buf *m,
 	err_printf(m, "  ACTHD: 0x%08x\n", error->acthd[ring]);
 	err_printf(m, "  IPEIR: 0x%08x\n", error->ipeir[ring]);
 	err_printf(m, "  IPEHR: 0x%08x\n", error->ipehr[ring]);
-	err_printf(m, "  INSTDONE: 0x%08x\n", error->instdone[ring]);
+
+	for (j = 0; j < I915_MAX_INSTDONE_REG; j++)
+		err_printf(m, "  INSTDONE_%d: 0x%08x\n", j,
+			   error->instdone[ring][j]);
 	if (ring == RCS && INTEL_INFO(dev)->gen >= 4)
 		err_printf(m, "  BBADDR: 0x%08llx\n", error->bbaddr);
 
@@ -292,9 +297,11 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 	for (i = 0; i < dev_priv->num_fence_regs; i++)
 		err_printf(m, "  fence[%d] = %08llx\n", i, error->fence[i]);
 
-	for (i = 0; i < ARRAY_SIZE(error->extra_instdone); i++)
-		err_printf(m, "  INSTDONE_%d: 0x%08x\n", i,
-			   error->extra_instdone[i]);
+	for (i = 0; i < I915_NUM_RINGS; i++) {
+		for (j = 0; j < I915_MAX_INSTDONE_REG; j++)
+			err_printf(m, "  INSTDONE_%d%d: 0x%08x\n", i, j,
+				   error->instdone[i][j]);
+	}
 
 	if (INTEL_INFO(dev)->gen >= 6) {
 		err_printf(m, "ERROR: 0x%08x\n", error->error);
@@ -697,7 +704,6 @@ static void i915_record_ring_state(struct drm_device *dev,
 		error->faddr[ring->id] = I915_READ(RING_DMA_FADD(ring->mmio_base));
 		error->ipeir[ring->id] = I915_READ(RING_IPEIR(ring->mmio_base));
 		error->ipehr[ring->id] = I915_READ(RING_IPEHR(ring->mmio_base));
-		error->instdone[ring->id] = I915_READ(RING_INSTDONE(ring->mmio_base));
 		error->instps[ring->id] = I915_READ(RING_INSTPS(ring->mmio_base));
 		if (ring->id == RCS)
 			error->bbaddr = I915_READ64(BB_ADDR);
@@ -705,8 +711,10 @@ static void i915_record_ring_state(struct drm_device *dev,
 		error->faddr[ring->id] = I915_READ(DMA_FADD_I8XX);
 		error->ipeir[ring->id] = I915_READ(IPEIR);
 		error->ipehr[ring->id] = I915_READ(IPEHR);
-		error->instdone[ring->id] = I915_READ(INSTDONE);
 	}
+
+	i915_get_extra_instdone(dev, error->instdone[ring->id],
+		&dev_priv->ring[ring->id]);
 
 	error->waiting[ring->id] = waitqueue_active(&ring->irq_queue);
 	error->instpm[ring->id] = I915_READ(RING_INSTPM(ring->mmio_base));
@@ -868,7 +876,7 @@ void i915_capture_error_state(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_i915_error_state *error;
 	unsigned long flags;
-	int pipe;
+	int pipe, i;
 
 	spin_lock_irqsave(&dev_priv->gpu_error.lock, flags);
 	error = dev_priv->gpu_error.first_error;
@@ -923,7 +931,10 @@ void i915_capture_error_state(struct drm_device *dev)
 	if (INTEL_INFO(dev)->gen == 7)
 		error->err_int = I915_READ(GEN7_ERR_INT);
 
-	i915_get_extra_instdone(dev, error->extra_instdone);
+	for (i = 0; i < I915_NUM_RINGS; i++) {
+		i915_get_extra_instdone(dev, error->instdone[i],
+			&dev_priv->ring[i]);
+	}
 
 	i915_gem_capture_buffers(dev_priv, error);
 	i915_gem_record_fences(dev, error);
@@ -991,10 +1002,13 @@ const char *i915_cache_level_str(int type)
 }
 
 /* NB: please notice the memset */
-void i915_get_extra_instdone(struct drm_device *dev, uint32_t *instdone)
+void i915_get_extra_instdone(
+	struct drm_device *dev,
+	uint32_t *instdone,
+	struct intel_ring_buffer *ring)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	memset(instdone, 0, sizeof(*instdone) * I915_NUM_INSTDONE_REG);
+	memset(instdone, 0, sizeof(*instdone) * I915_MAX_INSTDONE_REG);
 
 	switch (INTEL_INFO(dev)->gen) {
 	case 2:
@@ -1010,10 +1024,14 @@ void i915_get_extra_instdone(struct drm_device *dev, uint32_t *instdone)
 	default:
 		WARN_ONCE(1, "Unsupported platform\n");
 	case 7:
-		instdone[0] = I915_READ(GEN7_INSTDONE_1);
-		instdone[1] = I915_READ(GEN7_SC_INSTDONE);
-		instdone[2] = I915_READ(GEN7_SAMPLER_INSTDONE);
-		instdone[3] = I915_READ(GEN7_ROW_INSTDONE);
+		instdone[0] = I915_READ(RING_INSTDONE(ring->mmio_base));
+
+		if (ring->id == RCS) {
+			instdone[1] = I915_READ(GEN7_SC_INSTDONE);
+			instdone[2] = I915_READ(GEN7_SAMPLER_INSTDONE);
+			instdone[3] = I915_READ(GEN7_ROW_INSTDONE);
+		}
+
 		break;
 	}
 }

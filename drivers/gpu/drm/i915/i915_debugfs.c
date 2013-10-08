@@ -2346,9 +2346,14 @@ static int
 i915_wedged_set(void *data, u64 val)
 {
 	struct drm_device *dev = data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 
+	/* This triggers a global reset */
 	DRM_INFO("Manually setting wedged to %llu\n", val);
-	i915_handle_error(dev, val);
+	if (val) {
+		if (!i915_reset_in_progress(&dev_priv->gpu_error))
+			i915_handle_error(dev, NULL);
+	}
 
 	return 0;
 }
@@ -2498,10 +2503,10 @@ i915_set_max_freq(struct drm_device *dev, int val)
 		if (IS_VALLEYVIEW(dev)) {
 			dev_priv->rps.max_delay = val;
 			valleyview_set_rps(dev, val);
-			/* If rps frequency is changed above we need to take
-			* care of bringing it down to rpe through rps timer*/
+			/* if rps frequency is changed above we need to take
+			* care of bringing it down to rpe through rps timer */
 			mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
-					msecs_to_jiffies(100));
+				msecs_to_jiffies(100));
 		} else {
 			dev_priv->rps.max_delay = val / 50;
 			gen6_set_rps(dev, val / 50);
@@ -2512,6 +2517,63 @@ i915_set_max_freq(struct drm_device *dev, int val)
 
 	return 0;
 }
+static ssize_t
+i915_ring_hangcheck_read(struct file *filp,
+			char __user *ubuf,
+			size_t max,
+			loff_t *ppos)
+{
+	/* Returns the total number of times the rings
+	 * have hung and been reset since boot */
+	struct drm_device *dev = filp->private_data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	char buf[100];
+	int len;
+
+	len = scnprintf(buf, sizeof(buf),
+		       "GPU=0x%08X,RCS=0x%08X,VCS=0x%08X,BCS=0x%08X\n",
+			dev_priv->gpu_error.total_resets,
+			dev_priv->hangcheck[RCS].total,
+			dev_priv->hangcheck[VCS].total,
+			dev_priv->hangcheck[BCS].total);
+
+	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
+}
+
+static ssize_t
+i915_ring_hangcheck_write(struct file *filp,
+			const char __user *ubuf,
+			size_t cnt,
+			loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret;
+	uint32_t i;
+
+	ret = mutex_lock_interruptible(&dev->struct_mutex);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < I915_NUM_RINGS; i++) {
+		/* Reset the hangcheck counters */
+		dev_priv->hangcheck[i].total = 0;
+	}
+
+	dev_priv->gpu_error.total_resets = 0;
+
+	mutex_unlock(&dev->struct_mutex);
+
+	return cnt;
+}
+
+static const struct file_operations i915_ring_hangcheck_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_ring_hangcheck_read,
+	.write = i915_ring_hangcheck_write,
+	.llseek = default_llseek,
+};
 
 /* Helper function to enable and disable dpst based on input */
 int
@@ -3905,6 +3967,7 @@ static struct i915_debugfs_files {
 	{"i915_cache_sharing", &i915_cache_sharing_fops},
 	{"i915_ring_stop", &i915_ring_stop_fops},
 	{"i915_gem_drop_caches", &i915_drop_caches_fops},
+	{"i915_ring_hangcheck", &i915_ring_hangcheck_fops},
 	{"i915_error_state", &i915_error_state_fops},
 	{"i915_next_seqno", &i915_next_seqno_fops},
 	{"i915_mmio_api", &i915_mmio_fops},

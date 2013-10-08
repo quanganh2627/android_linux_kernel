@@ -127,6 +127,59 @@ MODULE_PARM_DESC(enable_hangcheck,
 		"WARNING: Disabling this can cause system wide hangs. "
 		"(default: true)");
 
+unsigned int i915_hangcheck_period __read_mostly = 1000;
+
+int hangcheck_period_set(const char *val, const struct kernel_param *kp)
+{
+	/* Custom set function so we can validate the range*/
+	unsigned long num;
+	int ret;
+
+	ret = kstrtoul(val, 0, &num);
+
+	if (ret)
+		return ret;
+
+	/* Enforce minimum delay in ms */
+	if ((num >= MINIMUM_HANGCHECK_PERIOD)
+	&& (num <= MAXIMUM_HANGCHECK_PERIOD)) {
+		i915_hangcheck_period = num;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+static const struct kernel_param_ops hangcheck_ops = {
+	.set = hangcheck_period_set,
+	.get = param_get_uint,
+};
+
+module_param_cb(i915_hangcheck_period, &hangcheck_ops,
+		&i915_hangcheck_period, 0644);
+MODULE_PARM_DESC(i915_hangcheck_period,
+		"The hangcheck timer period in milliseconds. "
+		"The actual time to detect a hang may be 3 - 4 times "
+		"this value (default = 1000ms)");
+
+unsigned int i915_ring_reset_min_alive_period __read_mostly;
+module_param_named(i915_ring_reset_min_alive_period,
+		i915_ring_reset_min_alive_period, int, 0644);
+MODULE_PARM_DESC(i915_ring_reset_min_alive_period,
+		"Catch excessive ring resets. Each ring maintains a timestamp of "
+		"the last time it was reset. If it hangs again within this period "
+		"then switch to full GPU reset to try and clear the hang."
+		"default=0 seconds (disabled)");
+
+unsigned int i915_gpu_reset_min_alive_period __read_mostly;
+module_param_named(i915_gpu_reset_min_alive_period,
+		i915_gpu_reset_min_alive_period, int, 0644);
+MODULE_PARM_DESC(i915_gpu_reset_min_alive_period,
+		"Catch excessive GPU resets. If the GPU hangs again within this period "
+		"following the previous GPU reset then declare it wedged and "
+		"prevent further resets. "
+		"default=0 seconds (disabled)");
+
 int i915_enable_ppgtt __read_mostly = -1;
 module_param_named(i915_enable_ppgtt, i915_enable_ppgtt, int, 0600);
 MODULE_PARM_DESC(i915_enable_ppgtt,
@@ -705,11 +758,14 @@ int i915_reset(struct drm_device *dev)
 
 	mutex_lock(&dev->struct_mutex);
 
+	DRM_ERROR("Reset GPU (GPU Hang)\n");
+
 	i915_gem_reset(dev);
 
 	simulated = dev_priv->gpu_error.stop_rings != 0;
 
-	if (!simulated && get_seconds() - dev_priv->gpu_error.last_reset < 5) {
+	if (!simulated && (get_seconds() - dev_priv->gpu_error.last_reset)
+	    < i915_gpu_reset_min_alive_period) {
 		DRM_ERROR("GPU hanging too fast, declaring wedged!\n");
 		ret = -ENODEV;
 	} else {
@@ -732,6 +788,9 @@ int i915_reset(struct drm_device *dev)
 		mutex_unlock(&dev->struct_mutex);
 		return ret;
 	}
+
+	/* Clean up the display following reset */
+	intel_display_handle_reset(dev);
 
 	/* Ok, now get things going again... */
 

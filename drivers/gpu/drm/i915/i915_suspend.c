@@ -824,6 +824,7 @@ static int valleyview_freeze(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 reg;
+	u32 i;
 
 	/* Save Hue/Saturation/Brightness/Contrast status */
 	intel_save_clr_mgr_status(dev);
@@ -862,6 +863,15 @@ static int valleyview_freeze(struct drm_device *dev)
 		cancel_work_sync(&dev_priv->hotplug_work);
 		cancel_work_sync(&dev_priv->gpu_error.work);
 		cancel_work_sync(&dev_priv->rps.work);
+
+		/* Clear any pending reset requests as we have cancelled the
+		* work function. They should be picked up after resume when
+		* new work is submitted*/
+		for (i = 0; i < I915_NUM_RINGS; i++)
+			atomic_set(&dev_priv->hangcheck[i].flags, 0);
+
+		atomic_clear_mask(I915_RESET_IN_PROGRESS_FLAG,
+			&dev_priv->gpu_error.reset_counter);
 
 		intel_modeset_suspend_hw(dev);
 	}

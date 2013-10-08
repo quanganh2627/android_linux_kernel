@@ -2488,6 +2488,14 @@ void intel_display_handle_reset(struct drm_device *dev)
 	 * Need to make two loops over the crtcs so that we
 	 * don't try to grab a crtc mutex before the
 	 * pending_flip_queue really got woken up.
+	 *
+	 * For MMIO based page flips it is also possible that
+	 * the GPU could be reset between requesting the page
+	 * flip and before it reaches the next vblank when it
+	 * would normally send the page flip interrupt.
+	 * In that case we would be left with unpin work that
+	 * will not get cleaned up so we must cleanup any
+	 * pending page flips after a global reset.
 	 */
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
@@ -3186,6 +3194,8 @@ static bool intel_crtc_has_pending_flip(struct drm_crtc *crtc)
 	unsigned long flags;
 	bool pending;
 
+	/* Only do this for global reset as page flips for TDR should
+	* sort themselves out*/
 	if (i915_reset_in_progress(&dev_priv->gpu_error) ||
 	    intel_crtc->reset_counter != atomic_read(&dev_priv->gpu_error.reset_counter))
 		return false;
@@ -8613,9 +8623,24 @@ static int intel_gen7_queue_flip(struct drm_device *dev,
 		goto err_unpin;
 	}
 
-	ret = intel_ring_begin(ring, 4);
+	ret = intel_ring_begin(ring, 16);
+
 	if (ret)
 		goto err_unpin;
+
+	/* Set a flag to indicate that a page flip interrupt is expected.
+	* The flag is used by the TDR logic to detect whether the blitter hung
+	* on a page flip command, in which case it will need to manually
+	* complete the page flip.
+	* The 'flag' is actually the pipe value associated with this page
+	* flip + 1 so that the TDR code knows which pipe failed to flip.
+	* A value of 0 indicates that a flip is not currently in progress on
+	* the HW.*/
+	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+	intel_ring_emit(ring, I915_GEM_PGFLIP_INDEX <<
+				MI_STORE_DWORD_INDEX_SHIFT);
+	intel_ring_emit(ring, intel_crtc->pipe + 1);
+	intel_ring_emit(ring, MI_NOOP);
 
 	if (IS_VALLEYVIEW(dev))
 		i9xx_update_plane(crtc, fb, 0, 0);
@@ -8623,6 +8648,15 @@ static int intel_gen7_queue_flip(struct drm_device *dev,
 	intel_ring_emit(ring, (fb->pitches[0] | obj->tiling_mode));
 	intel_ring_emit(ring, i915_gem_obj_ggtt_offset(obj) + intel_crtc->dspaddr_offset);
 	intel_ring_emit(ring, (MI_NOOP));
+
+    /* Clear the flag as soon as we pass over the page flip command.
+    * If we passed over the command without hanging then an interrupt should
+    * be received to complete the page flip.*/
+	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+	intel_ring_emit(ring, I915_GEM_PGFLIP_INDEX <<
+					MI_STORE_DWORD_INDEX_SHIFT);
+	intel_ring_emit(ring, 0);
+	intel_ring_emit(ring, MI_NOOP);
 
 	intel_mark_page_flip_active(intel_crtc);
 	intel_ring_advance(ring);

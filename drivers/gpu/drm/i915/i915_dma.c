@@ -1468,6 +1468,7 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	struct intel_device_info *info;
 	int ret = 0, mmio_bar, mmio_size;
 	uint32_t aperture_size;
+	uint32_t i;
 
 	info = (struct intel_device_info *) flags;
 
@@ -1612,7 +1613,7 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	 * so there is no point in running more than one instance of the
 	 * workqueue at any time.  Use an ordered one.
 	 */
-	dev_priv->wq = alloc_ordered_workqueue("i915", 0);
+	dev_priv->wq = alloc_ordered_workqueue("i915", WQ_HIGHPRI);
 	if (dev_priv->wq == NULL) {
 		DRM_ERROR("Failed to create our workqueue.\n");
 		ret = -ENOMEM;
@@ -1659,8 +1660,17 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	intel_opregion_setup(dev);
 
 	intel_setup_bios(dev);
-
 	i915_gem_load(dev);
+	for (i = 0; i < I915_NUM_RINGS; i++) {
+		dev_priv->hangcheck[i].count = 0;
+		dev_priv->hangcheck[i].last_acthd = 0;
+		dev_priv->hangcheck[i].ringid = i;
+		dev_priv->hangcheck[i].dev = dev;
+
+		setup_timer(&dev_priv->hangcheck[i].timer,
+			i915_hangcheck_sample,
+			(unsigned long) &dev_priv->hangcheck[i]);
+	}
 
 	/* On the 945G/GM, the chipset reports the MSI capability on the
 	 * integrated graphics even though the support isn't actually there
@@ -1745,6 +1755,7 @@ int i915_driver_unload(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
+	uint32_t i;
 
 	intel_gpu_ips_teardown();
 
@@ -1798,9 +1809,10 @@ int i915_driver_unload(struct drm_device *dev)
 	}
 
 	/* Free error state after interrupts are fully disabled. */
-	del_timer_sync(&dev_priv->gpu_error.hangcheck_timer);
 	cancel_work_sync(&dev_priv->gpu_error.work);
 	i915_destroy_error_state(dev);
+	for (i = 0; i < I915_NUM_RINGS; i++)
+		del_timer_sync(&dev_priv->hangcheck[i].timer);
 
 	cancel_delayed_work_sync(&dev_priv->pc8.enable_work);
 

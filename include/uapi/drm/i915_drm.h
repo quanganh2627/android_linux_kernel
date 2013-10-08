@@ -56,7 +56,7 @@
  */
 #define I915_L3_PARITY_UEVENT		"L3_PARITY_ERROR"
 #define I915_ERROR_UEVENT		"ERROR"
-#define I915_RESET_UEVENT		"RESET"
+#define I915_RESET_UEVENT		"GPU RESET"
 
 /* Each region is a minimum of 16k, and there are at most 255 of them.
  */
