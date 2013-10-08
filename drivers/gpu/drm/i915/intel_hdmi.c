@@ -941,6 +941,10 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		kfree(edid);
 	}
 
+/* Not needed.
+ * ToDo: Handle Max fifo scenario differently
+ */
+#if 0
 	/* Disable CRTC on HDMI hot un-plug */
 	if (status == connector_status_disconnected) {
 		if (intel_encoder->base.crtc) {
@@ -954,7 +958,7 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 				I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 		}
 	}
-
+#endif
 	if ((status == connector_status_connected)
 			&& (status != i915_hdmi_state)) {
 		/* Added for HDMI Audio */
