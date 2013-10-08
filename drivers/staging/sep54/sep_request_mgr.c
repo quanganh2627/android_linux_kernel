@@ -26,7 +26,7 @@
 
 #define SEP_LOG_CUR_COMPONENT SEP_LOG_MASK_SEP_REQUEST
 
-#include <linux/completion.h>
+#include <linux/sched.h>
 /*#include <linux/export.h>*/
 #include "dx_driver.h"
 #include "dx_bitops.h"
@@ -65,7 +65,7 @@ static struct {
 	u8 *host_resp_buf_p;
 	dma_addr_t host_resp_buf_dma;
 	u8 req_counter;
-	struct completion agent_event[DX_SEP_REQUEST_MAX_AGENTS];
+	wait_queue_head_t agent_event[DX_SEP_REQUEST_MAX_AGENTS];
 	bool agent_valid[DX_SEP_REQUEST_MAX_AGENTS];
 	bool agent_busy[DX_SEP_REQUEST_MAX_AGENTS];
 	bool request_pending;
@@ -123,11 +123,11 @@ void dx_sep_req_handler(struct sep_drvdata *drvdata)
 		 * error code. */
 		sep_req_error = DX_SEP_REQUEST_INVALID_REQ_SIZE_ERR;
 
-	if (likely(sep_req_error == DX_SEP_REQUEST_SUCCESS))
-		/* Signal the completion event according to the LUT */
-		complete(&sep_req_state.agent_event[agent_id]);
-
-	else {
+	if (likely(sep_req_error == DX_SEP_REQUEST_SUCCESS)) {
+		/* Signal the wake up event according to the LUT */
+		sep_req_state.agent_busy[agent_id] = true;
+		wake_up_interruptible(&sep_req_state.agent_event[agent_id]);
+	} else {
 		/* Critical error flow */
 
 		/* Build the new GPR3 value out of the req_counter from the
@@ -277,12 +277,11 @@ int dx_sep_req_wait_for_request(u8 agent_id, u8 *sep_req_buf_p,
 		return -EINVAL;
 	}
 
-	/* Set "agent_busy" field to TRUE */
-	sep_req_state.agent_busy[agent_id] = true;
-
 	/* Wait for incoming request */
-	if (wait_for_completion_timeout(&sep_req_state.agent_event[agent_id],
-					timeout) == 0) {
+	if (wait_event_interruptible_timeout(
+			sep_req_state.agent_event[agent_id],
+			sep_req_state.agent_busy[agent_id] == true,
+			timeout) == 0) {
 		/* operation timed-out */
 		sep_req_state.agent_busy[agent_id] = false;
 
@@ -439,7 +438,7 @@ int dx_sep_req_init(struct sep_drvdata *drvdata)
 	for (i = 0; i < DX_SEP_REQUEST_MAX_AGENTS; i++) {
 		sep_req_state.agent_valid[i] = false;
 		sep_req_state.agent_busy[i] = false;
-		init_completion(&sep_req_state.agent_event[i]);
+		init_waitqueue_head(&sep_req_state.agent_event[i]);
 	}
 
 	/* allocate coherent request buffer */
