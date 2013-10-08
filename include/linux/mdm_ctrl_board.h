@@ -48,7 +48,8 @@ enum {
 	PMIC_MFLD,
 	PMIC_CLVT,
 	PMIC_MRFL,
-	PMIC_BYT
+	PMIC_BYT,
+	PMIC_MOOR
 };
 
 /* Supported CPU IDs*/
@@ -57,7 +58,8 @@ enum {
 	CPU_PWELL,
 	CPU_CLVIEW,
 	CPU_TANGIER,
-	CPU_VVIEW2
+	CPU_VVIEW2,
+	CPU_ANNIEDALE
 };
 
 struct mdm_ops {
