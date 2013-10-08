@@ -69,8 +69,20 @@ int intel_scu_ipc_fw_update(void);
 int intel_scu_ipc_mrstfw_update(u8 *buffer, u32 length);
 int intel_scu_ipc_medfw_prepare(void __user *arg);
 
+#ifdef CONFIG_INTEL_SCU_IPC
 int intel_scu_ipc_read_mip(u8 *data, int len, int offset, int issigned);
 int intel_scu_ipc_write_umip(u8 *data, int len, int offset);
+#else
+/* Dummy function to prevent compilation error in BYT */
+static int intel_scu_ipc_read_mip(u8 *data, int len, int offset, int issigned)
+{
+	return 0;
+}
+static int intel_scu_ipc_write_umip(u8 *data, int len, int offset)
+{
+	return 0;
+}
+#endif
 
 /* NVRAM access */
 u32 intel_scu_ipc_get_nvram_size(void);
