@@ -245,30 +245,6 @@ static void dwc_set_host_mode(struct usb_hcd *hcd)
 	msleep(20);
 }
 
-/* Read USB2 PHY internal register as one WA.
- * Without it, USB2 PHY is sucks. and cause
- * xHCI can't detect anything.
- */
-static void tng_b0_workaround(struct usb_hcd *hcd)
-{
-	struct usb_phy		*phy;
-	u32 val = 0;
-	phy = usb_get_phy(USB_PHY_TYPE_USB2);
-
-	if (!phy) {
-		printk(KERN_ERR "usb_get_transceiver return NULL!\n");
-		return;
-	} else {
-		val = usb_phy_io_read(phy, TUSB1211_VENDOR_ID_LO);
-		if (val < 0)
-			printk(KERN_ERR "ulpi read error!\n");
-		else
-			printk(KERN_ERR "%s: USB2 PHY Vendor ID low = 0x%x",
-					__func__, val);
-	}
-	usb_put_phy(phy);
-}
-
 static int dwc3_start_host(struct usb_hcd *hcd)
 {
 	int ret = -EINVAL;
@@ -289,7 +265,6 @@ static int dwc3_start_host(struct usb_hcd *hcd)
 	dwc_silicon_wa(hcd);
 	dwc_set_host_mode(hcd);
 	dwc_disable_ssphy_p3(hcd);
-	tng_b0_workaround(hcd);
 
 	ret = usb_add_hcd(hcd, otg_irqnum, IRQF_SHARED);
 	if (ret)
