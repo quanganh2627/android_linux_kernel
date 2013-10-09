@@ -183,7 +183,7 @@ struct sst_data {
 	struct sst_platform_data *pdata;
 	unsigned int	lpe_mixer_input_ihf;
 	unsigned int	lpe_mixer_input_hs;
-	u16 widget[SST_NUM_WIDGETS];
+	u32 widget[SST_NUM_WIDGETS];
 	char *byte_stream;
 	struct mutex lock;
 	/* Pipe_id for probe_stream to be saved in stream map */
