@@ -143,15 +143,6 @@ static void dump_dma_reg(struct dma_chan *chan)
 	pr_debug("<<<<<<<<<<<< DMA Dump ends >>>>>>>>>>>>");
 }
 
-static void config_dma_fifo_partition(struct middma_device *dma)
-{
-	/* program FIFO Partition registers - 128 bytes for each ch */
-	iowrite32(DMA_FIFO_SIZE, dma->dma_base + FIFO_PARTITION0_HI);
-	iowrite32(DMA_FIFO_SIZE, dma->dma_base + FIFO_PARTITION1_LO);
-	iowrite32(DMA_FIFO_SIZE, dma->dma_base + FIFO_PARTITION1_HI);
-	iowrite32(DMA_FIFO_SIZE | BIT(26), dma->dma_base + FIFO_PARTITION0_LO);
-}
-
 /**
  * get_block_ts	-	calculates dma transaction length
  * @len: dma transfer length
@@ -1383,11 +1374,6 @@ static int intel_mid_dma_alloc_chan_resources(struct dma_chan *chan)
 		return -EIO;
 	}
 	dma_cookie_init(chan);
-	/* Workaround to enable controller. Moved from
-		resume handler to here */
-	iowrite32(REG_BIT0, mid->dma_base + DMA_CFG);
-	if (!mid->dword_trf)
-		config_dma_fifo_partition(mid);
 
 	spin_lock_bh(&midc->lock);
 	while (midc->descs_allocated < DESCS_PER_CHANNEL) {
@@ -1635,6 +1621,15 @@ static irqreturn_t intel_mid_dma_interrupt1(int irq, void *data)
 static irqreturn_t intel_mid_dma_interrupt2(int irq, void *data)
 {
 	return intel_mid_dma_interrupt(irq, data);
+}
+
+static void config_dma_fifo_partition(struct middma_device *dma)
+{
+	/* program FIFO Partition registers - 128 bytes for each ch */
+	iowrite32(DMA_FIFO_SIZE, dma->dma_base + FIFO_PARTITION0_HI);
+	iowrite32(DMA_FIFO_SIZE, dma->dma_base + FIFO_PARTITION1_LO);
+	iowrite32(DMA_FIFO_SIZE, dma->dma_base + FIFO_PARTITION1_HI);
+	iowrite32(DMA_FIFO_SIZE | BIT(26), dma->dma_base + FIFO_PARTITION0_LO);
 }
 
 /* v1 ops will be used for Medfield & CTP platforms */
