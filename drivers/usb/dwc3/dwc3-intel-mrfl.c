@@ -248,6 +248,19 @@ show_otg_id(struct device *_dev, struct device_attribute *attr, char *buf)
 static DEVICE_ATTR(otg_id, S_IRUGO|S_IWUSR|S_IWGRP,
 			show_otg_id, store_otg_id);
 
+static void dwc_a_bus_drop(struct usb_phy *x)
+{
+	struct dwc_otg2 *otg = dwc3_get_otg();
+	unsigned long flags;
+
+	if (otg->usb2_phy.vbus_state == VBUS_DISABLED) {
+		spin_lock_irqsave(&otg->lock, flags);
+		otg->user_events |= USER_A_BUS_DROP;
+		dwc3_wakeup_otg_thread(otg);
+		spin_unlock_irqrestore(&otg->lock, flags);
+	}
+}
+
 static void set_sus_phy(struct dwc_otg2 *otg, int bit)
 {
 	u32 data = 0;
@@ -272,6 +285,10 @@ int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 {
 	u32 gctl;
 	int retval;
+
+	/* Init a_bus_drop callback */
+	otg->usb2_phy.a_bus_drop = dwc_a_bus_drop;
+	otg->usb2_phy.vbus_state = VBUS_ENABLED;
 
 	otg_info(otg, "De-assert USBRST# to enable PHY\n");
 	retval = intel_scu_ipc_iowrite8(PMIC_USBPHYCTRL,
