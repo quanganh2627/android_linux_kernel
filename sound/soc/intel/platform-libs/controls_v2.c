@@ -31,6 +31,7 @@
 #include "../sst_platform.h"
 #include "../sst_platform_pvt.h"
 #include "ipc_lib.h"
+#include "controls_v2.h"
 
 
 #define SST_ALGO_KCONTROL_INT(xname, xreg, xshift, xmax, xinvert,\
@@ -1710,6 +1711,14 @@ int sst_dsp_init(struct snd_soc_platform *platform)
 	sst->byte_stream = devm_kzalloc(platform->dev,
 			SST_MAX_BIN_BYTES, GFP_KERNEL);
 	if (sst->byte_stream == NULL) {
+		pr_err("kzalloc failed\n");
+		return -ENOMEM;
+	}
+
+	sst->widget = devm_kzalloc(platform->dev,
+				   SST_NUM_WIDGETS * sizeof(*sst->widget),
+				   GFP_KERNEL);
+	if (sst->widget == NULL) {
 		pr_err("kzalloc failed\n");
 		return -ENOMEM;
 	}
