@@ -941,10 +941,13 @@ static int intel_idle_cpuidle_driver_init(void)
 				continue;
 		}
 
-		/* if sub-state in table is not enumerated by CPUID */
-		if ((mwait_substate + 1) > num_substates)
-			continue;
-
+#if !defined(CONFIG_ATOM_SOC_POWER)
+		if (boot_cpu_data.x86_model != 0x37) {
+			/* if sub-state in table is not enumerated by CPUID */
+			if ((mwait_substate + 1) > num_substates)
+				continue;
+		}
+#endif
 		if (((mwait_cstate + 1) > 2) &&
 			!boot_cpu_has(X86_FEATURE_NONSTOP_TSC))
 			mark_tsc_unstable("TSC halts in idle"
@@ -1013,10 +1016,13 @@ static int intel_idle_cpu_init(int cpu)
 				continue;
 		}
 
-		/* if sub-state in table is not enumerated by CPUID */
-		if ((mwait_substate + 1) > num_substates)
-			continue;
-
+#if !defined(CONFIG_ATOM_SOC_POWER)
+		if (boot_cpu_data.x86_model != 0x37) {
+			/* if sub-state in table is not enumerated by CPUID */
+			if ((mwait_substate + 1) > num_substates)
+				continue;
+		}
+#endif
 		dev->state_count += 1;
 	}
 
