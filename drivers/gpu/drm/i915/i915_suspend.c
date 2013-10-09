@@ -500,6 +500,9 @@ static int __i915_drm_freeze(struct drm_device *dev)
 
 	intel_opregion_fini(dev);
 
+	/* make sure console resume work is cancelled before suspend */
+	cancel_work_sync(&dev_priv->console_resume_work);
+
 	console_lock();
 	intel_fbdev_set_suspend(dev, FBINFO_STATE_SUSPENDED);
 	console_unlock();
@@ -844,6 +847,9 @@ static int valleyview_freeze(struct drm_device *dev)
 	i915_save_state(dev);
 
 	intel_opregion_fini(dev);
+
+	/* make sure console resume work is cancelled before suspend */
+	cancel_work_sync(&dev_priv->console_resume_work);
 
 	console_lock();
 	intel_fbdev_set_suspend(dev, FBINFO_STATE_SUSPENDED);
