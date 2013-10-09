@@ -1743,11 +1743,7 @@ static void gsm_dlci_release(struct gsm_dlci *dlci)
 		gsm_destroy_network(dlci);
 		mutex_unlock(&dlci->mutex);
 
-		/* tty_vhangup needs the tty_lock, so unlock and
-		   relock after doing the hangup. */
-		tty_unlock(tty);
-		tty_vhangup(tty);
-		tty_lock(tty);
+		tty_hangup(tty);
 		tty_port_tty_set(&dlci->port, NULL);
 		tty_kref_put(tty);
 	}
