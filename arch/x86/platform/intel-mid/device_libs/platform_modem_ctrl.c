@@ -463,6 +463,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	struct mdm_ctrl_cpu_data *cpu_data;
 	struct mdm_ctrl_mdm_data *mdm_data;
 	struct mdm_ctrl_pmic_data *pmic_data;
+	int mid_cpu;
 
 	if (!pdev) {
 		pr_err("%s: platform device is NULL.", __func__);
@@ -495,6 +496,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 		/* we will overwrite most of the values */
 		mcd_reg_info->cpu_data = &cpu_tangier;
 		cpu_data = mcd_reg_info->cpu_data;
+		mid_cpu = INTEL_MID_CPU_CHIP_VALLEYVIEW2;
 	} else {
 		pr_err("%s: ERROR CPU name %s Not supported!\n", __func__,
 		       cpu_name);
@@ -516,7 +518,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	}
 	mcd_reg_info->modem_data = modem_data[mcd_reg_info->mdm_ver];
 
-	mcd_get_config_ver(out_obj->string.pointer, intel_mid_identify_cpu());
+	mcd_get_config_ver(out_obj->string.pointer, mid_cpu);
 
 	/* PMIC */
 	if (mcd_reg_info->cpu_ver == CPU_VVIEW2)
