@@ -268,10 +268,10 @@ static const struct snd_soc_dapm_route map[] = {
 	/*{ "DMIC3DAT", NULL, "DMIC" },*/
 	/*{ "DMIC4DAT", NULL, "DMIC" },*/
 
-	/* MICBIAS2 is connected as Bias for both DMIC and AMIC so we link it
-	 * here. Also AMIC wires up to IN1LP pin
+	/* MICBIAS2 is connected as Bias for AMIC so we link it
+	 * here. Also AMIC wires up to IN1LP pin.
+	 * DMIC is externally connected to 1.8V rail, so no link rqd.
 	 */
-	{ "DMIC", NULL, "MICBIAS1" },
 	{ "AMIC", NULL, "MICBIAS2" },
 	{ "IN1LP", NULL, "AMIC" },
 
