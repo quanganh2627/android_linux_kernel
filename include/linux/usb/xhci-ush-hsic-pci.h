@@ -31,7 +31,7 @@ struct ush_hsic_priv {
 	unsigned             hsic_aux_finish:1;
 	unsigned             hsic_enable_created:1;
 	unsigned             hsic_lock_init:1;
-	unsigned             hsic_stopped:1;
+	unsigned             port_disconnect:1;
 
 	unsigned             remoteWakeup_enable;
 	unsigned             autosuspend_enable;

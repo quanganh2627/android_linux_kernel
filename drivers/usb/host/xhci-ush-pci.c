@@ -321,6 +321,7 @@ static void hsicdev_add(struct usb_device *udev)
 		}
 
 		/* Modem devices */
+		hsic.port_disconnect = 0;
 		hsic.modem_dev = udev;
 		pm_runtime_set_autosuspend_delay
 			(&udev->dev, hsic.port_inactivityDuration);
@@ -392,7 +393,9 @@ static void hsicdev_remove(struct usb_device *udev)
 		}
 		/* Modem devices */
 		pr_debug("%s----> modem dev deleted\n", __func__);
+		mutex_lock(&hsic.hsic_mutex);
 		hsic.modem_dev = NULL;
+		mutex_unlock(&hsic.hsic_mutex);
 		usb_disable_autosuspend(hsic.rh_dev);
 	}
 }
@@ -442,15 +445,14 @@ static void ush_hsic_port_disable(void)
 		clear_port_feature(hsic.rh_dev, HSIC_USH_PORT,
 				USB_PORT_FEAT_POWER);
 	}
-	hsic.hsic_stopped = 1;
 	hsic_enable = 0;
 }
 
 static void ush_hsic_port_enable(void)
 {
 	printk(KERN_ERR "%s---->\n", __func__);
-	hsic.hsic_stopped = 0;
 	hsic_enable = 1;
+	hsic.port_disconnect = 0;
 	if (hsic.modem_dev) {
 		dev_dbg(&pci_dev->dev,
 			"Disable auto suspend in port enable\n");
@@ -472,6 +474,7 @@ static void hsic_port_logical_disconnect(struct usb_device *hdev,
 		unsigned int port)
 {
 	dev_dbg(&pci_dev->dev, "logical disconnect on root hub\n");
+	hsic.port_disconnect = 1;
 	ush_hsic_port_disable();
 
 	usb_set_change_bits(hdev, port);
@@ -510,7 +513,7 @@ static void hsic_aux_work(struct work_struct *work)
 		mutex_unlock(&hsic.hsic_mutex);
 		return;
 	}
-	if (hsic.hsic_stopped == 0)
+	if (hsic.port_disconnect == 0)
 		hsic_port_logical_disconnect(hsic.rh_dev,
 				HSIC_USH_PORT);
 
@@ -754,6 +757,7 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 	if (!hsic.rh_dev) {
 		dev_dbg(&pci_dev->dev,
 			"root hub is already removed\n");
+		mutex_unlock(&hsic.hsic_mutex);
 		return -ENODEV;
 	}
 	if (hsic.modem_dev) {
@@ -770,7 +774,7 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 
 		/* add this due to hcd release
 			 doesn't set hcd to NULL */
-		if (hsic.hsic_stopped == 0)
+		if (hsic.port_disconnect == 0)
 			hsic_port_logical_disconnect(hsic.rh_dev,
 					HSIC_USH_PORT);
 		usleep_range(5000, 6000);
@@ -779,7 +783,7 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 		dev_dbg(dev, "disable hsic\n");
 		/* add this due to hcd release
 			 doesn't set hcd to NULL */
-		if (hsic.hsic_stopped == 0)
+		if (hsic.port_disconnect == 0)
 			hsic_port_logical_disconnect(hsic.rh_dev,
 					HSIC_USH_PORT);
 	}
@@ -1169,7 +1173,7 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 		pm_runtime_put_noidle(&dev->dev);
 
 	pm_runtime_allow(&dev->dev);
-	hsic.hsic_stopped = 0;
+	hsic.port_disconnect = 0;
 	hsic_enable = 1;
 	return 0;
 
@@ -1204,7 +1208,7 @@ static void xhci_ush_pci_remove(struct pci_dev *dev)
 	gpio_free(hsic.aux_gpio);
 	gpio_free(hsic.wakeup_gpio);
 
-	hsic.hsic_stopped = 1;
+	hsic.port_disconnect = 1;
 	hsic_enable = 0;
 	wake_lock_destroy(&(hsic.resume_wake_lock));
 
