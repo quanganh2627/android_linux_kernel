@@ -503,7 +503,6 @@ static struct platform_driver dwc3_device_intel_driver = {
 	.driver		= {
 		.name	= "dwc3-device",
 		.of_match_table	= of_match_ptr(of_dwc3_match),
-		.pm	= DWC3_PM_OPS,
 	},
 };
 
