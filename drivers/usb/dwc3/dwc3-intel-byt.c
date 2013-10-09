@@ -338,8 +338,6 @@ int dwc3_intel_byt_b_idle(struct dwc_otg2 *otg)
 
 	mdelay(100);
 
-	otg->user_events |= USER_ID_B_CHANGE_EVENT;
-
 	return 0;
 }
 
