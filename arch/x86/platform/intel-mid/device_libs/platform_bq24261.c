@@ -67,6 +67,11 @@ void __init *bq24261_platform_data(void *info)
 	bq24261_pdata.set_cv = pmic_set_cv;
 	bq24261_pdata.dump_master_regs = dump_pmic_regs;
 	bq24261_pdata.enable_vbus = pmic_enable_vbus;
+	/* WA for ShadyCove VBUS removal detect issue */
+	if (INTEL_MID_BOARD(1, PHONE, MOOR) ||
+		INTEL_MID_BOARD(1, TABLET, MOOR)) {
+		bq24261_pdata.handle_low_supply = pmic_handle_low_supply;
+	}
 #endif
 	bq24261_pdata.set_iterm = NULL;
 	bq24261_pdata.boost_mode_mA = 1000;
