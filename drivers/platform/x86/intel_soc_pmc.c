@@ -33,9 +33,7 @@
 
 #include <asm/intel_mid_pcihelpers.h>
 
-#define	MAX_PLATFORM_STATES	5
 #define BYT_S3_HINT		0x64
-#define	S0I3			3
 
 #define	S0IX_REGISTERS_OFFSET	0x80
 
@@ -89,13 +87,24 @@
 #define PCI_ID_ANY		(~0)
 #define SUB_CLASS_MASK		0xFF00
 
+enum system_state {
+	STATE_S0IR,
+	STATE_S0I1,
+	STATE_S0I2,
+	STATE_S0I3,
+	STATE_S0,
+	STATE_S3,
+	STATE_MAX
+};
+
 struct pmc_dev {
 	u32 base_address;
 	u32 __iomem *pmc_registers;
 	u32 __iomem *s0ix_wake_en;
 	struct pci_dev const *pdev;
 	struct semaphore nc_ready_lock;
-	u32 s3_residency;
+	u32 state_residency[STATE_MAX];
+	u32 state_resi_offset[STATE_MAX];
 	u32 residency_total;
 	u32 s3_count;
 };
@@ -241,20 +250,21 @@ int pmc_nc_set_power_state(int islands, int state_type, int reg)
 }
 EXPORT_SYMBOL(pmc_nc_set_power_state);
 
-static u32 pmc_register_read(int reg_offset)
+static inline u32 pmc_register_read(int reg_offset)
 {
 	return readl(pmc->pmc_registers + reg_offset);
 }
 
-static void print_residency_per_state(struct seq_file *s, int state, u32 count)
+static void print_residency_per_state(struct seq_file *s, int state)
 {
 	struct pmc_dev *pmc_cxt = (struct pmc_dev *)s->private;
 	u32 rem_time, rem_res = 0;
 	u64 rem_res_reduced = 0;
+	u64 residency = pmc_cxt->state_residency[state];
 
 	/* Counter increments every 32 us. */
-	u64 time = (u64)count << 5;
-	u64 residency = (u64)count * 100;
+	u64 time = residency << 5;
+	residency *= 100;
 
 	if (pmc_cxt->residency_total) {
 		rem_res = do_div(residency, pmc_cxt->residency_total);
@@ -264,7 +274,7 @@ static void print_residency_per_state(struct seq_file *s, int state, u32 count)
 	rem_time = do_div(time, USEC_PER_SEC);
 	seq_printf(s, "%s \t\t %.6llu.%.6u \t\t %.2llu.%.3llu", states[state],
 			time, rem_time, residency, rem_res_reduced);
-	if (state == MAX_PLATFORM_STATES)
+	if (state == STATE_S3)
 		seq_printf(s, " \t\t %u\n", pmc_cxt->s3_count);
 	else
 		seq_printf(s, " \t\t %s\n", "--");
@@ -278,21 +288,22 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 	unsigned int base_class, sub_class;
 	struct pci_dev *dev = NULL;
 	u16 pmcsr;
-	u32 s0ix_residency[MAX_PLATFORM_STATES];
 
 	pmc_cxt->residency_total = 0;
 
 	/* Read s0ix residency counters */
-	for (i = 0; i < MAX_PLATFORM_STATES; i++) {
-		s0ix_residency[i] = pmc_register_read(i);
-		pmc_cxt->residency_total += s0ix_residency[i];
+	for (i = STATE_S0IR; i < STATE_S3; i++) {
+		pmc_cxt->state_residency[i] = pmc_register_read(i) -
+					pmc_cxt->state_resi_offset[i];
+		pmc_cxt->residency_total += pmc_cxt->state_residency[i];
 	}
-	s0ix_residency[S0I3] -= pmc_cxt->s3_residency;
+	/* In S3 (over S0i3), PMC will increase S0i3 residencey */
+	pmc_cxt->state_residency[STATE_S0I3] -=
+		pmc_cxt->state_residency[STATE_S3];
 
 	seq_puts(s, "State \t\t Time[sec] \t\t Residency[%%] \t\t Count\n");
-	for (i = 0; i < MAX_PLATFORM_STATES; i++)
-		print_residency_per_state(s, i, s0ix_residency[i]);
-	print_residency_per_state(s, i, pmc_cxt->s3_residency);
+	for (i = STATE_S0IR; i < STATE_MAX; i++)
+		print_residency_per_state(s, i);
 
 	seq_puts(s, "\n\nNORTH COMPLEX DEVICES :\n");
 
@@ -338,9 +349,34 @@ static int devices_state_open(struct inode *inode, struct file *file)
 	return single_open(file, pmc_devices_state_show, inode->i_private);
 }
 
+static ssize_t pmu_devices_state_write(struct file *file,
+		const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	char buf[32];
+	int buf_size = min(count, sizeof(buf)-1), state;
+	char *clear_msg = "clear";
+	int clear_msg_len = strlen(clear_msg);
+
+	if (copy_from_user(buf, userbuf, buf_size))
+		return -EFAULT;
+
+	buf[buf_size] = 0;
+	if (clear_msg_len + 1 == buf_size &&
+		 !strncmp(buf, clear_msg, clear_msg_len)) {
+		pmc->s3_count = 0;
+		pmc->state_residency[STATE_S3] = 0;
+		/* Mark the offset of S0iX residency counter in PMC */
+		for (state = STATE_S0IR; state < STATE_S3; state++)
+			pmc->state_resi_offset[state] =
+				pmc_register_read(state);
+	}
+	return buf_size;
+}
+
 static const struct file_operations devices_state_operations = {
 	.open           = devices_state_open,
 	.read           = seq_read,
+	.write		= pmu_devices_state_write,
 	.llseek         = seq_lseek,
 	.release        = single_release,
 };
@@ -400,12 +436,12 @@ static const struct file_operations nc_set_power_operations = {
 
 static int pmc_suspend_enter(suspend_state_t state)
 {
-	u32 temp = 0, count_before_entry, count_after_exit;
+	u32 temp = 0, last_s0i3_residency, s3_res;
 
 	if (state != PM_SUSPEND_MEM)
 		return -EINVAL;
 
-	count_before_entry = pmc_register_read(S0I3);
+	last_s0i3_residency = pmc_register_read(STATE_S0I3);
 	trace_printk("s3_entry\n");
 
 	__monitor((void *)&temp, 0, 0);
@@ -413,10 +449,11 @@ static int pmc_suspend_enter(suspend_state_t state)
 	__mwait(BYT_S3_HINT, 1);
 
 	trace_printk("s3_exit\n");
-	pmc->s3_count += 1;
-	count_after_exit = pmc_register_read(S0I3);
-
-	pmc->s3_residency += (count_after_exit - count_before_entry);
+	s3_res = pmc_register_read(STATE_S0I3) - last_s0i3_residency;
+	if (s3_res) {
+		pmc->state_residency[STATE_S3] += s3_res;
+		pmc->s3_count += 1;
+	}
 
 	return 0;
 }
@@ -463,8 +500,8 @@ MODULE_DEVICE_TABLE(pci, pmc_pci_tbl);
 static int pmc_pci_probe(struct pci_dev *pdev,
 				const struct pci_device_id *id)
 {
-	int error = 0;
-	struct dentry *d, *d1;
+	int error = 0, state;
+	struct dentry *d1, *d2;
 	struct pmc_dev *pmc_cxt;
 
 	pmc_cxt = devm_kzalloc(&pdev->dev,
@@ -512,24 +549,28 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	pci_set_drvdata(pdev, pmc_cxt);
 
 	/* /sys/kernel/debug/mid_pmu_states */
-	d = debugfs_create_file("mid_pmu_states", S_IFREG | S_IRUGO,
+	d1 = debugfs_create_file("mid_pmu_states", S_IFREG | S_IRUGO,
 				NULL, pmc_cxt, &devices_state_operations);
-	if (!d) {
+	if (!d1) {
 		dev_err(&pdev->dev, "Can not create a debug file\n");
 		error = -ENOMEM;
 		goto err_release_region;
 	}
 
-	/* /sys/kernel/debug/pmc_states */
-	d1 = debugfs_create_file("nc_set_power", S_IFREG | S_IRUGO,
+	/* /sys/kernel/debug/nc_set_power*/
+	d2 = debugfs_create_file("nc_set_power", S_IFREG | S_IRUGO,
 				NULL, pmc_cxt, &nc_set_power_operations);
 
-	if (!d) {
+	if (!d2) {
 		dev_err(&pdev->dev, "Can not create a debug file\n");
 		error = -ENOMEM;
-		debugfs_remove(d);
+		debugfs_remove(d1);
 		goto err_release_region;
 	}
+
+	/* Mark the offset of S0iX residency counter in PMC */
+	for (state = STATE_S0IR; state < STATE_S3; state++)
+		pmc_cxt->state_resi_offset[state] = pmc_register_read(state);
 
 	writel(DISABLE_LPC_CLK_WAKE_EN, pmc_cxt->s0ix_wake_en);
 
