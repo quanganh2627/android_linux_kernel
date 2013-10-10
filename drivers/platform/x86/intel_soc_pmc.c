@@ -391,8 +391,6 @@ static ssize_t nc_set_power_write(struct file *file,
 {
 	char buf[64];
 	int islands, state, reg, buf_size;
-	struct pci_dev *dev = NULL;
-	u16 pmcsr, val;
 
 	buf_size = count < 64 ? count : 64;
 
@@ -401,21 +399,6 @@ static ssize_t nc_set_power_write(struct file *file,
 
 	if (sscanf(buf, "%d %d %d", &islands, &state, &reg) != 3)
 		return -EFAULT;
-
-	if (!islands) {
-		while ((dev = pci_get_device(PCI_ID_ANY, PCI_ID_ANY, dev))
-								!= NULL) {
-			pci_read_config_word(dev, dev->pm_cap +
-							PCI_PM_CTRL, &pmcsr);
-			val = pmcsr & PMC_D0I3_MASK;
-			if (!val) {
-				pmcsr |= PMC_D0I3_MASK;
-				pci_write_config_word(dev, dev->pm_cap +
-							PCI_PM_CTRL, pmcsr);
-			}
-		}
-		return count;
-	}
 
 	pmc_nc_set_power_state(islands, state, reg);
 	return count;
@@ -430,6 +413,52 @@ static const struct file_operations nc_set_power_operations = {
 	.open           = nc_set_power_open,
 	.read           = seq_read,
 	.write          = nc_set_power_write,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+
+static int sc_set_power_show(struct seq_file *s, void *unused)
+{
+	return 0;
+}
+
+static ssize_t sc_set_power_write(struct file *file,
+		const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	char buf[64];
+	unsigned int device, state, function, buf_size;
+	struct pci_dev *pdev = NULL;
+
+	buf_size = count < 64 ? count : 64;
+
+	if (copy_from_user(buf, userbuf, buf_size))
+		return -EFAULT;
+
+	if (sscanf(buf, "%u %u %u", &device, &function, &state) != 3)
+		return -EFAULT;
+
+	state &= PCI_D3hot;
+
+	while ((pdev = pci_get_device(PCI_ID_ANY, PCI_ID_ANY, pdev)) != NULL) {
+		if (PCI_DEVFN(device, function) == pdev->devfn) {
+			dev_dbg(&pdev->dev, "Forced to %s\n", dstates[state]);
+			pci_set_power_state(pdev, state);
+			break;
+		}
+	}
+
+	return count;
+}
+
+static int sc_set_power_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, sc_set_power_show, NULL);
+}
+
+static const struct file_operations sc_set_power_operations = {
+	.open           = sc_set_power_open,
+	.read           = seq_read,
+	.write          = sc_set_power_write,
 	.llseek         = seq_lseek,
 	.release        = single_release,
 };
@@ -501,7 +530,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 				const struct pci_device_id *id)
 {
 	int error = 0, state;
-	struct dentry *d1, *d2;
+	struct dentry *d1, *d2, *d3;
 	struct pmc_dev *pmc_cxt;
 
 	pmc_cxt = devm_kzalloc(&pdev->dev,
@@ -557,7 +586,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 		goto err_release_region;
 	}
 
-	/* /sys/kernel/debug/nc_set_power*/
+	/* /sys/kernel/debug/nc_set_power */
 	d2 = debugfs_create_file("nc_set_power", S_IFREG | S_IRUGO,
 				NULL, pmc_cxt, &nc_set_power_operations);
 
@@ -571,6 +600,18 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	/* Mark the offset of S0iX residency counter in PMC */
 	for (state = STATE_S0IR; state < STATE_S3; state++)
 		pmc_cxt->state_resi_offset[state] = pmc_register_read(state);
+
+	/* /sys/kernel/debug/sc_set_power */
+	d3 = debugfs_create_file("sc_set_power", S_IFREG | S_IRUGO,
+				NULL, NULL, &sc_set_power_operations);
+
+	if (!d3) {
+		dev_err(&pdev->dev, "Can not create a debug file\n");
+		error = -ENOMEM;
+		debugfs_remove(d1);
+		debugfs_remove(d2);
+		goto err_release_region;
+	}
 
 	writel(DISABLE_LPC_CLK_WAKE_EN, pmc_cxt->s0ix_wake_en);
 
