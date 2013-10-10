@@ -58,6 +58,7 @@
 #include "device_libs/platform_mrfl_pmic_i2c.h"
 #include "device_libs/platform_mrfl_ocd.h"
 #include "device_libs/platform_msic_thermal.h"
+#include "device_libs/platform_soc_thermal.h"
 #include "device_libs/platform_msic_adc.h"
 #include "device_libs/platform_bcove_adc.h"
 #include <asm/platform_mrfld_audio.h>
@@ -266,6 +267,8 @@ struct devs_id __initconst device_ids[] = {
 						&ipc_device_handler},
 	{"mrfld_wm8958", SFI_DEV_TYPE_IPC, 1, &merfld_wm8958_audio_platform_data,
 						&ipc_device_handler},
+	{"soc_thrm", SFI_DEV_TYPE_IPC, 1, &no_platform_data,
+						&soc_thrm_device_handler},
 	{"wm8958", SFI_DEV_TYPE_I2C, 0, &wm8994_platform_data, NULL},
 	{"lm49453_codec", SFI_DEV_TYPE_I2C, 1, &no_platform_data, NULL},
 	{"cs42l73", SFI_DEV_TYPE_I2C, 1, &cs42l73_platform_data, NULL},
