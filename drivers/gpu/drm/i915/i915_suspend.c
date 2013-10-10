@@ -826,15 +826,15 @@ static int valleyview_freeze(struct drm_device *dev)
 			return error;
 		}
 
+		/* uninstall the interrupts and then cancel outstanding wq.
+		 * this will make sure after cancelation no work is pending.
+		 */
 		drm_irq_uninstall(dev);
-
 		/* cancel all outstanding wq */
 		cancel_delayed_work_sync(&dev_priv->rps.delayed_resume_work);
 		cancel_work_sync(&dev_priv->hotplug_work);
 		cancel_work_sync(&dev_priv->gpu_error.work);
 		cancel_work_sync(&dev_priv->rps.work);
-
-		drm_irq_uninstall(dev);
 
 		intel_modeset_suspend_hw(dev);
 	}
