@@ -374,7 +374,7 @@ int sst_acpi_probe(struct platform_device *pdev)
 		pr_err("couldn't register control device\n");
 		goto do_free_wq;
 	}
-	/* mask all SSP and DMA interrupts to IA - enable when needed */
+	/* mask all SSP and DMA irq to IA - enabled in acpi kernel driver */
 	sst_shim_write64(ctx->shim, SST_IMRX, 0xFFFF0038);
 
 	if (ctx->use_32bit_ops) {
