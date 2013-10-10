@@ -1676,15 +1676,15 @@ SND_SOC_DAPM_DAC("DAC1R", NULL, WM8994_POWER_MANAGEMENT_5, 0, 0),
 };
 
 static const struct snd_soc_dapm_widget wm8994_adc_revd_widgets[] = {
-SND_SOC_DAPM_VIRT_MUX_E("ADCL Mux", WM8994_POWER_MANAGEMENT_4, 1, 0, &adcl_mux,
+SND_SOC_DAPM_VIRT_MUX_E("ADCL Mux", SND_SOC_NOPM, 1, 0, &adcl_mux,
 			adc_mux_ev, SND_SOC_DAPM_PRE_PMU),
-SND_SOC_DAPM_VIRT_MUX_E("ADCR Mux", WM8994_POWER_MANAGEMENT_4, 0, 0, &adcr_mux,
+SND_SOC_DAPM_VIRT_MUX_E("ADCR Mux", SND_SOC_NOPM, 0, 0, &adcr_mux,
 			adc_mux_ev, SND_SOC_DAPM_PRE_PMU),
 };
 
 static const struct snd_soc_dapm_widget wm8994_adc_widgets[] = {
-SND_SOC_DAPM_VIRT_MUX("ADCL Mux", WM8994_POWER_MANAGEMENT_4, 1, 0, &adcl_mux),
-SND_SOC_DAPM_VIRT_MUX("ADCR Mux", WM8994_POWER_MANAGEMENT_4, 0, 0, &adcr_mux),
+SND_SOC_DAPM_VIRT_MUX("ADCL Mux", SND_SOC_NOPM, 1, 0, &adcl_mux),
+SND_SOC_DAPM_VIRT_MUX("ADCR Mux", SND_SOC_NOPM, 0, 0, &adcr_mux),
 };
 
 static const struct snd_soc_dapm_widget wm8994_dapm_widgets[] = {
@@ -1780,12 +1780,8 @@ SND_SOC_DAPM_ADC("DMIC2R", NULL, WM8994_POWER_MANAGEMENT_4, 4, 0),
 SND_SOC_DAPM_ADC("DMIC1L", NULL, WM8994_POWER_MANAGEMENT_4, 3, 0),
 SND_SOC_DAPM_ADC("DMIC1R", NULL, WM8994_POWER_MANAGEMENT_4, 2, 0),
 
-/* Power is done with the muxes since the ADC power also controls the
- * downsampling chain, the chip will automatically manage the analogue
- * specific portions.
- */
-SND_SOC_DAPM_ADC("ADCL", NULL, SND_SOC_NOPM, 1, 0),
-SND_SOC_DAPM_ADC("ADCR", NULL, SND_SOC_NOPM, 0, 0),
+SND_SOC_DAPM_ADC("ADCL", NULL, WM8994_POWER_MANAGEMENT_4, 1, 0),
+SND_SOC_DAPM_ADC("ADCR", NULL, WM8994_POWER_MANAGEMENT_4, 0, 0),
 
 SND_SOC_DAPM_MUX("AIF1 Loopback", SND_SOC_NOPM, 0, 0, &aif1_loopback),
 SND_SOC_DAPM_MUX("AIF2 Loopback", SND_SOC_NOPM, 0, 0, &aif2_loopback),
