@@ -234,7 +234,9 @@ union power_supply_propval {
 };
 
 enum power_supply_notifier_events {
+	POWER_SUPPLY_EVENT_NONE,
 	POWER_SUPPLY_PROP_CHANGED,
+	POWER_SUPPLY_BATTERY_EVENT,
 	POWER_SUPPLY_CABLE_EVENT,
 };
 
