@@ -6137,6 +6137,7 @@ void vlv_rs_sleepstateinit(struct drm_device *dev,
 	u32 rs_powerwell_status = 0;
 	u32 regdata = 0;
 	u32 isRenderWellFWreq = 0, isMediaWellFWreq = 0;
+	unsigned long irqflags;
 
 	rs_powerwell_status = I915_READ(VLV_POWER_WELL_STATUS_REG);
 
@@ -6196,7 +6197,9 @@ void vlv_rs_sleepstateinit(struct drm_device *dev,
 	 * Render and Media engines are awake at this point. Update the
 	 * FW counters to reflect the same
 	 */
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 	dev_priv->uncore.fw_rendercount = dev_priv->uncore.fw_mediacount = 1;
+	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 
 	/*
 	 * Disable HW RC if requested. Will be requested during boot as
