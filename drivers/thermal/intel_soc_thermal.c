@@ -574,6 +574,11 @@ static struct thermal_cooling_device_ops soc_cooling_ops = {
  *		Driver initialization and finalization
  *********************************************************************/
 
+static irqreturn_t soc_dts_intrpt_handler(int irq, void *dev_data)
+{
+	return IRQ_WAKE_THREAD;
+}
+
 static int soc_thermal_probe(struct platform_device *pdev)
 {
 	struct platform_soc_data *pdata;
@@ -617,7 +622,8 @@ static int soc_thermal_probe(struct platform_device *pdev)
 	pdata->irq = ret;
 
 	/* Register for Interrupt Handler */
-	ret = request_threaded_irq(pdata->irq, NULL, soc_dts_intrpt,
+	ret = request_threaded_irq(pdata->irq, soc_dts_intrpt_handler,
+						soc_dts_intrpt,
 						IRQF_TRIGGER_RISING,
 						DRIVER_NAME, pdata);
 	if (ret) {
