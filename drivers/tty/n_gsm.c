@@ -3106,10 +3106,9 @@ static void gsmtty_detach_dlci(struct tty_struct *tty)
 	}
 	spin_lock(&dlci->gsmtty_lock);
 	has_open = --dlci->gsmtty_count;
-	if (!has_open) {
+	if (!has_open)
 		tty_port_tty_set(&dlci->port, NULL);
-		tty->driver_data = NULL;
-	}
+
 	spin_unlock(&dlci->gsmtty_lock);
 
 	gsm = dlci->gsm;
@@ -3441,6 +3440,11 @@ static int gsmtty_break_ctl(struct tty_struct *tty, int state)
 	return gsmtty_modem_update(dlci, encode);
 }
 
+static void gsmtty_remove(struct tty_driver *driver, struct tty_struct *tty)
+{
+	tty->driver_data = NULL;
+	driver->ttys[tty->index] = NULL;
+}
 
 /* Virtual ttys for the demux */
 static const struct tty_operations gsmtty_ops = {
@@ -3460,6 +3464,7 @@ static const struct tty_operations gsmtty_ops = {
 	.tiocmget		= gsmtty_tiocmget,
 	.tiocmset		= gsmtty_tiocmset,
 	.break_ctl		= gsmtty_break_ctl,
+	.remove			= gsmtty_remove,
 };
 
 
