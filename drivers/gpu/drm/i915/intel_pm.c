@@ -3966,7 +3966,11 @@ static void valleyview_setup_pctx(struct drm_device *dev)
 	int pctx_size = 24*1024;
 
 	pcbr = I915_READ(VLV_PCBR);
-	if (pcbr) {
+	/* PCBR Format: Bits 31:12 - Base address of Process Context
+			Bits 11:1 - Reserved
+			Bit 0 - PCBR Lock
+	Check only address field if already setup by BIOS */
+	if (pcbr >> 12) {
 		/* BIOS set it up already, grab the pre-alloc'd space */
 		int pcbr_offset;
 
