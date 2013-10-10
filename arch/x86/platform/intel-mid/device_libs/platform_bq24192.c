@@ -245,6 +245,8 @@ static void platform_get_sfi_batt_table(void *table, bool fpo_override_bit)
 			batt_prof->temp_mon_range[i].maint_chrg_vol_ll;
 		ps_pse_mod_prof->temp_mon_range[i].maint_chrg_vol_ul =
 			batt_prof->temp_mon_range[i].maint_chrg_vol_ul;
+		ps_pse_mod_prof->temp_mon_range[i].maint_chrg_cur =
+			batt_prof->temp_mon_range[i].maint_chrg_cur;
 	}
 
 	/* Change need in SMIP since temp zone 4 has all 0's */
