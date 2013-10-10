@@ -210,8 +210,27 @@ static void set_sus_phy(struct dwc_otg2 *otg, int bit)
 
 int dwc3_intel_byt_platform_init(struct dwc_otg2 *otg)
 {
+	struct intel_dwc_otg_pdata *data;
 	u32 gctl;
 	int retval;
+
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+
+	if (data && data->gpio_cs && data->gpio_reset) {
+		retval = gpio_request(data->gpio_cs, "phy_cs");
+		if (retval < 0) {
+			otg_err(otg, "failed to request CS pin %d\n",
+					data->gpio_cs);
+			return retval;
+		}
+
+		retval = gpio_request(data->gpio_reset, "phy_reset");
+		if (retval < 0) {
+			otg_err(otg, "failed to request RESET pin %d\n",
+					data->gpio_reset);
+			return retval;
+		}
+	}
 
 	/* Don't let phy go to suspend mode, which
 	 * will cause FS/LS devices enum failed in host mode.
