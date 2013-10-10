@@ -62,3 +62,41 @@ static void quirk_byt_ush_d3_delay(struct pci_dev *dev)
 }
 DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BYT_USH,
 			quirk_byt_ush_d3_delay);
+
+#define PCI_USH_SSCFG1		0xb0
+#define PCI_USH_SSCFG1_D3	BIT(28)
+#define PCI_USH_SSCFG1_SUS	BIT(30)
+
+static void quirk_byt_ush_suspend(struct pci_dev *dev)
+{
+	u32	value;
+
+	dev_dbg(&dev->dev, "USH suspend quirk\n");
+	pci_read_config_dword(dev, PCI_USH_SSCFG1, &value);
+
+	/* set SSCFG1 BIT 28 and 30 before enter D3hot */
+	value |= (PCI_USH_SSCFG1_D3 | PCI_USH_SSCFG1_SUS);
+	pci_write_config_dword(dev, PCI_USH_SSCFG1, value);
+
+	pci_read_config_dword(dev, PCI_USH_SSCFG1, &value);
+	dev_dbg(&dev->dev, "PCI B0 reg (SSCFG1) = 0x%x\n", value);
+}
+DECLARE_PCI_FIXUP_SUSPEND(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BYT_USH,
+			quirk_byt_ush_suspend);
+
+static void quirk_byt_ush_resume(struct pci_dev *dev)
+{
+	u32	value;
+
+	dev_dbg(&dev->dev, "USH resume quirk\n");
+	pci_read_config_dword(dev, PCI_USH_SSCFG1, &value);
+
+	/* clear SSCFG1 BIT 28 and 30 after back to D0 */
+	value &= (~(PCI_USH_SSCFG1_D3 | PCI_USH_SSCFG1_SUS));
+	pci_write_config_dword(dev, PCI_USH_SSCFG1, value);
+
+	pci_read_config_dword(dev, PCI_USH_SSCFG1, &value);
+	dev_dbg(&dev->dev, "PCI B0 reg (SSCFG1) = 0x%x\n", value);
+}
+DECLARE_PCI_FIXUP_RESUME(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BYT_USH,
+			quirk_byt_ush_resume);
