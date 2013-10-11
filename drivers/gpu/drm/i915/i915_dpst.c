@@ -289,9 +289,18 @@ i915_dpst_context(struct drm_device *dev, void *data,
 			struct drm_file *file_priv)
 {
 	struct dpst_initialize_context *ioctl_data = NULL;
+	struct drm_crtc *crtc  = intel_get_crtc_for_pipe(dev, PIPE_A);
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+
 	int ret = -EINVAL;
 
+	if (!I915_HAS_DPST(dev))
+		return -EINVAL;
+
 	if (!data)
+		return -EINVAL;
+
+	if (!intel_crtc->active)
 		return -EINVAL;
 
 	ioctl_data = (struct dpst_initialize_context *) data;

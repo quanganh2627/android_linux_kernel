@@ -398,6 +398,7 @@ static const struct intel_device_info intel_valleyview_m_info = {
 	.is_mobile = 1,
 	.num_pipes = 2,
 	.is_valleyview = 1,
+	.has_dpst = 1,
 	.display_mmio_offset = VLV_DISPLAY_BASE,
 	.has_llc = 0, /* legal, last one wins */
 };
