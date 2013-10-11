@@ -27,6 +27,7 @@
 #include <asm/intel_scu_pmic.h>
 #include <asm/intel_mid_rpmsg.h>
 #include <linux/platform_data/intel_mid_remoteproc.h>
+#include <linux/reboot.h>
 
 /* Wake lock to prevent platform from going to
 	S3 when USBDET interrupt Trigger */
@@ -35,6 +36,7 @@ static struct wake_lock wakelock;
 #define DRIVER_NAME "pmic_charger"
 #define MSIC_SPWRSRCINT 0x192
 #define MSIC_SUSBDET_MASK_BIT	0x2
+#define MSIC_SBATTDET_MASK_BIT  0x1
 
 static irqreturn_t pmic_charger_thread_handler(int irq, void *devid)
 {
@@ -51,6 +53,12 @@ static irqreturn_t pmic_charger_thread_handler(int irq, void *devid)
 	if ((spwrsrcint & MSIC_SUSBDET_MASK_BIT) == 0) {
 		if (wake_lock_active(&wakelock))
 			wake_unlock(&wakelock);
+	}
+
+	/* Shutdown upon battery removal */
+	if ((spwrsrcint & MSIC_SBATTDET_MASK_BIT) == 0) {
+		dev_info(dev, "battery removal shutdown\n");
+		kernel_power_off();
 	}
 
 	dev_info(dev, "pmic charger interrupt: %d\n", irq);
