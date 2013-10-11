@@ -415,13 +415,6 @@ static struct cpuidle_state mrfld_cstates[CPUIDLE_STATE_MAX] = {
 		.exit_latency = 1200,
 		.target_residency = 4000,
 		.enter = &intel_idle },
-	{ /* MWAIT C8-S0i2 */
-		.name = "S0i2-ATM",
-		.desc = "MWAIT 0x62",
-		.flags = MWAIT2flg(0x62) | CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TLB_FLUSHED,
-		.exit_latency = 2000,
-		.target_residency = 8000,
-		.enter = &intel_idle },
 	{ /* MWAIT C9-S0i3 */
 		.name = "S0i3-ATM",
 		.desc = "MWAIT 0x64",
