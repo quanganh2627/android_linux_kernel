@@ -72,6 +72,7 @@ enum sst_drv_status {
 
 int sst_platform_clv_init(struct snd_soc_platform *platform);
 int sst_dsp_init(struct snd_soc_platform *platform);
+int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform);
 
 unsigned int sst_soc_read(struct snd_soc_platform *platform, unsigned int reg);
 int sst_soc_write(struct snd_soc_platform *platform, unsigned int reg, unsigned int val);

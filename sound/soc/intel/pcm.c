@@ -767,14 +767,17 @@ static int sst_soc_probe(struct snd_soc_platform *platform)
 	    INTEL_MID_BOARD(1, TABLET, BYT))
 		return sst_platform_clv_init(platform);
 	if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
-			INTEL_MID_BOARD(1, TABLET, MRFL)) {
+	    INTEL_MID_BOARD(1, TABLET, MRFL)) {
+#ifdef SST_MRFLD_DPCM
+		ret = sst_dsp_init_v2_dpcm(platform);
+#else
 		ret = sst_dsp_init(platform);
 		if (ret)
 			return ret;
 		ret = snd_soc_register_effect(platform->card, &effects_ops);
-		return ret;
+#endif
 	}
-	return 0;
+	return ret;
 }
 
 static int sst_soc_remove(struct snd_soc_platform *platform)

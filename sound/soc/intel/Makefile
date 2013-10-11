@@ -1,12 +1,13 @@
 #EXTRA CFLAGS
 ccflags-y += -Werror
+#ccflags-y += -DSST_MRFLD_DPCM
 
 ifeq (${TARGET_BUILD_VARIANT},$(filter ${TARGET_BUILD_VARIANT}, eng))
 ccflags-y += -DCONFIG_SND_VERBOSE_PRINTK -DCONFIG_SND_DEBUG -DCONFIG_SND_DEBUG_VERBOSE
 endif
 
 # SST Platform Driver
-PLATFORM_LIBS = platform-libs/controls_v1.o platform-libs/controls_v2.o \
+PLATFORM_LIBS = platform-libs/controls_v1.o platform-libs/controls_v2.o platform-libs/controls_v2_dpcm.o \
 		platform-libs/ipc_lib_v2.o
 
 snd-soc-sst-platform-objs := pcm.o compress.o effects.o $(PLATFORM_LIBS)
