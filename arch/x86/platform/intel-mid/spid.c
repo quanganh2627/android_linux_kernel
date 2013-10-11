@@ -169,17 +169,19 @@ static struct attribute_group spid_attr_group = {
 static ssize_t iafw_version_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%02X.%02X\n", pidv.iafw_major, pidv.iafw_minor);
+	return sprintf(buf, "%04X.%04X\n", pidv.iafwrevvalues[iarevmajor],
+		pidv.iafwrevvalues[iarevminor]);
 }
 pidv_attr(iafw_version);
 
 static ssize_t secfw_version_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%02X.%02X\n", pidv.secfw_major, pidv.secfw_minor);
+	return sprintf(buf, "%02d.%02d\n",
+		(pidv.secrevvalues[secrev] / 100),
+		(pidv.secrevvalues[secrev] % 100));
 }
 pidv_attr(secfw_version);
-
 
 static struct attribute *pidv_attrs[] = {
 	&iafw_version_attr.attr,

@@ -24,6 +24,9 @@
 #include <linux/acpi.h>
 #ifdef CONFIG_ACPI
 #define ACPI_SIG_PIDV           "PIDV"
+#define iarevmajor		0
+#define iarevminor		1
+#define secrev			3
 
 #define pidv_attr(_name) \
 static struct kobj_attribute _name##_attr = {	\
@@ -39,10 +42,13 @@ struct platform_id {
 	u8 ext_id_1[32];
 	u8 ext_id_2[32];
 	u8 uuid[16];
-	u8 iafw_major;
-	u8 iafw_minor;
-	u8 secfw_major;
-	u8 secfw_minor;
+	u8 iafwBuildid[32];
+	u32 iasvn;
+	u32 secsvn;
+	u32 pdrsvn;
+	u16 iafwrevvalues[4];
+	u16 secrevvalues[4];
+	u16 pdrrevvalues[4];
 };
 
 struct acpi_table_pidv {
