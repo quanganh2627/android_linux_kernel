@@ -89,13 +89,6 @@ static void intel_mid_reboot(void)
 		rpmsg_send_generic_simple_command(IPCMSG_COLD_RESET, 0);
 }
 
-static void __init intel_mid_reserve_resources(void)
-{
-#ifdef CONFIG_INTEL_MID_PSTORE_RAM
-	pstore_ram_reserve_memory();
-#endif
-}
-
 static unsigned long __init intel_mid_calibrate_tsc(void)
 {
 	return 0;
@@ -189,7 +182,7 @@ static unsigned char intel_mid_get_nmi_reason(void)
 void __init x86_intel_mid_early_setup(void)
 {
 	x86_init.resources.probe_roms = x86_init_noop;
-	x86_init.resources.reserve_resources = intel_mid_reserve_resources;
+	x86_init.resources.reserve_resources = x86_init_noop;
 
 	x86_init.timers.timer_init = intel_mid_time_init;
 	x86_init.timers.setup_percpu_clockev = x86_init_noop;
