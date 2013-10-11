@@ -68,6 +68,27 @@ static int sst_fill_and_send_cmd(struct sst_data *sst,
 	return ret;
 }
 
+static int sst_vb_trigger_event(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *k, int event)
+{
+	struct sst_cmd_generic cmd;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+
+	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		cmd.header.command_id = SBA_VB_START;
+	else
+		cmd.header.command_id = SBA_IDLE;
+
+	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
+	cmd.header.length = 0;
+
+	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
+			      SST_TASK_SBA, 0, &cmd,
+			      sizeof(cmd.header) + cmd.header.length);
+	return 0;
+}
+
 static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 			 struct snd_kcontrol *k, int event)
 {
@@ -120,6 +141,10 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_SSP_AIF_OUT("codec_out0", SSP_CODEC, sst_ssp_event),
 	SST_SSP_AIF_OUT("codec_out1", SSP_CODEC, sst_ssp_event),
 	SST_SSP_AIF_OUT("bt_fm_out", SSP_FM, sst_ssp_event),
+
+	SND_SOC_DAPM_SUPPLY("VBTimer", SND_SOC_NOPM, 0, 0,
+			    sst_vb_trigger_event,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 };
 
 static const struct snd_soc_dapm_route intercon[] = {
