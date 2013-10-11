@@ -154,7 +154,6 @@ struct atomisp_3a_config {
 	int af_fir2_coef[7];	/* [factor] AF FIR coefficients of fir2 */
 };
 
-#ifdef CONFIG_VIDEO_ATOMISP_CSS20
 struct atomisp_dvs_grid_info {
 	uint32_t enable;
 	uint32_t width;
@@ -171,6 +170,7 @@ struct atomisp_dvs_envelop {
 	unsigned int height;
 };
 
+#ifdef CONFIG_VIDEO_ATOMISP_CSS20
 struct atomisp_grid_info {
 	uint32_t enable;
 	uint32_t use_dmem;
@@ -209,7 +209,6 @@ struct atomisp_dis_vector {
 };
 
 
-#ifdef CONFIG_VIDEO_ATOMISP_CSS20
 /** DVS 2.0 Coefficient types. This structure contains 4 pointers to
  *  arrays that contain the coeffients for each type.
  */
@@ -230,7 +229,6 @@ struct atomisp_dvs2_stat_types {
 	int __user *even_real;/**< real part of the even statistics*/
 	int __user *even_imag;/**< imaginary part of the even statistics*/
 };
-#endif /* CONFIG_VIDEO_ATOMISP_CSS20 */
 
 struct atomisp_dis_coefficients {
 #ifdef CONFIG_VIDEO_ATOMISP_CSS20
