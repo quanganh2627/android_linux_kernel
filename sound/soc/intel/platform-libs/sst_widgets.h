@@ -47,5 +47,18 @@ struct sst_ids {
 	.priv = (void *)&(struct sst_ids) { .ssp_id = wssp_id, }			\
 }
 
+#define SST_PATH(wname, wtask, wloc_id, wevent, wflags)					\
+{	.id = snd_soc_dapm_pga, .name = wname, .reg = SND_SOC_NOPM, .shift = 0,		\
+	.invert = 0, .kcontrol_news = NULL, .num_kcontrols = 0,				\
+	.event = wevent, .event_flags = wflags,						\
+	.priv = (void *)&(struct sst_ids) { .task_id = wtask, .location_id = wloc_id, }	\
+}
+
+/* output is triggered before input */
+#define SST_PATH_INPUT(name, task_id, loc_id, event) \
+	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_POST_PMU)
+
+#define SST_PATH_OUTPUT(name, task_id, loc_id, event) \
+	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_PRE_PMU)
 
 #endif
