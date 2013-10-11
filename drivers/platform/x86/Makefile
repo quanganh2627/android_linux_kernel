@@ -59,3 +59,4 @@ obj-$(CONFIG_CHROMEOS_LAPTOP)	+= chromeos_laptop.o
 obj-$(CONFIG_PVPANIC)           += pvpanic.o
 obj-$(CONFIG_INTEL_BYT_EC)	+= intel_byt_ec.o
 obj-$(CONFIG_INTEL_BYT_M_BTN)	+= intel_byt_buttons.o
+obj-$(CONFIG_INTEL_CRYSTALCOVE_PAGE0)	+= intel_crystalcove_page0.o
