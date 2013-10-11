@@ -16,6 +16,7 @@ struct sdhci_pci_data {
 	int		(*power_up)(void *data);
 	void		(*register_embedded_control)(void *dev_id,
 			   void (*virtual_cd)(void *dev_id, int card_present));
+	int		(*flis_check)(void *data, unsigned int clk);
 };
 
 /* Some Pre-Silicon platform not support all SDHCI HCs of the SoC */
