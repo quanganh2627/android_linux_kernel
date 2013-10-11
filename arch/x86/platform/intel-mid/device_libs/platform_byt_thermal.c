@@ -44,24 +44,24 @@ static int linear_correlation(void *info, long temp, long *res)
 
 static struct intel_mid_thermal_sensor byt_sensors[] = {
 	{
-		.name = "SYSTHERM0",
+		.name = "skin1",
 		.index = 0,
+		.slope = 873,
+		.intercept = -4139,
+		.temp_correlation = linear_correlation,
+	},
+	{
+		.name = "SYSTHERM1",
+		.index = 1,
 		.slope = 1000,
 		.intercept = 0,
 		.temp_correlation = linear_correlation,
 	},
 	{
 		.name = "skin0",
-		.index = 1,
-		.slope = 477,
-		.intercept = 22002,
-		.temp_correlation = linear_correlation,
-	},
-	{
-		.name = "skin1",
 		.index = 2,
-		.slope = 347,
-		.intercept = 17940,
+		.slope = 553,
+		.intercept = 11848,
 		.temp_correlation = linear_correlation,
 	},
 	{
