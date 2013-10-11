@@ -23,6 +23,7 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <sound/soc.h>
+#include <sound/tlv.h>
 #include "../platform_ipc_v2.h"
 #include "../sst_platform.h"
 #include "../sst_platform_pvt.h"
@@ -67,6 +68,102 @@ static int sst_fill_and_send_cmd(struct sst_data *sst,
 	print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, cmd_data, len);
 	return ret;
 }
+
+static int sst_gain_ctl_info(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
+{
+	struct sst_gain_mixer_control *mc = (void *)kcontrol->private_value;
+
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = mc->stereo ? 2 : 1;
+	uinfo->value.integer.min = mc->min;
+	uinfo->value.integer.max = mc->max;
+	return 0;
+}
+
+static void sst_send_gain_cmd(struct sst_data *sst, struct sst_gain_value *gv,
+			      u16 task_id, u16 loc_id)
+{
+	struct sst_cmd_set_gain_dual cmd;
+	pr_debug("%s", __func__);
+
+	cmd.header.command_id = MMX_SET_GAIN;
+	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
+	cmd.gain_cell_num = 1;
+
+	if (gv->mute) {
+		cmd.cell_gains[0].cell_gain_left = SST_GAIN_MIN_VALUE;
+		cmd.cell_gains[0].cell_gain_right = SST_GAIN_MIN_VALUE;
+	} else {
+		cmd.cell_gains[0].cell_gain_left = gv->l_gain;
+		cmd.cell_gains[0].cell_gain_right = gv->r_gain;
+	}
+	SST_FILL_DESTINATION(2, cmd.cell_gains[0].dest,
+			     loc_id, SST_MODULE_ID_GAIN_CELL);
+	cmd.cell_gains[0].gain_time_constant = gv->ramp_duration;
+
+	cmd.header.length = sizeof(struct sst_cmd_set_gain_dual)
+				- sizeof(struct sst_dsp_header);
+
+	sst_fill_and_send_cmd(sst, SST_IPC_IA_SET_PARAMS, SST_FLAG_BLOCKED,
+			      task_id, 0, &cmd,
+			      sizeof(cmd.header) + cmd.header.length);
+}
+
+static int sst_gain_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct sst_gain_mixer_control *mc = (void *)kcontrol->private_value;
+	struct sst_gain_value *gv = mc->gain_val;
+
+	switch (mc->type) {
+	case SST_GAIN_TLV:
+		ucontrol->value.integer.value[0] = gv->l_gain;
+		ucontrol->value.integer.value[1] = gv->r_gain;
+		pr_debug("%s: Volume %d, %d\n", __func__, gv->l_gain, gv->r_gain);
+		break;
+	case SST_GAIN_MUTE:
+		ucontrol->value.integer.value[0] = gv->mute ? 1 : 0;
+		pr_debug("%s: Mute %d\n", __func__, gv->mute);
+		break;
+	case SST_GAIN_RAMP_DURATION:
+		ucontrol->value.integer.value[0] = gv->ramp_duration;
+		pr_debug("%s: RampDuration %d\n", __func__, gv->ramp_duration);
+		break;
+	};
+	return 0;
+}
+
+static int sst_gain_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct sst_gain_mixer_control *mc = (void *)kcontrol->private_value;
+	struct sst_gain_value *gv = mc->gain_val;
+
+	switch (mc->type) {
+	case SST_GAIN_TLV:
+		gv->l_gain = ucontrol->value.integer.value[0];
+		gv->r_gain = ucontrol->value.integer.value[1];
+		pr_debug("%s: Volume %d, %d\n", __func__, gv->l_gain, gv->r_gain);
+		break;
+	case SST_GAIN_MUTE:
+		gv->mute = !!ucontrol->value.integer.value[0];
+		pr_debug("%s: Mute %d\n", __func__, gv->mute);
+		break;
+	case SST_GAIN_RAMP_DURATION:
+		gv->ramp_duration = ucontrol->value.integer.value[0];
+		pr_debug("%s: RampDuration %d\n", __func__, gv->ramp_duration);
+		break;
+	};
+
+	/* TODO: send only when module is instantiated */
+	sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id);
+	return 0;
+}
+
+static const DECLARE_TLV_DB_SCALE(sst_gain_tlv_common, SST_GAIN_MIN_VALUE * 10, 10, 0);
 
 /* Look up table to convert MIXER SW bit regs to SWM inputs */
 static const uint swm_mixer_input_ids[SST_SWM_INPUT_COUNT] = {
@@ -546,8 +643,58 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"VOIP Playback", NULL, "VBTimer"},
 };
 
+/* Gain helper with min/max set */
+#define SST_GAIN(name, path_id, task_id, instance, gain_var)			\
+	SST_GAIN_KCONTROLS(name, SST_GAIN_MIN_VALUE, SST_GAIN_MAX_VALUE,	\
+			   SST_GAIN_TC_MIN, SST_GAIN_TC_MAX,			\
+			   sst_gain_get, sst_gain_put,				\
+			   SST_MODULE_ID_GAIN_CELL, path_id, instance, task_id,	\
+			   sst_gain_tlv_common, gain_var)
+
+#define SST_NUM_GAINS 30
+static struct sst_gain_value sst_gains[SST_NUM_GAINS];
+
+static const struct snd_kcontrol_new sst_gain_controls[] = {
+	SST_GAIN("media0_in", SST_PATH_INDEX_MEDIA0_IN, SST_TASK_MMX, 0, &sst_gains[0]),
+	SST_GAIN("media1_in", SST_PATH_INDEX_MEDIA1_IN, SST_TASK_MMX, 0, &sst_gains[1]),
+	SST_GAIN("media2_in", SST_PATH_INDEX_MEDIA2_IN, SST_TASK_MMX, 0, &sst_gains[2]),
+	SST_GAIN("media3_in", SST_PATH_INDEX_MEDIA3_IN, SST_TASK_MMX, 0, &sst_gains[3]),
+
+	SST_GAIN("pcm0_in", SST_PATH_INDEX_PCM0_IN, SST_TASK_SBA, 0, &sst_gains[4]),
+	SST_GAIN("pcm1_in", SST_PATH_INDEX_PCM1_IN, SST_TASK_SBA, 0, &sst_gains[5]),
+	SST_GAIN("low_pcm0_in", SST_PATH_INDEX_LOW_PCM0_IN, SST_TASK_SBA, 0, &sst_gains[6]),
+	SST_GAIN("pcm1_out", SST_PATH_INDEX_PCM1_OUT, SST_TASK_SBA, 0, &sst_gains[7]),
+	SST_GAIN("pcm2_out", SST_PATH_INDEX_PCM1_OUT, SST_TASK_SBA, 0, &sst_gains[8]),
+
+	SST_GAIN("voip_in", SST_PATH_INDEX_VOIP_IN, SST_TASK_SBA, 0, &sst_gains[9]),
+	SST_GAIN("voip_out", SST_PATH_INDEX_VOIP_OUT, SST_TASK_SBA, 0, &sst_gains[10]),
+	SST_GAIN("tone_in", SST_PATH_INDEX_TONE_IN, SST_TASK_SBA, 0, &sst_gains[11]),
+
+	SST_GAIN("aware_out", SST_PATH_INDEX_AWARE_OUT, SST_TASK_SBA, 0, &sst_gains[12]),
+	SST_GAIN("vad_out", SST_PATH_INDEX_VAD_OUT, SST_TASK_SBA, 0, &sst_gains[13]),
+
+	SST_GAIN("hf_sns_out", SST_PATH_INDEX_HF_SNS_OUT, SST_TASK_SBA, 0, &sst_gains[14]),
+	SST_GAIN("hf_out", SST_PATH_INDEX_HF_OUT, SST_TASK_SBA, 0, &sst_gains[15]),
+	SST_GAIN("speech_out", SST_PATH_INDEX_SPEECH_OUT, SST_TASK_SBA, 0, &sst_gains[16]),
+	SST_GAIN("txspeech_in", SST_PATH_INDEX_TX_SPEECH_IN, SST_TASK_SBA, 0, &sst_gains[17]),
+	SST_GAIN("rxspeech_out", SST_PATH_INDEX_RX_SPEECH_OUT, SST_TASK_SBA, 0, &sst_gains[18]),
+	SST_GAIN("speech_in", SST_PATH_INDEX_SPEECH_IN, SST_TASK_SBA, 0, &sst_gains[19]),
+
+	SST_GAIN("codec_in0", SST_PATH_INDEX_CODEC_IN0, SST_TASK_SBA, 0, &sst_gains[20]),
+	SST_GAIN("codec_in1", SST_PATH_INDEX_CODEC_IN1, SST_TASK_SBA, 0, &sst_gains[21]),
+	SST_GAIN("codec_out0", SST_PATH_INDEX_CODEC_OUT0, SST_TASK_SBA, 0, &sst_gains[22]),
+	SST_GAIN("codec_out1", SST_PATH_INDEX_CODEC_OUT1, SST_TASK_SBA, 0, &sst_gains[23]),
+	SST_GAIN("bt_out", SST_PATH_INDEX_BT_OUT, SST_TASK_SBA, 0, &sst_gains[24]),
+	SST_GAIN("fm_out", SST_PATH_INDEX_FM_OUT, SST_TASK_SBA, 0, &sst_gains[25]),
+	SST_GAIN("bt_in", SST_PATH_INDEX_BT_IN, SST_TASK_SBA, 0, &sst_gains[26]),
+	SST_GAIN("fm_in", SST_PATH_INDEX_FM_IN, SST_TASK_SBA, 0, &sst_gains[27]),
+	SST_GAIN("modem_in", SST_PATH_INDEX_MODEM_IN, SST_TASK_SBA, 0, &sst_gains[28]),
+	SST_GAIN("modem_out", SST_PATH_INDEX_MODEM_OUT, SST_TASK_SBA, 0, &sst_gains[29]),
+};
+
 int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 {
+	int i;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
 
 	sst->byte_stream = devm_kzalloc(platform->dev,
@@ -569,6 +716,15 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 	snd_soc_dapm_add_routes(&platform->dapm, intercon,
 			ARRAY_SIZE(intercon));
 	snd_soc_dapm_new_widgets(&platform->dapm);
+
+	for (i = 0; i < SST_NUM_GAINS; i++) {
+		sst_gains[i].mute = SST_GAIN_MUTE_DEFAULT;
+		sst_gains[i].l_gain = SST_GAIN_VOLUME_DEFAULT;
+		sst_gains[i].r_gain = SST_GAIN_VOLUME_DEFAULT;
+		sst_gains[i].ramp_duration = SST_GAIN_RAMP_DURATION_DEFAULT;
+	}
+	snd_soc_add_platform_controls(platform, sst_gain_controls,
+			ARRAY_SIZE(sst_gain_controls));
 
 	return 0;
 }
