@@ -68,6 +68,161 @@ static int sst_fill_and_send_cmd(struct sst_data *sst,
 	return ret;
 }
 
+/* Look up table to convert MIXER SW bit regs to SWM inputs */
+static const uint swm_mixer_input_ids[SST_SWM_INPUT_COUNT] = {
+	[SST_IP_MODEM]		= SST_SWM_IN_MODEM,
+	[SST_IP_BT]		= SST_SWM_IN_BT,
+	[SST_IP_CODEC0]		= SST_SWM_IN_CODEC0,
+	[SST_IP_CODEC1]		= SST_SWM_IN_CODEC1,
+	[SST_IP_LOOP0]		= SST_SWM_IN_SPROT_LOOP,
+	[SST_IP_LOOP1]		= SST_SWM_IN_MEDIA_LOOP1,
+	[SST_IP_LOOP2]		= SST_SWM_IN_MEDIA_LOOP2,
+	[SST_IP_SIDETONE]	= SST_SWM_IN_SIDETONE,
+	[SST_IP_TXSPEECH]	= SST_SWM_IN_TXSPEECH,
+	[SST_IP_SPEECH]		= SST_SWM_IN_SPEECH,
+	[SST_IP_TONE]		= SST_SWM_IN_TONE,
+	[SST_IP_VOIP]		= SST_SWM_IN_VOIP,
+	[SST_IP_PCM0]		= SST_SWM_IN_PCM0,
+	[SST_IP_PCM1]		= SST_SWM_IN_PCM1,
+	[SST_IP_LOW_PCM0]	= SST_SWM_IN_LOW_PCM0,
+	[SST_IP_FM]		= SST_SWM_IN_FM,
+	[SST_IP_MEDIA0]		= SST_SWM_IN_MEDIA0,
+	[SST_IP_MEDIA1]		= SST_SWM_IN_MEDIA1,
+	[SST_IP_MEDIA2]		= SST_SWM_IN_MEDIA2,
+	[SST_IP_MEDIA3]		= SST_SWM_IN_MEDIA3,
+};
+
+static int fill_swm_input(struct swm_input_ids *swm_input, unsigned int reg)
+{
+	uint i, is_set, nb_inputs = 0;
+	u16 input_loc_id;
+
+	pr_debug("%s:reg value:%#x\n", __func__, reg);
+	for (i = 0; i < SST_SWM_INPUT_COUNT; i++) {
+		is_set = reg & BIT(i);
+		if (!is_set)
+			continue;
+
+		input_loc_id = swm_mixer_input_ids[i];
+		SST_FILL_DESTINATION(2, swm_input->input_id,
+				     input_loc_id, SST_DEFAULT_MODULE_ID);
+		nb_inputs++;
+		swm_input++;
+		pr_debug("input id:%#x, nb_inputs:%d\n", input_loc_id, nb_inputs);
+
+		if (nb_inputs == SST_CMD_SWM_MAX_INPUTS) {
+			pr_warn("%s: SET_SWM cmd max inputs reached", __func__);
+			break;
+		}
+	}
+	return nb_inputs;
+}
+
+static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *k, int event)
+{
+	struct sst_cmd_set_swm cmd;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+	struct sst_ids *ids = w->priv;
+
+	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
+	pr_debug("reg=%d reg value:%#x\n", w->reg, sst->widget[w->reg]);
+
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		cmd.switch_state = SST_SWM_ON;
+	else
+		cmd.switch_state = SST_SWM_OFF;
+
+	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
+	/* MMX_SET_SWM == SBA_SET_SWM */
+	cmd.header.command_id = SBA_SET_SWM;
+
+	SST_FILL_DESTINATION(2, cmd.output_id,
+			     ids->location_id, SST_DEFAULT_MODULE_ID);
+	pr_debug("O/p Location mixer:%s, location id:%#x\n", w->name, cmd.output_id.location_id.f);
+
+	cmd.nb_inputs =	fill_swm_input(&cmd.input[0], sst->widget[w->reg]);
+	cmd.header.length = offsetof(struct sst_cmd_set_swm, input) - sizeof(struct sst_dsp_header)
+				+ (cmd.nb_inputs * sizeof(cmd.input[0]));
+
+	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
+			      ids->task_id, 0, &cmd,
+			      sizeof(cmd.header) + cmd.header.length);
+	return 0;
+}
+
+/* SBA mixers - 16 inputs */
+#define SST_SBA_DECLARE_MIX_CONTROLS(kctl_name, mixer_reg)			\
+	static const struct snd_kcontrol_new kctl_name[] = {			\
+		SOC_SINGLE_EXT("modem_in", mixer_reg, SST_IP_MODEM, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("bt_in", mixer_reg, SST_IP_BT, 1, 0,		\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("codec_in0", mixer_reg, SST_IP_CODEC0, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("codec_in1", mixer_reg, SST_IP_CODEC1, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("sprot_loop_in", mixer_reg, SST_IP_LOOP0, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("media_loop1_in", mixer_reg, SST_IP_LOOP1, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("media_loop2_in", mixer_reg, SST_IP_LOOP2, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("sidetone_in", mixer_reg, SST_IP_SIDETONE, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("txspeech_in", mixer_reg, SST_IP_TXSPEECH, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("speech_in", mixer_reg, SST_IP_SPEECH, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("tone_in", mixer_reg, SST_IP_TONE, 1, 0,		\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("voip_in", mixer_reg, SST_IP_VOIP, 1, 0,		\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("pcm0_in", mixer_reg, SST_IP_PCM0, 1, 0,		\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("pcm1_in", mixer_reg, SST_IP_PCM1, 1, 0,		\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("low_pcm0_in", mixer_reg, SST_IP_LOW_PCM0, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("fm_in", mixer_reg, SST_IP_FM, 1, 0,		\
+				sst_mix_get, sst_mix_put),			\
+	}
+
+#define SST_MMX_DECLARE_MIX_CONTROLS(kctl_name, mixer_reg)			\
+	static const struct snd_kcontrol_new kctl_name[] = {			\
+		SOC_SINGLE_EXT("media0_in", mixer_reg, SST_IP_MEDIA0, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("media1_in", mixer_reg, SST_IP_MEDIA1, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("media2_in", mixer_reg, SST_IP_MEDIA2, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("media3_in", mixer_reg, SST_IP_MEDIA3, 1, 0,	\
+				sst_mix_get, sst_mix_put),			\
+	}
+
+SST_MMX_DECLARE_MIX_CONTROLS(sst_mix_media0_controls, SST_MIX_MEDIA0);
+SST_MMX_DECLARE_MIX_CONTROLS(sst_mix_media1_controls, SST_MIX_MEDIA1);
+
+/* 18 SBA mixers */
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_pcm0_controls, SST_MIX_PCM0);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_pcm1_controls, SST_MIX_PCM1);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_pcm2_controls, SST_MIX_PCM2);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_sprot_l0_controls, SST_MIX_LOOP0);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_media_l1_controls, SST_MIX_LOOP1);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_media_l2_controls, SST_MIX_LOOP2);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_voip_controls, SST_MIX_VOIP);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_aware_controls, SST_MIX_AWARE);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_vad_controls, SST_MIX_VAD);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_hf_sns_controls, SST_MIX_HF_SNS);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_hf_controls, SST_MIX_HF);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_speech_controls, SST_MIX_SPEECH);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_rxspeech_controls, SST_MIX_RXSPEECH);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_codec0_controls, SST_MIX_CODEC0);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_codec1_controls, SST_MIX_CODEC1);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_bt_controls, SST_MIX_BT);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_fm_controls, SST_MIX_FM);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_modem_controls, SST_MIX_MODEM);
+
 static int sst_vb_trigger_event(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *k, int event)
 {
@@ -248,6 +403,57 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_PATH_OUTPUT("hf_out", SST_TASK_SBA, SST_SWM_OUT_HF, NULL),
 	SST_PATH_OUTPUT("speech_out", SST_TASK_SBA, SST_SWM_OUT_SPEECH, NULL),
 	SST_PATH_OUTPUT("rxspeech_out", SST_TASK_SBA, SST_SWM_OUT_RXSPEECH, NULL),
+
+	/* Media Mixers */
+	SST_SWM_MIXER("media0_out mix 0", SST_MIX_MEDIA0, SST_TASK_MMX, SST_SWM_OUT_MEDIA0,
+		      sst_mix_media0_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("media1_out mix 0", SST_MIX_MEDIA1, SST_TASK_MMX, SST_SWM_OUT_MEDIA1,
+		      sst_mix_media1_controls, sst_swm_mixer_event),
+
+	/* SBA PCM mixers */
+	SST_SWM_MIXER("pcm0_out mix 0", SST_MIX_PCM0, SST_TASK_SBA, SST_SWM_OUT_PCM0,
+		      sst_mix_pcm0_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("pcm1_out mix 0", SST_MIX_PCM1, SST_TASK_SBA, SST_SWM_OUT_PCM1,
+		      sst_mix_pcm1_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("pcm2_out mix 0", SST_MIX_PCM2, SST_TASK_SBA, SST_SWM_OUT_PCM2,
+		      sst_mix_pcm2_controls, sst_swm_mixer_event),
+
+	/* SBA Loop mixers */
+	SST_SWM_MIXER("sprot_loop_out mix 0", SST_MIX_LOOP0, SST_TASK_SBA, SST_SWM_OUT_SPROT_LOOP,
+		      sst_mix_sprot_l0_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("media_loop1_out mix 0", SST_MIX_LOOP1, SST_TASK_SBA, SST_SWM_OUT_MEDIA_LOOP1,
+		      sst_mix_media_l1_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("media_loop2_out mix 0", SST_MIX_LOOP2, SST_TASK_SBA, SST_SWM_OUT_MEDIA_LOOP2,
+		      sst_mix_media_l2_controls, sst_swm_mixer_event),
+
+	SST_SWM_MIXER("voip_out mix 0", SST_MIX_VOIP, SST_TASK_SBA, SST_SWM_OUT_VOIP,
+		      sst_mix_voip_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("aware_out mix 0", SST_MIX_AWARE, SST_TASK_SBA, SST_SWM_OUT_AWARE,
+		      sst_mix_aware_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("vad_out mix 0", SST_MIX_VAD, SST_TASK_SBA, SST_SWM_OUT_VAD,
+		      sst_mix_vad_controls, sst_swm_mixer_event),
+
+	/* SBA Voice mixers */
+	SST_SWM_MIXER("hf_sns_out mix 0", SST_MIX_HF_SNS, SST_TASK_SBA, SST_SWM_OUT_HF_SNS,
+		      sst_mix_hf_sns_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("hf_out mix 0", SST_MIX_HF, SST_TASK_SBA, SST_SWM_OUT_HF,
+		      sst_mix_hf_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("speech_out mix 0", SST_MIX_SPEECH, SST_TASK_SBA, SST_SWM_OUT_SPEECH,
+		      sst_mix_speech_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("rxspeech_out mix 0", SST_MIX_RXSPEECH, SST_TASK_SBA, SST_SWM_OUT_RXSPEECH,
+		      sst_mix_rxspeech_controls, sst_swm_mixer_event),
+
+	/* SBA Backend mixers */
+	SST_SWM_MIXER("codec_out0 mix 0", SST_MIX_CODEC0, SST_TASK_SBA, SST_SWM_OUT_CODEC0,
+		      sst_mix_codec0_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("codec_out1 mix 0", SST_MIX_CODEC1, SST_TASK_SBA, SST_SWM_OUT_CODEC1,
+		      sst_mix_codec1_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("bt_out mix 0", SST_MIX_BT, SST_TASK_SBA, SST_SWM_OUT_BT,
+		      sst_mix_bt_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("fm_out mix 0", SST_MIX_FM, SST_TASK_SBA, SST_SWM_OUT_FM,
+		      sst_mix_fm_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("modem_out mix 0", SST_MIX_MODEM, SST_TASK_SBA, SST_SWM_OUT_MODEM,
+		      sst_mix_modem_controls, sst_swm_mixer_event),
 
 	SND_SOC_DAPM_SUPPLY("VBTimer", SND_SOC_NOPM, 0, 0,
 			    sst_vb_trigger_event,

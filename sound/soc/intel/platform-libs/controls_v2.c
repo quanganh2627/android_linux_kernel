@@ -90,7 +90,7 @@ int sst_soc_write(struct snd_soc_platform *platform,
 	return 0;
 }
 
-static int sst_mix_put(struct snd_kcontrol *kcontrol,
+int sst_mix_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
@@ -112,7 +112,7 @@ static int sst_mix_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int sst_mix_get(struct snd_kcontrol *kcontrol,
+int sst_mix_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);

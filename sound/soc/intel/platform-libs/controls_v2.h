@@ -571,4 +571,6 @@ struct sst_cmd_sba_hw_set_ssp {
 	u16 start_delay:8;		/* Start delay in terms of clock ticks */
 } __packed;
 
+int sst_mix_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
+int sst_mix_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
 #endif
