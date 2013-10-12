@@ -158,7 +158,7 @@ static struct usb_configuration android_config_driver = {
 	.unbind		= android_unbind_config,
 	.bConfigurationValue = 1,
 	.bmAttributes	= USB_CONFIG_ATT_ONE,
-	.MaxPower	= 0xFA, /* 500ma */
+	.MaxPower	= 500, /* 500ma */
 };
 
 static void android_work(struct work_struct *data)
@@ -1431,6 +1431,13 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 	spin_lock_irqsave(&cdev->lock, flags);
 	if (!dev->connected) {
 		dev->connected = 1;
+
+		/* set MaxPower as 900mA for SuperSpeed mode */
+		if (gadget->speed == USB_SPEED_SUPER)
+			android_config_driver.MaxPower = 896;
+		else
+			android_config_driver.MaxPower = 500;
+
 		schedule_work(&dev->work);
 	} else if (c->bRequest == USB_REQ_SET_CONFIGURATION &&
 						cdev->config) {
