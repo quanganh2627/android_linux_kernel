@@ -1072,6 +1072,22 @@ static void sst_do_memcpy(struct list_head *memcpy_list)
 	}
 }
 
+static void sst_memcpy_free_lib_resources(void)
+{
+	struct sst_memcpy_list *listnode, *tmplistnode;
+
+	pr_debug("entry:%s\n", __func__);
+
+	/*Free the list*/
+	if (!list_empty(&sst_drv_ctx->libmemcpy_list)) {
+		list_for_each_entry_safe(listnode, tmplistnode,
+				&sst_drv_ctx->libmemcpy_list, memcpylist) {
+			list_del(&listnode->memcpylist);
+			kfree(listnode);
+		}
+	}
+}
+
 void sst_memcpy_free_resources(void)
 {
 	struct sst_memcpy_list *listnode, *tmplistnode;
@@ -1086,14 +1102,7 @@ void sst_memcpy_free_resources(void)
 			kfree(listnode);
 		}
 	}
-
-	if (!list_empty(&sst_drv_ctx->libmemcpy_list)) {
-		list_for_each_entry_safe(listnode, tmplistnode,
-				&sst_drv_ctx->libmemcpy_list, memcpylist) {
-			list_del(&listnode->memcpylist);
-			kfree(listnode);
-		}
-	}
+	sst_memcpy_free_lib_resources();
 }
 
 /*
@@ -1703,6 +1712,7 @@ free_dma_res:
 		if (retval)
 			return retval;
 		sst_do_memcpy(&sst->libmemcpy_list);
+		sst_memcpy_free_lib_resources();
 	}
 	pr_debug("download lib complete");
 	return retval;
