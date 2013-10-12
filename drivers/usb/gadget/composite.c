@@ -693,14 +693,7 @@ static int set_config(struct usb_composite_dev *cdev,
 	}
 
 	/* when we return, be sure our power usage is valid */
-	if (gadget_is_superspeed(gadget) &&
-		(gadget->speed == USB_SPEED_SUPER))
-		/* MaxPower is expressed in 8-mA units for ss mode */
-		power = c->MaxPower ? (8 * c->MaxPower)
-		    : CONFIG_USB_GADGET_VBUS_DRAW;
-	else
-		power = c->MaxPower ? (2 * c->MaxPower)
-		    : CONFIG_USB_GADGET_VBUS_DRAW;
+	power = c->MaxPower ? c->MaxPower : CONFIG_USB_GADGET_VBUS_DRAW;
 done:
 	usb_gadget_vbus_draw(gadget, power);
 	if (result >= 0 && cdev->delayed_status)
@@ -1752,14 +1745,8 @@ composite_resume(struct usb_gadget *gadget)
 
 		maxpower = cdev->config->MaxPower;
 
-		if (gadget_is_superspeed(gadget) &&
-			(gadget->speed == USB_SPEED_SUPER))
-			/* MaxPower is expressed in 8-mA units for ss mode */
-			usb_gadget_vbus_draw(gadget, maxpower ?
-				(8 * maxpower) : CONFIG_USB_GADGET_VBUS_DRAW);
-		else
-			usb_gadget_vbus_draw(gadget, maxpower ?
-				(2 * maxpower) : CONFIG_USB_GADGET_VBUS_DRAW);
+		usb_gadget_vbus_draw(gadget, maxpower ?
+			maxpower : CONFIG_USB_GADGET_VBUS_DRAW);
 	}
 
 	cdev->suspended = 0;
