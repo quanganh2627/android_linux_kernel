@@ -3246,7 +3246,8 @@ static int rt5640_probe(struct snd_soc_codec *codec)
 	rt5640_reg_init(codec);
 	set_sys_clk(codec, RT5640_SCLK_S_RCCLK);
 	DC_Calibrate(codec);
-	codec->dapm.bias_level = SND_SOC_BIAS_STANDBY;
+	/* Set codec bias level to off during probe to avoid kernel warning */
+	rt5640_set_bias_level(codec, SND_SOC_BIAS_OFF);
 	rt5640->codec = codec;
 	rt5640->jack_type = RT5640_NO_JACK;
 
