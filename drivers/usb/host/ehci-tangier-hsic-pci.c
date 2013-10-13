@@ -28,6 +28,7 @@
 #include <linux/usb.h>
 #include <linux/suspend.h>
 #include <linux/debugfs.h>
+#include <linux/seq_file.h>
 
 static struct pci_dev	*pci_dev;
 
@@ -50,7 +51,7 @@ static const char disabled[] = "disabled";
 static const char reset[] = "reset";
 
 
-static struct dentry *ipc_debug_root;
+static struct dentry *hsic_debugfs_root;
 static struct dentry *ipc_debug_control;
 static struct dentry *ipc_stats;
 
@@ -177,48 +178,6 @@ static const struct file_operations ipc_stats_fops = {
 	.llseek                 = seq_lseek,
 	.release                = single_release,
 };
-
-static int ipc_debugfs_init(void)
-{
-	int		retval;
-
-	ipc_debug_root = debugfs_create_dir("hsic", usb_debug_root);
-	if (!ipc_debug_root) {
-		retval = -ENOENT;
-		goto root_err;
-	}
-
-	ipc_debug_control = debugfs_create_file("ipc_control", S_IRUGO,
-						ipc_debug_root, NULL,
-						&ipc_control_fops);
-	if (!ipc_debug_control) {
-		retval = -ENOENT;
-		goto file_err;
-	}
-
-	ipc_stats = debugfs_create_file("ipc_stats", S_IRUGO,
-						ipc_debug_root, NULL,
-						&ipc_stats_fops);
-	if (!ipc_stats) {
-		retval = -ENOENT;
-		goto file_err;
-	}
-
-	stats_enable = STATS_DISABLE;
-	ipc_counter_init();
-	return 0;
-
-file_err:
-	debugfs_remove_recursive(ipc_debug_root);
-	ipc_debug_root = NULL;
-root_err:
-	return retval;
-}
-static void ipc_debugfs_cleanup(void)
-{
-	debugfs_remove_recursive(ipc_debug_root);
-	ipc_debug_root = NULL;
-}
 
 /* Workaround for OSPM, set PMCMD to ask SCU
  * power gate EHCI controller and DPHY
@@ -741,18 +700,36 @@ static void wakeup_work(struct work_struct *work)
 	return;
 }
 
-/* Interfaces for host resume */
-static ssize_t hsic_host_resume_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t size)
+static int hsic_debugfs_host_resume_show(struct seq_file *s, void *unused)
 {
-	dev_dbg(dev, "wakeup hsic\n");
-	queue_delayed_work(hsic.work_queue, &hsic.wakeup_work, 0);
-
-	return -EINVAL;
+	return 0;
+}
+static int hsic_debugfs_host_resume_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, hsic_debugfs_host_resume_show,
+						inode->i_private);
 }
 
-static DEVICE_ATTR(host_resume, S_IWUSR,
-		NULL, hsic_host_resume_store);
+
+static ssize_t hsic_debugfs_host_resume_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct usb_hcd *hcd = s->private;
+
+	dev_dbg(hcd->self.controller, "wakeup hsic\n");
+	queue_delayed_work(hsic.work_queue, &hsic.wakeup_work, 0);
+
+	return count;
+}
+
+
+static const struct file_operations hsic_debugfs_host_resume_fops = {
+	.open			= hsic_debugfs_host_resume_open,
+	.read			= seq_read,
+	.write			= hsic_debugfs_host_resume_write,
+	.release		= single_release,
+};
 
 static ssize_t hsic_port_enable_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -993,20 +970,13 @@ static ssize_t hsic_remoteWakeup_store(struct device *dev,
 static DEVICE_ATTR(remoteWakeup, S_IRUGO | S_IWUSR | S_IROTH,
 		hsic_remoteWakeup_show, hsic_remoteWakeup_store);
 
-static ssize_t
-show_registers(struct device *dev, struct device_attribute *attr, char *buf)
+static int hsic_debugfs_registers_show(struct seq_file *s, void *unused)
 {
-	struct usb_hcd	*hcd = dev_get_drvdata(dev);
-	char			*next;
-	unsigned		size;
-	unsigned		t;
+	struct usb_hcd	*hcd = s->private;
 
-	next = buf;
-	size = PAGE_SIZE;
+	pm_runtime_get_sync(hcd->self.controller);
 
-	pm_runtime_get_sync(dev);
-
-	t = scnprintf(next, size,
+	seq_printf(s,
 		"\n"
 		"USBCMD = 0x%08x\n"
 		"USBSTS = 0x%08x\n"
@@ -1030,38 +1000,31 @@ show_registers(struct device *dev, struct device_attribute *attr, char *buf)
 		readl(hcd->regs + 0xf8)
 		);
 
-	pm_runtime_put_sync(dev);
+	pm_runtime_put_sync(hcd->self.controller);
 
-	size -= t;
-	next += t;
-
-	return PAGE_SIZE - size;
+	return 0;
 }
 
-static DEVICE_ATTR(registers, S_IRUGO, show_registers, NULL);
+static int hsic_debugfs_registers_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, hsic_debugfs_registers_show, inode->i_private);
+}
+
+static const struct file_operations hsic_debugfs_registers_fops = {
+	.open			= hsic_debugfs_registers_open,
+	.read			= seq_read,
+	.release		= single_release,
+};
 
 static int create_device_files()
 {
 	int retval;
-
-	retval = device_create_file(&pci_dev->dev, &dev_attr_registers);
-	if (retval < 0) {
-		dev_dbg(&pci_dev->dev, "error create dev registers\n");
-		goto dump_registers;
-	}
 
 	retval = device_create_file(&pci_dev->dev, &dev_attr_hsic_enable);
 	if (retval < 0) {
 		dev_dbg(&pci_dev->dev, "error create hsic_enable\n");
 		goto hsic_enable;
 	}
-
-	retval = device_create_file(&pci_dev->dev, &dev_attr_host_resume);
-	if (retval < 0) {
-		dev_dbg(&pci_dev->dev, "error create host_resume\n");
-		goto host_resume;
-	}
-
 	hsic.autosuspend_enable = HSIC_AUTOSUSPEND;
 	retval = device_create_file(&pci_dev->dev,
 			 &dev_attr_L2_autosuspend_enable);
@@ -1099,11 +1062,9 @@ bus_duration:
 port_duration:
 	device_remove_file(&pci_dev->dev, &dev_attr_L2_autosuspend_enable);
 autosuspend:
-	device_remove_file(&pci_dev->dev, &dev_attr_host_resume);
 host_resume:
 	device_remove_file(&pci_dev->dev, &dev_attr_hsic_enable);
 hsic_enable:
-	device_remove_file(&pci_dev->dev, &dev_attr_registers);
 dump_registers:
 	return retval;
 }
@@ -1114,9 +1075,76 @@ static void remove_device_files()
 	device_remove_file(&pci_dev->dev, &dev_attr_L2_inactivityDuration);
 	device_remove_file(&pci_dev->dev, &dev_attr_bus_inactivityDuration);
 	device_remove_file(&pci_dev->dev, &dev_attr_remoteWakeup);
-	device_remove_file(&pci_dev->dev, &dev_attr_host_resume);
 	device_remove_file(&pci_dev->dev, &dev_attr_hsic_enable);
-	device_remove_file(&pci_dev->dev, &dev_attr_registers);
+}
+
+static void hsic_debugfs_cleanup()
+{
+	debugfs_remove_recursive(hsic_debugfs_root);
+	hsic_debugfs_root = NULL;
+}
+
+static int hsic_debugfs_init(struct usb_hcd *hcd)
+{
+	int retval = 0;
+	struct dentry *file;
+
+	if (!hsic_debugfs_root) {
+		hsic_debugfs_root = debugfs_create_dir("hsic", usb_debug_root);
+		if (!hsic_debugfs_root) {
+			retval = -ENOMEM;
+			dev_dbg(hcd->self.controller, "	Error create debugfs root failed !");
+			return retval;
+		}
+		file = debugfs_create_file(
+				"registers",
+				S_IRUGO,
+				hsic_debugfs_root,
+				hcd,
+				&hsic_debugfs_registers_fops);
+		if (!file) {
+			retval = -ENOMEM;
+			dev_dbg(hcd->self.controller, "	Error create debugfs file registers failed !");
+			goto remove_debugfs;
+		}
+		file = debugfs_create_file(
+				"host_resume",
+				S_IWUSR | S_IWOTH,
+				hsic_debugfs_root,
+				hcd,
+				&hsic_debugfs_host_resume_fops);
+		if (!file) {
+			retval = -ENOMEM;
+			dev_dbg(hcd->self.controller, "	Error create debugfs file host_resume failed !");
+			goto remove_debugfs;
+		}
+		ipc_debug_control = debugfs_create_file("ipc_control", S_IRUGO,
+						hsic_debugfs_root, NULL,
+						&ipc_control_fops);
+		if (!ipc_debug_control) {
+			retval = -ENOENT;
+			goto remove_debugfs;
+		}
+
+		ipc_stats = debugfs_create_file("ipc_stats", S_IRUGO,
+						hsic_debugfs_root, NULL,
+						&ipc_stats_fops);
+		if (!ipc_stats) {
+			retval = -ENOENT;
+			goto remove_debugfs;
+		}
+
+		stats_enable = STATS_DISABLE;
+		ipc_counter_init();
+	}
+
+	if (retval != 0)
+		goto remove_debugfs;
+
+	return retval;
+remove_debugfs:
+	hsic_debugfs_cleanup();
+	return retval;
 }
 
 static int ehci_hsic_probe(struct pci_dev *pdev,
@@ -1212,7 +1240,6 @@ static int ehci_hsic_probe(struct pci_dev *pdev,
 			dev_dbg(&pdev->dev, "error create device files\n");
 			goto release_mem_region;
 		}
-
 		hsic.hsic_enable_created = 1;
 	}
 
@@ -1254,11 +1281,9 @@ static int ehci_hsic_probe(struct pci_dev *pdev,
 	hsic_enable = 1;
 	hsic.s3_rt_state = RESUMED;
 	s3_wake_lock();
-
-	ipc_debugfs_init();
+	hsic_debugfs_init(hcd);
 
 	return retval;
-
 unmap_registers:
 	destroy_workqueue(hsic.work_queue);
 	if (driver->flags & HCD_MEMORY) {
@@ -1338,7 +1363,7 @@ static void ehci_hsic_remove(struct pci_dev *pdev)
 	wake_lock_destroy(&hsic.s3_wake_lock);
 	usb_unregister_notify(&hsic.hsic_pm_nb);
 	unregister_pm_notifier(&hsic.hsic_s3_entry_nb);
-	ipc_debugfs_cleanup();
+	hsic_debugfs_cleanup();
 }
 
 static void ehci_hsic_shutdown(struct pci_dev *pdev)
