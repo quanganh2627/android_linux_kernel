@@ -188,6 +188,24 @@ static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
 				sst_mix_get, sst_mix_put),			\
 	}
 
+#define SST_SBA_MIXER_GRAPH_MAP(mix_name)			\
+	{ mix_name, "modem_in",		"modem_in" },		\
+	{ mix_name, "bt_in",		"bt_in" },		\
+	{ mix_name, "codec_in0",	"codec_in0" },		\
+	{ mix_name, "codec_in1",	"codec_in1" },		\
+	{ mix_name, "sprot_loop_in",	"sprot_loop_in" },	\
+	{ mix_name, "media_loop1_in",	"media_loop1_in" },	\
+	{ mix_name, "media_loop2_in",	"media_loop2_in" },	\
+	{ mix_name, "sidetone_in",	"sidetone_in" },	\
+	{ mix_name, "txspeech_in",	"txspeech_in" },	\
+	{ mix_name, "speech_in",	"speech_in" },		\
+	{ mix_name, "tone_in",		"tone_in" },		\
+	{ mix_name, "voip_in",		"voip_in" },		\
+	{ mix_name, "pcm0_in",		"pcm0_in" },		\
+	{ mix_name, "pcm1_in",		"pcm1_in" },		\
+	{ mix_name, "low_pcm0_in",	"low_pcm0_in" },	\
+	{ mix_name, "fm_in",		"fm_in" }
+
 #define SST_MMX_DECLARE_MIX_CONTROLS(kctl_name, mixer_reg)			\
 	static const struct snd_kcontrol_new kctl_name[] = {			\
 		SOC_SINGLE_EXT("media0_in", mixer_reg, SST_IP_MEDIA0, 1, 0,	\
@@ -461,6 +479,71 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 };
 
 static const struct snd_soc_dapm_route intercon[] = {
+	{"media0_in", NULL, "Compress Playback"},
+	{"media1_in", NULL, "Headset Playback"},
+	{"media2_in", NULL, "pcm0_out"},
+
+	{"media0_out mix 0", "media0_in", "media0_in"},
+	{"media0_out mix 0", "media1_in", "media1_in"},
+	{"media0_out mix 0", "media2_in", "media2_in"},
+	{"media0_out mix 0", "media3_in", "media3_in"},
+	{"media1_out mix 0", "media0_in", "media0_in"},
+	{"media1_out mix 0", "media1_in", "media1_in"},
+	{"media1_out mix 0", "media2_in", "media2_in"},
+	{"media1_out mix 0", "media3_in", "media3_in"},
+
+	{"media0_out", NULL, "media0_out mix 0"},
+	{"media1_out", NULL, "media1_out mix 0"},
+	{"pcm0_in", NULL, "media0_out"},
+	{"pcm1_in", NULL, "media1_out"},
+
+	{"Headset Capture", NULL, "pcm1_out"},
+	{"Headset Capture", NULL, "pcm2_out"},
+	{"pcm0_out", NULL, "pcm0_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("pcm0_out mix 0"),
+	{"pcm1_out", NULL, "pcm1_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("pcm1_out mix 0"),
+	{"pcm2_out", NULL, "pcm2_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("pcm2_out mix 0"),
+
+	{"media_loop1_in", NULL, "media_loop1_out"},
+	{"media_loop1_out", NULL, "media_loop1_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("media_loop1_out mix 0"),
+	{"media_loop2_in", NULL, "media_loop2_out"},
+	{"media_loop2_out", NULL, "media_loop2_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("media_loop2_out mix 0"),
+	{"sprot_loop_in", NULL, "sprot_loop_out"},
+	{"sprot_loop_out", NULL, "sprot_loop_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("sprot_loop_out mix 0"),
+
+	{"voip_in", NULL, "VOIP Playback"},
+	{"VOIP Capture", NULL, "voip_out"},
+	{"voip_out", NULL, "voip_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("voip_out mix 0"),
+
+	{"aware", NULL, "aware_out"},
+	{"aware_out", NULL, "aware_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("aware_out mix 0"),
+	{"vad", NULL, "vad_out"},
+	{"vad_out", NULL, "vad_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("vad_out mix 0"),
+
+	{"codec_out0", NULL, "codec_out0 mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("codec_out0 mix 0"),
+	{"codec_out1", NULL, "codec_out1 mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("codec_out1 mix 0"),
+	{"modem_out", NULL, "modem_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("modem_out mix 0"),
+
+	/* TODO: add BT and FM inputs and outputs */
+	/* TODO: add Voice inputs and outputs */
+	/* TODO: add Probe inputs and outputs */
+	/* TODO: add Tone inputs */
+
+	{"Headset Capture", NULL, "VBTimer"},
+	{"Headset Playback", NULL, "VBTimer"},
+	{"Compress Playback", NULL, "VBTimer"},
+	{"VOIP Playback", NULL, "VBTimer"},
 };
 
 int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
