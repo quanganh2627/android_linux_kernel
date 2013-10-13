@@ -25,7 +25,7 @@ struct mxt_platform_data {
 	int gpio_reset;
 	const char *cfg_name;
 	bool regulator_en;
-	unsigned gpio_switch;
+	int gpio_switch;
 	int hardware_id;
 };
 
