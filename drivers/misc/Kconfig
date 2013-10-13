@@ -393,6 +393,15 @@ config HMC6352
 	  This driver provides support for the Honeywell HMC6352 compass,
 	  providing configuration and heading data via sysfs.
 
+config MONZA_X
+	tristate "Impinj Monza-x-2K RFID Chip"
+	depends on I2C
+	help
+	  This driver provides support for the Impinj Monza-x-2K RFID Chip,
+	  Monza x-Dura is UHF Gen2 RFID IC product with 2176bits user NVM,
+	  it can be accessed by i2c interface and UHF Gen2 RFID protocol,
+	  this driver provide access interface via sysfs for userland.
+
 config EP93XX_PWM
 	tristate "EP93xx PWM support"
 	depends on ARCH_EP93XX
