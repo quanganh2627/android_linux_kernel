@@ -11064,6 +11064,11 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	dev_priv->s0ixstat = false;
 	drm_modeset_unlock_all(dev);
 	i915_rpm_put_disp(dev);
+
+	if (!dev_priv->audio_suspended) {
+		DRM_DEBUG_DRIVER("Not suspending display since audio is active\n");
+		return -1;
+	}
 	return 0;
 }
 

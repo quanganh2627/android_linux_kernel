@@ -6383,8 +6383,8 @@ static void display_early_suspend_handler(void)
 	int ret;
 	DRM_DEBUG_PM("Early suspend called\n");
 	ret = display_runtime_suspend(drm_dev);
-	if (ret)
-		DRM_ERROR("Display suspend failure\n");
+	if (ret < 0)
+		DRM_DEBUG_PM("Display not suspended\n");
 	else {
 		ret = set_vhdmi_state(VHDMI_OFF);
 		if (ret) {
