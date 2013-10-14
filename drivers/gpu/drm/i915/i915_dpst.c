@@ -222,6 +222,8 @@ i915_dpst_init(struct drm_device *dev,
 			ioctl_data->init_data.threshold_gb = gb_val;
 			ioctl_data->init_data.image_res =
 					mode->hdisplay*mode->vdisplay;
+			/*mode is allocated by kzalloc, need be freed*/
+			kfree(mode);
 		}
 	}
 
