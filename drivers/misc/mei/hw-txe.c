@@ -959,7 +959,7 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 	mei_irq_compl_handler(dev, &complete_list);
 
 out:
-	dev_dbg(&dev->pdev->dev, "irq thread end rets = %d\n", rets);
+	dev_dbg(&dev->pdev->dev, "irq thread end\n");
 
 	mei_enable_interrupts(dev);
 	return IRQ_HANDLED;
