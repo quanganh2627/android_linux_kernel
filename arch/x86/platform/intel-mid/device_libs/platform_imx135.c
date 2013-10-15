@@ -24,16 +24,19 @@
 static int camera_reset;
 static int camera_power;
 
-#ifdef CONFIG_BOARD_CTP  
 static int camera_vemmc1_on;  
 static struct regulator *vemmc1_reg;  
 #define VEMMC1_VAL 2850000  
-static int camera_vprog1_on;  
-static struct regulator *vprog1_reg;  
-#define VPROG1_VAL 2800000  
-#else  
-static int camera_vprog1_on;  
-#endif  
+
+static int camera_vprog1_on;
+static struct regulator *vprog1_reg;
+#define VPROG1_VAL 2800000
+
+static int is_ctp(void)
+{
+	return INTEL_MID_BOARD(1, PHONE, CLVTP)
+	       || INTEL_MID_BOARD(1, TABLET, CLVT);
+}
 
 static int is_victoriabay(void)
 {
@@ -89,105 +92,98 @@ static int imx135_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int imx135_power_ctrl(struct v4l2_subdev *sd, int flag)
 {
-
-#ifdef CONFIG_BOARD_CTP
-	int reg_err;
-#else
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
-#endif
+
 	if (flag) {
-#ifdef CONFIG_BOARD_CTP 
-		if (!camera_vemmc1_on) {
+		if (is_ctp()) {
+			if (!camera_vemmc1_on) {
 
-			camera_vemmc1_on = 1;
-			reg_err = regulator_enable(vemmc1_reg);
-			if (reg_err) {
-				printk(KERN_ALERT "Failed to enable regulator vemmc1\n");
-				return reg_err;
-			}
+				camera_vemmc1_on = 1;
+				ret = regulator_enable(vemmc1_reg);
+				if (ret) {
+					dev_err(&client->dev,
+						"Failed to enable regulator vemmc1\n");
+					return ret;
+				}
 
-		}
-		if (vprog1_reg && !camera_vprog1_on) {
-			camera_vprog1_on = 1;
-			reg_err = regulator_enable(vprog1_reg);
-			if (reg_err) {
-				printk(KERN_ALERT "Failed to enable regulator vprog1\n");
-				return reg_err;
 			}
-
-		}
-		if (!is_victoriabay()) {
-			if (camera_power < 0) {
-				reg_err = camera_sensor_gpio(-1,
-					GP_CAMERA_1_POWER_DOWN,
-					GPIOF_DIR_OUT, 1);
-				if (reg_err < 0)
-					return reg_err;
-				camera_power = reg_err;
-			}
-			gpio_set_value(camera_power, 1);
-		}
-		/* min 250us -Initializing time of silicon */
-		usleep_range(250, 300);
-#else
-		if(!camera_vprog1_on) {
-#ifdef CONFIG_INTEL_SCU_IPC_UTIL
-			ret = intel_scu_ipc_msic_vprog1(1);
-#else
-			pr_err("imx135 power is not set.\n");
-#endif
-			if (!ret) {
-				/* imx1x5 VDIG rise to XCLR release */
-				usleep_range(1000, 1200);
+			if (vprog1_reg && !camera_vprog1_on) {
 				camera_vprog1_on = 1;
+				ret = regulator_enable(vprog1_reg);
+				if (ret) {
+					dev_err(&client->dev,
+						"Failed to enable regulator vprog1\n");
+					return ret;
+				}
+
 			}
-			return ret;
+			if (!is_victoriabay()) {
+				if (camera_power < 0) {
+					ret = camera_sensor_gpio(-1,
+						GP_CAMERA_1_POWER_DOWN,
+						GPIOF_DIR_OUT, 1);
+					if (ret < 0)
+						return ret;
+					camera_power = ret;
+				}
+				gpio_set_value(camera_power, 1);
+			}
+			/* min 250us -Initializing time of silicon */
+			usleep_range(250, 300);
+		} else {
+			if (!camera_vprog1_on) {
+				ret = regulator_enable(vprog1_reg);
+				if (!ret) {
+					/* imx1x5 VDIG rise to XCLR release */
+					usleep_range(1000, 1200);
+					camera_vprog1_on = 1;
+				}
+				return ret;
+			}
 		}
-#endif
 	} else {
-#ifdef CONFIG_BOARD_CTP		
-		if (camera_vemmc1_on) {
-			camera_vemmc1_on = 0;
+		if (is_ctp()) {
+			if (camera_vemmc1_on) {
+				camera_vemmc1_on = 0;
 
-			reg_err = regulator_disable(vemmc1_reg);
-			if (reg_err) {
-				printk(KERN_ALERT "Failed to disable regulator vemmc1\n");
-				return reg_err;
+				ret = regulator_disable(vemmc1_reg);
+				if (ret) {
+					dev_err(&client->dev,
+						"Failed to disable regulator vemmc1\n");
+					return ret;
+				}
 			}
-		}
-		if (vprog1_reg && camera_vprog1_on) {
-			camera_vprog1_on = 0;
-
-			reg_err = regulator_disable(vprog1_reg);
-			if (reg_err) {
-				printk(KERN_ALERT "Failed to disable regulator vprog1\n");
-				return reg_err;
-			}
-		}
-#else
-		if (camera_vprog1_on) {
-			camera_vprog1_on = 0;
-#ifdef CONFIG_INTEL_SCU_IPC_UTIL
-			ret = intel_scu_ipc_msic_vprog1(0);
-#else
-			pr_err("imx135 power is not set.\n");
-#endif
-			if (!ret)
+			if (vprog1_reg && camera_vprog1_on) {
 				camera_vprog1_on = 0;
-			return ret;
+
+				ret = regulator_disable(vprog1_reg);
+				if (ret) {
+					dev_err(&client->dev,
+						"Failed to disable regulator vprog1\n");
+					return ret;
+				}
+			}
+		} else {
+			if (camera_vprog1_on) {
+				ret = regulator_disable(vprog1_reg);
+				if (!ret)
+					camera_vprog1_on = 0;
+				return ret;
+			}
 		}
-#endif
 	}
 	return 0;
 }
-#ifdef CONFIG_BOARD_CTP 
 static int imx135_platform_init(struct i2c_client *client)
 {
 	int ret;
-	vemmc1_reg = regulator_get(&client->dev, "vemmc1");
-	if (IS_ERR(vemmc1_reg)) {
-		dev_err(&client->dev, "regulator_get failed\n");
-		return PTR_ERR(vemmc1_reg);
+	if (is_ctp()) {
+		vemmc1_reg = regulator_get(&client->dev, "vemmc1");
+		if (IS_ERR(vemmc1_reg)) {
+			dev_err(&client->dev, "regulator_get failed\n");
+			return PTR_ERR(vemmc1_reg);
+		}
 	}
 	if (!is_victoriabay()) {
 		vprog1_reg = regulator_get(&client->dev, "vprog1");
@@ -208,10 +204,12 @@ static int imx135_platform_init(struct i2c_client *client)
 static int imx135_platform_deinit(void)
 {
 	regulator_put(vprog1_reg);
-	regulator_put(vemmc1_reg);
+
+	if (is_ctp())
+		regulator_put(vemmc1_reg);
+
 	return 0;
 }
-#endif
 
 static int imx135_csi_configure(struct v4l2_subdev *sd, int flag)
 {
@@ -225,10 +223,8 @@ static struct camera_sensor_platform_data imx135_sensor_platform_data = {
 	.flisclk_ctrl   = imx135_flisclk_ctrl,
 	.power_ctrl     = imx135_power_ctrl,
 	.csi_cfg        = imx135_csi_configure,
-#ifdef CONFIG_BOARD_CTP
 	.platform_init = imx135_platform_init,
 	.platform_deinit = imx135_platform_deinit,
-#endif
 };
 
 void *imx135_platform_data(void *info)
