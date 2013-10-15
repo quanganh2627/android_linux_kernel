@@ -609,13 +609,7 @@ static int cpufreq_interactive_speedchange_task(void *data)
 					max_freq = pjcpu->target_freq;
 			}
 			#ifdef CONFIG_ACPI
-			for_each_cpu(k, pcpu->policy->cpus) {
-				pr = per_cpu(processors, k);
-				if (!pr)
-					continue;
-			}
-
-			if (pr->performance->shared_type ==
+			if (pcpu->policy->shared_type ==
 						CPUFREQ_SHARED_TYPE_ALL) {
 				for_each_cpu(k, pcpu->policy->cpus) {
 					pkcpu = &per_cpu(cpuinfo, k);
