@@ -30,6 +30,7 @@ obj-$(subst m,y,$(CONFIG_INTEL_BYT_EC_THERMAL)) += platform_byt_thermal.o
 endif
 obj-$(subst m,y,$(CONFIG_SENSORS_THERMAL_MRFLD)) += platform_mrfl_thermal.o
 obj-$(subst m,y,$(CONFIG_INTEL_SCU_FLIS)) += platform_scu_flis.o
+
 # I2C Devices
 obj-$(subst m,y,$(CONFIG_I2C_DESIGNWARE_PCI_FORK)) += platform_dw_i2c.o
 obj-$(subst m,y,$(CONFIG_SENSORS_EMC1403)) += platform_emc1403.o
@@ -105,3 +106,5 @@ obj-$(subst m,y,$(CONFIG_DRM_MRFLD)) += platform_panel.o
 obj-$(subst m,y,$(CONFIG_INTEL_MID_GPS)) += platform_gps.o
 # WIFI devices
 obj-$(subst m,y,$(CONFIG_WIFI_PLATFORM_DATA)) += platform_wifi.o
+# SCU log
+obj-$(subst m,y,$(CONFIG_SCU_LOGGING)) += platform_scu_log.o
