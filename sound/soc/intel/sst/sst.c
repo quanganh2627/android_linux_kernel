@@ -526,7 +526,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 	sst_drv_ctx->vcache.size2 = 0;
 
 	/* we use dma, so set to 1*/
-	sst_drv_ctx->use_dma = 0;
+	sst_drv_ctx->use_dma = 1;
 	sst_drv_ctx->use_lli = 1;
 
 	INIT_LIST_HEAD(&sst_drv_ctx->memcpy_list);

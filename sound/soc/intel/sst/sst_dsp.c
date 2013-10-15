@@ -627,8 +627,11 @@ static int sst_fill_sglist(unsigned long from, unsigned long to,
 		if (!(*sg_src) || !(*sg_dstn))
 			return -ENOMEM;
 
-		sg_set_buf(*sg_src, (void *) src, len);
-		sg_set_buf(*sg_dstn, (void *) dstn, len);
+		sg_set_page(*sg_src, virt_to_page((void *) src), len,
+				offset_in_page((void *) src));
+		sg_set_page(*sg_dstn, virt_to_page((void *) dstn), len,
+				offset_in_page((void *) dstn));
+
 		*sg_src = sg_next(*sg_src);
 		*sg_dstn = sg_next(*sg_dstn);
 
