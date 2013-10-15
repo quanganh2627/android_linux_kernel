@@ -36,8 +36,9 @@ static u32 nvram_size;
 static u32 nvram_addr;
 
 static int platform_type;	/* Identifies the platform. */
-
 static u32 *nvram_ptr;
+
+#define DRIVER_NAME "modem_nvram"
 
 static struct rpmsg_instance *modem_nvram_instance;
 
@@ -48,7 +49,7 @@ static ssize_t size_show(struct kobject *kobj, struct kobj_attribute *attr,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", nvram_size);
 }
 static struct kobj_attribute size_attribute =
-	__ATTR(size, S_IRUGO, size_show, NULL);
+	__ATTR(size, S_IRUSR|S_IRGRP, size_show, NULL);
 
 /* dump interface */
 static ssize_t dump_show(struct kobject *kobj, struct kobj_attribute *attr,
@@ -188,7 +189,7 @@ static ssize_t dump_clear(void)
 }
 
 static struct kobj_attribute dump_attribute =
-	__ATTR(dump, 0660, dump_show, dump_store);
+	__ATTR(dump, S_IRGRP|S_IWGRP, dump_show, dump_store);
 
 /* clear interface */
 static ssize_t clear_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -199,7 +200,7 @@ static ssize_t clear_store(struct kobject *kobj, struct kobj_attribute *attr,
 	return count;
 }
 static struct kobj_attribute clear_attribute =
-	__ATTR(clear, 0060, NULL, clear_store);
+	__ATTR(clear, S_IWGRP, NULL, clear_store);
 
 static struct attribute *nvram_attrs[] = {
 	&size_attribute.attr,
@@ -209,7 +210,6 @@ static struct attribute *nvram_attrs[] = {
 };
 
 static struct attribute_group nvram_attr_group = {
-	.name = "modem_nvram",
 	.attrs = nvram_attrs,
 };
 
@@ -346,7 +346,7 @@ static int __init modem_nvram_init(void)
 		if (register_reboot_notifier(&modem_nvram_reboot))
 			pr_err("%s : can't register reboot_notifier\n",
 								__func__);
-		modem_nvram_kobj = kobject_create_and_add(nvram_attr_group.name,
+		modem_nvram_kobj = kobject_create_and_add(DRIVER_NAME,
 								kernel_kobj);
 		if (!modem_nvram_kobj) {
 			retval = -ENOMEM;
