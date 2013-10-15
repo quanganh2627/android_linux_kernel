@@ -13,6 +13,7 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/atomisp_platform.h>
+#include <linux/regulator/consumer.h>
 #include <asm/intel_scu_ipcutil.h>
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
@@ -22,7 +23,10 @@
 
 static int camera_reset;
 static int camera_power_down;
+
 static int camera_vprog1_on;
+static struct regulator *vprog1_reg;
+#define VPROG1_VAL 2800000
 /*
  * MRFLD VV secondary camera sensor - imx132 platform data
  */
@@ -69,11 +73,7 @@ static int imx132_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (flag) {
 		if (!camera_vprog1_on) {
-#ifdef CONFIG_INTEL_SCU_IPC_UTIL
-			ret = intel_scu_ipc_msic_vprog1(1);
-#else
-			pr_err("imx132 power is not set.\n");
-#endif
+			ret = regulator_enable(vprog1_reg);
 			if (!ret) {
 				usleep_range(1000, 1200);
 				camera_vprog1_on = 1;
@@ -82,11 +82,7 @@ static int imx132_power_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	} else {
 		if (camera_vprog1_on) {
-#ifdef CONFIG_INTEL_SCU_IPC_UTIL
-			ret = intel_scu_ipc_msic_vprog1(0);
-#else
-			pr_err("imx132 power is not set.\n");
-#endif
+			ret = regulator_disable(vprog1_reg);
 			if (!ret)
 				camera_vprog1_on = 0;
 			return ret;
@@ -102,11 +98,37 @@ static int imx132_csi_configure(struct v4l2_subdev *sd, int flag)
 		ATOMISP_INPUT_FORMAT_RAW_10, atomisp_bayer_order_rggb, flag);
 }
 
+static int imx132_platform_init(struct i2c_client *client)
+{
+	int ret;
+
+	vprog1_reg = regulator_get(&client->dev, "vprog1");
+	if (IS_ERR(vprog1_reg)) {
+		dev_err(&client->dev, "regulator_get failed\n");
+		return PTR_ERR(vprog1_reg);
+	}
+	ret = regulator_set_voltage(vprog1_reg, VPROG1_VAL, VPROG1_VAL);
+	if (ret) {
+		dev_err(&client->dev, "regulator voltage set failed\n");
+		regulator_put(vprog1_reg);
+	}
+	return ret;
+}
+
+static int imx132_platform_deinit(void)
+{
+	regulator_put(vprog1_reg);
+
+	return 0;
+}
+
 static struct camera_sensor_platform_data imx132_sensor_platform_data = {
-	.gpio_ctrl      = imx132_gpio_ctrl,
-	.flisclk_ctrl   = imx132_flisclk_ctrl,
-	.power_ctrl     = imx132_power_ctrl,
-	.csi_cfg        = imx132_csi_configure,
+	.gpio_ctrl       = imx132_gpio_ctrl,
+	.flisclk_ctrl    = imx132_flisclk_ctrl,
+	.power_ctrl      = imx132_power_ctrl,
+	.csi_cfg         = imx132_csi_configure,
+	.platform_init   = imx132_platform_init,
+	.platform_deinit = imx132_platform_deinit,
 };
 void *imx132_platform_data(void *info)
 {
