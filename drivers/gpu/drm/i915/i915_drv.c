@@ -652,7 +652,7 @@ static int i915_drm_thaw(struct drm_device *dev, bool restore_gtt)
 	return error;
 }
 
-int i915_resume_common(struct drm_device *dev)
+int i915_resume_common(struct drm_device *dev, bool restore_gtt)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
@@ -665,20 +665,7 @@ int i915_resume_common(struct drm_device *dev)
 
 	pci_set_master(dev->pdev);
 
-	intel_uncore_sanitize(dev);
-
-	/*
-	 * Platforms with opregion should have sane BIOS, older ones (gen3 and
-	 * earlier) need this since the BIOS might clear all our scratch PTEs.
-	 */
-	if (drm_core_check_feature(dev, DRIVER_MODESET) &&
-	    !dev_priv->opregion.header) {
-		mutex_lock(&dev->struct_mutex);
-		i915_gem_restore_gtt_mappings(dev);
-		mutex_unlock(&dev->struct_mutex);
-	}
-
-	ret = i915_drm_thaw(dev, false);
+	ret = i915_drm_thaw(dev, restore_gtt);
 	if (ret)
 		return ret;
 
@@ -689,7 +676,7 @@ int i915_resume_common(struct drm_device *dev)
 
 int i915_resume(struct drm_device *dev)
 {
-	return i915_resume_common(dev);
+	return i915_resume_common(dev, true);
 }
 
 /**
@@ -962,7 +949,7 @@ static int i915_pm_resume(struct device *dev)
 	u32 ret;
 
 	DRM_DEBUG_PM("PM Resume called\n");
-	ret = i915_resume_common(drm_dev);
+	ret = i915_resume_common(drm_dev, false);
 	DRM_DEBUG_PM("PM Resume finished\n");
 
 	return ret;
@@ -975,7 +962,7 @@ static int i915_rpm_resume(struct device *dev)
 	int ret;
 
 	DRM_DEBUG_PM("Runtime PM Resume called\n");
-	ret = i915_resume_common(drm_dev);
+	ret = i915_resume_common(drm_dev, false);
 	DRM_DEBUG_PM("Runtime PM Resume finished\n");
 
 	return ret;
