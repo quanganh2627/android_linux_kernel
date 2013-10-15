@@ -506,13 +506,13 @@ void usb_remove_phy(struct usb_phy *x)
 
 	spin_lock_irqsave(&phy_lock, flags);
 
-	if (x->class_dev->devt)
-		device_destroy(x->usb_otg_class, x->class_dev->devt);
-
-	if (x->usb_otg_class)
-		class_destroy(x->usb_otg_class);
-
 	if (x) {
+		if (x->class_dev->devt)
+			device_destroy(x->usb_otg_class, x->class_dev->devt);
+
+		if (x->usb_otg_class)
+			class_destroy(x->usb_otg_class);
+
 		list_for_each_entry(phy_bind, &phy_bind_list, list)
 			if (phy_bind->phy == x)
 				phy_bind->phy = NULL;
