@@ -38,6 +38,7 @@
 #include "i915_drv.h"
 /*#include "i915_rpm.h"*/
 #include "i915_trace.h"
+#include "intel_dsi.h"
 #include "hdmi_audio_if.h"
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_crtc_helper.h>
@@ -4126,6 +4127,14 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 
 	if (!intel_pipe_has_type(crtc, INTEL_OUTPUT_DSI))
 		i9xx_disable_pll(dev_priv, pipe);
+	else {
+		for_each_encoder_on_crtc(dev, crtc, encoder) {
+			if (encoder->type == INTEL_OUTPUT_DSI) {
+				intel_dsi_clear_device_ready(encoder);
+				break;
+			}
+		}
+	}
 
 	intel_crtc->active = false;
 	if (dev_priv->s0ixstat == true)
