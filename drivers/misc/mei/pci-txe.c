@@ -59,6 +59,7 @@ MODULE_PARM_DESC(dmapool, "dma pool size (default=4M)");
 
 static DEFINE_PCI_DEVICE_TABLE(mei_txe_pci_tbl) = {
 	{PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x0F18)},
+	{PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x2298)},
 	{0, }
 };
 MODULE_DEVICE_TABLE(pci, mei_txe_pci_tbl);
