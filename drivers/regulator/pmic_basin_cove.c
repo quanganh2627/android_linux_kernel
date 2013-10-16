@@ -23,7 +23,7 @@
 #include <linux/regulator/intel_basin_cove_pmic.h>
 #include <linux/regulator/machine.h>
 
-#include <asm/intel_scu_ipc.h>
+#include <asm/intel_scu_pmic.h>
 
 /* Intel Voltage cntrl register parameters*/
 #define REG_ENA_STATUS_MASK	0x01
