@@ -404,7 +404,7 @@ static int i915_gem_init_aliasing_ppgtt(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct i915_hw_ppgtt *ppgtt;
-	int ret;
+	int ret = 0;
 
 	ppgtt = kzalloc(sizeof(*ppgtt), GFP_KERNEL);
 	if (!ppgtt)
