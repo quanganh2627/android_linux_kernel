@@ -549,11 +549,11 @@ static void hsic_notify(struct usb_device *udev, unsigned action)
 				device_set_wakeup_capable
 					(&hsic.rh_dev->dev, 0);
 			}
-
-			pr_debug("%s Modem dev autosuspend disable\n",
-					 __func__);
+			if (!HSIC_AUTOSUSPEND)
+				pr_debug("%s Modem dev autosuspend disable\n",
+						 __func__);
 			usb_disable_autosuspend(hsic.modem_dev);
-			hsic.autosuspend_enable = 0;
+			hsic.autosuspend_enable = HSIC_AUTOSUSPEND;
 
 			pr_debug("%s----> Enable AUX irq\n", __func__);
 			retval = hsic_aux_irq_init();
