@@ -299,7 +299,7 @@ ssize_t i915_cb_adjust_write(struct file *filp,
 	}
 
 	/* Parse input data */
-	ret = parse_clrmgr_input(cb_ptr, buf, 2, count);
+	ret = parse_clrmgr_input((uint *)cb_ptr, buf, 2, count);
 	if (ret < 0)
 		DRM_ERROR("Contrast Brightness loading failed\n");
 	else
@@ -373,7 +373,7 @@ ssize_t i915_hs_adjust_write(struct file *filp,
 	}
 
 	/* Parse input data */
-	ret = parse_clrmgr_input(hs_ptr, buf, 2, count);
+	ret = parse_clrmgr_input((uint *)hs_ptr, buf, 2, count);
 	if (ret < 0)
 		DRM_ERROR("Hue Saturation loading failed\n");
 	else
@@ -503,7 +503,7 @@ ssize_t i915_csc_enable_write(struct file *filp,
 	}
 
 	/* Finally, get the status */
-	if (kstrtoul((const char *)buf, 10,
+	if (kstrtouint((const char *)buf, 10,
 		&status)) {
 		DRM_ERROR("CSC enable: Invalid limit\n");
 		ret = -EINVAL;

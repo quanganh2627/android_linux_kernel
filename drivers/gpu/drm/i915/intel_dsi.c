@@ -130,7 +130,6 @@ void intel_dsi_device_ready(struct intel_encoder *encoder)
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	int pipe = intel_crtc->pipe;
-	u32 temp;
 
 	DRM_DEBUG_KMS("\n");
 
@@ -159,7 +158,6 @@ void intel_dsi_device_ready(struct intel_encoder *encoder)
 
 static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 {
-	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	DRM_DEBUG_KMS("\n");
 
 	/* put device in ready state */
@@ -173,7 +171,7 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	int pipe = intel_crtc->pipe;
-	int intr_stat, dpi_ctrl;
+	int intr_stat;
 	u32 temp;
 
 	DRM_DEBUG_KMS("\n");
@@ -522,7 +520,7 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 		&intel_crtc->config.adjusted_mode;
 	int pipe = intel_crtc->pipe;
 	unsigned int bpp = intel_crtc->config.pipe_bpp;
-	u32 val, tmp;
+	u32 val;
 
 	band_gap_reset(dev_priv);
 

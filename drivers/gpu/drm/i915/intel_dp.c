@@ -1759,8 +1759,7 @@ void intel_edp_enable_psr(struct intel_dp *intel_dp, enum PSR_MODE mode,
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	struct drm_device *dev = intel_dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(intel_dig_port->base.base.crtc);
-	int i = 0, ack = 0;
+	int ack = 0;
 	uint32_t val = 0;
 
 	if (!is_edp_psr(intel_dp) || intel_vlv_edp_is_psr_active(intel_dp))
@@ -1808,11 +1807,13 @@ void intel_edp_disable_psr(struct intel_dp *intel_dp, enum PSR_MODE mode)
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	struct drm_device *dev = intel_dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	/*Enable when following 3 are used again*/
+	/*
 	struct intel_crtc *intel_crtc = to_intel_crtc(intel_dig_port->base.base.crtc);
 	struct drm_crtc *crtc = intel_dig_port->base.base.crtc;
 	struct intel_encoder *intel_encoder;
+	*/
 	uint32_t val = 0;
-	uint8_t data;
 	int count = 0;
 
 	if (intel_dig_port->psr_setup == 0)
@@ -1883,9 +1884,12 @@ void intel_edp_exit_psr(struct intel_dp *intel_dp)
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	struct drm_device *dev = intel_dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	/*Enable when following 3 are used again*/
+	/*
 	struct intel_crtc *intel_crtc = to_intel_crtc(intel_dig_port->base.base.crtc);
 	struct drm_crtc *crtc = intel_dig_port->base.base.crtc;
 	struct intel_encoder *intel_encoder;
+	*/
 	uint32_t val = 0;
 	int count = 0;
 
@@ -3954,7 +3958,7 @@ intel_dp_init(struct drm_device *dev, int output_reg, enum port port)
 	}
 }
 
-void intel_edp_psr_ctl_ioctl(struct drm_device *device, void *data,
+int intel_edp_psr_ctl_ioctl(struct drm_device *device, void *data,
 					struct drm_file *file)
 {
 	struct intel_dp *intel_dp = intel_dev_to_dp(device);
@@ -3971,9 +3975,10 @@ void intel_edp_psr_ctl_ioctl(struct drm_device *device, void *data,
 			intel_edp_disable_psr(intel_dp, EDP_PSR_MODE);
 		}
 	}
+	return 0;
 }
 
-void intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
+int intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
 						struct drm_file *file)
 {
 	struct intel_dp *intel_dp = intel_dev_to_dp(device);
@@ -3990,9 +3995,10 @@ void intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
 		else
 			intel_edp_disable_psr(intel_dp, EDP_PSR_MODE);
 	}
+	return 0;
 }
 
-void intel_edp_get_psr_support(struct drm_device *device, void *data,
+int intel_edp_get_psr_support(struct drm_device *device, void *data,
 							struct drm_file *file)
 {
 	struct intel_dp *intel_dp = intel_dev_to_dp(device);
@@ -4003,4 +4009,5 @@ void intel_edp_get_psr_support(struct drm_device *device, void *data,
 		DRM_ERROR("Intel Dp  = NULL");
 	else
 		*support = is_edp_psr(intel_dp);
+	return 0;
 }

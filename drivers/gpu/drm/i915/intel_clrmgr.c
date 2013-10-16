@@ -190,7 +190,7 @@ int parse_clrmgr_input(uint *dest, char *src, int max, int read)
 			break;
 
 		bytes += (strlen(populate)+1);
-		if (kstrtoul((const char *)populate, 16,
+		if (kstrtouint((const char *)populate, 16,
 			&dest[size++])) {
 			DRM_ERROR("Parse: Invalid limit\n");
 			return -EINVAL;

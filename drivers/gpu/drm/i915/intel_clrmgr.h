@@ -46,7 +46,7 @@ extern u32 gammaSpriteSoftlut[GAMMA_SP_MAX_COUNT];
 extern int parse_clrmgr_input(uint *dest, char *src, int max, int read);
 extern int do_intel_enable_CSC(struct drm_device *dev, void *data,
 						struct drm_crtc *crtc);
-extern bool intel_pipe_has_type(struct drm_crtc *crtc, int type);
+extern bool intel_pipe_has_type(const struct drm_crtc *crtc, int type);
 extern void do_intel_disable_CSC(struct drm_device *dev,
 						struct drm_crtc *crtc);
 extern int intel_crtc_enable_gamma(struct drm_crtc *crtc, u32 identifier);

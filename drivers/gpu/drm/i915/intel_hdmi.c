@@ -723,7 +723,6 @@ static void intel_enable_hdmi(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&encoder->base);
-	struct intel_crtc *crtc = to_intel_crtc(encoder->base.crtc);
 	u32 temp;
 	u32 enable_bits = SDVO_ENABLE;
 
@@ -1095,7 +1094,7 @@ intel_hdmi_set_property(struct drm_connector *connector,
 		if (val == intel_hdmi->pfit)
 			return 0;
 
-		DRM_DEBUG_DRIVER("val = %d", val);
+		DRM_DEBUG_DRIVER("val = %llu", val);
 		intel_hdmi->pfit = val;
 		goto done;
 	}
@@ -1320,7 +1319,6 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 /* Added for HDMI Audio */
 void i915_had_wq(struct work_struct *work)
 {
-	u8 data = 0;
 	struct drm_i915_private *dev_priv = container_of(work,
 		struct drm_i915_private, hdmi_audio_wq);
 

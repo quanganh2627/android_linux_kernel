@@ -578,7 +578,7 @@ int intel_ddc_get_modes(struct drm_connector *c, struct i2c_adapter *adapter);
 extern void intel_attach_force_audio_property(struct drm_connector *connector);
 extern void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
 
-extern bool intel_pipe_has_type(struct drm_crtc *crtc, int type);
+extern bool intel_pipe_has_type(const struct drm_crtc *crtc, int type);
 extern void intel_attach_force_pfit_property(struct drm_connector *connector);
 extern void intel_crt_init(struct drm_device *dev);
 extern void intel_hdmi_init(struct drm_device *dev,
@@ -881,11 +881,11 @@ extern void intel_aux_display_runtime_get(struct drm_i915_private *dev_priv);
 extern void intel_aux_display_runtime_put(struct drm_i915_private *dev_priv);
 
 /* intel_dp.c */
-extern void intel_edp_psr_ctl_ioctl(struct drm_device *device, void *data,
+extern int intel_edp_psr_ctl_ioctl(struct drm_device *device, void *data,
 					struct drm_file *file_priv);
-extern void intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
+extern int intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
 					struct drm_file *file_priv);
-extern void intel_edp_get_psr_support(struct drm_device *device, void *data,
+extern int intel_edp_get_psr_support(struct drm_device *device, void *data,
 					struct drm_file *file);
 /* VLV LP clock bending */
 extern void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
