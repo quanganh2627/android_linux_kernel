@@ -529,15 +529,6 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 					else
 						/* active high */
 						irq_attr.polarity = 0;
-				} else if (intel_mid_identify_cpu() ==
-					INTEL_MID_CPU_CHIP_CARBONCANYON) {
-					if (!strncmp(pentry->name,
-							"vhsi_edlp_modem", 15))
-						/* active high */
-						irq_attr.polarity = 0;
-					else
-						/* active low */
-						irq_attr.polarity = 1;
 				} else {
 					/* PNW and CLV go with active low */
 					irq_attr.polarity = 1;
