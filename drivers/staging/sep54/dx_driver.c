@@ -4736,7 +4736,7 @@ static int sep_runtime_suspend(struct device *dev)
 		val = readl(security_cfg_reg);
 		if (val & PWR_DWN_ENB_MASK)
 			break;
-		usleep_range(1, 5);
+		usleep_range(40, 60);
 		count++;
 	}
 	if (count >= SEP_TIMEOUT) {
@@ -4791,7 +4791,7 @@ static int sep_suspend(struct device *dev)
 		val = readl(security_cfg_reg);
 		if (val & PWR_DWN_ENB_MASK)
 			break;
-		usleep_range(1, 5);
+		usleep_range(40, 60);
 		count++;
 	}
 	if (count >= SEP_TIMEOUT) {
