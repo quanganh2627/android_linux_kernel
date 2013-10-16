@@ -1459,7 +1459,7 @@ typedef struct drm_i915_private {
 	bool is_hdmi;
 	u16 is_mipi;
 	u16 mipi_panel_id;
-
+	int shut_down_state;
 #ifdef CONFIG_DRM_VXD_BYT
 	struct drm_psb_private *vxd_priv;
 	int (*vxd_driver_open)(struct drm_device *dev, struct drm_file *file);

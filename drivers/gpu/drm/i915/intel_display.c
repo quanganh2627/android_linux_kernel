@@ -8640,6 +8640,9 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	intel_fb = to_intel_framebuffer(crtc->fb);
 	intel_new_fb = to_intel_framebuffer(fb);
 
+	if (dev_priv->shut_down_state)
+		return -EINVAL;
+
 	/* Can't change pixel format via MI display flips. */
 	if (fb->pixel_format != crtc->fb->pixel_format) {
 		if (IS_VALLEYVIEW(dev))

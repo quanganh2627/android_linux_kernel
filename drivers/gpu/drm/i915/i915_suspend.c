@@ -1004,6 +1004,7 @@ void i915_pm_init(struct drm_device *dev)
 		dev_priv->pm.funcs.drm_thaw = __i915_drm_thaw;
 	}
 	dev_priv->pm.shutdown_in_progress = false;
+	dev_priv->shut_down_state = 0;
 	i915_rpm_init(dev);
 }
 
