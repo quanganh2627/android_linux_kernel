@@ -1310,21 +1310,6 @@ static int intel_mid_ssp_spi_probe(struct pci_dev *pdev,
 		goto err_abort_probe;
 	}
 
-	/*
-	* KKSANAG
-	* Remove registering SSP6(pci:0000:00:07.2)
-	* or it will cause tons of unprovoked interrupts
-	* This issue will be fixed in RTL. Then no need of this
-	* fix
-	*/
-	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CARBONCANYON) {
-		dev_info(dev, "The devfn (%0xh)\n", pdev->devfn);
-		if (0x2 == (pdev->devfn & 0x03)) {
-			dev_info(dev, "The SSP6 needs to be disabled, causing spurious interrupts\n");
-			goto err_abort_probe;
-		}
-	}
-
 	dev_info(dev, "found PCI SSP controller (ID: %04xh:%04xh cfg: %02xh)\n",
 		pdev->vendor, pdev->device, ssp_cfg);
 
