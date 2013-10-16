@@ -147,9 +147,6 @@ static void __cpuinit intel_mid_arch_setup(void)
 	case 0x5A:
 		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_ANNIEDALE;
 		break;
-	case 0x5D:
-		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_CARBONCANYON;
-		break;
 	case 0x27:
 	default:
 		__intel_mid_cpu_chip = INTEL_MID_CPU_CHIP_PENWELL;
