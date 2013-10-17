@@ -121,7 +121,7 @@ static void dwc_xhci_enable_phy_auto_resume(struct usb_hcd *hcd, bool enable)
 		val |= GUSB2PHYCFG_ULPI_AUTO_RESUME;
 	else
 		val &= ~GUSB2PHYCFG_ULPI_AUTO_RESUME;
-	writel(val, hcd->regs + GUSB3PIPECTL0);
+	writel(val, hcd->regs + GUSB2PHYCFG0);
 }
 
 static void dwc_xhci_enable_phy_suspend(struct usb_hcd *hcd, bool enable)
