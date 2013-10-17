@@ -22,6 +22,7 @@
 #include <asm/processor.h>
 
 #define APIC_DIVISOR 16
+#define MRFL_I2_TERM_MA 120
 
 enum intel_mid_sim_type __intel_mid_sim_platform;
 EXPORT_SYMBOL_GPL(__intel_mid_sim_platform);
@@ -178,7 +179,11 @@ static void set_batt_chrg_prof(struct ps_pse_mod_prof *batt_prof,
 	batt_prof->battery_type = pentry->battery_type;
 	batt_prof->capacity = pentry->capacity;
 	batt_prof->voltage_max = pentry->voltage_max;
-	batt_prof->chrg_term_mA = pentry->chrg_term_mA;
+	if ((pentry->batt_id[0] == 'I') && (pentry->batt_id[1] == '2'))
+		batt_prof->chrg_term_mA = MRFL_I2_TERM_MA;
+	else
+		batt_prof->chrg_term_mA = pentry->chrg_term_mA;
+
 	batt_prof->low_batt_mV = pentry->low_batt_mV;
 	batt_prof->disch_tmp_ul = pentry->disch_tmp_ul;
 	batt_prof->disch_tmp_ll = pentry->disch_tmp_ll;
