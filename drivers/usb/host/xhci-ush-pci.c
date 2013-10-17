@@ -1410,11 +1410,17 @@ static int xhci_pci_reinit(struct xhci_hcd *xhci, struct pci_dev *pdev)
 	return 0;
 }
 
-
-void xhci_ush_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
+static void xhci_ush_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
 {
+	xhci->quirks |= XHCI_SPURIOUS_SUCCESS;
+	/*
+	 * We found two USB Disk cannot pass Enumeration with LPM
+	 * token sent on BYT, so disable LPM here.
+	 */
+	xhci->quirks |= XHCI_LPM_DISABLE_QUIRK;
 	return;
 }
+
 /* called during probe() after chip reset completes */
 static int xhci_ush_pci_setup(struct usb_hcd *hcd)
 {
