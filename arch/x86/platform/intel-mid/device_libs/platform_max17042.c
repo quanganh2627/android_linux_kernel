@@ -328,7 +328,8 @@ static void init_tgain_toff(struct max17042_platform_data *pdata)
 	if (INTEL_MID_BOARD(2, TABLET, MFLD, SLP, ENG) ||
 		INTEL_MID_BOARD(2, TABLET, MFLD, SLP, PRO) ||
 		INTEL_MID_BOARD(1, PHONE, MRFL) ||
-			INTEL_MID_BOARD(1, TABLET, MRFL)) {
+			INTEL_MID_BOARD(1, TABLET, MRFL) ||
+			INTEL_MID_BOARD(1, TABLET, BYT)) {
 		pdata->tgain = NTC_10K_B3435K_TDK_TGAIN;
 		pdata->toff = NTC_10K_B3435K_TDK_TOFF;
 	} else {
