@@ -2471,6 +2471,8 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 			  struct drm_file *file);
 int i915_set_plane_180_rotation(struct drm_device *dev, void *data,
 		struct drm_file *file);
+int i915_enable_plane_reserved_reg_bit_2(struct drm_device *dev, void *data,
+			struct drm_file *file);
 int i915_disp_screen_control(struct drm_device *dev, void *data,
 		struct drm_file *file);
 int i915_set_plane_alpha(struct drm_device *dev, void *data,
