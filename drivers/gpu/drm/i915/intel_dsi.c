@@ -37,6 +37,12 @@
 /* the sub-encoders aka panel drivers */
 static const struct intel_dsi_device intel_dsi_devices[] = {
 	{
+		.panel_id = MIPI_DSI_AUO_B101UAN01_PANEL_ID,
+		.type = INTEL_DSI_VIDEO_MODE,
+		.name = "auo-b101uan01-dsi-vid-mode-display",
+		.dev_ops = &auo_b101uan01_dsi_display_ops,
+	},
+	{
 		.panel_id = MIPI_DSI_AUO_B080XAT_PANEL_ID,
 		.type = INTEL_DSI_VIDEO_MODE,
 		.name = "auo-b080xat-dsi-vid-mode-display",
