@@ -54,6 +54,12 @@ static const struct intel_dsi_device intel_dsi_devices[] = {
 		.name = "auo-panasonic-dsi-vid-mode-display",
 		.dev_ops = &panasonic_vvx09f006a00_dsi_display_ops,
 	},
+	{
+		.panel_id = MIPI_DSI_JDI_LPM070W425B_PANEL_ID,
+		.type = INTEL_DSI_VIDEO_MODE,
+		.name = "jdi-lpm070w425b-dsi-vid-mode-display",
+		.dev_ops = &jdi_lpm070w425b_dsi_display_ops,
+	},
 };
 
 static void vlv_cck_modify(struct drm_i915_private *dev_priv, u32 reg, u32 val,

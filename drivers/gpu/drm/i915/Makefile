@@ -56,7 +56,8 @@ i915-y := i915_drv.o i915_dma.o i915_irq.o \
 	  i915_dpst.o \
 	  dsi_mod_auo_b080xat.o	\
 	  dsi_mod_panasonic_vvx09f006a00.o	\
-	  dsi_mod_auo_b101uan01.o
+	  dsi_mod_auo_b101uan01.o	\
+	  dsi_mod_jdi_lpm070w425b.o
 
 i915-$(CONFIG_COMPAT)   += i915_ioc32.o
 
