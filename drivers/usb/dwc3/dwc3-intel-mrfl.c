@@ -515,11 +515,6 @@ int dwc3_intel_b_idle(struct dwc_otg2 *otg)
 {
 	u32 gctl, tmp;
 
-	if (!is_hybridvp(otg)) {
-		enable_usb_phy(otg, false);
-		dwc_otg_charger_hwdet(false);
-	}
-
 	/* Disable hibernation mode by default */
 	gctl = otg_read(otg, GCTL);
 	gctl &= ~GCTL_GBL_HIBERNATION_EN;
@@ -543,6 +538,11 @@ int dwc3_intel_b_idle(struct dwc_otg2 *otg)
 	gctl &= ~GCTL_PRT_CAP_DIR;
 	gctl |= GCTL_PRT_CAP_DIR_DEV << GCTL_PRT_CAP_DIR_SHIFT;
 	otg_write(otg, GCTL, gctl);
+
+	if (!is_hybridvp(otg)) {
+		dwc_otg_charger_hwdet(false);
+		enable_usb_phy(otg, false);
+	}
 
 	mdelay(100);
 
