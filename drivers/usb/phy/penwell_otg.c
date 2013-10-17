@@ -126,6 +126,64 @@ static struct notifier_block pnw_sleep_pm_notifier = {
 	.priority = 0
 };
 
+/* the root hub will call this callback when device added/removed */
+static int otg_notify(struct usb_device *udev, unsigned action)
+{
+	struct usb_phy			*otg;
+	struct intel_mid_otg_xceiv	*iotg;
+
+	/* Ignore root hub add/remove event */
+	if (!udev->parent) {
+		pr_debug("%s Ignore root hub otg_notify\n", __func__);
+		return NOTIFY_DONE;
+	}
+
+	/* Ignore USB devices on external hub */
+	if (udev->parent && udev->parent->parent) {
+		pr_debug("%s Ignore USB devices on external hub\n", __func__);
+		return NOTIFY_DONE;
+	}
+
+	otg = usb_get_phy(USB_PHY_TYPE_USB2);
+	if (otg == NULL) {
+		pr_err("%s: failed to get otg transceiver\n", __func__);
+		return NOTIFY_BAD;
+	}
+	iotg = otg_to_mid_xceiv(otg);
+
+	switch (action) {
+	case USB_DEVICE_ADD:
+		pr_debug("Notify OTG HNP add device\n");
+		atomic_notifier_call_chain(&iotg->iotg_notifier,
+					MID_OTG_NOTIFY_CONNECT, iotg);
+		break;
+	case USB_DEVICE_REMOVE:
+		pr_debug("Notify OTG HNP delete device\n");
+		atomic_notifier_call_chain(&iotg->iotg_notifier,
+					MID_OTG_NOTIFY_DISCONN, iotg);
+		break;
+	case USB_OTG_TESTDEV:
+		pr_debug("Notify OTG test device\n");
+		atomic_notifier_call_chain(&iotg->iotg_notifier,
+					MID_OTG_NOTIFY_TEST, iotg);
+		break;
+	case USB_OTG_TESTDEV_VBUSOFF:
+		pr_debug("Notify OTG test device, Vbusoff mode\n");
+		atomic_notifier_call_chain(&iotg->iotg_notifier,
+					MID_OTG_NOTIFY_TEST_VBUS_OFF, iotg);
+		break;
+	default:
+		usb_put_phy(otg);
+		return NOTIFY_DONE;
+	}
+	usb_put_phy(otg);
+	return NOTIFY_OK;
+}
+
+static struct notifier_block otg_nb = {
+	.notifier_call = otg_notify,
+};
+
 #define PNW_PM_RESUME_WAIT(a) do { \
 		while (atomic_read(&pnw_sys_suspended)) { \
 			wait_event_timeout(a, false, HZ/100); \
@@ -4906,6 +4964,9 @@ static int penwell_otg_probe(struct pci_dev *pdev,
 		goto err;
 	}
 
+	/* listen usb core events */
+	usb_register_notify(&otg_nb);
+
 	pnw->otg_pdata = pdev->dev.platform_data;
 	if (pnw->otg_pdata == NULL) {
 		dev_err(pnw->dev, "Failed to get OTG platform data.\n");
@@ -5109,6 +5170,7 @@ static void penwell_otg_remove(struct pci_dev *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_chargers);
 	device_remove_file(&pdev->dev, &dev_attr_hsm);
 	device_remove_file(&pdev->dev, &dev_attr_registers);
+	usb_unregister_notify(&otg_nb);
 	kfree(pnw);
 	pnw = NULL;
 }

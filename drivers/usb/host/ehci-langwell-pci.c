@@ -60,58 +60,6 @@ static int usb_otg_resume(struct usb_hcd *hcd)
 	return 0;
 }
 
-/* the root hub will call this callback when device added/removed */
-static void otg_notify(struct usb_device *udev, unsigned action)
-{
-	struct usb_phy			*otg;
-	struct intel_mid_otg_xceiv	*iotg;
-
-	/* Ignore root hub add/remove event */
-	if (!udev->parent) {
-		pr_debug("%s Ignore root hub otg_notify\n", __func__);
-		return;
-	}
-
-	/* Ignore USB devices on external hub */
-	if (udev->parent && udev->parent->parent)
-		return;
-
-	otg = usb_get_phy(USB_PHY_TYPE_USB2);
-	if (otg == NULL) {
-		pr_err("%s: failed to get otg transceiver\n", __func__);
-		return;
-	}
-	iotg = otg_to_mid_xceiv(otg);
-
-	switch (action) {
-	case USB_DEVICE_ADD:
-		pr_debug("Notify OTG HNP add device\n");
-		atomic_notifier_call_chain(&iotg->iotg_notifier,
-					MID_OTG_NOTIFY_CONNECT, iotg);
-		break;
-	case USB_DEVICE_REMOVE:
-		pr_debug("Notify OTG HNP delete device\n");
-		atomic_notifier_call_chain(&iotg->iotg_notifier,
-					MID_OTG_NOTIFY_DISCONN, iotg);
-		break;
-	case USB_OTG_TESTDEV:
-		pr_debug("Notify OTG test device\n");
-		atomic_notifier_call_chain(&iotg->iotg_notifier,
-					MID_OTG_NOTIFY_TEST, iotg);
-		break;
-	case USB_OTG_TESTDEV_VBUSOFF:
-		pr_debug("Notify OTG test device, Vbusoff mode\n");
-		atomic_notifier_call_chain(&iotg->iotg_notifier,
-					MID_OTG_NOTIFY_TEST_VBUS_OFF, iotg);
-		break;
-	default:
-		usb_put_phy(otg);
-		return;
-	}
-	usb_put_phy(otg);
-	return;
-}
-
 static int ehci_mid_probe(struct pci_dev *pdev,
 				const struct pci_device_id *id)
 {
@@ -148,8 +96,6 @@ static int ehci_mid_probe(struct pci_dev *pdev,
 	/* this will be called in ehci_bus_suspend and ehci_bus_resume */
 	ehci->otg_suspend = usb_otg_suspend;
 	ehci->otg_resume = usb_otg_resume;
-	/* this will be called by root hub code */
-	hcd->otg_notify = otg_notify;
 	otg = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (otg == NULL) {
 		pr_err("%s:  failed to get otg transceiver\n", __func__);
