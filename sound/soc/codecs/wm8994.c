@@ -4534,6 +4534,10 @@ static int wm8994_remove(struct platform_device *pdev)
 static int wm8994_suspend(struct device *dev)
 {
 	struct wm8994_priv *wm8994 = dev_get_drvdata(dev);
+	struct wm8994 *control = wm8994->wm8994;
+	struct snd_soc_codec *codec = wm8994->hubs.codec;
+	unsigned int reg;
+
 
 	/* Drop down to power saving mode when system is suspended */
 	if (wm8994->jackdet && !wm8994->active_refcount)
@@ -4541,17 +4545,40 @@ static int wm8994_suspend(struct device *dev)
 				   WM1811_JACKDET_MODE_MASK,
 				   wm8994->jackdet_mode);
 
+	/* Disable the MIC Detection when suspended */
+	if ((control->type == WM8958) && wm8994->mic_id_cb) {
+
+		reg = snd_soc_read(codec, WM8958_MIC_DETECT_3);
+
+		dev_dbg(codec->dev, "%s: WM8958_MIC_DETECT_3 0x%x\n", __func__, reg);
+
+		if ((reg & WM8958_MICD_VALID) &&  !(reg & WM8958_MICD_STS)) {
+			dev_dbg(codec->dev, "Disable MIC Detection!!!\n");
+			snd_soc_update_bits(codec, WM8958_MIC_DETECT_1,
+						WM8958_MICD_ENA, 0);
+		}
+	}
+
 	return 0;
 }
 
 static int wm8994_resume(struct device *dev)
 {
 	struct wm8994_priv *wm8994 = dev_get_drvdata(dev);
+	struct wm8994 *control = wm8994->wm8994;
+	struct snd_soc_codec *codec = wm8994->hubs.codec;
 
 	if (wm8994->jackdet && wm8994->jackdet_mode)
 		regmap_update_bits(wm8994->wm8994->regmap, WM8994_ANTIPOP_2,
 				   WM1811_JACKDET_MODE_MASK,
 				   WM1811_JACKDET_MODE_AUDIO);
+
+	/* Enable the MIC Detection when resumed */
+	if ((control->type == WM8958) && wm8994->mic_id_cb) {
+		dev_dbg(codec->dev, "Enable MIC Detection!!!\n");
+		snd_soc_update_bits(codec, WM8958_MIC_DETECT_1,
+					WM8958_MICD_ENA, WM8958_MICD_ENA);
+	}
 
 	return 0;
 }
