@@ -65,6 +65,8 @@ enum {
 enum {
 	HSI_EVENT_START_RX,
 	HSI_EVENT_STOP_RX,
+	HSI_EVENT_RESUME,
+	HSI_EVENT_SUSPEND,
 };
 
 /**
