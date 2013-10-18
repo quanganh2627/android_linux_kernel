@@ -36,7 +36,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/f_mtp.h>
 
-#define MTP_BULK_TX_BUFFER_SIZE       16384
+#define MTP_BULK_TX_BUFFER_SIZE       (16384*4)
 #define MTP_BULK_RX_BUFFER_SIZE       (65536*4)
 #define MTP_UDC_LIMITED_SIZE   16384
 #define INTR_BUFFER_SIZE           28
@@ -71,7 +71,10 @@
 
 static const char mtp_shortname[] = "mtp_usb";
 
-static unsigned char rx_buffer[RX_REQ_MAX][MTP_BULK_RX_BUFFER_SIZE];
+static unsigned char tx_buffer[TX_REQ_MAX][MTP_BULK_TX_BUFFER_SIZE]
+__cacheline_aligned;
+static unsigned char rx_buffer[RX_REQ_MAX][MTP_BULK_RX_BUFFER_SIZE]
+__cacheline_aligned;
 
 struct mtp_dev {
 	struct usb_function function;
@@ -96,6 +99,7 @@ struct mtp_dev {
 	wait_queue_head_t write_wq;
 	wait_queue_head_t intr_wq;
 	struct usb_request *rx_req[RX_REQ_MAX];
+	void *tx_mem[TX_REQ_MAX];
 	void *rx_mem[RX_REQ_MAX];
 	int rx_done;
 
@@ -490,9 +494,10 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 
 	/* now allocate requests for our endpoints */
 	for (i = 0; i < TX_REQ_MAX; i++) {
-		req = mtp_request_new(dev->ep_in, MTP_BULK_TX_BUFFER_SIZE);
+		req = usb_ep_alloc_request(dev->ep_in, GFP_KERNEL);
 		if (!req)
 			goto fail;
+		req->buf = dev->tx_mem[i];
 		req->complete = mtp_complete_in;
 		mtp_req_put(dev, &dev->tx_idle, req);
 	}
@@ -1257,10 +1262,19 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 
 	if (gadget_is_superspeed(c->cdev->gadget)) {
+		unsigned        max_in_burst;
+		unsigned        max_out_burst;
+
+		max_in_burst = min_t(unsigned,
+				     MTP_BULK_RX_BUFFER_SIZE / 1024, 15);
+		max_out_burst = min_t(unsigned,
+				      MTP_BULK_TX_BUFFER_SIZE / 1024, 15);
 		mtp_superspeed_in_desc.bEndpointAddress =
 			mtp_fullspeed_in_desc.bEndpointAddress;
+		mtp_superspeed_in_comp_desc.bMaxBurst = max_in_burst;
 		mtp_superspeed_out_desc.bEndpointAddress =
 			mtp_fullspeed_out_desc.bEndpointAddress;
+		mtp_superspeed_out_comp_desc.bMaxBurst = max_out_burst;
 	}
 
 	DBG(cdev, "%s speed %s: IN/%s, OUT/%s\n",
@@ -1281,7 +1295,7 @@ mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	flush_workqueue(dev->wq);
 
 	while ((req = mtp_req_get(dev, &dev->tx_idle)))
-		mtp_request_free(req, dev->ep_in);
+		usb_ep_free_request(dev->ep_in, req);
 	for (i = 0; i < RX_REQ_MAX; i++) {
 		req = dev->rx_req[i];
 		if (req) {
@@ -1415,6 +1429,16 @@ static int mtp_setup(void)
 	if (!dev->wq) {
 		ret = -ENOMEM;
 		goto err1;
+	}
+
+	memset(tx_buffer, 0, TX_REQ_MAX * MTP_BULK_TX_BUFFER_SIZE);
+	/* Request memory buffer for TX */
+	for (i = 0; i < TX_REQ_MAX; i++) {
+		dev->tx_mem[i] = tx_buffer[i];
+		if (!dev->tx_mem[i]) {
+			ret = -ENOMEM;
+			goto err2;
+		}
 	}
 
 	memset(rx_buffer, 0, RX_REQ_MAX * MTP_BULK_RX_BUFFER_SIZE);
