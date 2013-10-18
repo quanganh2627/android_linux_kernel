@@ -2694,7 +2694,7 @@ CONFIG_UUID=y
 # Fork of Texas Instruments shared transport line discipline
 #
 # CONFIG_TI_ST_FORK is not set
-# CONFIG_I2C_DESIGNWARE_PCI_FORK is not set
+# CONFIG_I2C_DESIGNWARE_CORE_FORK is not set
 CONFIG_TOUCHSCREEN_ATMEL_MXT224=y
 # CONFIG_TOUCHSCREEN_R69001_I2C is not set
 # CONFIG_TOUCHSCREEN_ATMEL_MXT_FORK is not set
