@@ -579,6 +579,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"media0_in", NULL, "Compress Playback"},
 	{"media1_in", NULL, "Headset Playback"},
 	{"media2_in", NULL, "pcm0_out"},
+	{"media3_in", NULL, "Deepbuffer Playback"},
 
 	{"media0_out mix 0", "media0_in", "media0_in"},
 	{"media0_out mix 0", "media1_in", "media1_in"},
@@ -636,9 +637,11 @@ static const struct snd_soc_dapm_route intercon[] = {
 	/* TODO: add Voice inputs and outputs */
 	/* TODO: add Probe inputs and outputs */
 	/* TODO: add Tone inputs */
+	/* TODO: add Low Latency stream support */
 
 	{"Headset Capture", NULL, "VBTimer"},
 	{"Headset Playback", NULL, "VBTimer"},
+	{"Deepbuffer Playback", NULL, "VBTimer"},
 	{"Compress Playback", NULL, "VBTimer"},
 	{"VOIP Playback", NULL, "VBTimer"},
 };

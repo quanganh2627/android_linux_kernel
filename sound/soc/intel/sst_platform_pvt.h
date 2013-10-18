@@ -56,6 +56,8 @@ extern struct sst_device *sst_dsp;
 #define SST_COMPRESS_DAI	"Compress-cpu-dai"
 #define SST_PROBE_DAI		"Probe-cpu-dai"
 #define SST_VOIP_DAI		"Voip-cpu-dai"
+#define SST_DEEPBUFFER_DAI	"Deepbuffer-cpu-dai"
+#define SST_LOWLATENCY_DAI	"Lowlatency-cpu-dai"
 
 struct sst_device;
 

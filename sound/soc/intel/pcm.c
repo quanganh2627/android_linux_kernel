@@ -184,7 +184,6 @@ static int sst_get_stream_mapping(int dev, int sdev, int dir,
 					map[index].device_id = pipe_id;
 
 				} else if (map[index].dev_num == MERR_SALTBAY_AUDIO) {
-
 					if (!ll_db->low_latency || !ll_db->deep_buffer)
 						return -EINVAL;
 
@@ -518,6 +517,28 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = SNDRV_PCM_RATE_44100|SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+},
+{
+	.name = SST_DEEPBUFFER_DAI,
+	.ops = &sst_media_dai_ops,
+	.playback = {
+		.stream_name = "Deepbuffer Playback",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+},
+{
+	.name = SST_LOWLATENCY_DAI,
+	.ops = &sst_media_dai_ops,
+	.playback = {
+		.stream_name = "Low Latency Playback",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 },
