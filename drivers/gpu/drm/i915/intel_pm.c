@@ -6273,9 +6273,23 @@ int vlv_freq_opcode(struct drm_i915_private *dev_priv, int val)
 	return opcode;
 }
 
+void program_pfi_credits(struct drm_i915_private *dev_priv)
+{
+	int cd_clk, cz_clk;
+
+	intel_get_cd_cz_clk(dev_priv, &cd_clk, &cz_clk);
+	if (cd_clk >= cz_clk)
+		I915_WRITE(GCI_CONTROL, 0x78000000);
+	else
+		DRM_ERROR("cd clk < cz clk");
+}
+
 void intel_pm_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (IS_VALLEYVIEW(dev))
+		program_pfi_credits(dev_priv);
 
 	INIT_DELAYED_WORK(&dev_priv->rps.delayed_resume_work,
 			  intel_gen6_powersave_work);
