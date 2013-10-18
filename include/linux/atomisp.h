@@ -242,11 +242,16 @@ struct atomisp_dis_coefficients {
 #endif /* CSS20 */
 };
 
-struct atomisp_dis_statistics {
-#ifdef CSS20
+struct atomisp_dvs2_statistics {
 	struct atomisp_dvs_grid_info grid_info;
 	struct atomisp_dvs2_stat_types hor_prod;
 	struct atomisp_dvs2_stat_types ver_prod;
+};
+
+struct atomisp_dis_statistics {
+#ifdef CSS20
+	struct atomisp_dvs2_statistics dvs2_stat;
+	uint32_t exp_id;
 #else /* CSS20 */
 	struct atomisp_grid_info grid_info;
 	int __user *vertical_projections;
@@ -366,6 +371,7 @@ struct atomisp_parm {
 };
 
 struct atomisp_dvs_6axis_config {
+	uint32_t exp_id;
 	uint32_t width_y;
 	uint32_t height_y;
 	uint32_t width_uv;
