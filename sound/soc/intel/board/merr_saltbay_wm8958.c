@@ -420,6 +420,9 @@ static void wm8958_custom_mic_id(void *data, u16 status)
 		return;
 	}
 
+	schedule_delayed_work(&wm8994->micd_set_custom_rate_work,
+		msecs_to_jiffies(wm8994->wm8994->pdata.micb_en_delay));
+
 	/* If the measurement is showing a high impedence we've got a
 	 * microphone.
 	 */
@@ -428,8 +431,6 @@ static void wm8958_custom_mic_id(void *data, u16 status)
 
 		wm8994->mic_detecting = false;
 		wm8994->jack_mic = true;
-
-		wm8958_custom_micd_set_rate(codec);
 
 		snd_soc_jack_report(wm8994->micdet[0].jack, SND_JACK_HEADSET,
 				    SND_JACK_HEADSET);
@@ -445,8 +446,6 @@ static void wm8958_custom_mic_id(void *data, u16 status)
 		 * or headset is detected)
 		 * */
 		wm8994->mic_detecting = true;
-
-		wm8958_custom_micd_set_rate(codec);
 
 		snd_soc_jack_report(wm8994->micdet[0].jack, SND_JACK_HEADPHONE,
 				    SND_JACK_HEADSET);
@@ -514,6 +513,8 @@ static int mrfld_8958_init(struct snd_soc_pcm_runtime *runtime)
 
 	wm8958_mic_detect(codec, &ctx->jack, NULL, NULL,
 			  wm8958_custom_mic_id, codec);
+
+	wm8958_micd_set_custom_rate(codec, wm8958_custom_micd_set_rate, codec);
 
 	snd_soc_update_bits(codec, WM8994_AIF1_DAC1_FILTERS_1, WM8994_AIF1DAC1_MUTE, 0);
 	snd_soc_update_bits(codec, WM8994_AIF1_DAC2_FILTERS_1, WM8994_AIF1DAC2_MUTE, 0);

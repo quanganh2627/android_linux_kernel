@@ -187,6 +187,11 @@ struct wm8994_pdata {
 	 */
 	int mic_id_delay;
 
+	/* Keep MICBIAS2 high for micb_en_delay, during jack insertion
+	 * removal
+	 */
+	int micb_en_delay;
+
 	/* IRQ for microphone detection if brought out directly as a
 	 * signal.
 	 */
