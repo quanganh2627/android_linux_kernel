@@ -709,13 +709,13 @@ bool intel_restore_clr_mgr_status(struct drm_device *dev)
 	}
 
 	/* Fixme */
-	/* If gamma enabled, restore gamma
+	/* If gamma enabled, restore gamma */
 	if (dev_priv->gamma_enabled) {
 		if (intel_crtc_enable_gamma(crtc, PIPEA)) {
 			DRM_ERROR("Color Restore: gamma failed\n");
 			return false;
 		}
-	} */
+	}
 
 	/* If csc enabled, restore csc */
 	if (dev_priv->csc_enabled) {

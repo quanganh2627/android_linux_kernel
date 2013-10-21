@@ -39,6 +39,7 @@
 /*#include "i915_rpm.h"*/
 #include "i915_trace.h"
 #include "intel_dsi.h"
+#include "intel_clrmgr.h"
 #include "hdmi_audio_if.h"
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_crtc_helper.h>
@@ -10231,6 +10232,10 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	i915_rpm_get_disp(dev);
+
+	  /* Restore Gamma/Csc/Hue/Saturation/Brightness/Contrast */
+	if (!intel_restore_clr_mgr_status(dev))
+		DRM_ERROR("Restore Color manager status failed");
 
 	/* Re-detect hot pluggable displays */
 	i915_simulate_hpd(dev, true);

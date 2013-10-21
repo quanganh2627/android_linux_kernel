@@ -214,8 +214,6 @@ static void i915_save_display(struct drm_device *dev)
 	/* Don't regfile.save them in KMS mode */
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		i915_save_display_reg(dev);
-	/* Save Hue/Saturation/Brightness/Contrast status */
-	intel_save_clr_mgr_status(dev);
 
 	spin_lock_irqsave(&dev_priv->backlight.lock, flags);
 
@@ -284,9 +282,6 @@ static void i915_restore_display(struct drm_device *dev)
 	/* Display arbitration */
 	if (INTEL_INFO(dev)->gen <= 4)
 		I915_WRITE(DSPARB, dev_priv->regfile.saveDSPARB);
-
-	if (!drm_core_check_feature(dev, DRIVER_MODESET))
-		i915_restore_display_reg(dev);
 
 	spin_lock_irqsave(&dev_priv->backlight.lock, flags);
 
@@ -803,6 +798,9 @@ static int valleyview_freeze(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 reg;
+
+	/* Save Hue/Saturation/Brightness/Contrast status */
+	intel_save_clr_mgr_status(dev);
 
 	pci_save_state(dev->pdev);
 
