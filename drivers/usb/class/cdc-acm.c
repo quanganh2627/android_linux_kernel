@@ -48,6 +48,7 @@
 #include <asm/unaligned.h>
 #include <linux/list.h>
 #include <linux/pci.h>
+#include <linux/debugfs.h>
 
 #include "cdc-acm.h"
 
@@ -58,9 +59,13 @@
 static struct usb_driver acm_driver;
 static struct tty_driver *acm_tty_driver;
 static struct acm *acm_table[ACM_TTY_MINORS];
+static struct dentry *acm_debug_root;
+static struct dentry *acm_debug_data_dump_enable;
+static u32 acm_data_dump_enable;
 
 static DEFINE_MUTEX(acm_table_lock);
 
+static inline int is_hsic_host(struct usb_device *udev);
 /*
  * acm_table accessors
  */
@@ -409,6 +414,27 @@ static int acm_submit_read_urbs(struct acm *acm, gfp_t mem_flags)
 	return 0;
 }
 
+static void ftrace_dump_acm_data(struct acm *acm, const void *buf, size_t len)
+{
+	const u8 *ptr = buf;
+	int i, linelen, remaining = len;
+	unsigned char linebuf[32 * 3 + 2 + 32 + 1];
+	int rowsize = 16;
+	int groupsize = 1;
+	bool ascii = true;
+
+	for (i = 0; i < len; i += rowsize) {
+		linelen = min(remaining, rowsize);
+		remaining -= rowsize;
+
+		hex_dump_to_buffer(ptr + i, linelen, rowsize, groupsize,
+				   linebuf, sizeof(linebuf), ascii);
+
+		trace_printk("[ACM %02d] %.4x: %s\n", acm->minor, i, linebuf);
+	}
+
+}
+
 static void acm_process_read_urb(struct acm *acm, struct urb *urb)
 {
 	if (!urb->actual_length)
@@ -416,6 +442,11 @@ static void acm_process_read_urb(struct acm *acm, struct urb *urb)
 
 	tty_insert_flip_string(&acm->port, urb->transfer_buffer,
 			urb->actual_length);
+
+	if (is_hsic_host(acm->dev) && acm_data_dump_enable)
+		ftrace_dump_acm_data(acm, urb->transfer_buffer,
+			urb->actual_length);
+
 	tty_flip_buffer_push(&acm->port);
 }
 
@@ -955,7 +986,7 @@ static inline int is_hsic_host(struct usb_device *udev)
 		return -EINVAL;
 
 	pdev = to_pci_dev(udev->bus->controller);
-	if (pdev->device == 0x119D)
+	if (pdev->device == 0x119D || pdev->device == 0x0f35)
 		return 1;
 	else
 		return 0;
@@ -1380,6 +1411,17 @@ skip_countries:
 	if (is_comneon_modem(usb_dev))
 		usb_enable_autosuspend(usb_dev);
 
+	if (is_hsic_host(usb_dev)) {
+		if (!acm_debug_root && usb_debug_root) {
+			acm_debug_root = debugfs_create_dir("acm",
+				usb_debug_root);
+			acm_debug_data_dump_enable = debugfs_create_u32(
+				"acm_data_dump_enable",	0644, acm_debug_root,
+				&acm_data_dump_enable);
+			acm_data_dump_enable = 0;
+		}
+	}
+
 	return 0;
 alloc_fail8:
 	if (acm->country_codes) {
@@ -1472,6 +1514,11 @@ static void acm_disconnect(struct usb_interface *intf)
 	if (!acm->combined_interfaces)
 		usb_driver_release_interface(&acm_driver, intf == acm->control ?
 					acm->data : acm->control);
+
+	debugfs_remove(acm_debug_root);
+	debugfs_remove(acm_debug_data_dump_enable);
+	acm_debug_root = NULL;
+	acm_debug_data_dump_enable = NULL;
 
 	tty_port_put(&acm->port);
 }
