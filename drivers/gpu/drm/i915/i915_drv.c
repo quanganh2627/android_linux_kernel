@@ -863,13 +863,16 @@ static int i915_release(struct inode *inode, struct file *filp)
 	int ret = 0;
 	struct drm_file *file_priv = filp->private_data;
 	struct drm_device *dev = file_priv->minor->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
 #ifdef CONFIG_PM_RUNTIME
 	i915_rpm_get_callback(dev);
 #endif
 #ifdef CONFIG_DRM_VXD_BYT
-	if (dev_priv->vxd_release)
-		ret = dev_priv->vxd_release(inode, filp);
+	{
+		struct drm_i915_private *dev_priv = dev->dev_private;
+
+		if (dev_priv->vxd_release)
+			ret = dev_priv->vxd_release(inode, filp);
+	}
 #endif
 	ret |= drm_release(inode, filp);
 #ifdef CONFIG_PM_RUNTIME

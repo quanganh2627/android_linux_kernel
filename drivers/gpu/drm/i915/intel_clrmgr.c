@@ -358,6 +358,9 @@ int intel_enable_pipe_gamma(struct drm_crtc *crtc)
 		DRM_ERROR("Invalid CRTC object input to gamma enable\n");
 		return -EINVAL;
 	}
+	intel_crtc = to_intel_crtc(crtc);
+	dev = crtc->dev;
+	dev_priv = dev->dev_private;
 
 	intel_crtc = to_intel_crtc(crtc);
 	dev = crtc->dev;

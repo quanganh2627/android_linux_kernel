@@ -66,7 +66,6 @@ struct i915_flip_work {
  */
 static struct i915_flip_work flip_works[I915_MAX_PLANES];
 
-bool intel_pipe_has_type(const struct drm_crtc *crtc, int type);
 static void intel_increase_pllclock(struct drm_crtc *crtc);
 static void intel_crtc_update_cursor(struct drm_crtc *crtc, bool on);
 static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
@@ -1975,7 +1974,7 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 			   struct intel_ring_buffer *pipelined)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 alignment;
+	u32 alignment = 0;
 	int ret;
 
 	switch (obj->tiling_mode) {
@@ -2521,7 +2520,7 @@ static void intel_crtc_update_sarea_pos(struct drm_crtc *crtc, int x, int y)
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_master_private *master_priv;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-
+	int pipe = intel_crtc->pipe;
 	if (!dev->primary->master)
 		return;
 
@@ -2529,7 +2528,7 @@ static void intel_crtc_update_sarea_pos(struct drm_crtc *crtc, int x, int y)
 	if (!master_priv->sarea_priv)
 		return;
 
-	switch (intel_crtc->pipe) {
+	switch (pipe) {
 	case 0:
 		master_priv->sarea_priv->pipeA_x = x;
 		master_priv->sarea_priv->pipeA_y = y;
@@ -4404,6 +4403,7 @@ static bool ironlake_check_fdi_lanes(struct drm_device *dev, enum pipe pipe,
 		return true;
 	default:
 		BUG();
+		return false;
 	}
 }
 
@@ -9943,7 +9943,7 @@ static int intel_crtc_set_config(struct drm_mode_set *set)
 	ret = -ENOMEM;
 	config = kzalloc(sizeof(*config), GFP_KERNEL);
 	if (!config)
-		goto out_config;
+		return ret;
 
 	ret = intel_set_config_save_state(dev, config);
 	if (ret)
@@ -10137,9 +10137,8 @@ extern void intel_cancel_fbc_work(struct drm_i915_private *dev_priv);
 static int display_disable_wq(struct drm_device *drm_dev)
 {
 	struct drm_i915_private *dev_priv = drm_dev->dev_private;
-	/* Uncomment following variables once HDMI audio code is integrated*/
 	/*struct drm_crtc *crtc;
-	struct intel_encoder *intel_encoder; */
+	struct intel_encoder *intel_encoder;*/
 
 	cancel_work_sync(&dev_priv->hotplug_work);
 	//intel_cancel_fbc_work(dev_priv);
@@ -10191,6 +10190,7 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
 	int ret;
+
 	/* Force a re-detection on Hot-pluggable displays */
 	i915_simulate_hpd(dev, false);
 

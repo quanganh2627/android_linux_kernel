@@ -43,7 +43,7 @@
 #include <linux/kref.h>
 #include <linux/pm_qos.h>
 #include "hdmi_audio_if.h"
-
+#include <linux/mmu_notifier.h>
 /* General customization:
  */
 
@@ -1519,6 +1519,9 @@ struct drm_i915_gem_object {
 	/** List of VMAs backed by this object */
 	struct list_head vma_list;
 
+	/** Current space allocated to this object in the GTT, if any. */
+	struct drm_mm_node *gtt_space;
+
 	/** Stolen memory for this object, instead of being backed by shmem. */
 	struct drm_mm_node *stolen;
 	struct list_head global_list;
@@ -2025,6 +2028,7 @@ int __must_check i915_gem_object_ggtt_unbind(struct drm_i915_gem_object *obj);
 int i915_gem_object_put_pages(struct drm_i915_gem_object *obj);
 void i915_gem_release_mmap(struct drm_i915_gem_object *obj);
 void i915_gem_lastclose(struct drm_device *dev);
+int __must_check i915_gem_object_unbind(struct drm_i915_gem_object *obj);
 
 int __must_check i915_gem_object_get_pages(struct drm_i915_gem_object *obj);
 static inline struct page *i915_gem_object_get_page(struct drm_i915_gem_object *obj, int n)

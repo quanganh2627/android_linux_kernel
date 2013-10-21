@@ -484,6 +484,7 @@ vlv_dport_to_channel(struct intel_digital_port *dport)
 		return 1;
 	default:
 		BUG();
+		return 0;
 	}
 }
 
