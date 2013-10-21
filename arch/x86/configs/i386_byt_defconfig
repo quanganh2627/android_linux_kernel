@@ -4161,4 +4161,10 @@ CONFIG_CLZ_TAB=y
 # CONFIG_DDR is not set
 CONFIG_MPILIB=y
 CONFIG_OID_REGISTRY=y
+
+# Apply the config to enable sync framework support
+CONFIG_SYNC=y
+CONFIG_SW_SYNC=y
+CONFIG_SW_SYNC_USER=y
+
 CONFIG_UCS2_STRING=y
