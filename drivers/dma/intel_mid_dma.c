@@ -1072,9 +1072,46 @@ static struct dma_async_tx_descriptor *intel_mid_dma_prep_memcpy_v2(
 			else
 				return NULL;
 
+		} else if (midc->dma->pci_id == INTEL_MRFLD_GP_DMAC2_ID) {
+			if (mids->dma_slave.direction == DMA_MEM_TO_DEV) {
+				cfg_hi.cfgx_v2.src_per = 0;
+
+				if (mids->device_instance ==
+					MRFL_INSTANCE_SPI3)
+					cfg_hi.cfgx_v2.dst_per = 0xF;
+				else if (mids->device_instance ==
+					MRFL_INSTANCE_SPI5)
+					cfg_hi.cfgx_v2.dst_per = 0xD;
+				else if (mids->device_instance ==
+					MRFL_INSTANCE_SPI6)
+					cfg_hi.cfgx_v2.dst_per = 0xB;
+				else
+					cfg_hi.cfgx_v2.dst_per = midc->ch_id
+						- midc->dma->chan_base;
+			} else if (mids->dma_slave.direction
+				== DMA_DEV_TO_MEM) {
+				if (mids->device_instance ==
+					MRFL_INSTANCE_SPI3)
+					cfg_hi.cfgx_v2.src_per = 0xE;
+				else if (mids->device_instance ==
+					MRFL_INSTANCE_SPI5)
+					cfg_hi.cfgx_v2.src_per = 0xC;
+				else if (mids->device_instance ==
+					MRFL_INSTANCE_SPI6)
+					cfg_hi.cfgx_v2.src_per = 0xA;
+				else
+					cfg_hi.cfgx_v2.src_per = midc->ch_id
+						- midc->dma->chan_base;
+
+				cfg_hi.cfgx_v2.dst_per = 0;
+			} else {
+				cfg_hi.cfgx_v2.dst_per =
+					cfg_hi.cfgx_v2.src_per = 0;
+			}
 		} else {
-			cfg_hi.cfgx_v2.src_per = cfg_hi.cfgx_v2.dst_per =
-					midc->ch_id - midc->dma->chan_base;
+			cfg_hi.cfgx_v2.src_per =
+				cfg_hi.cfgx_v2.dst_per =
+				midc->ch_id - midc->dma->chan_base;
 		}
 	}
 	/*calculate CTL_HI*/
