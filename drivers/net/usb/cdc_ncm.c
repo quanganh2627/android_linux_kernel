@@ -605,14 +605,15 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
 
 	/* NCM data altsetting is always 1 */
 	ret = cdc_ncm_bind_common(dev, intf, 1);
-
-	/*
-	 * We should get an event when network connection is "connected" or
-	 * "disconnected". Set network connection in "disconnected" state
-	 * (carrier is OFF) during attach, so the IP network stack does not
-	 * start IPv6 negotiation and more.
-	 */
-	usbnet_link_change(dev, 0, 0);
+	if (!ret) {
+		/*
+		 * We should get an event when network connection is "connected"
+		 * or "disconnected". Set network connection in "disconnected"
+		 * state (carrier is OFF) during attach, so the IP network stack
+		 * does not start IPv6 negotiation and more.
+		 */
+		usbnet_link_change(dev, 0, 0);
+	}
 	return ret;
 }
 
