@@ -128,6 +128,29 @@ static void dwc3_do_extra_change(struct dwc3 *dwc)
 	dwc3_enable_host_auto_retry(dwc, false);
 }
 
+static void dwc3_enable_hibernation(struct dwc3 *dwc)
+{
+	u32 num, reg;
+
+	if (DWC3_GHWPARAMS1_EN_PWROPT(dwc->hwparams.hwparams1)
+		!= DWC3_GHWPARAMS1_EN_PWROPT_HIB) {
+		dev_err(dwc->dev, "Device Mode Hibernation is not supported\n");
+		return;
+	}
+
+	num = DWC3_GHWPARAMS4_HIBER_SCRATCHBUFS(
+		 dwc->hwparams.hwparams4);
+	if (num != 1)
+		dev_err(dwc->dev, "number of scratchpad buffer: %d\n", num);
+
+	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
+	reg |= DWC3_GCTL_GBLHIBERNATIONEN;
+	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
+
+	dwc3_send_gadget_generic_command(dwc, DWC3_DGCMD_SET_SCRATCH_ADDR_LO,
+		dwc->scratch_array_dma & 0xffffffffU);
+}
+
 int dwc3_start_peripheral(struct usb_gadget *g)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
@@ -156,6 +179,8 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 		dwc3_core_init(dwc);
 		spin_lock_irqsave(&dwc->lock, flags);
 
+		if (dwc->hiber_enabled)
+			dwc3_enable_hibernation(dwc);
 		dwc3_do_extra_change(dwc);
 		dwc3_event_buffers_setup(dwc);
 		ret = dwc3_init_for_enumeration(dwc);
@@ -163,6 +188,8 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 			goto err0;
 
 		dwc3_gadget_run_stop(dwc, 1);
+		if (dwc->hiber_enabled)
+			dwc3_gadget_keep_conn(dwc, 1);
 	}
 
 	dwc->pm_state = PM_ACTIVE;
@@ -204,8 +231,7 @@ int dwc3_stop_peripheral(struct usb_gadget *g)
 
 	/* Clear Run/Stop bit */
 	dwc3_gadget_run_stop(dwc, 0);
-
-	dwc->pm_state = PM_DISCONNECTED;
+	dwc3_gadget_keep_conn(dwc, 0);
 
 	for (epnum = 0; epnum < 2; epnum++) {
 		struct dwc3_ep  *dep;
@@ -227,6 +253,10 @@ int dwc3_stop_peripheral(struct usb_gadget *g)
 
 	dwc3_enable_host_auto_retry(dwc, true);
 
+	if (dwc->pm_state != PM_SUSPENDED)
+		pm_runtime_put(dwc->dev);
+
+	dwc->pm_state = PM_DISCONNECTED;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
@@ -247,6 +277,22 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
 	int			ret;
+
+	/*
+	 * FIXME If pm_state is PM_RESUMING, we should wait for it to
+	 * become PM_ACTIVE before continue. The chance of hitting
+	 * PM_RESUMING is rare, but if so, we'll return directly.
+	 *
+	 * If some gadget reaches here in atomic context,
+	 * pm_runtime_get_sync will cause a sleep problem.
+	 */
+	if (dwc->pm_state == PM_RESUMING) {
+		dev_err(dwc->dev, "%s: PM_RESUMING, return -EIO\n", __func__);
+		return -EIO;
+	}
+
+	if (dwc->pm_state == PM_SUSPENDED)
+		pm_runtime_get_sync(dwc->dev);
 
 	is_on = !!is_on;
 
@@ -272,10 +318,14 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 		dwc3_core_init(dwc);
 		spin_lock_irqsave(&dwc->lock, flags);
 
+		if (dwc->hiber_enabled)
+			dwc3_enable_hibernation(dwc);
 		dwc3_do_extra_change(dwc);
 		dwc3_event_buffers_setup(dwc);
 		dwc3_init_for_enumeration(dwc);
 		ret = dwc3_gadget_run_stop(dwc, 1);
+		if (dwc->hiber_enabled)
+			dwc3_gadget_keep_conn(dwc, 1);
 	} else {
 		u8 epnum;
 
@@ -289,7 +339,9 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 		}
 
 		dwc3_stop_active_transfers(dwc);
+		dwc3_gadget_keep_conn(dwc, 0);
 		ret = dwc3_gadget_run_stop(dwc, 0);
+		dwc3_gadget_disable_irq(dwc);
 	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
@@ -486,12 +538,23 @@ static int dwc3_device_intel_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_RUNTIME
+static const struct dev_pm_ops dwc3_device_pm_ops = {
+	.runtime_suspend	= dwc3_runtime_suspend,
+	.runtime_resume		= dwc3_runtime_resume,
+};
+#define DWC3_DEVICE_PM_OPS	(&dwc3_device_pm_ops)
+#else
+#define DWC3_DEVICE_PM_OPS	NULL
+#endif
+
 static struct platform_driver dwc3_device_intel_driver = {
 	.probe		= dwc3_device_intel_probe,
 	.remove		= dwc3_device_intel_remove,
 	.driver		= {
 		.name	= "dwc3-device",
 		.of_match_table	= of_match_ptr(of_dwc3_match),
+		.pm	= DWC3_DEVICE_PM_OPS,
 	},
 };
 
