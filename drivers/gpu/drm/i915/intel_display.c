@@ -65,6 +65,7 @@ struct i915_flip_work {
  */
 static struct i915_flip_work flip_works[I915_MAX_PLANES];
 
+bool intel_pipe_has_type(const struct drm_crtc *crtc, int type);
 static void intel_increase_pllclock(struct drm_crtc *crtc);
 static void intel_crtc_update_cursor(struct drm_crtc *crtc, bool on);
 static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
