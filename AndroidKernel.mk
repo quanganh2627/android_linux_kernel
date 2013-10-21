@@ -56,11 +56,15 @@ KERNEL_CCSLOP := $(subst $(space),$(comma),$(KERNEL_CCSLOP))
 
 KERNEL_OUT_DIR := $(PRODUCT_OUT)/linux/kernel
 KERNEL_OUT_DIR_KDUMP := $(PRODUCT_OUT)/linux/kdump
+KERNEL_MODINSTALL := modules_install
+KERNEL_OUT_MODINSTALL := $(KERNEL_OUT_DIR)/$(KERNEL_MODINSTALL)
 KERNEL_MODULES_ROOT := $(PRODUCT_OUT)/root/lib/modules
 KERNEL_CONFIG := $(KERNEL_OUT_DIR)/.config
 KERNEL_CONFIG_KDUMP := $(KERNEL_OUT_DIR_KDUMP)/.config
 KERNEL_BLD_FLAGS := \
     ARCH=$(KERNEL_ARCH) \
+    INSTALL_MOD_PATH=$(KERNEL_MODINSTALL) \
+    INSTALL_MOD_STRIP=1 \
     $(KERNEL_EXTRA_FLAGS)
 
 KERNEL_BLD_FLAGS_KDUMP := $(KERNEL_BLD_FLAGS) \
@@ -80,8 +84,6 @@ KERNEL_DIFFCONFIG_DIR ?= $(TARGET_DEVICE_DIR)
 KERNEL_DIFFCONFIG ?= $(KERNEL_DIFFCONFIG_DIR)/$(TARGET_DEVICE)_diffconfig
 KERNEL_VERSION_FILE := $(KERNEL_OUT_DIR)/include/config/kernel.release
 KERNEL_VERSION_FILE_KDUMP := $(KERNEL_OUT_DIR_KDUMP)/include/config/kernel.release
-
-ALL_KERNEL_MODULES := $(KERNEL_OUT_DIR)
 
 $(KERNEL_CONFIG): $(KERNEL_DEFCONFIG) $(wildcard $(KERNEL_DIFFCONFIG))
 	@echo Regenerating kernel config $(KERNEL_OUT_DIR)
@@ -104,18 +106,20 @@ build_bzImage_kdump: $(KERNEL_CONFIG_KDUMP) openssl $(MINIGZIP)
 	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS_KDUMP)
 	@cp -f $(KERNEL_OUT_DIR_KDUMP)/arch/x86/boot/bzImage $(PRODUCT_OUT)/kdumpbzImage
 
+modules_install: build_bzImage
+	@mkdir -p $(KERNEL_OUT_MODINSTALL)
+	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) modules_install
+
 clean_kernel:
 	@$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) clean
 
 #need to do this to have a modules.dep correctly set.
 #it is not optimized (copying all modules for each rebuild) but better than kernel-build.sh
-#copy and strip module at the same time.
 #fake depmod with a symbolic link to have /lib/modules/$(version_tag)/xxxx.ko
-copy_modules_to_root: build_bzImage
+copy_modules_to_root: modules_install
 	@$(RM) -rf $(KERNEL_MODULES_ROOT)
 	@mkdir -p $(KERNEL_MODULES_ROOT)
-	@find $(ALL_KERNEL_MODULES) -name "*.ko" -exec bash -c \
-           'echo "  STRIP `basename {}`" && $(TARGET_STRIP) --strip-debug {} -o $(KERNEL_MODULES_ROOT)/`basename {}`' \;
+	@find $(KERNEL_OUT_MODINSTALL) -name "*.ko" -exec cp -f {} $(KERNEL_MODULES_ROOT)/ \;
 	@mkdir -p $(KERNEL_FAKE_DEPMOD)
 	@echo "  DEPMOD `cat $(KERNEL_VERSION_FILE)`"
 	@ln -fns $(ANDROID_BUILD_TOP)/$(KERNEL_MODULES_ROOT) $(KERNEL_FAKE_DEPMOD)/`cat $(KERNEL_VERSION_FILE)`
@@ -143,9 +147,14 @@ TAGS tags gtags cscope: $(KERNEL_CONFIG)
 	@rm -f $(KERNEL_SRC_DIR)/$($@_files)
 	@cp -fs $(addprefix `pwd`/$(KERNEL_OUT_DIR)/,$($@_files)) $(KERNEL_SRC_DIR)/
 
+
 #used to build out-of-tree kernel modules
 #$(1) is source path relative Android top, $(2) is module name
 #$(3) is extra flags
+# use PREV_MODINSTALL to define a dependency chain, and avoid to call modules_install in parallel
+
+PREV_MODINSTALL := modules_install
+
 define build_kernel_module
 .PHONY: $(2)
 
@@ -153,6 +162,9 @@ $(2): build_bzImage
 	@echo Building kernel module $(2) in $(1)
 	@mkdir -p $(KERNEL_OUT_DIR)/../../$(1)
 	@+$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) M=../../$(1) $(3)
+
+$(2)_install: $(2) $(PREV_MODINSTALL)
+	@+$(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) M=../../$(1) $(3) modules_install
 
 $(2)_clean:
 	@echo Cleaning kernel module $(2) in $(1)
@@ -163,10 +175,11 @@ $(addprefix $(2)_,TAGS tags gtags cscope): $(KERNEL_CONFIG)
 	@rm -f $(1)/$$($$(subst $(2)_,,$$@)_files)
 	@cp -fs $$(addprefix `pwd`/$(KERNEL_OUT_DIR)/,$$($$(subst $(2)_,,$$@)_files)) $(1)/
 
-copy_modules_to_root: $(2)
+PREV_MODINSTALL := $(2)_install
+
+copy_modules_to_root: $(2)_install
 
 clean_kernel: $(2)_clean
 
-ALL_KERNEL_MODULES += $(PRODUCT_OUT)/$(1)
 endef
 endif #TARGET_KERNEL_SOURCE_IS_PRESENT

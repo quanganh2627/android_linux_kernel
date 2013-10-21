@@ -208,6 +208,20 @@ static void set_sus_phy(struct dwc_otg2 *otg, int bit)
 	otg_write(otg, GUSB3PIPECTL0, data);
 }
 
+static void dwc_otg_suspend_discon_work(struct work_struct *work)
+{
+	struct dwc_otg2 *otg = dwc3_get_otg();
+	unsigned long flags;
+
+	otg_dbg(otg, "start suspend_disconn work\n");
+
+	spin_lock_irqsave(&otg->lock, flags);
+	otg->otg_events |= OEVT_A_DEV_SESS_END_DET_EVNT;
+	otg->otg_events &= ~OEVT_B_DEV_SES_VLD_DET_EVNT;
+	dwc3_wakeup_otg_thread(otg);
+	spin_unlock_irqrestore(&otg->lock, flags);
+}
+
 int dwc3_intel_byt_platform_init(struct dwc_otg2 *otg)
 {
 	struct intel_dwc_otg_pdata *data;
@@ -215,6 +229,10 @@ int dwc3_intel_byt_platform_init(struct dwc_otg2 *otg)
 	int retval;
 
 	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+
+	if (data)
+		INIT_DELAYED_WORK(&data->suspend_discon_work,
+			dwc_otg_suspend_discon_work);
 
 	if (data && data->gpio_cs && data->gpio_reset) {
 		retval = gpio_request(data->gpio_cs, "phy_cs");
@@ -349,21 +367,26 @@ static int dwc3_intel_byt_set_power(struct usb_phy *_otg,
 	struct power_supply_cable_props cap;
 	struct intel_dwc_otg_pdata *data;
 
-	/* Just return if charger detection is not enabled */
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+	if (!data)
+		return -EINVAL;
+
+	if (ma == OTG_USB2_100MA ||
+		ma == OTG_USB3_150MA ||
+		ma == OTG_USB2_500MA ||
+		ma == OTG_USB3_900MA ||
+		ma == OTG_DEVICE_RESUME) {
+		otg_dbg(otg, "cancel discon work\n");
+		__cancel_delayed_work(&data->suspend_discon_work);
+	} else if (ma == OTG_DEVICE_SUSPEND) {
+		otg_dbg(otg, "schedule discon work\n");
+		schedule_delayed_work(&data->suspend_discon_work,
+				SUSPEND_DISCONNECT_TIMEOUT);
+	}
+
+	/* Needn't notify charger capability if charger_detection disable */
 	if (!charger_detect_enable(otg))
 		return 0;
-
-	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
-
-	if (otg->charging_cap.chrg_type ==
-			POWER_SUPPLY_CHARGER_TYPE_USB_CDP)
-		return 0;
-	else if (otg->charging_cap.chrg_type !=
-			POWER_SUPPLY_CHARGER_TYPE_USB_SDP) {
-		otg_err(otg, "%s: currently, chrg type is not SDP!\n",
-				__func__);
-		return -EINVAL;
-	}
 
 	if (ma == OTG_DEVICE_SUSPEND) {
 		spin_lock_irqsave(&otg->lock, flags);
@@ -733,6 +756,20 @@ int dwc3_intel_byt_prepare_start_peripheral(struct dwc_otg2 *otg)
 	return 0;
 }
 
+int dwc3_intel_byt_after_stop_peripheral(struct dwc_otg2 *otg)
+{
+	struct intel_dwc_otg_pdata *data;
+
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+	if (!data)
+		return -EINVAL;
+
+	otg_dbg(otg, "cancel discon work\n");
+	__cancel_delayed_work(&data->suspend_discon_work);
+
+	return 0;
+}
+
 int dwc3_intel_byt_suspend(struct dwc_otg2 *otg)
 {
 	struct pci_dev *pci_dev = to_pci_dev(otg->dev);
@@ -793,6 +830,7 @@ struct dwc3_otg_hw_ops dwc3_intel_byt_otg_pdata = {
 	.get_charger_type = dwc3_intel_byt_get_charger_type,
 	.otg_notifier_handler = dwc3_intel_byt_handle_notification,
 	.prepare_start_peripheral = dwc3_intel_byt_prepare_start_peripheral,
+	.after_stop_peripheral = dwc3_intel_byt_after_stop_peripheral,
 	.prepare_start_host = dwc3_intel_byt_prepare_start_host,
 	.notify_charger_type = dwc3_intel_byt_notify_charger_type,
 

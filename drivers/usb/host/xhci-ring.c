@@ -292,8 +292,11 @@ static inline int room_on_ring(struct xhci_hcd *xhci, struct xhci_ring *ring,
 /* Ring the host controller doorbell after placing a command on the ring */
 void xhci_ring_cmd_db(struct xhci_hcd *xhci)
 {
-	if (!(xhci->cmd_ring_state & CMD_RING_STATE_RUNNING))
+	if (!(xhci->cmd_ring_state & CMD_RING_STATE_RUNNING)) {
+		xhci_err(xhci, "xhci->cmd_ring_state(0x%x) not equals to RUNNING\n",
+				xhci->cmd_ring_state);
 		return;
+	}
 
 	xhci_dbg(xhci, "// Ding dong!\n");
 	xhci_writel(xhci, DB_VALUE_HOST, &xhci->dba->doorbell[0]);
@@ -788,6 +791,11 @@ static void handle_stopped_endpoint(struct xhci_hcd *xhci,
 	memset(&deq_state, 0, sizeof(deq_state));
 	slot_id = TRB_TO_SLOT_ID(le32_to_cpu(trb->generic.field[3]));
 	ep_index = TRB_TO_EP_INDEX(le32_to_cpu(trb->generic.field[3]));
+	if (!xhci->devs[slot_id]) {
+		xhci_warn(xhci, "Stop endpoint command completion for "
+				"disabled slot\n");
+		return;
+	}
 	ep = &xhci->devs[slot_id]->eps[ep_index];
 
 	if (list_empty(&ep->cancelled_td_list)) {
@@ -1079,6 +1087,12 @@ static void handle_set_deq_completion(struct xhci_hcd *xhci,
 	stream_id = TRB_TO_STREAM_ID(le32_to_cpu(trb->generic.field[2]));
 	dev = xhci->devs[slot_id];
 
+	if (!dev) {
+		xhci_warn(xhci, "WARN Set TR deq ptr command for "
+				"disabled slot\n");
+		return;
+	}
+
 	ep_ring = xhci_stream_id_to_ring(dev, ep_index, stream_id);
 	if (!ep_ring) {
 		xhci_warn(xhci, "WARN Set TR deq ptr command for "
@@ -1160,9 +1174,16 @@ static void handle_reset_ep_completion(struct xhci_hcd *xhci,
 {
 	int slot_id;
 	unsigned int ep_index;
+	struct xhci_virt_device *dev;
 
 	slot_id = TRB_TO_SLOT_ID(le32_to_cpu(trb->generic.field[3]));
 	ep_index = TRB_TO_EP_INDEX(le32_to_cpu(trb->generic.field[3]));
+	dev = xhci->devs[slot_id];
+	if (!dev) {
+		xhci_warn(xhci, "WARN reset ep command for "
+				"disabled slot\n");
+		return;
+	}
 	/* This command will only fail if the endpoint wasn't halted,
 	 * but we don't care.
 	 */
@@ -1421,7 +1442,7 @@ static void handle_cmd_completion(struct xhci_hcd *xhci,
 			xhci->slot_id = slot_id;
 		else
 			xhci->slot_id = 0;
-		complete(&xhci->addr_dev);
+		complete(&xhci->enable_slot);
 		break;
 	case TRB_TYPE(TRB_DISABLE_SLOT):
 		if (xhci->devs[slot_id]) {
@@ -1434,6 +1455,11 @@ static void handle_cmd_completion(struct xhci_hcd *xhci,
 		break;
 	case TRB_TYPE(TRB_CONFIG_EP):
 		virt_dev = xhci->devs[slot_id];
+		if (!virt_dev) {
+			xhci_warn(xhci, "TRB_CONFIG_EP cmd completion "
+					"for disabled slot\n");
+			break;
+		}
 		if (handle_cmd_in_cmd_wait_list(xhci, virt_dev, event))
 			break;
 		/*
@@ -1479,13 +1505,25 @@ bandwidth_change:
 		break;
 	case TRB_TYPE(TRB_EVAL_CONTEXT):
 		virt_dev = xhci->devs[slot_id];
+		if (!virt_dev) {
+			xhci_warn(xhci, "TRB_EVAL_CONTEXT cmd completion "
+					"for disabled slot\n");
+			break;
+		}
 		if (handle_cmd_in_cmd_wait_list(xhci, virt_dev, event))
 			break;
 		xhci->devs[slot_id]->cmd_status = GET_COMP_CODE(le32_to_cpu(event->status));
 		complete(&xhci->devs[slot_id]->cmd_completion);
 		break;
 	case TRB_TYPE(TRB_ADDR_DEV):
-		xhci->devs[slot_id]->cmd_status = GET_COMP_CODE(le32_to_cpu(event->status));
+		virt_dev = xhci->devs[slot_id];
+		if (!virt_dev) {
+			xhci_warn(xhci, "TRB_ADDR_DEV cmd completion "
+					"for disabled slot\n");
+			break;
+		}
+		virt_dev->cmd_status =
+			GET_COMP_CODE(le32_to_cpu(event->status));
 		complete(&xhci->addr_dev);
 		break;
 	case TRB_TYPE(TRB_STOP_RING):

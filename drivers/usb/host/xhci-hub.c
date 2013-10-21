@@ -996,6 +996,10 @@ int xhci_hub_status_data(struct usb_hcd *hcd, char *buf)
 	struct xhci_bus_state *bus_state;
 	bool reset_change = false;
 
+	/* Forbid to access register if controller in suspneded */
+	if (!HCD_HW_ACCESSIBLE(hcd))
+		return -ESHUTDOWN;
+
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
 

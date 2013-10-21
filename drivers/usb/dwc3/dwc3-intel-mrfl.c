@@ -515,11 +515,6 @@ int dwc3_intel_b_idle(struct dwc_otg2 *otg)
 {
 	u32 gctl, tmp;
 
-	if (!is_hybridvp(otg)) {
-		enable_usb_phy(otg, false);
-		dwc_otg_charger_hwdet(false);
-	}
-
 	/* Disable hibernation mode by default */
 	gctl = otg_read(otg, GCTL);
 	gctl &= ~GCTL_GBL_HIBERNATION_EN;
@@ -543,6 +538,11 @@ int dwc3_intel_b_idle(struct dwc_otg2 *otg)
 	gctl &= ~GCTL_PRT_CAP_DIR;
 	gctl |= GCTL_PRT_CAP_DIR_DEV << GCTL_PRT_CAP_DIR_SHIFT;
 	otg_write(otg, GCTL, gctl);
+
+	if (!is_hybridvp(otg)) {
+		dwc_otg_charger_hwdet(false);
+		enable_usb_phy(otg, false);
+	}
 
 	mdelay(100);
 
@@ -694,6 +694,39 @@ static int dwc3_intel_notify_charger_type(struct dwc_otg2 *otg,
 	return ret;
 }
 
+static void dwc3_phy_soft_reset(struct dwc_otg2 *otg)
+{
+	u32 val;
+
+	val = otg_read(otg, GCTL);
+	val |= GCTL_CORESOFTRESET;
+	otg_write(otg, GCTL, val);
+
+	val = otg_read(otg, GUSB3PIPECTL0);
+	val |= GUSB3PIPECTL_PHYSOFTRST;
+	otg_write(otg, GUSB3PIPECTL0, val);
+
+	val = otg_read(otg, GUSB2PHYCFG0);
+	val |= GUSB2PHYCFG_PHYSOFTRST;
+	otg_write(otg, GUSB2PHYCFG0, val);
+
+	msleep(100);
+
+	val = otg_read(otg, GUSB3PIPECTL0);
+	val &= ~GUSB3PIPECTL_PHYSOFTRST;
+	otg_write(otg, GUSB3PIPECTL0, val);
+
+	val = otg_read(otg, GUSB2PHYCFG0);
+	val &= ~GUSB2PHYCFG_PHYSOFTRST;
+	otg_write(otg, GUSB2PHYCFG0, val);
+
+	msleep(100);
+
+	val = otg_read(otg, GCTL);
+	val &= ~GCTL_CORESOFTRESET;
+	otg_write(otg, GCTL, val);
+}
+
 static enum power_supply_charger_cable_type
 			dwc3_intel_get_charger_type(struct dwc_otg2 *otg)
 {
@@ -717,6 +750,7 @@ static enum power_supply_charger_cable_type
 	 * Power on PHY
 	 */
 	enable_usb_phy(otg, true);
+	dwc3_phy_soft_reset(otg);
 
 	/* Wait 10ms (~5ms before PHY de-asserts DIR,
 	 * XXus for initial Link reg sync-up).*/
@@ -1011,11 +1045,13 @@ int dwc3_intel_prepare_start_peripheral(struct dwc_otg2 *otg)
 
 int dwc3_intel_suspend(struct dwc_otg2 *otg)
 {
-	struct pci_dev *pci_dev = to_pci_dev(otg->dev);
+	struct pci_dev *pci_dev;
 	pci_power_t state = PCI_D3cold;
 
 	if (!otg)
 		return 0;
+
+	pci_dev = to_pci_dev(otg->dev);
 
 	if (otg->state == DWC_STATE_B_PERIPHERAL ||
 			otg->state == DWC_STATE_A_HOST)
@@ -1036,10 +1072,12 @@ int dwc3_intel_suspend(struct dwc_otg2 *otg)
 
 int dwc3_intel_resume(struct dwc_otg2 *otg)
 {
-	struct pci_dev *pci_dev = to_pci_dev(otg->dev);
+	struct pci_dev *pci_dev;
 
 	if (!otg)
 		return 0;
+
+	pci_dev = to_pci_dev(otg->dev);
 
 	/* From synopsys spec 12.2.11.
 	 * Software cannot access memory-mapped I/O space

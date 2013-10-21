@@ -35,7 +35,11 @@ struct intel_dwc_otg_pdata {
 	int gpio_cs;
 	int gpio_reset;
 	int charging_compliance;
+	struct delayed_work suspend_discon_work;
 };
+
+/* timeout for disconnect from a suspended host */
+#define SUSPEND_DISCONNECT_TIMEOUT	(HZ * 300)
 
 #define TUSB1211_VENDOR_ID_LO					0x00
 #define TUSB1211_VENDOR_ID_HI					0x01

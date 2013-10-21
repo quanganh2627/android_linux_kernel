@@ -213,4 +213,14 @@ config SOC_THERMAL
 	  Say Y here to enable thermal driver on Intel Merrifield
 	  platform. To load this driver as a module, select M here.
 
+config DEBUG_THERMAL
+	bool "Thermal debug information support"
+	depends on THERMAL
+	help
+	  This enables debug sysfs interfaces/information for Thermal
+	  subsystem.
+
+	  Saying Y here will expose extra sysfs nodes under
+	  /sys/class/thermal/thermal_zoneX/
+
 endif
