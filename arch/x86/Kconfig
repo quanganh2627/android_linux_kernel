@@ -504,6 +504,14 @@ config INTEL_DEBUG_FEATURE
 
 endif
 
+config REGULATOR_CRYSTAL_COVE
+	bool "Voltage regulator driver for CRYSTAL COVE PMIC"
+	---help---
+	   Select for the voltage regulator driver on CRYSTAL_COVE PMIC.
+	   CRYSTAL COVE pmic is used in some variation of BYT platform.
+	   Choose this if platform has CRYSTAL COVE pmic and you need
+	   voltage regulator driver.
+
 config X86_INTEL_LPSS
 	bool "Intel Low Power Subsystem Support"
 	depends on ACPI
@@ -2350,7 +2358,6 @@ config KEYS_COMPAT
 endif
 
 endmenu
-
 
 config HAVE_ATOMIC_IOMAP
 	def_bool y
