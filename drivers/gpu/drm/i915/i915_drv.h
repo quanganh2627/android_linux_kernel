@@ -1082,13 +1082,9 @@ struct i915_gpu_error {
 
 	/**
 	 * Special values/flags for reset_counter
-	 *
-	 * Note that the code relies on
-	 * 	I915_WEDGED & I915_RESET_IN_PROGRESS_FLAG
-	 * being true.
 	 */
 #define I915_RESET_IN_PROGRESS_FLAG	1
-#define I915_WEDGED			0xffffffff
+#define I915_WEDGED			(1 << 31)
 
 	/**
 	 * Waitqueue to signal when the reset has completed. Used by clients
@@ -2136,7 +2132,12 @@ static inline bool i915_reset_in_progress(struct i915_gpu_error *error)
 
 static inline bool i915_terminally_wedged(struct i915_gpu_error *error)
 {
-	return atomic_read(&error->reset_counter) == I915_WEDGED;
+	return atomic_read(&error->reset_counter) & I915_WEDGED;
+}
+
+static inline u32 i915_reset_count(struct i915_gpu_error *error)
+{
+	return ((atomic_read(&error->reset_counter) & ~I915_WEDGED) + 1) / 2;
 }
 
 void i915_gem_reset(struct drm_device *dev);
@@ -2474,6 +2475,9 @@ int i915_disp_screen_control(struct drm_device *dev, void *data,
 		struct drm_file *file);
 int i915_set_plane_alpha(struct drm_device *dev, void *data,
 			  struct drm_file *file);
+
+int i915_get_reset_stats_ioctl(struct drm_device *dev, void *data,
+				struct drm_file *file);
 
 /* overlay */
 extern struct intel_overlay_error_state *intel_overlay_capture_error_state(struct drm_device *dev);

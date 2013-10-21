@@ -262,6 +262,7 @@ typedef struct _drm_i915_sarea {
 #define DRM_I915_SET_PLANE_ALPHA	0x3d
 #define DRM_I915_DPST_CONTEXT		0x3c
 #define DRM_I915_GEM_ACCESS_DATATYPE	0x3e
+#define DRM_I915_GET_RESET_STATS	0x3f
 
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
 #define DRM_IOCTL_I915_FLUSH		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLUSH)
@@ -343,6 +344,9 @@ typedef struct _drm_i915_sarea {
 #define DRM_IOCTL_I915_GEM_USERPTR  \
 		DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_GEM_USERPTR, \
 		struct drm_i915_gem_userptr)
+#define DRM_IOCTL_I915_GET_RESET_STATS \
+		DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_GET_RESET_STATS, \
+		struct drm_i915_reset_stats)
 
 /* Allow drivers to submit batchbuffers directly to hardware, relying
  * on the security mechanisms provided by hardware.
@@ -1232,4 +1236,19 @@ struct drm_i915_set_plane_alpha {
 	int plane;
 	int alpha;
 };
+
+struct drm_i915_reset_stats {
+	__u32 ctx_id;
+	__u32 flags;
+
+	/* For all contexts */
+	__u32 reset_count;
+
+	/* For this context */
+	__u32 batch_active;
+	__u32 batch_pending;
+
+	__u32 pad;
+};
+
 #endif /* _UAPI_I915_DRM_H_ */
