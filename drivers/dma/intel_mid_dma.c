@@ -49,6 +49,7 @@
 #define INTEL_BYT_DMAC0_ID		0x0F28
 
 #define LNW_PERIPHRAL_MASK_SIZE		0x20
+#define ENABLE_PARTITION_UPDATE		(BIT(26))
 
 #define INFO(_max_chan, _ch_base, _block_size, _pimr_mask,	\
 		_pimr_base, _dword_trf, _pimr_offset, _pci_id,	\
@@ -1629,7 +1630,8 @@ static void config_dma_fifo_partition(struct middma_device *dma)
 	iowrite32(DMA_FIFO_SIZE, dma->dma_base + FIFO_PARTITION0_HI);
 	iowrite32(DMA_FIFO_SIZE, dma->dma_base + FIFO_PARTITION1_LO);
 	iowrite32(DMA_FIFO_SIZE, dma->dma_base + FIFO_PARTITION1_HI);
-	iowrite32(DMA_FIFO_SIZE | BIT(26), dma->dma_base + FIFO_PARTITION0_LO);
+	iowrite32(DMA_FIFO_SIZE | ENABLE_PARTITION_UPDATE,
+				dma->dma_base + FIFO_PARTITION0_LO);
 }
 
 /* v1 ops will be used for Medfield & CTP platforms */
