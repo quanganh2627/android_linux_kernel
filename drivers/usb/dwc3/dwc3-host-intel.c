@@ -37,6 +37,17 @@ static int dwc3_start_host(struct usb_hcd *hcd);
 static int dwc3_stop_host(struct usb_hcd *hcd);
 static struct platform_driver dwc3_xhci_driver;
 
+static int xhci_dwc_bus_resume(struct usb_hcd *hcd)
+{
+	int ret;
+
+	/* before resume bus, delay 1ms to waiting core stable */
+	mdelay(1);
+
+	ret = xhci_bus_resume(hcd);
+	return ret;
+}
+
 static const struct hc_driver xhci_dwc_hc_driver = {
 	.description =		"dwc-xhci",
 	.product_desc =		"xHCI Host Controller",
@@ -83,7 +94,7 @@ static const struct hc_driver xhci_dwc_hc_driver = {
 	.hub_control =		xhci_hub_control,
 	.hub_status_data =	xhci_hub_status_data,
 	.bus_suspend =		xhci_bus_suspend,
-	.bus_resume =		xhci_bus_resume,
+	.bus_resume =		xhci_dwc_bus_resume,
 };
 
 static int if_usb_devices_connected(struct xhci_hcd *xhci)
