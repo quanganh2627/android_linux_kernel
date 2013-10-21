@@ -694,6 +694,39 @@ static int dwc3_intel_notify_charger_type(struct dwc_otg2 *otg,
 	return ret;
 }
 
+static void dwc3_phy_soft_reset(struct dwc_otg2 *otg)
+{
+	u32 val;
+
+	val = otg_read(otg, GCTL);
+	val |= GCTL_CORESOFTRESET;
+	otg_write(otg, GCTL, val);
+
+	val = otg_read(otg, GUSB3PIPECTL0);
+	val |= GUSB3PIPECTL_PHYSOFTRST;
+	otg_write(otg, GUSB3PIPECTL0, val);
+
+	val = otg_read(otg, GUSB2PHYCFG0);
+	val |= GUSB2PHYCFG_PHYSOFTRST;
+	otg_write(otg, GUSB2PHYCFG0, val);
+
+	msleep(100);
+
+	val = otg_read(otg, GUSB3PIPECTL0);
+	val &= ~GUSB3PIPECTL_PHYSOFTRST;
+	otg_write(otg, GUSB3PIPECTL0, val);
+
+	val = otg_read(otg, GUSB2PHYCFG0);
+	val &= ~GUSB2PHYCFG_PHYSOFTRST;
+	otg_write(otg, GUSB2PHYCFG0, val);
+
+	msleep(100);
+
+	val = otg_read(otg, GCTL);
+	val &= ~GCTL_CORESOFTRESET;
+	otg_write(otg, GCTL, val);
+}
+
 static enum power_supply_charger_cable_type
 			dwc3_intel_get_charger_type(struct dwc_otg2 *otg)
 {
@@ -717,6 +750,7 @@ static enum power_supply_charger_cable_type
 	 * Power on PHY
 	 */
 	enable_usb_phy(otg, true);
+	dwc3_phy_soft_reset(otg);
 
 	/* Wait 10ms (~5ms before PHY de-asserts DIR,
 	 * XXus for initial Link reg sync-up).*/
