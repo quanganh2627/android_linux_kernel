@@ -789,7 +789,7 @@ static int sst_soc_probe(struct snd_soc_platform *platform)
 		return sst_platform_clv_init(platform);
 	if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
 	    INTEL_MID_BOARD(1, TABLET, MRFL)) {
-#ifdef SST_MRFLD_DPCM
+#if IS_BUILTIN(CONFIG_SST_MRFLD_DPCM)
 		ret = sst_dsp_init_v2_dpcm(platform);
 #else
 		ret = sst_dsp_init(platform);
