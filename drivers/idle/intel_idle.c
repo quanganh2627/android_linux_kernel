@@ -65,8 +65,10 @@
 #include <asm/cpu_device_id.h>
 #include <asm/mwait.h>
 #include <asm/msr.h>
-
 #include <asm/io_apic.h>
+#include <asm/hypervisor.h>
+#include <asm/xen/hypercall.h>
+
 
 #define INTEL_IDLE_VERSION "0.4"
 #define PREFIX "intel_idle: "
@@ -618,10 +620,22 @@ static int enter_s0ix_state(u32 eax, int gov_req_state, int s0ix_state,
 	default:
 		trace_cpu_idle((eax >> 4) + 1, dev->cpu);
 	}
+
+#ifdef CONFIG_XEN
+	HYPERVISOR_monitor_op((void *)&current_thread_info()->flags, 0, 0);
+#else
 	__monitor((void *)&current_thread_info()->flags, 0, 0);
+#endif
 	smp_mb();
-	if (!need_resched())
+	if (!need_resched()) {
+#ifdef CONFIG_XEN
+		HYPERVISOR_mwait_op(eax, 1,
+					(void *)&current_thread_info()->flags,
+					0);
+#else
 		__mwait(eax, 1);
+#endif
+	}
 
 	if (!need_resched() && is_irq_pending() == 0)
 		__get_cpu_var(update_buckets) = 0;
@@ -795,7 +809,11 @@ static int intel_idle(struct cpuidle_device *dev,
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &cpu);
 
 	if (!need_resched()) {
-
+#ifdef CONFIG_XEN
+		HYPERVISOR_mwait_op(eax, ecx,
+					(void *)&current_thread_info()->flags,
+					0);
+#else
 		__monitor((void *)&current_thread_info()->flags, 0, 0);
 		smp_mb();
 		if (!need_resched())
@@ -805,6 +823,7 @@ static int intel_idle(struct cpuidle_device *dev,
 		if (!need_resched() && is_irq_pending() == 0)
 			__get_cpu_var(update_buckets) = 0;
 #endif
+#endif /* CONFIG_XEN */
 	}
 
 	if (!(lapic_timer_reliable_states & (1 << (cstate))))

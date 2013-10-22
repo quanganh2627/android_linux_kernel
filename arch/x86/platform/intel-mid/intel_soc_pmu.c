@@ -1998,10 +1998,13 @@ static int standby_enter(void)
 	/* time stamp for end of s3 entry */
 	time_stamp_for_sleep_state_latency(s3_state, false, true);
 
-	__monitor((void *) &temp, 0, 0);
-	smp_mb();
-	__mwait(mid_pmu_cxt->s3_hint, 1);
-
+	if (xen_start_info)
+		HYPERVISOR_mwait_op(mid_pmu_cxt->s3_hint, 1, (void *) &temp, 1);
+	else {
+		__monitor((void *) &temp, 0, 0);
+		smp_mb();
+		__mwait(mid_pmu_cxt->s3_hint, 1);
+	}
 	/* time stamp for start of s3 exit */
 	time_stamp_for_sleep_state_latency(s3_state, true, false);
 
