@@ -1412,15 +1412,23 @@ static int i915_cur_delayinfo(struct seq_file *m, void *unused)
 		seq_printf(m, "PUNIT_REG_GPU_FREQ_STS: 0x%08x\n", freq_sts);
 		seq_printf(m, "DDR freq: %d MHz\n", dev_priv->mem_freq);
 
-		seq_printf(m, "Max GPU freq: %d MHz (%u)\n",
+		seq_printf(m, "Max HW Supported GPU freq: %d MHz (%u)\n",
 			vlv_gpu_freq(dev_priv->mem_freq,
-				dev_priv->rps.max_delay),
-				dev_priv->rps.max_delay);
-
-		seq_printf(m, "Min GPU freq: %d MHz (%u)\n",
+				dev_priv->rps.hw_max),
+				dev_priv->rps.hw_max);
+		seq_printf(m, "Min HW Supported GPU freq: %d MHz (%u)\n",
 			vlv_gpu_freq(dev_priv->mem_freq,
 					dev_priv->rps.hw_min),
 					dev_priv->rps.hw_min);
+
+		seq_printf(m, "Max User Selected GPU freq: %d MHz (%u)\n",
+			vlv_gpu_freq(dev_priv->mem_freq,
+				dev_priv->rps.max_delay),
+				dev_priv->rps.max_delay);
+		seq_printf(m, "Min User Selected GPU freq: %d MHz (%u)\n",
+			vlv_gpu_freq(dev_priv->mem_freq,
+					dev_priv->rps.min_delay),
+					dev_priv->rps.min_delay);
 
 		seq_printf(m, "Current GPU freq: %d MHz (%u)\n",
 			vlv_gpu_freq(dev_priv->mem_freq,
@@ -2465,6 +2473,7 @@ static int
 i915_set_max_freq(struct drm_device *dev, int val)
 {
 	int ret;
+	u32 hw_max, hw_min;
 	drm_i915_private_t *dev_priv = dev->dev_private;
 
 	DRM_DEBUG_DRIVER("Manually setting max freq to %d\n", val);
@@ -2473,83 +2482,36 @@ i915_set_max_freq(struct drm_device *dev, int val)
 	if (ret)
 		return ret;
 
+	hw_max = dev_priv->rps.hw_max;
+	hw_min = dev_priv->rps.hw_min;
+
+	if (val < hw_min || val > hw_max ||
+	    val < dev_priv->rps.min_delay) {
+		mutex_unlock(&dev_priv->rps.hw_lock);
+		return -1;
+	}
+
 	/*
 	 * Turbo will still be enabled, but won't go above the set value.
 	 */
-	if (IS_VALLEYVIEW(dev)) {
-		dev_priv->rps.max_delay = val;
-		valleyview_set_rps(dev, val);
-	} else {
-		dev_priv->rps.max_delay = val / 50;
-		gen6_set_rps(dev, val / 50);
+	if (dev_priv->rps.cur_delay > val) {
+		if (IS_VALLEYVIEW(dev)) {
+			dev_priv->rps.max_delay = val;
+			valleyview_set_rps(dev, val);
+			/* If rps frequency is changed above we need to take
+			* care of bringing it down to rpe through rps timer*/
+			mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
+					msecs_to_jiffies(100));
+		} else {
+			dev_priv->rps.max_delay = val / 50;
+			gen6_set_rps(dev, val / 50);
+		}
 	}
 
 	mutex_unlock(&dev_priv->rps.hw_lock);
 
 	return 0;
 }
-
-static int
-i915_max_freq_get(void *data, u64 *val)
-{
-	struct drm_device *dev = data;
-	drm_i915_private_t *dev_priv = dev->dev_private;
-	int ret;
-
-	if (!(IS_GEN6(dev) || IS_GEN7(dev)))
-		return -ENODEV;
-
-	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
-	if (ret)
-		return ret;
-
-	if (!(IS_VALLEYVIEW(dev)))
-		*val = vlv_gpu_freq(dev_priv->mem_freq,
-				    dev_priv->rps.max_delay);
-	else
-		*val = dev_priv->rps.max_delay * GT_FREQUENCY_MULTIPLIER;
-	mutex_unlock(&dev_priv->rps.hw_lock);
-
-	return 0;
-}
-
-static int
-i915_max_freq_set(void *data, u64 val)
-{
-	struct drm_device *dev = data;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	int ret;
-
-	if (!(IS_GEN6(dev) || IS_GEN7(dev)))
-		return -ENODEV;
-
-	DRM_DEBUG_DRIVER("Manually setting max freq to %llu\n", val);
-
-	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
-	if (ret)
-		return ret;
-
-	/*
-	 * Turbo will still be enabled, but won't go above the set value.
-	 */
-	if (!IS_VALLEYVIEW(dev)) {
-		/*val = vlv_freq_opcode(dev_priv->mem_freq, val);*/
-		dev_priv->rps.max_delay = val;
-		valleyview_set_rps(dev, val);
-	} else {
-		do_div(val, GT_FREQUENCY_MULTIPLIER);
-		dev_priv->rps.max_delay = val;
-		gen6_set_rps(dev, val);
-	}
-
-	mutex_unlock(&dev_priv->rps.hw_lock);
-
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(i915_max_freq_fops,
-			i915_max_freq_get, i915_max_freq_set,
-			"%llu\n");
 
 /* Helper function to enable and disable dpst based on input */
 int
@@ -2812,6 +2774,7 @@ static int
 i915_set_min_freq(struct drm_device *dev, int val)
 {
 	int ret;
+	u32 hw_max, hw_min;
 	drm_i915_private_t *dev_priv = dev->dev_private;
 
 	DRM_DEBUG_DRIVER("Manually setting min freq to %d\n", val);
@@ -2820,82 +2783,35 @@ i915_set_min_freq(struct drm_device *dev, int val)
 	if (ret)
 		return ret;
 
+	hw_max = dev_priv->rps.hw_max;
+	hw_min = dev_priv->rps.hw_min;
+
+	if (val < hw_min || val > hw_max || val > dev_priv->rps.max_delay) {
+		mutex_unlock(&dev_priv->rps.hw_lock);
+		return -EINVAL;
+	}
+
 	/*
 	 * Turbo will still be enabled, but won't go below the set value.
 	 */
-	if (IS_VALLEYVIEW(dev)) {
-		dev_priv->rps.min_delay = val;
-		valleyview_set_rps(dev, val);
-	} else {
-		dev_priv->rps.min_delay = val / 50;
-		gen6_set_rps(dev, val / 50);
+	if (dev_priv->rps.cur_delay < val) {
+		if (IS_VALLEYVIEW(dev)) {
+			dev_priv->rps.min_delay = val;
+			valleyview_set_rps(dev, val);
+			/* If rps frequency is changed above we need to take
+			* care of bringing it down to rpe through rps timer*/
+			mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
+					msecs_to_jiffies(100));
+		} else {
+			dev_priv->rps.min_delay = val / 50;
+			gen6_set_rps(dev, val / 50);
+		}
 	}
 
 	mutex_unlock(&dev_priv->rps.hw_lock);
 
 	return 0;
 }
-
-static int
-i915_min_freq_get(void *data, u64 *val)
-{
-	struct drm_device *dev = data;
-	drm_i915_private_t *dev_priv = dev->dev_private;
-	int ret;
-
-	if (!(IS_GEN6(dev) || IS_GEN7(dev)))
-		return -ENODEV;
-
-	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
-	if (ret)
-		return ret;
-
-	if (!(IS_VALLEYVIEW(dev)))
-		*val = vlv_gpu_freq(dev_priv->mem_freq,
-				    dev_priv->rps.min_delay);
-	else
-		*val = dev_priv->rps.min_delay * GT_FREQUENCY_MULTIPLIER;
-	mutex_unlock(&dev_priv->rps.hw_lock);
-
-	return 0;
-}
-
-static int
-i915_min_freq_set(void *data, u64 val)
-{
-	struct drm_device *dev = data;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	int ret;
-
-	if (!(IS_GEN6(dev) || IS_GEN7(dev)))
-		return -ENODEV;
-
-	DRM_DEBUG_DRIVER("Manually setting min freq to %llu\n", val);
-
-	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
-	if (ret)
-		return ret;
-
-	/*
-	 * Turbo will still be enabled, but won't go below the set value.
-	 */
-	if (!(IS_VALLEYVIEW(dev))) {
-		val = vlv_freq_opcode(dev_priv->mem_freq, val);
-		dev_priv->rps.min_delay = val;
-		valleyview_set_rps(dev, val);
-	} else {
-		do_div(val, GT_FREQUENCY_MULTIPLIER);
-		dev_priv->rps.min_delay = val;
-		gen6_set_rps(dev, val);
-	}
-	mutex_unlock(&dev_priv->rps.hw_lock);
-
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(i915_min_freq_fops,
-			i915_min_freq_get, i915_min_freq_set,
-			"%llu\n");
 
 /* Helper function to enable and disable turbo based on input */
 static int
@@ -3986,8 +3902,6 @@ static struct i915_debugfs_files {
 	const struct file_operations *fops;
 } i915_debugfs_files[] = {
 	{"i915_wedged", &i915_wedged_fops},
-	{"i915_max_freq", &i915_max_freq_fops},
-	{"i915_min_freq", &i915_min_freq_fops},
 	{"i915_cache_sharing", &i915_cache_sharing_fops},
 	{"i915_ring_stop", &i915_ring_stop_fops},
 	{"i915_gem_drop_caches", &i915_drop_caches_fops},

@@ -3933,8 +3933,9 @@ static void vlv_rps_timer_work(struct work_struct *work)
 		}
 
 		if (dev_priv->rps.cur_delay > dev_priv->rps.rpe_delay) {
-			valleyview_set_rps(dev_priv->dev,
+			vlv_punit_write(dev_priv, PUNIT_REG_GPU_FREQ_REQ,
 						dev_priv->rps.rpe_delay);
+
 			/* Make sure Rpe is set by P-Unit*/
 			if (wait_for((vlv_update_rps_cur_delay(dev_priv) &&
 				(dev_priv->rps.cur_delay ==
@@ -4208,7 +4209,8 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 
 	INIT_DELAYED_WORK(&dev_priv->rps.vlv_work, vlv_rps_timer_work);
 
-	valleyview_set_rps(dev_priv->dev, dev_priv->rps.rpe_delay);
+	vlv_punit_write(dev_priv, PUNIT_REG_GPU_FREQ_REQ,
+					dev_priv->rps.rpe_delay);
 
 	/* Clear out any stale interrupts first */
 	spin_lock_irqsave(&dev_priv->rps.lock, flags);

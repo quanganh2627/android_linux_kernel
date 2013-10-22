@@ -260,8 +260,8 @@ static ssize_t gt_max_freq_mhz_store(struct device *kdev,
 	if (IS_VALLEYVIEW(dev_priv->dev)) {
 		val = vlv_freq_opcode(dev_priv->mem_freq, val);
 
-		hw_max = valleyview_rps_max_freq(dev_priv);
-		hw_min = valleyview_rps_min_freq(dev_priv);
+		hw_max = dev_priv->rps.hw_max;
+		hw_min = dev_priv->rps.hw_min;
 		non_oc_max = hw_max;
 	} else {
 		val /= GT_FREQUENCY_MULTIPLIER;
@@ -283,8 +283,13 @@ static ssize_t gt_max_freq_mhz_store(struct device *kdev,
 			  val * GT_FREQUENCY_MULTIPLIER);
 
 	if (dev_priv->rps.cur_delay > val) {
-		if (IS_VALLEYVIEW(dev_priv->dev))
+		if (IS_VALLEYVIEW(dev_priv->dev)) {
 			valleyview_set_rps(dev_priv->dev, val);
+			/* If rps frequency is changed above we need to take
+			* care of bringing it down to rpe through rps timer*/
+			mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
+					msecs_to_jiffies(100));
+		}
 		else
 			gen6_set_rps(dev_priv->dev, val);
 	}
@@ -332,8 +337,8 @@ static ssize_t gt_min_freq_mhz_store(struct device *kdev,
 	if (IS_VALLEYVIEW(dev)) {
 		val = vlv_freq_opcode(dev_priv->mem_freq, val);
 
-		hw_max = valleyview_rps_max_freq(dev_priv);
-		hw_min = valleyview_rps_min_freq(dev_priv);
+		hw_max = dev_priv->rps.hw_max;
+		hw_min = dev_priv->rps.hw_min;
 	} else {
 		val /= GT_FREQUENCY_MULTIPLIER;
 
@@ -348,8 +353,13 @@ static ssize_t gt_min_freq_mhz_store(struct device *kdev,
 	}
 
 	if (dev_priv->rps.cur_delay < val) {
-		if (IS_VALLEYVIEW(dev))
+		if (IS_VALLEYVIEW(dev)) {
 			valleyview_set_rps(dev, val);
+			/* If rps frequency is changed above we need to take
+			* care of bringing it down to rpe through rps timer*/
+			mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
+					msecs_to_jiffies(100));
+		}
 		else
 			gen6_set_rps(dev_priv->dev, val);
 	}
