@@ -279,6 +279,8 @@ struct power_supply {
 			    const union power_supply_propval *val);
 	int (*property_is_writeable)(struct power_supply *psy,
 				     enum power_supply_property psp);
+	int (*property_is_privileged_read)(struct power_supply *psy,
+					enum power_supply_property psp);
 	void (*external_power_changed)(struct power_supply *psy);
 	void (*set_charged)(struct power_supply *psy);
 	void (*charging_port_changed)(struct power_supply *psy,
