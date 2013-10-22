@@ -3506,9 +3506,9 @@ bool vlv_update_rps_cur_delay(struct drm_i915_private *dev_priv)
 
 	if (pval != dev_priv->rps.cur_delay)
 		DRM_DEBUG_DRIVER("Punit overrode GPU freq: %d MHz (%u) requested, but got %d Mhz (%u)\n",
-				 vlv_gpu_freq(dev_priv->mem_freq, dev_priv->rps.cur_delay),
-				 dev_priv->rps.cur_delay,
-				 vlv_gpu_freq(dev_priv->mem_freq, pval), pval);
+				vlv_gpu_freq(dev_priv, dev_priv->rps.cur_delay),
+				dev_priv->rps.cur_delay,
+				vlv_gpu_freq(dev_priv, pval), pval);
 
 	dev_priv->rps.cur_delay = pval;
 	return true;
@@ -3526,10 +3526,10 @@ void valleyview_set_rps(struct drm_device *dev, u8 val)
 	vlv_update_rps_cur_delay(dev_priv);
 
 	DRM_DEBUG_DRIVER("GPU freq request from %d MHz (%u) to %d MHz (%u)\n",
-			 vlv_gpu_freq(dev_priv->mem_freq,
+			 vlv_gpu_freq(dev_priv,
 				      dev_priv->rps.cur_delay),
 			 dev_priv->rps.cur_delay,
-			 vlv_gpu_freq(dev_priv->mem_freq, val), val);
+			 vlv_gpu_freq(dev_priv, val), val);
 
 	if (val == dev_priv->rps.cur_delay)
 		return;
@@ -3543,7 +3543,7 @@ void valleyview_set_rps(struct drm_device *dev, u8 val)
 
 	dev_priv->rps.requested_delay = val;
 
-	trace_intel_gpu_freq_change(vlv_gpu_freq(dev_priv->mem_freq, val));
+	trace_intel_gpu_freq_change(vlv_gpu_freq(dev_priv, val));
 }
 
 static void gen6_disable_rps_interrupts(struct drm_device *dev)
@@ -4096,6 +4096,7 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 val, hw_max, hw_min;
 	unsigned long flags;
+	int cck_fuse;
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 
@@ -4145,12 +4146,13 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 	}
 	DRM_DEBUG_DRIVER("DDR speed: %d MHz", dev_priv->mem_freq);
 
-	DRM_DEBUG_DRIVER("GPLL enabled? %s\n", val & 0x10 ? "yes" : "no");
+	dev_priv->gpll = val & 0x10;
+	DRM_DEBUG_DRIVER("GPLL enabled? %s\n", dev_priv->gpll ? "yes" : "no");
 	DRM_DEBUG_DRIVER("GPU status: 0x%08x\n", val);
 
 	dev_priv->rps.cur_delay = (val >> 8) & 0xff;
 	DRM_DEBUG_DRIVER("current GPU freq: %d MHz (%u)\n",
-			 vlv_gpu_freq(dev_priv->mem_freq,
+			 vlv_gpu_freq(dev_priv,
 				      dev_priv->rps.cur_delay),
 			 dev_priv->rps.cur_delay);
 
@@ -4158,21 +4160,21 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 	dev_priv->rps.hw_max = hw_max = valleyview_rps_max_freq(dev_priv);
 
 	DRM_DEBUG_DRIVER("max HW supported GPU freq: %d MHz (%u)\n",
-			 vlv_gpu_freq(dev_priv->mem_freq,
+			 vlv_gpu_freq(dev_priv,
 				      dev_priv->rps.hw_max),
 			 dev_priv->rps.hw_max);
 
 	/* Rpe is min freq */
 	dev_priv->rps.rpe_delay = valleyview_rps_rpe_freq(dev_priv);
 	DRM_DEBUG_DRIVER("RPe GPU freq: %d MHz (%u)\n",
-			 vlv_gpu_freq(dev_priv->mem_freq,
+			 vlv_gpu_freq(dev_priv,
 				      dev_priv->rps.rpe_delay),
 			 dev_priv->rps.rpe_delay);
 
 	dev_priv->rps.hw_min = hw_min = valleyview_rps_min_freq(dev_priv);
 
 	DRM_DEBUG_DRIVER("min HW supported GPU freq: %d MHz (%u)\n",
-			 vlv_gpu_freq(dev_priv->mem_freq,
+			 vlv_gpu_freq(dev_priv,
 				      dev_priv->rps.hw_min),
 			 dev_priv->rps.hw_min);
 
@@ -4190,9 +4192,26 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 		dev_priv->rps.min_delay = hw_min;
 
 	DRM_DEBUG_DRIVER("setting GPU freq to %d MHz (%u)\n",
-			 vlv_gpu_freq(dev_priv->mem_freq,
+			 vlv_gpu_freq(dev_priv,
 				      dev_priv->rps.rpe_delay),
 			 dev_priv->rps.rpe_delay);
+
+	cck_fuse = vlv_cck_read(dev_priv , 0x8);
+	switch (cck_fuse & 0x3) {
+	case 0:
+		dev_priv->cck_freq = 800;
+		break;
+	case 1:
+		dev_priv->cck_freq = 1600;
+		break;
+	case 2:
+		dev_priv->cck_freq = 2000;
+		break;
+	case 3:
+		dev_priv->cck_freq = 2400;
+		break;
+	}
+
 
 	/* Setting IA/GT Fixed Power Bias  */
 	val = VLV_OVERRIDE_MSR_REG
@@ -6124,59 +6143,113 @@ int sandybridge_pcode_write(struct drm_i915_private *dev_priv, u8 mbox, u32 val)
 	return 0;
 }
 
-int vlv_gpu_freq(int ddr_freq, int val)
-{
-	int mult, base;
+#define ratio_round_to_nearest(num, den) (((num) + (den)/2) / (den))
 
-	switch (ddr_freq) {
-	case 800:
-		mult = 20;
-		base = 120;
-		break;
-	case 1066:
-		mult = 22;
-		base = 133;
-		break;
-	case 1333:
-		mult = 21;
-		base = 125;
-		break;
-	default:
-		return -1;
+/* Upper and lower bounds for GT frequency opcodes on VLV.
+ * These do not represent actual min / max turbo
+ * frequencies supported in hardware.
+ */
+static const int vlv_opcode_min_gpll = 0xb7;
+static const int vlv_opcode_max_gpll = 0xff;
+static const int vlv_opcode_min_ngpll = 0x01;
+static const int vlv_opcode_max_ngpll = 0x1f;
+
+/* Upper and lower bounds for GT frequency on VLV.
+ * These do not represent actual min / max turbo
+ * frequencies supported in hardware.
+ */
+static const int vlv_freq_min_gpll; /* =0 */
+static const int vlv_freq_max_gpll = 1600;
+static const int vlv_freq_min_ngpll = 50;
+static const int vlv_freq_max_ngpll = 2400;
+
+int vlv_gpu_freq(struct drm_i915_private *dev_priv, int val)
+{
+	int mult, div, freq;
+	int min_freq, max_freq;
+
+	if (dev_priv->gpll) {
+
+		switch (dev_priv->mem_freq) {
+		case 800:
+			mult = 20;
+			div = 1;
+			break;
+		case 1066:
+			mult = 200;
+			div = 9;
+			break;
+		case 1333:
+			mult = 125;
+			div = 6;
+			break;
+		default:
+			return -1;
+		}
+
+		freq = ratio_round_to_nearest(
+			(val - vlv_opcode_min_gpll) * mult, div);
+
+		min_freq = vlv_freq_min_gpll;
+		max_freq = vlv_freq_max_gpll;
+
+	} else {
+		freq = ratio_round_to_nearest(2 * dev_priv->cck_freq, val + 1);
+
+		min_freq = vlv_freq_min_ngpll;
+		max_freq = vlv_freq_max_ngpll;
 	}
 
-	return ((val - 0xbd) * mult) + base;
+	if (freq > max_freq)
+		freq = max_freq;
+	if (freq < min_freq)
+		freq = min_freq;
+
+	return freq;
 }
 
-int vlv_freq_opcode(int ddr_freq, int val)
+int vlv_freq_opcode(struct drm_i915_private *dev_priv, int val)
 {
-	int mult, base;
+	int mult, div, opcode;
+	int min_opcode, max_opcode;
 
-	switch (ddr_freq) {
-	case 800:
-		mult = 20;
-		base = 120;
-		break;
-	case 1066:
-		mult = 22;
-		base = 133;
-		break;
-	case 1333:
-		mult = 21;
-		base = 125;
-		break;
-	default:
-		return -1;
+	if (dev_priv->gpll) {
+		switch (dev_priv->mem_freq) {
+		case 800:
+			mult = 20;
+			div = 1;
+			break;
+		case 1066:
+			mult = 200;
+			div = 9;
+			break;
+		case 1333:
+			mult = 125;
+			div = 6;
+			break;
+		default:
+			return -1;
+		}
+
+		opcode = ratio_round_to_nearest(div*val, mult) +
+				vlv_opcode_min_gpll;
+
+		min_opcode = vlv_opcode_min_gpll;
+		max_opcode = vlv_opcode_max_gpll;
+
+	} else {
+		opcode = ratio_round_to_nearest(2 * dev_priv->cck_freq, val)-1;
+
+		min_opcode = vlv_opcode_min_ngpll;
+		max_opcode = vlv_opcode_max_ngpll;
 	}
 
-	val /= mult;
-	val -= base / mult;
-	val += 0xbd;
+	if (opcode > max_opcode)
+		opcode = max_opcode;
+	if (opcode < min_opcode)
+		opcode = min_opcode;
 
-	if (val > 0xea)
-		val = 0xea;
-
-	return val;
+	return opcode;
 }
 
 void intel_pm_init(struct drm_device *dev)

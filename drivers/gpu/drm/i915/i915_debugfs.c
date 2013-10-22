@@ -1413,29 +1413,29 @@ static int i915_cur_delayinfo(struct seq_file *m, void *unused)
 		seq_printf(m, "DDR freq: %d MHz\n", dev_priv->mem_freq);
 
 		seq_printf(m, "Max HW Supported GPU freq: %d MHz (%u)\n",
-			vlv_gpu_freq(dev_priv->mem_freq,
+			vlv_gpu_freq(dev_priv,
 				dev_priv->rps.hw_max),
 				dev_priv->rps.hw_max);
 		seq_printf(m, "Min HW Supported GPU freq: %d MHz (%u)\n",
-			vlv_gpu_freq(dev_priv->mem_freq,
+			vlv_gpu_freq(dev_priv,
 					dev_priv->rps.hw_min),
 					dev_priv->rps.hw_min);
 
 		seq_printf(m, "Max User Selected GPU freq: %d MHz (%u)\n",
-			vlv_gpu_freq(dev_priv->mem_freq,
+			vlv_gpu_freq(dev_priv,
 				dev_priv->rps.max_delay),
 				dev_priv->rps.max_delay);
 		seq_printf(m, "Min User Selected GPU freq: %d MHz (%u)\n",
-			vlv_gpu_freq(dev_priv->mem_freq,
+			vlv_gpu_freq(dev_priv,
 					dev_priv->rps.min_delay),
 					dev_priv->rps.min_delay);
 
 		seq_printf(m, "Current GPU freq: %d MHz (%u)\n",
-			vlv_gpu_freq(dev_priv->mem_freq,
+			vlv_gpu_freq(dev_priv,
 					dev_priv->rps.cur_delay),
 					dev_priv->rps.cur_delay);
 		seq_printf(m, "Last Requested Gpu freq: %d MHz (%u)\n",
-			vlv_gpu_freq(dev_priv->mem_freq,
+			vlv_gpu_freq(dev_priv,
 					dev_priv->rps.requested_delay),
 					dev_priv->rps.requested_delay);
 		seq_printf(m, "Up Threshold: %d\n",

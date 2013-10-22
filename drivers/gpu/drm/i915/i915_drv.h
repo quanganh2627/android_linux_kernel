@@ -1366,7 +1366,8 @@ typedef struct drm_i915_private {
 	int fence_reg_start; /* 4 if userland hasn't ioctl'd us yet */
 	int num_fence_regs; /* 8 on pre-965, 16 otherwise */
 
-	unsigned int fsb_freq, mem_freq, is_ddr3;
+	unsigned int fsb_freq, mem_freq, is_ddr3, gpll;
+	unsigned int cck_freq;
 
 	struct workqueue_struct *wq;
 	struct workqueue_struct *flipwq;
@@ -2634,8 +2635,8 @@ int intel_flisdsi_write32(struct drm_i915_private *dev_priv, u32 reg, u32 val);
 int intel_flisdsi_write32_bits(struct drm_i915_private *dev_priv, u32 reg, 
 								u32 val, u32 mask);
 
-int vlv_gpu_freq(int ddr_freq, int val);
-int vlv_freq_opcode(int ddr_freq, int val);
+int vlv_gpu_freq(struct drm_i915_private *dev_priv, int val);
+int vlv_freq_opcode(struct drm_i915_private *dev_priv, int val);
 
 /* runtime power management related */
 int i915_rpm_init(struct drm_device *dev);
