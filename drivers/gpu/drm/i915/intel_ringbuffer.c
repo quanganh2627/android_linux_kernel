@@ -560,6 +560,15 @@ cleanup_pipe_control(struct intel_ring_buffer *ring)
 	kfree(pc);
 }
 
+u32
+get_pipe_control_scratch_addr(struct intel_ring_buffer *ring)
+{
+	struct pipe_control *pc = ring->private;
+	if (!ring->private)
+		return 0;
+	return pc->gtt_offset;
+}
+
 static int init_render_ring(struct intel_ring_buffer *ring)
 {
 	struct drm_device *dev = ring->dev;

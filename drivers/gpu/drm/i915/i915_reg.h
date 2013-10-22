@@ -339,6 +339,9 @@
 #define   PIPE_CONTROL_DEPTH_CACHE_FLUSH		(1<<0)
 #define   PIPE_CONTROL_GLOBAL_GTT (1<<2) /* in addr dword */
 
+#define GFX_OP_3DPRIMITIVE()              \
+	((0x3<<29)|(0x3<<27)|(0x3<<24)|       \
+	 (0x0<<16)|(0x0<<10)|(0x0<<8)|(7-2))
 
 /*
  * Reset registers
