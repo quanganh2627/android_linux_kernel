@@ -410,13 +410,36 @@ out_ops:
 	return ret_val;
 }
 
+static void sst_free_stream_in_use(struct sst_dev_stream_map *map, int str_id)
+{
+#if IS_BUILTIN(CONFIG_SST_MRFLD_DPCM)
+	return;
+#else
+	if ((map[str_id].dev_num == MERR_SALTBAY_AUDIO) ||
+		 (map[str_id].dev_num == MERR_SALTBAY_PROBE)) {
+
+		/* Do nothing in capture for audio device */
+		if ((map[str_id].dev_num == MERR_SALTBAY_AUDIO) &&
+			(map[str_id].direction == SNDRV_PCM_STREAM_CAPTURE))
+			return;
+		if ((map[str_id].task_id == SST_TASK_ID_MEDIA) &&
+			(map[str_id].status == SST_DEV_MAP_IN_USE)) {
+				pr_debug("str_id %d device_id 0x%x\n",
+						str_id, map[str_id].device_id);
+				map[str_id].status = SST_DEV_MAP_FREE;
+				map[str_id].device_id = PIPE_RSVD;
+		}
+	}
+	return;
+#endif
+}
+
 static void sst_media_close(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
 	struct sst_runtime_stream *stream;
 	int ret_val = 0, str_id;
 	struct sst_data *ctx = snd_soc_platform_get_drvdata(dai->platform);
-	struct sst_dev_stream_map *map = ctx->pdata->pdev_strm_map;
 
 	stream = substream->runtime->private_data;
 	if (strstr(dai->name, "Power-cpu-dai"))
@@ -425,20 +448,7 @@ static void sst_media_close(struct snd_pcm_substream *substream,
 	str_id = stream->stream_info.str_id;
 	if (str_id)
 		ret_val = stream->ops->close(str_id);
-
-	if ((map[str_id].dev_num == MERR_SALTBAY_AUDIO) || (map[str_id].dev_num == MERR_SALTBAY_PROBE)) {
-
-		/* Do nothing in capture for audio device */
-		if ((map[str_id].dev_num == MERR_SALTBAY_AUDIO) && (map[str_id].direction == SNDRV_PCM_STREAM_CAPTURE))
-			goto exit;
-		if ((map[str_id].task_id == SST_TASK_ID_MEDIA) &&
-			(map[str_id].status == SST_DEV_MAP_IN_USE)) {
-				pr_debug("str_id %d device_id 0x%x\n", str_id, map[str_id].device_id);
-				map[str_id].status = SST_DEV_MAP_FREE;
-				map[str_id].device_id = PIPE_RSVD;
-		}
-	}
-exit:
+	sst_free_stream_in_use(ctx->pdata->pdev_strm_map, str_id);
 	module_put(sst_dsp->dev->driver->owner);
 	kfree(stream);
 	pr_debug("%s: %d\n", __func__, ret_val);
