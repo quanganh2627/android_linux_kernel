@@ -2734,6 +2734,7 @@ CONFIG_UUID=y
 # Fork of Texas Instruments shared transport line discipline
 #
 # CONFIG_TI_ST_FORK is not set
+# CONFIG_TRACEPOINT_TO_LOG is not set
 CONFIG_I2C_DESIGNWARE_PCI_FORK=y
 # CONFIG_I2C_PMIC is not set
 # CONFIG_TOUCHSCREEN_ATMEL_MXT224 is not set
