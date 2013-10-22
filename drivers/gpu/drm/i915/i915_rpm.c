@@ -465,4 +465,13 @@ bool i915_rpm_access_check(struct drm_device *dev)
 {
 	return true;
 }
+bool i915_pm_runtime_enabled(struct device *dev)
+{
+	return false;
+}
+
+void i915_rpm_enable(struct device *dev) {}
+
+void i915_rpm_disable(struct drm_device *drm_dev) {}
+
 #endif /*CONFIG_PM_RUNTIME*/
