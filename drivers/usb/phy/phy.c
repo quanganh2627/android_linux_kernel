@@ -507,7 +507,7 @@ void usb_remove_phy(struct usb_phy *x)
 	spin_lock_irqsave(&phy_lock, flags);
 
 	if (x) {
-		if (x->class_dev->devt)
+		if (x->class_dev && x->class_dev->devt)
 			device_destroy(x->usb_otg_class, x->class_dev->devt);
 
 		if (x->usb_otg_class)
