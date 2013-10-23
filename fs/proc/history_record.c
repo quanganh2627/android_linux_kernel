@@ -133,8 +133,8 @@ static const struct file_operations debug_history_proc_fops = {
 static int __init debug_read_history_record_entry(void)
 {
 	struct proc_dir_entry *res = NULL;
-	res = proc_create_data("debug_read_sgx_history", S_IALLUGO, NULL,
-					&debug_history_proc_fops, NULL);
+	res = proc_create_data("debug_read_sgx_history", S_IRUGO | S_IWUSR,
+				NULL, &debug_history_proc_fops, NULL);
 	return 0;
 }
 
