@@ -3189,16 +3189,8 @@ static void ironlake_fdi_disable(struct drm_crtc *crtc)
 static bool intel_crtc_has_pending_flip(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	unsigned long flags;
 	bool pending;
-
-	/* Only do this for global reset as page flips for TDR should
-	* sort themselves out*/
-	if (i915_reset_in_progress(&dev_priv->gpu_error) ||
-	    intel_crtc->reset_counter != atomic_read(&dev_priv->gpu_error.reset_counter))
-		return false;
 
 	spin_lock_irqsave(&dev->event_lock, flags);
 	pending = to_intel_crtc(crtc)->unpin_work != NULL;

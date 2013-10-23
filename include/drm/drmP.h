@@ -1230,6 +1230,11 @@ struct drm_device {
 	int switch_power_state;
 
 	atomic_t unplugged; /* device has been unplugged or gone away */
+
+	struct mutex halt_mutex;
+	atomic_t halt_count;
+	wait_queue_head_t ioctl_queue;
+	wait_queue_head_t halt_queue;
 };
 
 #define DRM_SWITCH_POWER_ON 0
@@ -1430,12 +1435,19 @@ extern void drm_core_reclaim_buffers(struct drm_device *dev,
 extern int drm_control(struct drm_device *dev, void *data,
 		       struct drm_file *file_priv);
 extern int drm_irq_install(struct drm_device *dev);
+extern int drm_irq_install_locked(struct drm_device *dev, int locked);
 extern int drm_irq_uninstall(struct drm_device *dev);
+extern int drm_irq_uninstall_locked(struct drm_device *dev, int locked);
+
+extern void drm_halt(struct drm_device *dev);
+extern int drm_wait_idle(struct drm_device *dev, unsigned timeout);
+extern void drm_continue(struct drm_device *dev);
 
 extern int drm_vblank_init(struct drm_device *dev, int num_crtcs);
 extern int drm_wait_vblank(struct drm_device *dev, void *data,
 			   struct drm_file *filp);
 extern int drm_vblank_wait(struct drm_device *dev, unsigned int *vbl_seq);
+void drm_clean_pending_vblanks(struct drm_device *dev);
 extern u32 drm_vblank_count(struct drm_device *dev, int crtc);
 extern u32 drm_vblank_count_and_time(struct drm_device *dev, int crtc,
 				     struct timeval *vblanktime);

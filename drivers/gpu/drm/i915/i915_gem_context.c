@@ -473,6 +473,42 @@ static int do_switch(struct i915_hw_context *to)
 	return 0;
 }
 
+void i915_gem_context_restore(struct drm_device *dev,
+			      struct intel_ring_buffer *ring)
+{
+	/* Call after reset to restore the last known context */
+	int ret;
+	struct i915_hw_context *to;
+
+	if (!ring || !HAS_HW_CONTEXTS(dev))
+		return;
+
+	if (!ring->default_context)
+		return;
+
+	to = ring->last_context;
+
+	if (!is_default_context(to)) {
+		/* There is a default context but it was not the last
+		 * context in use, so we can call do_switch to handle
+		 * everything nicely */
+		DRM_DEBUG("Switch ring %d to default ctx\n", ring->id);
+		do_switch(ring->default_context);
+	} else {
+		/* The default context was already in use. In this case we just
+		* want to update the hardware to use it - we don't need to redo
+		* any of the housekeeping for the context object*/
+
+		DRM_DEBUG("Restore default context for ring %d\n", ring->id);
+		ret = mi_set_context(ring, to, MI_RESTORE_INHIBIT);
+		if (ret) {
+			i915_gem_object_unpin(to->obj);
+			DRM_ERROR("Set context failed for ring %d\n",
+					ring->id);
+		}
+	}
+}
+
 /**
  * i915_switch_context() - perform a GPU context switch.
  * @ring: ring for which we'll execute the context switch

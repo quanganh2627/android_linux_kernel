@@ -1123,8 +1123,7 @@ struct i915_gpu_error {
 	 * Lowest bit controls the reset state machine: Set means a reset is in
 	 * progress. This state will (presuming we don't have any bugs) decay
 	 * into either unset (successful reset) or the special WEDGED value (hw
-	 * terminally sour). All waiters on the reset_queue will be woken when
-	 * that happens.
+	 * terminally sour).
 	 */
 	atomic_t reset_counter;
 
@@ -1133,11 +1132,6 @@ struct i915_gpu_error {
 	 */
 #define I915_RESET_IN_PROGRESS_FLAG	1
 #define I915_WEDGED			(1 << 31)
-
-	/**
-	 * Waitqueue to signal when the reset has completed.
-	 */
-	wait_queue_head_t reset_queue;
 
 	uint32_t total_resets;
 
@@ -2331,6 +2325,8 @@ i915_gem_obj_ggtt_pin(struct drm_i915_gem_object *obj,
 
 /* i915_gem_context.c */
 void i915_gem_context_init(struct drm_device *dev);
+void i915_gem_context_restore(struct drm_device *dev,
+				struct intel_ring_buffer *ring);
 void i915_gem_context_fini(struct drm_device *dev);
 void i915_gem_context_close(struct drm_device *dev, struct drm_file *file);
 int i915_switch_context(struct intel_ring_buffer *ring,

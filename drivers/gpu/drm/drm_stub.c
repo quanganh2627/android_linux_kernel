@@ -266,6 +266,9 @@ int drm_fill_in_dev(struct drm_device *dev,
 	spin_lock_init(&dev->event_lock);
 	mutex_init(&dev->struct_mutex);
 	mutex_init(&dev->ctxlist_mutex);
+	mutex_init(&dev->halt_mutex);
+	init_waitqueue_head(&dev->ioctl_queue);
+	init_waitqueue_head(&dev->halt_queue);
 
 	if (drm_ht_create(&dev->map_hash, 12)) {
 		return -ENOMEM;

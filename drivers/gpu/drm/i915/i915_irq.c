@@ -1805,33 +1805,19 @@ static void i915_error_work_func(struct work_struct *work)
 	if (i915_reset_in_progress(error) && !i915_terminally_wedged(error)) {
 		DRM_DEBUG_DRIVER("resetting chip\n");
 
+		for (i = 0; i < I915_NUM_RINGS; i++) {
+			/* Clear hang state and reset request flags
+			* for each ring. Do this BEFORE calling
+			* i915_reset otherwise context restore may fail*/
+			atomic_set(&dev_priv->hangcheck[i].flags, 0);
+		}
+
 		ret = i915_reset(dev);
 
 		kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_CHANGE,
 				   reset_event);
 
-		if (ret == 0) {
-			for (i = 0; i < I915_NUM_RINGS; i++) {
-				/* Clear hang state and reset request flags
-				* for each ring*/
-				atomic_set(&dev_priv->hangcheck[i].flags, 0);
-			}
-
-			/*
-			 * After all the gem state is reset, increment the reset
-			 * counter and wake up everyone waiting for the reset to
-			 * complete.
-			 *
-			 * Since unlock operations are a one-sided barrier only,
-			 * we need to insert a barrier here to order any seqno
-			 * updates before
-			 * the counter increment.
-			 * The increment clears the RESET_IN_PROGRESS flag.
-			 */
-			smp_mb__before_atomic_inc();
-			atomic_inc(&dev_priv->gpu_error.reset_counter);
-
-		} else {
+		if (ret != 0) {
 			/* Terminal wedge condition */
 			atomic_set_mask(I915_WEDGED, &error->reset_counter);
 		}
@@ -1841,15 +1827,10 @@ static void i915_error_work_func(struct work_struct *work)
 	for_each_ring(ring, dev_priv, i)
 		wake_up_all(&ring->irq_queue);
 
-	/* Notify i915_gem_wait_for_error that reset processing
-	* has completed */
-	wake_up_all(&dev_priv->gpu_error.reset_queue);
-
 	kobject_uevent_env(&dev->primary->kdev.kobj,
 				KOBJ_CHANGE, reset_done_event);
 
 	DRM_DEBUG_TDR("End recovery work\n\n");
-
 }
 
 static void i915_report_and_clear_eir(struct drm_device *dev)
@@ -2023,6 +2004,7 @@ void i915_handle_error(struct drm_device *dev, struct intel_hangcheck *hc,
 		* individual ring resets pending then they may
 		* still be processed before the global reset request
 		* is noticed by the error work function.*/
+
 		atomic_set_mask(I915_RESET_IN_PROGRESS_FLAG,
 				&dev_priv->gpu_error.reset_counter);
 		DRM_DEBUG_TDR("Full reset of GPU requested\n");
