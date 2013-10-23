@@ -933,11 +933,7 @@ static int i915_suspend_common(struct device *dev)
 static int i915_pm_suspend(struct device *dev)
 {
 	int ret;
-	struct drm_device *drm_dev = pci_get_drvdata(dev);
-	struct drm_i915_private *dev_priv;
-	dev_priv = drm_dev->dev_private;
 
-	dev_priv->shut_down_state = 1;
 	DRM_DEBUG_PM("PM Suspend called\n");
 	ret = i915_suspend_common(dev);
 	DRM_DEBUG_PM("PM Suspend finished\n");
@@ -1017,6 +1013,7 @@ static void i915_pm_shutdown(struct pci_dev *pdev)
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
 	struct drm_i915_private *dev_priv = drm_dev->dev_private;
 
+	dev_priv->shut_down_state = 1;
 	dev_priv->pm.shutdown_in_progress = true;
 
 	if (!i915_is_device_suspended(drm_dev)) {
