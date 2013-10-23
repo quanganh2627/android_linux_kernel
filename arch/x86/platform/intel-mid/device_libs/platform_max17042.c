@@ -392,7 +392,7 @@ static void init_callbacks(struct max17042_platform_data *pdata)
 		pdata->temp_min_lim = 0;
 		pdata->temp_max_lim = 55;
 		pdata->volt_min_lim = 3400;
-		pdata->volt_max_lim = 4350;
+		pdata->volt_max_lim = 4400;
 	}
 
 	pdata->reset_i2c_lines = max17042_i2c_reset_workaround;
