@@ -100,6 +100,8 @@ static struct intel_scu_watchdog_dev watchdog_device;
 static struct wake_lock watchdog_wake_lock;
 static DECLARE_WAIT_QUEUE_HEAD(read_wq);
 static unsigned char osnib_reset = OSNIB_WRITE_VALUE;
+static int reset_type_to_string(int reset_type, char *string);
+static int string_to_reset_type(const char *string, int *reset_type);
 
 /* The read function (intel_scu_read) waits for the warning_flag to */
 /* be set by the watchdog interrupt handler. */
@@ -634,10 +636,21 @@ int options;
 
 static int watchdog_set_reset_type(int reset_type)
 {
-	return rpmsg_send_command(watchdog_instance,
+	int ret;
+
+	ret = rpmsg_send_command(watchdog_instance,
 				  IPC_SET_WATCHDOG_TIMER,
 				  reset_type,
 				  NULL, NULL, 0, 0);
+
+	if (ret) {
+		pr_crit(PFX "Error setting watchdog action: %d\n", ret);
+		return -EIO;
+	}
+
+	watchdog_device.normal_wd_action = reset_type;
+
+	return 0;
 }
 
 /* Reboot notifier */
@@ -734,67 +747,33 @@ static int kwd_reset_type_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-
-
 static ssize_t kwd_reset_type_read(struct file *file, char __user *buff,
-		size_t count, loff_t *ppos)
+				size_t count, loff_t *ppos)
 {
-	ssize_t len = 0;
-	unsigned long res;
+	ssize_t len;
+	int ret;
+	char str[STRING_RESET_TYPE_MAX_LEN + 1];
 
 	pr_debug(PFX "reading reset_type of %x\n",
-			watchdog_device.normal_wd_action);
+		 watchdog_device.normal_wd_action);
 
 	if (*ppos > 0)
 		return 0;
 
-	switch (watchdog_device.normal_wd_action) {
-	case IPC_SET_SUB_COLDOFF:
-		res = copy_to_user(buff, STRING_COLD_OFF "\n",
-					strlen(STRING_COLD_OFF)+2);
-		if (res) {
-			pr_err(PFX "%s: copy to user failed\n", __func__);
-			return -EINVAL;
-		}
-
-		len = strlen(STRING_COLD_OFF)+2;
-		break;
-	case IPC_SET_SUB_COLDRESET:
-		res = copy_to_user(buff, STRING_COLD_RESET "\n",
-					strlen(STRING_COLD_RESET)+2);
-		if (res) {
-			pr_err(PFX "%s: copy to user failed\n", __func__);
-			return -EINVAL;
-		}
-
-		len = strlen(STRING_COLD_RESET)+2;
-		break;
-	case IPC_SET_SUB_COLDBOOT:
-		res = copy_to_user(buff, STRING_COLD_BOOT "\n",
-					strlen(STRING_COLD_BOOT)+2);
-		if (res) {
-			pr_err(PFX "%s: copy to user failed\n", __func__);
-			return -EINVAL;
-		}
-
-		len = strlen(STRING_COLD_BOOT)+2;
-		break;
-	case IPC_SET_SUB_DONOTHING:
-		res = copy_to_user(buff, STRING_NONE "\n",
-					strlen(STRING_NONE)+2);
-		if (res) {
-			pr_err(PFX "%s: copy to user failed\n", __func__);
-			return -EINVAL;
-		}
-
-		len = strlen(STRING_NONE)+2;
-		break;
-	default:
+	ret = reset_type_to_string(watchdog_device.normal_wd_action, str);
+	if (ret)
 		return -EINVAL;
+	else {
+		for (len = 0; len < STRING_RESET_TYPE_MAX_LEN
+			     && str[len] != '\0'; len++)
+			;
+		str[len++] = '\n';
+		str[len] = '\0';
+		ret = copy_to_user(buff, str, len);
 	}
 
 	*ppos += len;
-	return len+1;
+	return len;
 }
 
 static ssize_t kwd_reset_type_write(struct file *file, const char __user *buff,
@@ -802,10 +781,10 @@ static ssize_t kwd_reset_type_write(struct file *file, const char __user *buff,
 {
 	char str[STRING_RESET_TYPE_MAX_LEN];
 	unsigned long res;
-	int ret;
+	int ret, reset_type;
 
-	if (count >= STRING_RESET_TYPE_MAX_LEN) {
-		pr_err(PFX "Invalid size%s\n", str);
+	if (count > STRING_RESET_TYPE_MAX_LEN) {
+		pr_err(PFX "Invalid size: count=%d\n", count);
 		return -EINVAL;
 	}
 
@@ -823,27 +802,13 @@ static ssize_t kwd_reset_type_write(struct file *file, const char __user *buff,
 
 	pr_debug(PFX "writing reset_type of %s\n", str);
 
-	if (!strncmp(str, STRING_COLD_OFF, STRING_RESET_TYPE_MAX_LEN)) {
-		ret = watchdog_set_reset_type(IPC_SET_SUB_COLDOFF);
-
-	} else if (!strncmp(str, STRING_COLD_RESET,
-					STRING_RESET_TYPE_MAX_LEN)) {
-		ret = watchdog_set_reset_type(IPC_SET_SUB_COLDRESET);
-
-	} else if (!strncmp(str, STRING_COLD_BOOT,
-					STRING_RESET_TYPE_MAX_LEN)) {
-		ret = watchdog_set_reset_type(IPC_SET_SUB_COLDBOOT);
-
-	} else if (!strncmp(str, STRING_NONE,
-					STRING_RESET_TYPE_MAX_LEN)) {
-		ret = watchdog_set_reset_type(IPC_SET_SUB_DONOTHING);
-
-	} else {
+	ret = string_to_reset_type(str, &reset_type);
+	if (ret) {
 		pr_err(PFX "Invalid value\n");
 		return -EINVAL;
 	}
 
-	/* check return code of watchdog_set_reset_type */
+	ret = watchdog_set_reset_type(reset_type);
 	if (ret) {
 		pr_err(PFX "%s: could not set reset type\n", __func__);
 		return -EINVAL;
