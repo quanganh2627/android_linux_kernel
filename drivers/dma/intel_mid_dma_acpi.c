@@ -78,12 +78,12 @@ static int mid_platform_get_resources(struct middma_device *mid_device,
 		mapping is performed in common code */
 	rsrc = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!rsrc) {
-		pr_err("%s: Invalid resource", __func__);
-		return -EIO;
+		pr_warn("%s: Invalid resource for pimr", __func__);
+	} else {
+		/* add offset for ISRX register */
+		mid_device->pimr_base = rsrc->start + SHIM_ISRX_OFFSET;
+		pr_debug("pimr_base:%#x", mid_device->pimr_base);
 	}
-	/* add offset for ISRX register */
-	mid_device->pimr_base = rsrc->start + SHIM_ISRX_OFFSET;
-	pr_debug("pimr_base:%#x", mid_device->pimr_base);
 
 	mid_device->irq = platform_get_irq(pdev, 0);
 	if (mid_device->irq < 0) {
@@ -156,7 +156,9 @@ int dma_acpi_probe(struct platform_device *pdev)
 	ret = mid_setup_dma(&pdev->dev);
 	if (ret)
 		goto err_dma;
+	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_allow(&pdev->dev);
 	acpi_dma_dev = &pdev->dev;
 	pr_debug("%s:completed", __func__);
 	return 0;
@@ -173,8 +175,7 @@ int dma_acpi_probe(struct platform_device *pdev)
 
 int dma_acpi_remove(struct platform_device *pdev)
 {
-	pm_runtime_get_noresume(&pdev->dev);
-	pm_runtime_disable(&pdev->dev);
+	pm_runtime_forbid(&pdev->dev);
 	acpi_dma_dev = NULL;
 	middma_shutdown(&pdev->dev);
 	platform_set_drvdata(pdev, NULL);
