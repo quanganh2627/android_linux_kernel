@@ -385,6 +385,19 @@ static unsigned int voltage_capacity_lookup(unsigned int val)
 	return capacity;
 }
 
+static int max17042_property_is_privileged_read(struct power_supply *psy,
+						enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
+		return 1;
+	default:
+		break;
+	}
+	return 0;
+}
+
 static int dev_file_open(struct inode *i, struct file *f)
 {
 	if (atomic_read(&fopen_count))
@@ -2050,6 +2063,8 @@ static int max17042_probe(struct i2c_client *client,
 	chip->battery.type		= POWER_SUPPLY_TYPE_BATTERY;
 	chip->battery.get_property	= max17042_get_property;
 	chip->battery.set_property	= max17042_set_property;
+	chip->battery.property_is_privileged_read =
+					max17042_property_is_privileged_read;
 	chip->battery.external_power_changed = max17042_external_power_changed;
 	chip->battery.properties	= max17042_battery_props;
 	chip->battery.num_properties	= ARRAY_SIZE(max17042_battery_props);
