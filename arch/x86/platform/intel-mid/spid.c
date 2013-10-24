@@ -296,6 +296,24 @@ err_sysfs_spid:
 arch_initcall(acpi_spid_init);
 #endif
 
+/**
+ * Check if buffer contains printable character, from SPACE(0x20) to
+ * TILDE (0x7E), until \0 or maxlen characters occur.
+ * param char *str_buf buffer of characters to look for
+ * param int maxlen max number of characters to look for
+ * return int 0 if valid, otherwise index of the first non valid character
+ * */
+static int chk_prt_validity(char *strbuf, int max_len)
+{
+	int idx = 0;
+	while ((idx < max_len) && (strbuf[idx] != '\0')) {
+		if ((strbuf[idx] < 0x20) || (strbuf[idx] > 0x7E))
+			return idx;
+		idx++;
+	}
+	return 0;
+}
+
 int __init sfi_handle_spid(struct sfi_table_header *table)
 {
 	struct sfi_table_oemb *oemb;
@@ -325,12 +343,19 @@ int __init sfi_handle_spid(struct sfi_table_header *table)
 	memcpy(&spid, &oemb->spid, sizeof(struct soft_platform_id));
 
 	if (oemb->header.len <
-			(char *)oemb->ssn + INTEL_PLATFORM_SSN_SIZE - (char *)oemb) {
+			(char *)oemb->ssn + INTEL_PLATFORM_SSN_SIZE -
+			(char *)oemb) {
 		pr_err("SFI OEMB does not contains SSN\n");
 		intel_platform_ssn[0] = '\0';
 	} else {
-		memcpy(intel_platform_ssn, oemb->ssn, INTEL_PLATFORM_SSN_SIZE);
-		intel_platform_ssn[INTEL_PLATFORM_SSN_SIZE] = '\0';
+		if (chk_prt_validity(oemb->ssn, INTEL_PLATFORM_SSN_SIZE) != 0) {
+			pr_err("SSN contains non printable character\n");
+			intel_platform_ssn[0] = '\0';
+		} else {
+			memcpy(intel_platform_ssn, oemb->ssn,
+				INTEL_PLATFORM_SSN_SIZE);
+			intel_platform_ssn[INTEL_PLATFORM_SSN_SIZE] = '\0';
+		}
 	}
 
 	/* Populate command line with SPID values */
