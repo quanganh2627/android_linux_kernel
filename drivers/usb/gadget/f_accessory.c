@@ -280,6 +280,11 @@ static void acc_complete_out(struct usb_ep *ep, struct usb_request *req)
 	wake_up(&dev->read_wq);
 }
 
+static void acc_complete_ep0(struct usb_ep *ep, struct usb_request *req)
+{
+	pr_debug("acc_complete_ep0\n");
+}
+
 static void acc_complete_set_string(struct usb_ep *ep, struct usb_request *req)
 {
 	struct acc_dev	*dev = ep->driver_data;
@@ -792,6 +797,7 @@ static int acc_ctrlrequest(struct usb_composite_dev *cdev,
 			dev->start_requested = 1;
 			schedule_delayed_work(
 				&dev->start_work, msecs_to_jiffies(10));
+			cdev->req->complete = acc_complete_ep0;
 			value = 0;
 		} else if (b_request == ACCESSORY_SEND_STRING) {
 			dev->string_index = w_index;
@@ -801,10 +807,13 @@ static int acc_ctrlrequest(struct usb_composite_dev *cdev,
 		} else if (b_request == ACCESSORY_SET_AUDIO_MODE &&
 				w_index == 0 && w_length == 0) {
 			dev->audio_mode = w_value;
+			cdev->req->complete = acc_complete_ep0;
 			value = 0;
 		} else if (b_request == ACCESSORY_REGISTER_HID) {
+			cdev->req->complete = acc_complete_ep0;
 			value = acc_register_hid(dev, w_value, w_index);
 		} else if (b_request == ACCESSORY_UNREGISTER_HID) {
+			cdev->req->complete = acc_complete_ep0;
 			value = acc_unregister_hid(dev, w_value);
 		} else if (b_request == ACCESSORY_SET_HID_REPORT_DESC) {
 			spin_lock_irqsave(&dev->lock, flags);
@@ -838,6 +847,7 @@ static int acc_ctrlrequest(struct usb_composite_dev *cdev,
 	} else if (b_requestType == (USB_DIR_IN | USB_TYPE_VENDOR)) {
 		if (b_request == ACCESSORY_GET_PROTOCOL) {
 			*((u16 *)cdev->req->buf) = PROTOCOL_VERSION;
+			cdev->req->complete = acc_complete_ep0;
 			value = sizeof(u16);
 
 			/* clear any string left over from a previous session */
