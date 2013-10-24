@@ -8647,7 +8647,8 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	intel_fb = to_intel_framebuffer(crtc->fb);
 	intel_new_fb = to_intel_framebuffer(fb);
 
-	if (dev_priv->shut_down_state)
+	/* Avoid flip operation if shutdown is in progress */
+	if (dev_priv->pm.shutdown_in_progress)
 		return -EINVAL;
 
 	/* Can't change pixel format via MI display flips. */
@@ -9832,9 +9833,6 @@ intel_modeset_stage_output_state(struct drm_device *dev,
 	 * of connectors. For paranoia, double-check this. */
 	WARN_ON(!set->fb && (set->num_connectors != 0));
 	WARN_ON(set->fb && (set->num_connectors == 0));
-
-	if (dev_priv->pm.shutdown_in_progress)
-		return -EINVAL;
 
 	list_for_each_entry(connector, &dev->mode_config.connector_list,
 			    base.head) {
