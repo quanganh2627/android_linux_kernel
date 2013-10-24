@@ -31,6 +31,7 @@
 #include <linux/module.h>
 #include <linux/pti.h>
 #include "logger.h"
+#include "logger_kernel.h"
 
 struct pti_plugin {
 	char *log_name;
@@ -203,6 +204,10 @@ static int __init init_logger_pti(void)
 	if (unlikely(ret))
 		goto out;
 
+	ret = create_pti_plugin(LOGGER_LOG_KERNEL_BOT);
+	if (unlikely(ret))
+		goto out;
+
 	return 0;
 
 out:
@@ -237,8 +242,16 @@ static int set_out(const char *val, struct kernel_param *kp)
 
 	list_for_each_entry(plugin, &plugin_list, list) {
 		name = plugin->log_name;
+
 		/* remove "log_" in the log_name string */
 		name += 4;
+
+		/* hack: user asks for "kernel", but the
+		 * plugin is actually associated to "kern_bot" logger
+		 */
+		if (!strcmp(name, "kern_bot"))
+		    name = "kernel";
+
 		if (strstr(val, name)) {
 			if (plugin->enabled == false) {
 				logger_add_plugin(plugin->plugin,
@@ -268,8 +281,16 @@ static int get_out(char *buffer, struct kernel_param *kp)
 	list_for_each_entry(plugin, &plugin_list, list) {
 		if (plugin->enabled == true) {
 			name = plugin->log_name;
+
 			/* remove "log_" in the log_name string */
 			name += 4;
+
+			/* hack: if plugin is associated to "kern_bot" logger,
+			 * user actually wants to see "kernel"
+			 */
+			if (!strcmp(name, "kern_bot"))
+			    name = "kernel";
+
 			strcat(buffer, name);
 			strcat(buffer, k);
 		}

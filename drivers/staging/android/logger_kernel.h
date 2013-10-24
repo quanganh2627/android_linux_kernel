@@ -19,7 +19,7 @@
 #include <linux/types.h>
 #include "logger.h"
 
-#define LOGGER_LOG_KERNEL	"log_kernel"	/* kernel-related messages */
-#define LOGGER_LOG_KERNEL_BOT	"log_kern_bot"	/* system/hardware events */
+#define LOGGER_LOG_KERNEL	"log_kernel"   /* kernel-related messages */
+#define LOGGER_LOG_KERNEL_BOT	"log_kern_bot" /* system/hardware events */
 
 #endif /* _LINUX_LOGGER_KERNEL_H */
