@@ -207,28 +207,28 @@ static void *platform_get_batt_charge_profile()
 	temp_mon_range[0].temp_up_lim = 55;
 	temp_mon_range[0].full_chrg_vol = 4100;
 	temp_mon_range[0].full_chrg_cur = 1800;
-	temp_mon_range[0].maint_chrg_vol_ll = 4000;
+	temp_mon_range[0].maint_chrg_vol_ll = 4050;
 	temp_mon_range[0].maint_chrg_vol_ul = 4100;
 	temp_mon_range[0].maint_chrg_cur = 1800;
 
 	temp_mon_range[1].temp_up_lim = 45;
 	temp_mon_range[1].full_chrg_vol = 4350;
 	temp_mon_range[1].full_chrg_cur = 1800;
-	temp_mon_range[1].maint_chrg_vol_ll = 4250;
+	temp_mon_range[1].maint_chrg_vol_ll = 4300;
 	temp_mon_range[1].maint_chrg_vol_ul = 4350;
 	temp_mon_range[1].maint_chrg_cur = 1800;
 
 	temp_mon_range[2].temp_up_lim = 23;
 	temp_mon_range[2].full_chrg_vol = 4350;
 	temp_mon_range[2].full_chrg_cur = 1400;
-	temp_mon_range[2].maint_chrg_vol_ll = 4250;
+	temp_mon_range[2].maint_chrg_vol_ll = 4300;
 	temp_mon_range[2].maint_chrg_vol_ul = 4350;
 	temp_mon_range[2].maint_chrg_cur = 1400;
 
 	temp_mon_range[3].temp_up_lim = 10;
 	temp_mon_range[3].full_chrg_vol = 4350;
 	temp_mon_range[3].full_chrg_cur = 1000;
-	temp_mon_range[3].maint_chrg_vol_ll = 4250;
+	temp_mon_range[3].maint_chrg_vol_ll = 4300;
 	temp_mon_range[3].maint_chrg_vol_ul = 4350;
 	temp_mon_range[3].maint_chrg_cur = 1000;
 
