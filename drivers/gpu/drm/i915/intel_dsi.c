@@ -77,19 +77,6 @@ static void vlv_cck_modify(struct drm_i915_private *dev_priv, u32 reg, u32 val,
 	vlv_cck_write(dev_priv, reg, tmp);
 }
 
-static void band_gap_reset(struct drm_i915_private *dev_priv)
-{
-	mutex_lock(&dev_priv->dpio_lock);
-
-	intel_flisdsi_write32(dev_priv, 0x08, 0x0001);
-	intel_flisdsi_write32(dev_priv, 0x0F, 0x0005);
-	intel_flisdsi_write32(dev_priv, 0x0F, 0x0025);
-	udelay(150);
-	intel_flisdsi_write32(dev_priv, 0x0F, 0x0000);
-	intel_flisdsi_write32(dev_priv, 0x08, 0x0000);
-
-	mutex_unlock(&dev_priv->dpio_lock);
-}
 
 static struct intel_dsi *intel_attached_dsi(struct drm_connector *connector)
 {
@@ -521,8 +508,6 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 	int pipe = intel_crtc->pipe;
 	unsigned int bpp = intel_crtc->config.pipe_bpp;
 	u32 val;
-
-	band_gap_reset(dev_priv);
 
 	dsi_config(encoder);
 
