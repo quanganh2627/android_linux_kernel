@@ -1119,13 +1119,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		max_dtr = card->csd.max_dtr;
 	}
 
-	/*
-	 * Some host controller can not work stable with 200MHz clock.
-	 * So, slow down the clock frequency to 100MHz.
-	 */
-	if ((max_dtr > 100000000) && (host->caps2 & MMC_CAP2_HS200_WA))
-		max_dtr = 100000000;
-
 	mmc_set_clock(host, max_dtr);
 
 	/*
