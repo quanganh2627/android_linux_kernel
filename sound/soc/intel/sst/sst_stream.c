@@ -618,7 +618,11 @@ int sst_drain_stream(int str_id, bool partial_drain)
 	list_add_tail(&msg->node, &sst_drv_ctx->ipc_dispatch_list);
 	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
 	ops->post_message(&sst_drv_ctx->ipc_post_msg_wq);
-	retval = sst_wait_interruptible(sst_drv_ctx, block);
+	/* with new non blocked drain implementation in core we dont need to
+	 * wait for respsonse, and need to only invoke callback for drain
+	 * complete
+	 */
+
 	sst_free_block(sst_drv_ctx, block);
 	return retval;
 }
