@@ -723,14 +723,21 @@ static int snd_compress_wait_for_drain(struct snd_compr_stream *stream)
 
 static int snd_compr_drain(struct snd_compr_stream *stream)
 {
-	int retval;
+	int retval = 0;
 
-	if (stream->runtime->state == SNDRV_PCM_STATE_PREPARED ||
-			stream->runtime->state == SNDRV_PCM_STATE_SETUP)
+	if (stream->runtime->state == SNDRV_PCM_STATE_SETUP)
 		return -EPERM;
 
 	stream->runtime->drain_wake = 0;
-	retval = stream->ops->trigger(stream, SND_COMPR_TRIGGER_DRAIN);
+
+	/* this is hackish for our tree but for now lets carry it while we fix
+	 * usermode behaviour
+	 */
+	if (stream->runtime->state != SNDRV_PCM_STATE_PREPARED)
+		retval = stream->ops->trigger(stream, SND_COMPR_TRIGGER_DRAIN);
+	else
+		return 0;
+
 	if (retval) {
 		pr_err("SND_COMPR_TRIGGER_DRAIN failed %d\n", retval);
 		wake_up(&stream->runtime->sleep);
@@ -766,16 +773,21 @@ static int snd_compr_next_track(struct snd_compr_stream *stream)
 
 static int snd_compr_partial_drain(struct snd_compr_stream *stream)
 {
-	int retval;
-	if (stream->runtime->state == SNDRV_PCM_STATE_PREPARED ||
-			stream->runtime->state == SNDRV_PCM_STATE_SETUP)
+	int retval = 0;
+
+	/* agaain hackish  changes */
+	if (stream->runtime->state == SNDRV_PCM_STATE_SETUP)
 		return -EPERM;
 	/* stream can be drained only when next track has been signalled */
 	if (stream->next_track == false)
 		return -EPERM;
 
 	stream->runtime->drain_wake = 0;
-	retval = stream->ops->trigger(stream, SND_COMPR_TRIGGER_PARTIAL_DRAIN);
+	if (stream->runtime->state != SNDRV_PCM_STATE_PREPARED)
+		retval = stream->ops->trigger(stream, SND_COMPR_TRIGGER_PARTIAL_DRAIN);
+	else
+		return 0;
+
 	if (retval) {
 		pr_err("Partial drain returned failure\n");
 		wake_up(&stream->runtime->sleep);
@@ -783,7 +795,9 @@ static int snd_compr_partial_drain(struct snd_compr_stream *stream)
 	}
 
 	stream->next_track = false;
-	return snd_compress_wait_for_drain(stream);
+	retval = snd_compress_wait_for_drain(stream);
+	stream->runtime->state = SNDRV_PCM_STATE_SETUP;
+	return retval;
 }
 
 static long snd_compr_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
