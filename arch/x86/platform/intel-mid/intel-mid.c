@@ -94,12 +94,15 @@ static unsigned long __init intel_mid_calibrate_tsc(void)
 	return 0;
 }
 
+extern void xen_time_init();
 static void __init intel_mid_time_init(void)
 {
 
 #ifdef CONFIG_SFI
 	sfi_table_parse(SFI_SIG_MTMR, NULL, NULL, sfi_parse_mtmr);
 #endif
+	if (xen_start_info)
+		return xen_time_init();
 	switch (intel_mid_timer_options) {
 	case INTEL_MID_TIMER_APBT_ONLY:
 		break;
@@ -183,15 +186,21 @@ void __init x86_intel_mid_early_setup(void)
 {
 	x86_init.resources.probe_roms = x86_init_noop;
 	x86_init.resources.reserve_resources = x86_init_noop;
+	if (!xen_start_info) {
+		x86_init.oem.arch_setup = intel_mid_arch_setup;
+		x86_init.timers.setup_percpu_clockev = x86_init_noop;
+		x86_cpuinit.setup_percpu_clockev = apbt_setup_secondary_clock;
+	} else {
+		xen_oem_arch_setup = intel_mid_arch_setup;
+	}
 
 	x86_init.timers.timer_init = intel_mid_time_init;
-	x86_init.timers.setup_percpu_clockev = x86_init_noop;
+
+	x86_init.resources.probe_roms = x86_init_noop;
+	x86_init.resources.reserve_resources = x86_init_noop;
 
 	x86_init.irqs.pre_vector_init = x86_init_noop;
 
-	x86_init.oem.arch_setup = intel_mid_arch_setup;
-
-	x86_cpuinit.setup_percpu_clockev = apbt_setup_secondary_clock;
 
 	x86_platform.calibrate_tsc = intel_mid_calibrate_tsc;
 	x86_platform.i8042_detect = intel_mid_i8042_detect;
@@ -234,3 +243,4 @@ static inline int __init setup_x86_intel_mid_timer(char *arg)
 	return 0;
 }
 __setup("x86_intel_mid_timer=", setup_x86_intel_mid_timer);
+

@@ -446,8 +446,10 @@ char * __init xen_memory_setup(void)
 	 * reserve ISA memory anyway because too many things poke
 	 * about in there.
 	 */
+#ifndef CONFIG_X86_INTEL_MID
 	e820_add_region(ISA_START_ADDRESS, ISA_END_ADDRESS - ISA_START_ADDRESS,
-			E820_RESERVED);
+		E820_RESERVED);
+#endif
 
 	/*
 	 * Reserve Xen bits:
@@ -548,6 +550,8 @@ void __cpuinit xen_enable_syscall(void)
 #endif /* CONFIG_X86_64 */
 }
 
+void (*xen_oem_arch_setup)(void);
+
 void __init xen_arch_setup(void)
 {
 	xen_panic_handler_init();
@@ -582,6 +586,8 @@ void __init xen_arch_setup(void)
 	disable_cpufreq();
 	WARN_ON(xen_set_default_idle());
 	fiddle_vdso();
+	if (xen_oem_arch_setup)
+		xen_oem_arch_setup();
 #ifdef CONFIG_NUMA
 	numa_off = 1;
 #endif

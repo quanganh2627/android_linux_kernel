@@ -98,6 +98,8 @@ struct irq_info {
 	unsigned short evtchn;	/* event channel */
 	unsigned short cpu;	/* cpu bound */
 
+	void *handler_data;
+
 	union {
 		unsigned short virq;
 		enum ipi_vector ipi;
@@ -150,6 +152,21 @@ static struct irq_info *info_for_irq(unsigned irq)
 {
 	return irq_get_handler_data(irq);
 }
+
+void xen_irq_set_handler_data(unsigned irq, void *data)
+{
+	struct irq_info *info = info_for_irq(irq);
+
+	info->handler_data = data;
+}
+EXPORT_SYMBOL(xen_irq_set_handler_data);
+
+void *xen_irq_get_handler_data(unsigned irq)
+{
+	struct irq_info *info = info_for_irq(irq);
+	return info->handler_data;
+}
+EXPORT_SYMBOL(xen_irq_get_handler_data);
 
 /* Constructors for packed IRQ information. */
 static void xen_irq_info_common_init(struct irq_info *info,

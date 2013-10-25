@@ -1570,6 +1570,8 @@ asmlinkage void __init xen_start_kernel(void)
 		? __pa(xen_start_info->mod_start) : 0;
 	boot_params.hdr.ramdisk_size = xen_start_info->mod_len;
 	boot_params.hdr.cmd_line_ptr = __pa(xen_start_info->cmd_line);
+	/*FIXME: propagate hardware_subarch from some boot structure*/
+	boot_params.hdr.hardware_subarch = X86_SUBARCH_INTEL_MID;
 
 	if (!xen_initial_domain()) {
 		add_preferred_console("xenboot", 0, NULL);

@@ -444,7 +444,7 @@ static const struct pv_time_ops xen_time_ops __initconst = {
 	.sched_clock = xen_clocksource_read,
 };
 
-static void __init xen_time_init(void)
+void __init xen_time_init(void)
 {
 	int cpu = smp_processor_id();
 	struct timespec tp;

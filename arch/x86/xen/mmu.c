@@ -491,7 +491,7 @@ static pte_t xen_make_pte(pteval_t pte)
 	 * (We should never see kernel mappings with _PAGE_PSE set,
 	 * but we could see hugetlbfs mappings, I think.).
 	 */
-	if (pat_enabled && !WARN_ON(pte & _PAGE_PAT)) {
+	if (pat_enabled && !(pte & _PAGE_PAT)) {
 		if ((pte & (_PAGE_PCD | _PAGE_PWT)) == _PAGE_PWT)
 			pte = (pte & ~(_PAGE_PCD | _PAGE_PWT)) | _PAGE_PAT;
 	}

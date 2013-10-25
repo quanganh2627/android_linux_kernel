@@ -22,6 +22,9 @@
 #include <linux/proc_fs.h>
 #include <asm/intel_mid_rpmsg.h>
 
+#include <asm/hypervisor.h>
+#include <asm/xen/hypercall.h>
+
 #ifdef CONFIG_DRM_INTEL_MID
 #define GFX_ENABLE
 #endif
@@ -1817,6 +1820,15 @@ mid_pmu_probe(struct pci_dev *dev, const struct pci_device_id *pci_id)
 	struct mrst_pmu_reg __iomem *pmu;
 	u32 data;
 
+	u32 dc_islands = (OSPM_DISPLAY_A_ISLAND |
+			  OSPM_DISPLAY_B_ISLAND |
+			  OSPM_DISPLAY_C_ISLAND |
+			  OSPM_MIPI_ISLAND);
+	u32 gfx_islands = (APM_VIDEO_DEC_ISLAND |
+			   APM_VIDEO_ENC_ISLAND |
+			   APM_GL3_CACHE_ISLAND |
+			   APM_GRAPHICS_ISLAND);
+
 	mid_pmu_cxt->pmu_wake_lock =
 				wakeup_source_register("pmu_wake_lock");
 
@@ -1905,7 +1917,9 @@ mid_pmu_probe(struct pci_dev *dev, const struct pci_device_id *pci_id)
 	if (platform_is(INTEL_ATOM_MRFLD) && !enable_s3)
 		__pm_stay_awake(mid_pmu_cxt->pmu_wake_lock);
 #endif
-
+	/* Force gfx subsystem to be powered up */
+	pmu_nc_set_power_state(dc_islands, OSPM_ISLAND_UP, OSPM_REG_TYPE);
+	pmu_nc_set_power_state(gfx_islands, OSPM_ISLAND_UP, APM_REG_TYPE);
 	return 0;
 
 out_err5:

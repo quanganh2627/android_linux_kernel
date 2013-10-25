@@ -35,6 +35,8 @@
 #include <linux/slab.h>
 #include <linux/lnw_gpio.h>
 #include <linux/pm_runtime.h>
+#include <asm/intel-mid.h>
+#include <xen/events.h>
 #include <linux/irqdomain.h>
 #include <asm/intel_scu_flis.h>
 #include "gpiodebug.h"
@@ -750,15 +752,21 @@ MODULE_DEVICE_TABLE(pci, lnw_gpio_ids);
 static void lnw_irq_handler(unsigned irq, struct irq_desc *desc)
 {
 	struct irq_data *data = irq_desc_get_irq_data(desc);
-	struct lnw_gpio *lnw = irq_data_get_irq_handler_data(data);
 	struct irq_chip *chip = irq_data_get_irq_chip(data);
-	struct gpio_debug *debug = lnw->debug;
+	struct lnw_gpio *lnw;
+	struct gpio_debug *debug;
 	u32 base, gpio, mask;
 	unsigned long pending;
 	void __iomem *gp_reg;
 	enum GPIO_REG reg_type;
 	struct irq_desc *lnw_irq_desc;
 	unsigned int lnw_irq;
+	if (!xen_start_info)
+		lnw = irq_data_get_irq_handler_data(data);
+	else
+		lnw = xen_irq_get_handler_data(irq);
+
+	debug = lnw->debug;
 
 	reg_type = (lnw->type == TANGIER_GPIO) ? GISR : GEDR;
 
@@ -1321,6 +1329,7 @@ static int lnw_gpio_probe(struct pci_dev *pdev,
 	lnw->chip.ngpio = ddata->ngpio;
 	lnw->chip.can_sleep = 0;
 	lnw->chip.set_debounce = lnw_gpio_set_debounce;
+	lnw->chip.dev = &pdev->dev;
 	lnw->pdev = pdev;
 	spin_lock_init(&lnw->lock);
 	lnw->domain = irq_domain_add_simple(pdev->dev.of_node,
@@ -1340,7 +1349,10 @@ static int lnw_gpio_probe(struct pci_dev *pdev,
 
 	lnw_irq_init_hw(lnw);
 
-	irq_set_handler_data(pdev->irq, lnw);
+	if (!xen_start_info)
+		irq_set_handler_data(pdev->irq, lnw);
+	else
+		xen_irq_set_handler_data(pdev->irq, lnw);
 	irq_set_chained_handler(pdev->irq, lnw_irq_handler);
 
 	pm_runtime_put_noidle(&pdev->dev);

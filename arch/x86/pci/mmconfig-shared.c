@@ -609,7 +609,9 @@ static int __init pci_parse_mcfg(struct acpi_table_header *header)
 
 static void __init __pci_mmcfg_init(int early)
 {
-	pci_mmcfg_reject_broken(early);
+	if (!xen_start_info)
+		pci_mmcfg_reject_broken(early);
+
 	if (list_empty(&pci_mmcfg_list))
 		return;
 

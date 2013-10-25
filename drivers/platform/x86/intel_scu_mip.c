@@ -128,13 +128,9 @@ static int read_mip(u8 *data, int len, int offset, int issigned)
 	cmdid = issigned ? IPC_CMD_SMIP_RD : IPC_CMD_UMIP_RD;
 	cmd = 4 << 16 | cmdid << 12 | IPCMSG_MIP_ACCESS;
 
-	do {
-		ret = rpmsg_send_raw_command(mip_instance, cmd, 0, NULL,
-			(u32 *)&data_off, 0, 1, sptr, dptr);
+	ret = rpmsg_send_raw_command(mip_instance, cmd, 0, NULL,
+		(u32 *)&data_off, 0, 1, sptr, dptr);
 
-		if (ret == -EIO)
-			msleep(20);
-	} while (ret == -EIO);
 
 	if (!ret)
 		memcpy(data, intel_mip_base + data_off, len);
@@ -383,12 +379,8 @@ bd_put:
 
 		memcpy(intel_mip_base, buf, len_align);
 
-		do {
-			ret = rpmsg_send_raw_command(mip_instance, cmd, 0, NULL,
-					NULL, 0, 0, sptr, dptr);
-			if (ret == -EIO)
-				msleep(20);
-		} while (ret == -EIO);
+		ret = rpmsg_send_raw_command(mip_instance, cmd, 0, NULL,
+			NULL, 0, 0, sptr, dptr);
 
 fail:
 		if (buf && len_align != len)
