@@ -629,7 +629,7 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 	switch (slot->chip->pdev->device) {
 	case PCI_DEVICE_ID_INTEL_BYT_EMMC45:
 		slot->host->quirks2 |= SDHCI_QUIRK2_CARD_CD_DELAY |
-			SDHCI_QUIRK2_WAIT_FOR_IDLE;
+			SDHCI_QUIRK2_WAIT_FOR_IDLE | SDHCI_QUIRK2_TUNING_POLL;
 		if (!INTEL_MID_BOARDV3(TABLET, BYT, BLK, PRO, RVP1) &&
 			!INTEL_MID_BOARDV3(TABLET, BYT, BLK, PRO, RVP2) &&
 			!INTEL_MID_BOARDV3(TABLET, BYT, BLK, PRO, RVP3) &&
