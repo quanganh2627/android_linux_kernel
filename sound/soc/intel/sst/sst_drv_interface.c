@@ -616,10 +616,13 @@ static int sst_cdev_control(unsigned int cmd, unsigned int str_id)
 		return sst_drop_stream(str_id);
 	case SND_COMPR_TRIGGER_DRAIN:
 		return sst_drain_stream(str_id, false);
+	case SND_COMPR_TRIGGER_NEXT_TRACK:
+		return sst_next_track();
 	case SND_COMPR_TRIGGER_PARTIAL_DRAIN:
 		return sst_drain_stream(str_id, true);
+	default:
+		return -EINVAL;
 	}
-	return -EINVAL;
 }
 
 static int sst_cdev_tstamp(unsigned int str_id, struct snd_compr_tstamp *tstamp)

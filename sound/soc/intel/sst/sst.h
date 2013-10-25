@@ -593,6 +593,7 @@ int sst_stalled(void);
 int sst_pause_stream(int id);
 int sst_resume_stream(int id);
 int sst_drop_stream(int id);
+int sst_next_track(void);
 int sst_free_stream(int id);
 int sst_start_stream(int str_id);
 int sst_send_byte_stream_mrfld(void *sbytes);

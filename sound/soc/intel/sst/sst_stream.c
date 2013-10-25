@@ -557,6 +557,19 @@ int sst_drop_stream(int str_id)
 }
 
 /**
+ * sst_next_track: notify next track
+ * @str_id:		stream ID
+ *
+ * This function is called by any function which wants to
+ * set next track. Current this is NOP as FW doest care
+ */
+int sst_next_track(void)
+{
+	pr_debug("SST DBG: next_track");
+	return 0;
+}
+
+/**
 * sst_drain_stream - Send msg for draining stream
 * @str_id:		stream ID
 *
