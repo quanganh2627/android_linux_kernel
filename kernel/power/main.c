@@ -15,6 +15,7 @@
 #include <linux/workqueue.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
+#include <linux/early_suspend_sysfs.h>
 
 #include "power.h"
 
@@ -277,6 +278,7 @@ static inline void pm_print_times_init(void) {}
 #endif /* CONFIG_PM_SLEEP_DEBUG */
 
 struct kobject *power_kobj;
+struct kobject *early_suspend_kobj;
 
 /**
  *	state - control system power state.
@@ -637,6 +639,22 @@ static int __init pm_start_workqueue(void)
 static inline int pm_start_workqueue(void) { return 0; }
 #endif
 
+int register_early_suspend_device(struct device *dev)
+{
+	if (!early_suspend_kobj || !dev)
+		return -ENODEV;
+
+	return sysfs_create_link(early_suspend_kobj, &dev->kobj,
+			dev_name(dev));
+}
+EXPORT_SYMBOL(register_early_suspend_device);
+
+void unregister_early_suspend_device(struct device *dev)
+{
+	sysfs_delete_link(early_suspend_kobj, &dev->kobj, dev_name(dev));
+}
+EXPORT_SYMBOL(unregister_early_suspend_device);
+
 static int __init pm_init(void)
 {
 	int error = pm_start_workqueue();
@@ -645,8 +663,12 @@ static int __init pm_init(void)
 	hibernate_image_size_init();
 	hibernate_reserved_size_init();
 	power_kobj = kobject_create_and_add("power", NULL);
+	early_suspend_kobj = kobject_create_and_add("early_suspend",
+					power_kobj);
 	early_suspend_init();
 	if (!power_kobj)
+		return -ENOMEM;
+	if (!early_suspend_kobj)
 		return -ENOMEM;
 	error = sysfs_create_group(power_kobj, &attr_group);
 	if (error)
