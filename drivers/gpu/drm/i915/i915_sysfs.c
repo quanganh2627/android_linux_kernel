@@ -378,7 +378,7 @@ static ssize_t gt_rp_mhz_show(struct device *kdev, struct device_attribute *attr
 	struct drm_minor *minor = container_of(kdev, struct drm_minor, kdev);
 	struct drm_device *dev = minor->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 val, rp_state_cap;
+	u32 val = 0, rp_state_cap;
 	ssize_t ret;
 
 	ret = mutex_lock_interruptible(&dev->struct_mutex);

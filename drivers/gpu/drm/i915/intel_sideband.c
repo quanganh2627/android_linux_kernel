@@ -120,8 +120,8 @@ void vlv_punit_write(struct drm_i915_private *dev_priv, u8 addr, u32 val)
 			PUNIT_OPCODE_REG_WRITE, addr, &val);
 //	mutex_unlock(&dev_priv->dpio_lock);
 }
-
-u32 vlv_nc_read(struct drm_i915_private *dev_priv, u8 addr)
+/*Changed type of parameter addr from u8 to u16. Can be made to u32 too*/
+u32 vlv_nc_read(struct drm_i915_private *dev_priv, u16 addr)
 {
 	u32 val = 0;
 

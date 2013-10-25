@@ -1804,6 +1804,8 @@ static inline int usb_translate_errors(int error_code)
 #define USB_DEVICE_REMOVE	0x0002
 #define USB_BUS_ADD		0x0003
 #define USB_BUS_REMOVE		0x0004
+#define USB_PORT_SUSPEND	0x0005
+#define USB_PORT_RESUME		0x0006
 /* For OTG Test mode */
 #define USB_OTG_TESTDEV		0x0011
 #define USB_OTG_TESTDEV_VBUSOFF	0x0012

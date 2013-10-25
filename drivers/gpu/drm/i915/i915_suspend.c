@@ -24,11 +24,12 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <linux/console.h>
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
 #include "intel_drv.h"
 #include "i915_reg.h"
-#include <linux/console.h>
+#include "intel_clrmgr.h"
 
 static u8 i915_read_indexed(struct drm_device *dev, u16 index_port, u16 data_port, u8 reg)
 {
@@ -282,9 +283,6 @@ static void i915_restore_display(struct drm_device *dev)
 	if (INTEL_INFO(dev)->gen <= 4)
 		I915_WRITE(DSPARB, dev_priv->regfile.saveDSPARB);
 
-	if (!drm_core_check_feature(dev, DRIVER_MODESET))
-		i915_restore_display_reg(dev);
-
 	spin_lock_irqsave(&dev_priv->backlight.lock, flags);
 
 	/* LVDS state */
@@ -349,7 +347,11 @@ static void i915_restore_display(struct drm_device *dev)
 		i915_restore_vga(dev);
 	else
 		i915_redisable_vga(dev);
+	/* Restore Gamma/Csc/Hue/Saturation/Brightness/Contrast */
+	if (!intel_restore_clr_mgr_status(dev))
+		DRM_ERROR("Restore Color manager status failed");
 }
+
 
 int i915_save_state(struct drm_device *dev)
 {
@@ -797,6 +799,9 @@ static int valleyview_freeze(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 reg;
 
+	/* Save Hue/Saturation/Brightness/Contrast status */
+	intel_save_clr_mgr_status(dev);
+
 	pci_save_state(dev->pdev);
 
 	/* i) Set Graphics Clocks to Forced ON */
@@ -1004,6 +1009,7 @@ void i915_pm_init(struct drm_device *dev)
 		dev_priv->pm.funcs.drm_thaw = __i915_drm_thaw;
 	}
 	dev_priv->pm.shutdown_in_progress = false;
+	dev_priv->shut_down_state = 0;
 	i915_rpm_init(dev);
 }
 

@@ -3966,7 +3966,11 @@ static void valleyview_setup_pctx(struct drm_device *dev)
 	int pctx_size = 24*1024;
 
 	pcbr = I915_READ(VLV_PCBR);
-	if (pcbr) {
+	/* PCBR Format: Bits 31:12 - Base address of Process Context
+			Bits 11:1 - Reserved
+			Bit 0 - PCBR Lock
+	Check only address field if already setup by BIOS */
+	if (pcbr >> 12) {
 		/* BIOS set it up already, grab the pre-alloc'd space */
 		int pcbr_offset;
 
@@ -6137,6 +6141,7 @@ void vlv_rs_sleepstateinit(struct drm_device *dev,
 	u32 rs_powerwell_status = 0;
 	u32 regdata = 0;
 	u32 isRenderWellFWreq = 0, isMediaWellFWreq = 0;
+	unsigned long irqflags;
 
 	rs_powerwell_status = I915_READ(VLV_POWER_WELL_STATUS_REG);
 
@@ -6196,7 +6201,9 @@ void vlv_rs_sleepstateinit(struct drm_device *dev,
 	 * Render and Media engines are awake at this point. Update the
 	 * FW counters to reflect the same
 	 */
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 	dev_priv->uncore.fw_rendercount = dev_priv->uncore.fw_mediacount = 1;
+	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 
 	/*
 	 * Disable HW RC if requested. Will be requested during boot as

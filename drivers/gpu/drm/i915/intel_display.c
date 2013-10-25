@@ -38,6 +38,8 @@
 #include "i915_drv.h"
 /*#include "i915_rpm.h"*/
 #include "i915_trace.h"
+#include "intel_dsi.h"
+#include "intel_clrmgr.h"
 #include "hdmi_audio_if.h"
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_crtc_helper.h>
@@ -64,7 +66,6 @@ struct i915_flip_work {
  */
 static struct i915_flip_work flip_works[I915_MAX_PLANES];
 
-bool intel_pipe_has_type(struct drm_crtc *crtc, int type);
 static void intel_increase_pllclock(struct drm_crtc *crtc);
 static void intel_crtc_update_cursor(struct drm_crtc *crtc, bool on);
 static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
@@ -486,7 +487,7 @@ static void i9xx_clock(int refclk, intel_clock_t *clock)
 /**
  * Returns whether any output on the specified pipe is of the specified type
  */
-bool intel_pipe_has_type(struct drm_crtc *crtc, int type)
+bool intel_pipe_has_type(const struct drm_crtc *crtc, int type)
 {
 	struct drm_device *dev = crtc->dev;
 	struct intel_encoder *encoder;
@@ -1973,7 +1974,7 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 			   struct intel_ring_buffer *pipelined)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 alignment;
+	u32 alignment = 0;
 	int ret;
 
 	switch (obj->tiling_mode) {
@@ -2178,6 +2179,11 @@ int i915_set_plane_180_rotation(struct drm_device *dev, void *data,
 
 	crtc = obj_to_crtc(obj);
 	DRM_DEBUG_DRIVER("[CRTC:%d]\n", crtc->base.id);
+	if (!crtc->enabled) {
+		DRM_ERROR("[CRTC:%d] not active\n", crtc->base.id);
+		return -EINVAL;
+	}
+
 	intel_crtc = to_intel_crtc(crtc);
 	pipe = intel_crtc->pipe;
 
@@ -2519,7 +2525,7 @@ static void intel_crtc_update_sarea_pos(struct drm_crtc *crtc, int x, int y)
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_master_private *master_priv;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-
+	int pipe = intel_crtc->pipe;
 	if (!dev->primary->master)
 		return;
 
@@ -2527,7 +2533,7 @@ static void intel_crtc_update_sarea_pos(struct drm_crtc *crtc, int x, int y)
 	if (!master_priv->sarea_priv)
 		return;
 
-	switch (intel_crtc->pipe) {
+	switch (pipe) {
 	case 0:
 		master_priv->sarea_priv->pipeA_x = x;
 		master_priv->sarea_priv->pipeA_y = y;
@@ -4127,6 +4133,14 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 
 	if (!intel_pipe_has_type(crtc, INTEL_OUTPUT_DSI))
 		i9xx_disable_pll(dev_priv, pipe);
+	else {
+		for_each_encoder_on_crtc(dev, crtc, encoder) {
+			if (encoder->type == INTEL_OUTPUT_DSI) {
+				intel_dsi_clear_device_ready(encoder);
+				break;
+			}
+		}
+	}
 
 	intel_crtc->active = false;
 	if (dev_priv->s0ixstat == true)
@@ -4394,6 +4408,7 @@ static bool ironlake_check_fdi_lanes(struct drm_device *dev, enum pipe pipe,
 		return true;
 	default:
 		BUG();
+		return false;
 	}
 }
 
@@ -5429,7 +5444,6 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 	struct intel_encoder *encoder;
 	const intel_limit_t *limit;
 	int ret;
-	struct intel_program_clock_bending clockbend;
 
 	for_each_encoder_on_crtc(dev, crtc, encoder) {
 		switch (encoder->type) {
@@ -8633,6 +8647,9 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	intel_fb = to_intel_framebuffer(crtc->fb);
 	intel_new_fb = to_intel_framebuffer(fb);
 
+	if (dev_priv->shut_down_state)
+		return -EINVAL;
+
 	/* Can't change pixel format via MI display flips. */
 	if (fb->pixel_format != crtc->fb->pixel_format) {
 		if (IS_VALLEYVIEW(dev))
@@ -9931,7 +9948,7 @@ static int intel_crtc_set_config(struct drm_mode_set *set)
 	ret = -ENOMEM;
 	config = kzalloc(sizeof(*config), GFP_KERNEL);
 	if (!config)
-		goto out_config;
+		return ret;
 
 	ret = intel_set_config_save_state(dev, config);
 	if (ret)
@@ -10125,8 +10142,8 @@ extern void intel_cancel_fbc_work(struct drm_i915_private *dev_priv);
 static int display_disable_wq(struct drm_device *drm_dev)
 {
 	struct drm_i915_private *dev_priv = drm_dev->dev_private;
-	struct drm_crtc *crtc;
-	struct intel_encoder *intel_encoder;
+	/*struct drm_crtc *crtc;
+	struct intel_encoder *intel_encoder;*/
 
 	cancel_work_sync(&dev_priv->hotplug_work);
 	//intel_cancel_fbc_work(dev_priv);
@@ -10177,7 +10194,7 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
-	struct intel_encoder *intel_encoder;
+	int ret;
 
 	/* Force a re-detection on Hot-pluggable displays */
 	i915_simulate_hpd(dev, false);
@@ -10205,7 +10222,7 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	}
 
 	/* TODO: uncomment after HDMI dependancies are merged */
-	int ret = mid_hdmi_audio_suspend(dev);
+	ret = mid_hdmi_audio_suspend(dev);
 	if (ret != true)
 		DRM_ERROR("Error suspending HDMI audio\n");
 
@@ -10220,6 +10237,10 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	i915_rpm_get_disp(dev);
+
+	  /* Restore Gamma/Csc/Hue/Saturation/Brightness/Contrast */
+	if (!intel_restore_clr_mgr_status(dev))
+		DRM_ERROR("Restore Color manager status failed");
 
 	/* Re-detect hot pluggable displays */
 	i915_simulate_hpd(dev, true);

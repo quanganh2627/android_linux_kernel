@@ -175,6 +175,7 @@ static struct wm8994_pdata wm8994_pdata = {
 
 	.mic_id_delay = 300, /*300ms delay*/
 	.micdet_delay = 500,
+	.micb_en_delay = 5000, /* Keeps MICBIAS2 high for 5sec during jack insertion/removal */
 	.override_rates[0] = 48000,
 };
 

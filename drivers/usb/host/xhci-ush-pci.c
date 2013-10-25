@@ -25,9 +25,10 @@
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 #include <linux/usb/xhci-ush-hsic-pci.h>
-#include "xhci.h"
 #include <linux/wakelock.h>
 #include <linux/jiffies.h>
+#include <linux/suspend.h>
+#include "xhci.h"
 #include "../core/usb.h"
 
 static struct pci_dev	*pci_dev;
@@ -284,9 +285,8 @@ static void hsic_wakeup_irq_free(void)
 	return;
 }
 
-static void hsicdev_add(struct usb_device *udev)
+static unsigned int is_ush_hsic(struct usb_device *udev)
 {
-	int retval;
 	struct pci_dev *pdev = to_pci_dev(udev->bus->controller);
 
 	pr_debug("pdev device ID: %d, portnum: %d",
@@ -294,13 +294,24 @@ static void hsicdev_add(struct usb_device *udev)
 	/* Ignore and only valid for HSIC. Filter out
 	 * the USB devices added by other USB2 host driver */
 	if (pdev->device != USH_PCI_ID)
-		return;
+		return 0;
 
 	/* Ignore USB devices on external hub */
 	if (udev->parent && udev->parent->parent)
-		return;
+		return 0;
+
+	return 1;
+}
+
+static void hsicdev_add(struct usb_device *udev)
+{
 
 	pr_debug("Notify HSIC add device\n");
+	if (is_ush_hsic(udev) == 0) {
+		pr_debug("Not a USH HSIC device\n");
+		return;
+	}
+
 	/* Root hub */
 	if (!udev->parent) {
 		if (udev->speed == USB_SPEED_HIGH) {
@@ -313,14 +324,13 @@ static void hsicdev_add(struct usb_device *udev)
 		}
 	} else {
 		if (udev->portnum != HSIC_USH_PORT) {
-			pr_debug("%s ignore ush ports except port5\n",
-					__func__);
-			pr_debug("%s ush ports %d\n", __func__,
-					udev->portnum);
+			pr_debug("%s ignore ush ports %d\n",
+				__func__, udev->portnum);
 			return;
 		}
 
 		/* Modem devices */
+		hsic.port_disconnect = 0;
 		hsic.modem_dev = udev;
 		pm_runtime_set_autosuspend_delay
 			(&udev->dev, hsic.port_inactivityDuration);
@@ -361,21 +371,12 @@ static void hsicdev_add(struct usb_device *udev)
 
 static void hsicdev_remove(struct usb_device *udev)
 {
-	int retval;
-	struct pci_dev *pdev = to_pci_dev(udev->bus->controller);
-
-	pr_debug("pdev device ID: %d, portnum: %d",
-			pdev->device, udev->portnum);
-	/* Ignore and only valid for HSIC. Filter out
-	 * the USB devices added by other USB2 host driver */
-	if (pdev->device != USH_PCI_ID)
-		return;
-
-	/* Ignore USB devices on external hub */
-	if (udev->parent && udev->parent->parent)
-		return;
-
 	pr_debug("Notify HSIC remove device\n");
+	if (is_ush_hsic(udev) == 0) {
+		pr_debug("Not a USH HSIC device\n");
+		return;
+	}
+
 	/* Root hub */
 	if (!udev->parent) {
 		if (udev->speed == USB_SPEED_HIGH) {
@@ -384,15 +385,15 @@ static void hsicdev_remove(struct usb_device *udev)
 		}
 	} else {
 		if (udev->portnum != HSIC_USH_PORT) {
-			pr_debug("%s ignore ush ports except port5\n",
-					__func__);
-			pr_debug("%s ush ports %d\n", __func__,
-					udev->portnum);
+			pr_debug("%s ignore ush ports %d\n",
+				__func__, udev->portnum);
 			return;
 		}
 		/* Modem devices */
 		pr_debug("%s----> modem dev deleted\n", __func__);
+		mutex_lock(&hsic.hsic_mutex);
 		hsic.modem_dev = NULL;
+		mutex_unlock(&hsic.hsic_mutex);
 		usb_disable_autosuspend(hsic.rh_dev);
 	}
 }
@@ -407,6 +408,94 @@ static int hsic_notify(struct notifier_block *self,
 		break;
 	case USB_DEVICE_REMOVE:
 		hsicdev_remove(dev);
+		break;
+	}
+	return NOTIFY_OK;
+}
+
+static void s3_wake_lock(void)
+{
+	mutex_lock(&hsic.wlock_mutex);
+	if (hsic.s3_wlock_state == UNLOCKED) {
+		wake_lock(&hsic.s3_wake_lock);
+		hsic.s3_wlock_state = LOCKED;
+	}
+	mutex_unlock(&hsic.wlock_mutex);
+}
+
+static void s3_wake_unlock(void)
+{
+	mutex_lock(&hsic.wlock_mutex);
+	if (hsic.s3_wlock_state == LOCKED) {
+		wake_unlock(&hsic.s3_wake_lock);
+		hsic.s3_wlock_state = LOCKED;
+	}
+	mutex_unlock(&hsic.wlock_mutex);
+}
+
+static void hsic_port_suspend(struct usb_device *udev)
+{
+	if (is_ush_hsic(udev) == 0) {
+		pr_debug("Not a USH HSIC device\n");
+		return;
+	}
+
+	if (udev->portnum != HSIC_USH_PORT) {
+		pr_debug("%s ignore ush ports %d\n",
+			__func__, udev->portnum);
+		return;
+	}
+
+	/* Modem dev */
+	if ((udev->parent) && (hsic.s3_rt_state != SUSPENDING)) {
+		pr_debug("%s s3 wlock unlocked\n", __func__);
+		s3_wake_unlock();
+	}
+}
+
+static void hsic_port_resume(struct usb_device *udev)
+{
+	if (is_ush_hsic(udev) == 0) {
+		pr_debug("Not a USH HSIC device\n");
+		return;
+	}
+
+	if (udev->portnum != HSIC_USH_PORT) {
+		pr_debug("%s ignore ush ports %d\n",
+			__func__, udev->portnum);
+		return;
+	}
+
+	/* Modem dev */
+	if ((udev->parent) && (hsic.s3_rt_state != SUSPENDING)) {
+		pr_debug("%s s3 wlock locked\n", __func__);
+		s3_wake_lock();
+	}
+}
+
+static int hsic_pm_notify(struct notifier_block *self,
+		unsigned long action, void *dev)
+{
+	switch (action) {
+	case USB_PORT_SUSPEND:
+		hsic_port_suspend(dev);
+		break;
+	case USB_PORT_RESUME:
+		hsic_port_resume(dev);
+		break;
+	}
+	return NOTIFY_OK;
+}
+
+static int hsic_s3_entry_notify(struct notifier_block *self,
+		unsigned long action, void *dummy)
+{
+	switch (action) {
+	case PM_SUSPEND_PREPARE:
+		hsic.s3_rt_state = SUSPENDING;
+		break;
+	case PM_POST_SUSPEND:
+		hsic.s3_rt_state = SUSPENDED;
 		break;
 	}
 	return NOTIFY_OK;
@@ -442,15 +531,14 @@ static void ush_hsic_port_disable(void)
 		clear_port_feature(hsic.rh_dev, HSIC_USH_PORT,
 				USB_PORT_FEAT_POWER);
 	}
-	hsic.hsic_stopped = 1;
 	hsic_enable = 0;
 }
 
 static void ush_hsic_port_enable(void)
 {
 	printk(KERN_ERR "%s---->\n", __func__);
-	hsic.hsic_stopped = 0;
 	hsic_enable = 1;
+	hsic.port_disconnect = 0;
 	if (hsic.modem_dev) {
 		dev_dbg(&pci_dev->dev,
 			"Disable auto suspend in port enable\n");
@@ -472,6 +560,7 @@ static void hsic_port_logical_disconnect(struct usb_device *hdev,
 		unsigned int port)
 {
 	dev_dbg(&pci_dev->dev, "logical disconnect on root hub\n");
+	hsic.port_disconnect = 1;
 	ush_hsic_port_disable();
 
 	usb_set_change_bits(hdev, port);
@@ -510,7 +599,7 @@ static void hsic_aux_work(struct work_struct *work)
 		mutex_unlock(&hsic.hsic_mutex);
 		return;
 	}
-	if (hsic.hsic_stopped == 0)
+	if (hsic.port_disconnect == 0)
 		hsic_port_logical_disconnect(hsic.rh_dev,
 				HSIC_USH_PORT);
 
@@ -754,6 +843,7 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 	if (!hsic.rh_dev) {
 		dev_dbg(&pci_dev->dev,
 			"root hub is already removed\n");
+		mutex_unlock(&hsic.hsic_mutex);
 		return -ENODEV;
 	}
 	if (hsic.modem_dev) {
@@ -770,7 +860,7 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 
 		/* add this due to hcd release
 			 doesn't set hcd to NULL */
-		if (hsic.hsic_stopped == 0)
+		if (hsic.port_disconnect == 0)
 			hsic_port_logical_disconnect(hsic.rh_dev,
 					HSIC_USH_PORT);
 		usleep_range(5000, 6000);
@@ -779,7 +869,7 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 		dev_dbg(dev, "disable hsic\n");
 		/* add this due to hcd release
 			 doesn't set hcd to NULL */
-		if (hsic.hsic_stopped == 0)
+		if (hsic.port_disconnect == 0)
 			hsic_port_logical_disconnect(hsic.rh_dev,
 					HSIC_USH_PORT);
 	}
@@ -1084,6 +1174,13 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	driver = (struct hc_driver *)id->driver_data;
 	pci_dev = dev;
 
+	wake_lock_init(&hsic.s3_wake_lock,
+			WAKE_LOCK_SUSPEND, "hsic_s3_wlock");
+	hsic.hsic_pm_nb.notifier_call = hsic_pm_notify;
+	usb_register_notify(&hsic.hsic_pm_nb);
+	hsic.hsic_s3_entry_nb.notifier_call = hsic_s3_entry_notify;
+	register_pm_notifier(&hsic.hsic_s3_entry_nb);
+
 	/* AUX GPIO init */
 	retval = hsic_aux_gpio_init();
 	if (retval < 0) {
@@ -1141,6 +1238,7 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 
 	if (hsic.hsic_mutex_init == 0) {
 		mutex_init(&hsic.hsic_mutex);
+		mutex_init(&hsic.wlock_mutex);
 		hsic.hsic_mutex_init = 1;
 	}
 
@@ -1169,8 +1267,9 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 		pm_runtime_put_noidle(&dev->dev);
 
 	pm_runtime_allow(&dev->dev);
-	hsic.hsic_stopped = 0;
+	hsic.port_disconnect = 0;
 	hsic_enable = 1;
+	hsic.s3_rt_state = RESUMED;
 	return 0;
 
 put_usb3_hcd:
@@ -1178,6 +1277,7 @@ put_usb3_hcd:
 dealloc_usb2_hcd:
 	usb_hcd_pci_remove(dev);
 	wake_lock_destroy(&(hsic.resume_wake_lock));
+	wake_lock_destroy(&hsic.s3_wake_lock);
 	return retval;
 }
 
@@ -1204,9 +1304,12 @@ static void xhci_ush_pci_remove(struct pci_dev *dev)
 	gpio_free(hsic.aux_gpio);
 	gpio_free(hsic.wakeup_gpio);
 
-	hsic.hsic_stopped = 1;
+	hsic.port_disconnect = 1;
 	hsic_enable = 0;
 	wake_lock_destroy(&(hsic.resume_wake_lock));
+	wake_lock_destroy(&hsic.s3_wake_lock);
+	usb_unregister_notify(&hsic.hsic_pm_nb);
+	unregister_pm_notifier(&hsic.hsic_s3_entry_nb);
 
 	kfree(xhci);
 }
@@ -1307,11 +1410,17 @@ static int xhci_pci_reinit(struct xhci_hcd *xhci, struct pci_dev *pdev)
 	return 0;
 }
 
-
-void xhci_ush_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
+static void xhci_ush_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
 {
+	xhci->quirks |= XHCI_SPURIOUS_SUCCESS;
+	/*
+	 * We found two USB Disk cannot pass Enumeration with LPM
+	 * token sent on BYT, so disable LPM here.
+	 */
+	xhci->quirks |= XHCI_LPM_DISABLE_QUIRK;
 	return;
 }
+
 /* called during probe() after chip reset completes */
 static int xhci_ush_pci_setup(struct usb_hcd *hcd)
 {

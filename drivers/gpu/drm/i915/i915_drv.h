@@ -43,7 +43,7 @@
 #include <linux/kref.h>
 #include <linux/pm_qos.h>
 #include "hdmi_audio_if.h"
-
+#include <linux/mmu_notifier.h>
 /* General customization:
  */
 
@@ -1126,7 +1126,13 @@ struct intel_vbt_data {
 
 	/* MIPI DSI */
 	struct {
+		u8 seq_version;
 		u16 panel_id;
+		struct mipi_config *config;
+		struct mipi_pps_data *pps;
+		u32 size;
+		u8 *data;
+		u8 *sequence[MIPI_SEQ_MAX];
 	} dsi;
 
 	int crt_ddc_pin;
@@ -1459,7 +1465,7 @@ typedef struct drm_i915_private {
 	bool is_hdmi;
 	u16 is_mipi;
 	u16 mipi_panel_id;
-
+	int shut_down_state;
 #ifdef CONFIG_DRM_VXD_BYT
 	struct drm_psb_private *vxd_priv;
 	int (*vxd_driver_open)(struct drm_device *dev, struct drm_file *file);
@@ -1518,6 +1524,9 @@ struct drm_i915_gem_object {
 
 	/** List of VMAs backed by this object */
 	struct list_head vma_list;
+
+	/** Current space allocated to this object in the GTT, if any. */
+	struct drm_mm_node *gtt_space;
 
 	/** Stolen memory for this object, instead of being backed by shmem. */
 	struct drm_mm_node *stolen;
@@ -2025,6 +2034,7 @@ int __must_check i915_gem_object_ggtt_unbind(struct drm_i915_gem_object *obj);
 int i915_gem_object_put_pages(struct drm_i915_gem_object *obj);
 void i915_gem_release_mmap(struct drm_i915_gem_object *obj);
 void i915_gem_lastclose(struct drm_device *dev);
+int __must_check i915_gem_object_unbind(struct drm_i915_gem_object *obj);
 
 int __must_check i915_gem_object_get_pages(struct drm_i915_gem_object *obj);
 static inline struct page *i915_gem_object_get_page(struct drm_i915_gem_object *obj, int n)
@@ -2496,7 +2506,7 @@ void vlv_force_wake_put(struct drm_i915_private *dev_priv, int fw_engine);
 /* intel_sideband.c */
 u32 vlv_punit_read(struct drm_i915_private *dev_priv, u8 addr);
 void vlv_punit_write(struct drm_i915_private *dev_priv, u8 addr, u32 val);
-u32 vlv_nc_read(struct drm_i915_private *dev_priv, u8 addr);
+u32 vlv_nc_read(struct drm_i915_private *dev_priv, u16 addr);
 u32 vlv_gpio_nc_read(struct drm_i915_private *dev_priv, u32 reg);
 void vlv_gpio_nc_write(struct drm_i915_private *dev_priv, u32 reg, u32 val);
 u32 vlv_cck_read(struct drm_i915_private *dev_priv, u32 reg);

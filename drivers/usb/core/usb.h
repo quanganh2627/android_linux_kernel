@@ -180,6 +180,8 @@ extern void usb_notify_add_device(struct usb_device *udev);
 extern void usb_notify_remove_device(struct usb_device *udev);
 extern void usb_notify_add_bus(struct usb_bus *ubus);
 extern void usb_notify_remove_bus(struct usb_bus *ubus);
+extern void usb_notify_port_suspend(struct usb_device *udev);
+extern void usb_notify_port_resume(struct usb_device *udev);
 extern enum usb_port_connect_type
 	usb_get_hub_port_connect_type(struct usb_device *hdev, int port1);
 extern void usb_set_hub_port_connect_type(struct usb_device *hdev, int port1,

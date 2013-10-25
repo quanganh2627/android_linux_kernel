@@ -20,10 +20,23 @@
 #define USH_PCI_ID           0x0F35
 #define USH_REENUM_DELAY     600000
 
+enum wlock_state {
+	UNLOCKED,
+	LOCKED
+};
+
+enum s3_state {
+	RESUMED,
+	RESUMING,
+	SUSPENDED,
+	SUSPENDING
+};
+
 struct ush_hsic_priv {
 	struct delayed_work  hsic_aux;
 	wait_queue_head_t    aux_wq;
 	struct mutex         hsic_mutex;
+	struct mutex         wlock_mutex;
 	unsigned             hsic_mutex_init:1;
 	unsigned             aux_wq_init:1;
 	unsigned             hsic_aux_irq_enable:1;
@@ -31,7 +44,7 @@ struct ush_hsic_priv {
 	unsigned             hsic_aux_finish:1;
 	unsigned             hsic_enable_created:1;
 	unsigned             hsic_lock_init:1;
-	unsigned             hsic_stopped:1;
+	unsigned             port_disconnect:1;
 
 	unsigned             remoteWakeup_enable;
 	unsigned             autosuspend_enable;
@@ -48,6 +61,11 @@ struct ush_hsic_priv {
 	struct workqueue_struct     *work_queue;
 	struct work_struct          wakeup_work;
 	struct notifier_block       hsicdev_nb;
+	struct notifier_block       hsic_pm_nb;
+	struct notifier_block       hsic_s3_entry_nb;
+	struct wake_lock            s3_wake_lock;
+	enum wlock_state            s3_wlock_state;
+	enum wlock_state            s3_rt_state;
 };
 
 enum {

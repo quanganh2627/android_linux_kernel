@@ -66,7 +66,9 @@ MODULE_PARM_DESC(prefer_mbim, "Prefer MBIM setting on dual NCM/MBIM functions");
 static void cdc_ncm_txpath_bh(unsigned long param);
 static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx);
 static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_timer);
+static const struct driver_info cdc_ncm_info, cdc_ncm_info_alt;
 static struct usb_driver cdc_ncm_driver;
+static const struct ethtool_ops cdc_ncm_ethtool_ops;
 
 static void
 cdc_ncm_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
@@ -603,15 +605,23 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
 
 	/* NCM data altsetting is always 1 */
 	ret = cdc_ncm_bind_common(dev, intf, 1);
-
-	/*
-	 * We should get an event when network connection is "connected" or
-	 * "disconnected". Set network connection in "disconnected" state
-	 * (carrier is OFF) during attach, so the IP network stack does not
-	 * start IPv6 negotiation and more.
-	 */
-	usbnet_link_change(dev, 0, 0);
+	if (!ret) {
+		/*
+		 * We should get an event when network connection is "connected"
+		 * or "disconnected". Set network connection in "disconnected"
+		 * state (carrier is OFF) during attach, so the IP network stack
+		 * does not start IPv6 negotiation and more.
+		 */
+		usbnet_link_change(dev, 0, 0);
+	}
 	return ret;
+}
+
+static int cdc_ncm_bind_alt(struct usbnet *dev, struct usb_interface *intf)
+{
+	dev_info(&dev->udev->dev, "Use of alternate settings\n");
+	dev->net->addr_len = 1;
+	return cdc_ncm_bind(dev, intf);
 }
 
 static void cdc_ncm_align_tail(struct sk_buff *skb, size_t modulus, size_t remainder, size_t max)
@@ -1156,6 +1166,24 @@ static void cdc_ncm_disconnect(struct usb_interface *intf)
 	usbnet_disconnect(intf);
 }
 
+static int cdc_ncm_manage_power(struct usbnet *dev, int status)
+{
+	dev->intf->needs_remote_wakeup = status;
+	return 0;
+}
+
+static const struct driver_info cdc_ncm_info_alt = {
+	.description = "CDC NCM",
+	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET,
+	.bind = cdc_ncm_bind_alt,
+	.unbind = cdc_ncm_unbind,
+	.check_connect = cdc_ncm_check_connect,
+	.manage_power = cdc_ncm_manage_power,
+	.status = cdc_ncm_status,
+	.rx_fixup = cdc_ncm_rx_fixup,
+	.tx_fixup = cdc_ncm_tx_fixup,
+};
+
 static const struct driver_info cdc_ncm_info = {
 	.description = "CDC NCM",
 	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET,
@@ -1197,6 +1225,21 @@ static const struct driver_info wwan_noarp_info = {
 };
 
 static const struct usb_device_id cdc_devs[] = {
+	{ .match_flags = USB_DEVICE_ID_MATCH_INT_INFO
+			| USB_DEVICE_ID_MATCH_VENDOR
+			| USB_DEVICE_ID_MATCH_PRODUCT,
+	  .bInterfaceClass = USB_CLASS_COMM,
+	  .bInterfaceSubClass = USB_CDC_SUBCLASS_NCM,
+	  .bInterfaceProtocol = (USB_CDC_PROTO_NONE),
+	  .idVendor = 0x1519,
+	  .idProduct = 0x0452,
+	  .driver_info = (unsigned long)&cdc_ncm_info_alt
+	},
+	{ USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_NCM,
+				USB_CDC_PROTO_NONE),
+		  .driver_info = (unsigned long)&cdc_ncm_info
+	},
+
 	/* Ericsson MBM devices like F5521gw */
 	{ .match_flags = USB_DEVICE_ID_MATCH_INT_INFO
 		| USB_DEVICE_ID_MATCH_VENDOR,

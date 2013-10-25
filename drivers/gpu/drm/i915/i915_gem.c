@@ -1355,7 +1355,7 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	pgoff_t page_offset;
 	unsigned long pfn;
-	int ret = 0,err = 0;;
+	int ret = 0, err = 0;
 	bool write = !!(vmf->flags & FAULT_FLAG_WRITE);
 
 	i915_rpm_get_callback(dev);

@@ -128,6 +128,16 @@ static struct mdm_ctrl_pmic_data pmic_mrfl = {
 	.pwr_down_duration = 20000
 };
 
+static struct mdm_ctrl_pmic_data pmic_moor = {
+	.chipctrl = 0x1031,
+	.chipctrlon = 0x1,
+	.chipctrloff = 0x0,
+	.chipctrl_mask = 0xFC,
+	.early_pwr_on = false,
+	.early_pwr_off = true,
+	.pwr_down_duration = 20000
+};
+
 /* CPU Data */
 static struct mdm_ctrl_cpu_data cpu_generic = {
 	.gpio_rst_out_name = GPIO_RST_OUT,
@@ -157,7 +167,8 @@ void *pmic_data[] = {
 	&pmic_mfld,		/* PMIC_MFLD */
 	&pmic_ctp,		/* PMIC_CLVT */
 	&pmic_mrfl,		/* PMIC_MRFL */
-	NULL			/* PMIC_BYT, not supported throught SFI */
+	NULL,			/* PMIC_BYT, not supported throught SFI */
+	&pmic_moor		/* PMIC_MOOR */
 };
 
 void *cpu_data[] = {
@@ -166,6 +177,7 @@ void *cpu_data[] = {
 	&cpu_generic,		/* CPU_CLVIEW */
 	&cpu_tangier,		/* CPU_TANGIER */
 	&cpu_generic,		/* CPU_VVIEW */
+	&cpu_generic,		/* CPU_ANNIEDALE */
 };
 
 /*
@@ -247,6 +259,7 @@ void mcd_register_finalize(struct mcd_base_info const *info)
 	case CPU_PWELL:
 	case CPU_CLVIEW:
 	case CPU_TANGIER:
+	case CPU_ANNIEDALE:
 		{
 			struct mdm_ctrl_cpu_data *cpu_data =
 			    info->cpu_data;
@@ -334,6 +347,9 @@ int mcd_get_cpu_ver(void)
 	case INTEL_MID_CPU_CHIP_TANGIER:
 		strncpy(cpu_name, "TANGIER", SFI_NAME_LEN);
 		return CPU_TANGIER;
+	case INTEL_MID_CPU_CHIP_ANNIEDALE:
+		strncpy(cpu_name, "ANNIEDALE", SFI_NAME_LEN);
+		return CPU_ANNIEDALE;
 	default:
 		strncpy(cpu_name, "UNKNOWN", SFI_NAME_LEN);
 		return CPU_UNSUP;
@@ -357,6 +373,9 @@ int mcd_get_pmic_ver(void)
 	case INTEL_BYT_PHONE:
 	case INTEL_BYT_TABLET:
 		return PMIC_BYT;
+	case INTEL_MOOR_PHONE:
+	case INTEL_MOOR_TABLET:
+		return PMIC_MOOR;
 	default:
 		return PMIC_UNSUP;
 	}

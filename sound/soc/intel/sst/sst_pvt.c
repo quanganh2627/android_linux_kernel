@@ -231,7 +231,7 @@ static void sst_do_recovery(struct intel_sst_drv *sst)
 {
 	struct ipc_post *m, *_m;
 	unsigned long irq_flags;
-	char iram_event[30], dram_event[30], ddr_imr_event[50];
+	char iram_event[30], dram_event[30], ddr_imr_event[65];
 	char *envp[4];
 	int env_offset = 0;
 
@@ -266,14 +266,16 @@ static void sst_do_recovery(struct intel_sst_drv *sst)
 
 	}
 
-	sprintf(iram_event, "IRAM_DUMP_SIZE=%d", sst->dump_buf.iram_buf.size);
+	snprintf(iram_event, sizeof(iram_event), "IRAM_DUMP_SIZE=%d",
+					sst->dump_buf.iram_buf.size);
 	envp[env_offset++] = iram_event;
-	sprintf(dram_event, "DRAM_DUMP_SIZE=%d", sst->dump_buf.dram_buf.size);
+	snprintf(dram_event, sizeof(dram_event), "DRAM_DUMP_SIZE=%d",
+					sst->dump_buf.dram_buf.size);
 	envp[env_offset++] = dram_event;
 
 	if (sst->ddr != NULL) {
-		sprintf(ddr_imr_event, "DDR_IMR_DUMP_SIZE=%d DDR_IMR_ADDRESS=%p",
-			(sst->ddr_end - sst->ddr_base), sst->ddr);
+		snprintf(ddr_imr_event, sizeof(ddr_imr_event),
+		"DDR_IMR_DUMP_SIZE=%d DDR_IMR_ADDRESS=%p", (sst->ddr_end - sst->ddr_base), sst->ddr);
 		envp[env_offset++] = ddr_imr_event;
 	}
 	envp[env_offset] = NULL;

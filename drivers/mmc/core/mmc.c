@@ -647,9 +647,10 @@ MMC_DEV_ATTR(name, "%s\n", card->cid.prod_name);
 MMC_DEV_ATTR(oemid, "0x%04x\n", card->cid.oemid);
 MMC_DEV_ATTR(prv, "0x%x\n", card->cid.prv);
 MMC_DEV_ATTR(serial, "0x%08x\n", card->cid.serial);
-MMC_DEV_ATTR(enhanced_area_offset, "%llu\n",
+MMC_DEV_ATTR(enhanced_area_offset, "%lld\n",
 		card->ext_csd.enhanced_area_offset);
-MMC_DEV_ATTR(enhanced_area_size, "%u\n", card->ext_csd.enhanced_area_size);
+MMC_DEV_ATTR(enhanced_area_size, "%d KBytes\n",
+		card->ext_csd.enhanced_area_size);
 MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
 MMC_DEV_ATTR(hpi_support, "%d\n", card->ext_csd.hpi);
@@ -1117,6 +1118,13 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	} else if (max_dtr > card->csd.max_dtr) {
 		max_dtr = card->csd.max_dtr;
 	}
+
+	/*
+	 * Some host controller can not work stable with 200MHz clock.
+	 * So, slow down the clock frequency to 100MHz.
+	 */
+	if ((max_dtr > 100000000) && (host->caps2 & MMC_CAP2_HS200_WA))
+		max_dtr = 100000000;
 
 	mmc_set_clock(host, max_dtr);
 

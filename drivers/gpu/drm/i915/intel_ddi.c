@@ -75,6 +75,7 @@ static enum port intel_ddi_get_encoder_port(struct intel_encoder *intel_encoder)
 	} else {
 		DRM_ERROR("Invalid DDI encoder type %d\n", type);
 		BUG();
+		return 0;
 	}
 }
 
@@ -610,14 +611,22 @@ intel_ddi_calculate_wrpll(int clock /* in Hz */,
 bool intel_ddi_pll_mode_set(struct drm_crtc *crtc)
 {
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct intel_encoder *intel_encoder = intel_ddi_get_crtc_encoder(crtc);
-	struct drm_encoder *encoder = &intel_encoder->base;
+	struct drm_encoder *encoder;
 	struct drm_i915_private *dev_priv = crtc->dev->dev_private;
 	struct intel_ddi_plls *plls = &dev_priv->ddi_plls;
-	int type = intel_encoder->type;
+	int type;
 	enum pipe pipe = intel_crtc->pipe;
 	uint32_t reg, val;
 	int clock = intel_crtc->config.port_clock;
+	struct intel_encoder *intel_encoder = intel_ddi_get_crtc_encoder(crtc);
+
+	if (!intel_encoder) {
+		DRM_ERROR("intel_encoder is NULL\n");
+		return false;
+	}
+
+	encoder = &intel_encoder->base;
+	type = intel_encoder->type;
 
 	/* TODO: reuse PLLs when possible (compare values) */
 
@@ -708,8 +717,14 @@ void intel_ddi_set_pipe_settings(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_encoder *intel_encoder = intel_ddi_get_crtc_encoder(crtc);
 	enum transcoder cpu_transcoder = intel_crtc->config.cpu_transcoder;
-	int type = intel_encoder->type;
+	int type;
 	uint32_t temp;
+
+	if (!intel_encoder) {
+		DRM_ERROR("intel_encoder is NULL\n");
+		return;
+	}
+	type = intel_encoder->type;
 
 	if (type == INTEL_OUTPUT_DISPLAYPORT || type == INTEL_OUTPUT_EDP) {
 
@@ -738,13 +753,21 @@ void intel_ddi_enable_transcoder_func(struct drm_crtc *crtc)
 {
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_encoder *intel_encoder = intel_ddi_get_crtc_encoder(crtc);
-	struct drm_encoder *encoder = &intel_encoder->base;
+	struct drm_encoder *encoder;
 	struct drm_i915_private *dev_priv = crtc->dev->dev_private;
 	enum pipe pipe = intel_crtc->pipe;
 	enum transcoder cpu_transcoder = intel_crtc->config.cpu_transcoder;
-	enum port port = intel_ddi_get_encoder_port(intel_encoder);
-	int type = intel_encoder->type;
+	enum port port;
+	int type;
 	uint32_t temp;
+
+	if (!intel_encoder) {
+		DRM_ERROR("intel_encoder is NULL\n");
+		return;
+	}
+	encoder = &intel_encoder->base;
+	port = intel_ddi_get_encoder_port(intel_encoder);
+	type = intel_encoder->type;
 
 	/* Enable TRANS_DDI_FUNC_CTL for the pipe to work in HDMI mode */
 	temp = TRANS_DDI_FUNC_ENABLE;
@@ -990,8 +1013,14 @@ void intel_ddi_enable_pipe_clock(struct intel_crtc *intel_crtc)
 	struct drm_crtc *crtc = &intel_crtc->base;
 	struct drm_i915_private *dev_priv = crtc->dev->dev_private;
 	struct intel_encoder *intel_encoder = intel_ddi_get_crtc_encoder(crtc);
-	enum port port = intel_ddi_get_encoder_port(intel_encoder);
+	enum port port;
 	enum transcoder cpu_transcoder = intel_crtc->config.cpu_transcoder;
+	if (!intel_encoder) {
+		DRM_ERROR("intel_encoder is NULL\n");
+		return;
+	}
+
+	port = intel_ddi_get_encoder_port(intel_encoder);
 
 	if (cpu_transcoder != TRANSCODER_EDP)
 		I915_WRITE(TRANS_CLK_SEL(cpu_transcoder),
@@ -1219,6 +1248,10 @@ void intel_ddi_fdi_disable(struct drm_crtc *crtc)
 	struct drm_i915_private *dev_priv = crtc->dev->dev_private;
 	struct intel_encoder *intel_encoder = intel_ddi_get_crtc_encoder(crtc);
 	uint32_t val;
+	if (!intel_encoder) {
+		DRM_ERROR("intel_encoder is NULL\n");
+		return;
+	}
 
 	intel_ddi_post_disable(intel_encoder);
 

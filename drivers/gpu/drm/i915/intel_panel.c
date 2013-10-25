@@ -418,7 +418,7 @@ static u32 intel_panel_compute_brightness(struct drm_device *dev, u32 val)
 static u32 intel_panel_get_backlight(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 val;
+	u32 val = 0;
 	unsigned long flags;
 
 	spin_lock_irqsave(&dev_priv->backlight.lock, flags);
@@ -553,6 +553,7 @@ void intel_panel_disable_backlight(struct drm_device *dev)
 #ifdef CONFIG_CRYSTAL_COVE
 		intel_mid_pmic_writeb(0x51, 0x00);
 		intel_mid_pmic_writeb(0x52, 0x00);
+		intel_mid_pmic_writeb(0x4B, 0x7F);
 #else
 		DRM_ERROR("Backlight not supported yet\n");
 #endif

@@ -723,7 +723,6 @@ static void intel_enable_hdmi(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&encoder->base);
-	struct intel_crtc *crtc = to_intel_crtc(encoder->base.crtc);
 	u32 temp;
 	u32 enable_bits = SDVO_ENABLE;
 
@@ -913,7 +912,7 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		hdmi_to_dig_port(intel_hdmi);
 	struct intel_encoder *intel_encoder = &intel_dig_port->base;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct edid *edid;
+	struct edid *edid = NULL;
 	enum drm_connector_status status = connector_status_disconnected;
 
 	dev_priv->is_hdmi = false;
@@ -923,9 +922,17 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	intel_hdmi->has_hdmi_sink = false;
 	intel_hdmi->has_audio = false;
 	intel_hdmi->rgb_quant_range_selectable = false;
+	/* Read live status, get EDID if connected */
+	/*
+	 * the belo patch removes g4x_hdmi_connected(), hence removing this func
+	 * commit 202adf4b9f5957b26a1cb97267d78e0edb319c5e
+	 * Author: Daniel Vetter <daniel.vetter@ffwll.ch>
+	 * Date:   Fri Feb 22 00:53:04 2013 +0100
+	 */
+
 	edid = drm_get_edid(connector,
-			    intel_gmbus_get_adapter(dev_priv,
-						    intel_hdmi->ddc_bus));
+			intel_gmbus_get_adapter(dev_priv,
+					intel_hdmi->ddc_bus));
 
 	if (edid) {
 		if (edid->input & DRM_EDID_INPUT_DIGITAL) {
@@ -1095,7 +1102,7 @@ intel_hdmi_set_property(struct drm_connector *connector,
 		if (val == intel_hdmi->pfit)
 			return 0;
 
-		DRM_DEBUG_DRIVER("val = %d", val);
+		DRM_DEBUG_DRIVER("val = %llu", val);
 		intel_hdmi->pfit = val;
 		goto done;
 	}
@@ -1320,7 +1327,6 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 /* Added for HDMI Audio */
 void i915_had_wq(struct work_struct *work)
 {
-	u8 data = 0;
 	struct drm_i915_private *dev_priv = container_of(work,
 		struct drm_i915_private, hdmi_audio_wq);
 

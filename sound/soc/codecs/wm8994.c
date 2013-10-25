@@ -3912,6 +3912,21 @@ int wm8958_mic_detect(struct snd_soc_codec *codec, struct snd_soc_jack *jack,
 }
 EXPORT_SYMBOL_GPL(wm8958_mic_detect);
 
+int wm8958_micd_set_custom_rate(struct snd_soc_codec *codec,
+		wm8958_micd_set_custom_rate_cb micd_custom_rate_cb,
+		void *micd_custom_rate_cb_data)
+{
+	struct wm8994_priv *wm8994 = snd_soc_codec_get_drvdata(codec);
+
+	if (micd_custom_rate_cb) {
+		wm8994->micd_custom_rate_cb = micd_custom_rate_cb;
+		wm8994->micd_custom_rate_cb_data = micd_custom_rate_cb_data;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(wm8958_micd_set_custom_rate);
+
 static void wm8958_mic_work(struct work_struct *work)
 {
 	struct wm8994_priv *wm8994 = container_of(work,
@@ -3934,10 +3949,32 @@ static void wm8958_mic_work(struct work_struct *work)
 	dev_crit(codec->dev, "MIC WORK %x DONE\n", wm8994->mic_status);
 }
 
+static void wm8958_micd_set_custom_rate_work(struct work_struct *work)
+{
+	struct wm8994_priv *wm8994 = container_of(work,
+						  struct wm8994_priv,
+						  micd_set_custom_rate_work.work);
+	struct snd_soc_codec *codec = wm8994->hubs.codec;
+
+	dev_dbg(codec->dev, "%s: Set custom rates\n", __func__);
+
+	pm_runtime_get_sync(codec->dev);
+
+	mutex_lock(&wm8994->accdet_lock);
+
+	wm8994->micd_custom_rate_cb(wm8994->micd_custom_rate_cb_data);
+
+	mutex_unlock(&wm8994->accdet_lock);
+
+	pm_runtime_put(codec->dev);
+
+}
+
 static irqreturn_t wm8958_mic_irq(int irq, void *data)
 {
 	struct wm8994_priv *wm8994 = data;
 	struct snd_soc_codec *codec = wm8994->hubs.codec;
+	struct wm8994 *control = wm8994->wm8994;
 	int reg, count, ret, id_delay;
 
 	/*
@@ -4006,11 +4043,21 @@ static irqreturn_t wm8958_mic_irq(int irq, void *data)
 	wm8994->mic_status = reg;
 	id_delay = wm8994->wm8994->pdata.mic_id_delay;
 
-	if (wm8994->mic_detecting)
+	if (wm8994->mic_detecting) {
+		if (control->type == WM8958) {
+			/* Set mic-bias high during detection phase (micb_en_delay) */
+			/* 0 == Continuous */
+			dev_dbg(codec->dev, "Set MICBIAS High, for micb_en_delay time\n");
+			snd_soc_update_bits(codec, WM8958_MIC_DETECT_1,
+				    WM8958_MICD_BIAS_STARTTIME_MASK |
+				    WM8958_MICD_RATE_MASK, 0);
+		}
+
 		schedule_delayed_work(&wm8994->mic_complete_work,
 				      msecs_to_jiffies(id_delay));
-	else
+	} else {
 		wm8958_button_det(codec, reg);
+	}
 
 out:
 	pm_runtime_put(codec->dev);
@@ -4069,6 +4116,10 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 		break;
 	case WM1811:
 		INIT_DELAYED_WORK(&wm8994->mic_work, wm1811_mic_work);
+		break;
+	case WM8958:
+		INIT_DELAYED_WORK(&wm8994->micd_set_custom_rate_work,
+					wm8958_micd_set_custom_rate_work);
 		break;
 	default:
 		break;
@@ -4534,6 +4585,10 @@ static int wm8994_remove(struct platform_device *pdev)
 static int wm8994_suspend(struct device *dev)
 {
 	struct wm8994_priv *wm8994 = dev_get_drvdata(dev);
+	struct wm8994 *control = wm8994->wm8994;
+	struct snd_soc_codec *codec = wm8994->hubs.codec;
+	unsigned int reg;
+
 
 	/* Drop down to power saving mode when system is suspended */
 	if (wm8994->jackdet && !wm8994->active_refcount)
@@ -4541,17 +4596,40 @@ static int wm8994_suspend(struct device *dev)
 				   WM1811_JACKDET_MODE_MASK,
 				   wm8994->jackdet_mode);
 
+	/* Disable the MIC Detection when suspended */
+	if ((control->type == WM8958) && wm8994->mic_id_cb) {
+
+		reg = snd_soc_read(codec, WM8958_MIC_DETECT_3);
+
+		dev_dbg(codec->dev, "%s: WM8958_MIC_DETECT_3 0x%x\n", __func__, reg);
+
+		if ((reg & WM8958_MICD_VALID) &&  !(reg & WM8958_MICD_STS)) {
+			dev_dbg(codec->dev, "Disable MIC Detection!!!\n");
+			snd_soc_update_bits(codec, WM8958_MIC_DETECT_1,
+						WM8958_MICD_ENA, 0);
+		}
+	}
+
 	return 0;
 }
 
 static int wm8994_resume(struct device *dev)
 {
 	struct wm8994_priv *wm8994 = dev_get_drvdata(dev);
+	struct wm8994 *control = wm8994->wm8994;
+	struct snd_soc_codec *codec = wm8994->hubs.codec;
 
 	if (wm8994->jackdet && wm8994->jackdet_mode)
 		regmap_update_bits(wm8994->wm8994->regmap, WM8994_ANTIPOP_2,
 				   WM1811_JACKDET_MODE_MASK,
 				   WM1811_JACKDET_MODE_AUDIO);
+
+	/* Enable the MIC Detection when resumed */
+	if ((control->type == WM8958) && wm8994->mic_id_cb) {
+		dev_dbg(codec->dev, "Enable MIC Detection!!!\n");
+		snd_soc_update_bits(codec, WM8958_MIC_DETECT_1,
+					WM8958_MICD_ENA, WM8958_MICD_ENA);
+	}
 
 	return 0;
 }

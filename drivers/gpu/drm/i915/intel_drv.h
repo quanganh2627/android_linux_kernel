@@ -104,47 +104,6 @@
 #define INTEL_DSI_COMMAND_MODE	0
 #define INTEL_DSI_VIDEO_MODE	1
 
-/* CSC correction */
-#define CSC_MAX_COEFF_COUNT		6
-#define CLR_MGR_PARSE_MAX		128
-#define PIPECONF_GAMMA			(1<<24)
-#define GAMMA_CORRECT_MAX_COUNT 	256
-#define GAMMA_SP_MAX_COUNT 		6
-/* Gamma correction defines */
-#define GAMMA_MAX_VAL			1024
-#define SHIFTBY6(val) (val<<6)
-#define PIPEA_GAMMA_MAX_RED		0x70010
-#define PIPEA_GAMMA_MAX_GREEN		0x70014
-#define PIPEA_GAMMA_MAX_BLUE		0x70018
-/* Sprite gamma correction regs */
-#define GAMMA_SPA_GAMC0			0x721F4
-#define GAMMA_SPA_GAMC1			0x721F0
-#define GAMMA_SPA_GAMC2			0x721EC
-#define GAMMA_SPA_GAMC3			0x721E8
-#define GAMMA_SPA_GAMC4			0x721E4
-#define GAMMA_SPA_GAMC5			0x721E0
-
-#define GAMMA_SPB_GAMC0			0x721F4
-#define GAMMA_SPB_GAMC1			0x721F0
-#define GAMMA_SPB_GAMC2			0x721EC
-#define GAMMA_SPB_GAMC3			0x721E8
-#define GAMMA_SPB_GAMC4			0x721E4
-#define GAMMA_SPB_GAMC5			0x721E0
-
-#define GAMMA_SPA_CNTRL			0x72180
-#define GAMMA_SPB_CNTRL			0x72280
-#define GAMMA_ENABLE_SPR		(1<<30)
-#define GAMMA_SP_MAX_COUNT		6
-
-
-/* Color manager features */
-enum ClrMgrFeatures {
-	ClrMgrCsc = 1,
-	ClrMgrGamma,
-	ClrMgrContrBright,
-	ClrMgrHueSat,
-};
-
 struct intel_framebuffer {
 	struct drm_framebuffer base;
 	struct drm_i915_gem_object *obj;
@@ -525,6 +484,7 @@ vlv_dport_to_channel(struct intel_digital_port *dport)
 		return 1;
 	default:
 		BUG();
+		return 0;
 	}
 }
 
@@ -578,7 +538,7 @@ int intel_ddc_get_modes(struct drm_connector *c, struct i2c_adapter *adapter);
 extern void intel_attach_force_audio_property(struct drm_connector *connector);
 extern void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
 
-extern bool intel_pipe_has_type(struct drm_crtc *crtc, int type);
+extern bool intel_pipe_has_type(const struct drm_crtc *crtc, int type);
 extern void intel_attach_force_pfit_property(struct drm_connector *connector);
 extern void intel_crt_init(struct drm_device *dev);
 extern void intel_hdmi_init(struct drm_device *dev,
@@ -881,11 +841,11 @@ extern void intel_aux_display_runtime_get(struct drm_i915_private *dev_priv);
 extern void intel_aux_display_runtime_put(struct drm_i915_private *dev_priv);
 
 /* intel_dp.c */
-extern void intel_edp_psr_ctl_ioctl(struct drm_device *device, void *data,
+extern int intel_edp_psr_ctl_ioctl(struct drm_device *device, void *data,
 					struct drm_file *file_priv);
-extern void intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
+extern int intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
 					struct drm_file *file_priv);
-extern void intel_edp_get_psr_support(struct drm_device *device, void *data,
+extern int intel_edp_get_psr_support(struct drm_device *device, void *data,
 					struct drm_file *file);
 /* VLV LP clock bending */
 extern void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,

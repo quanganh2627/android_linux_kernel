@@ -810,6 +810,8 @@ static int intel_mrfl_mmc_probe_slot(struct sdhci_pci_slot *slot)
 					MMC_CAP2_INIT_CARD_SYNC |
 					MMC_CAP2_CACHE_CTRL;
 		if (slot->chip->pdev->revision == 0x1) { /* B0 stepping */
+			slot->host->mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR |
+						MMC_CAP2_HS200_WA;
 			/* WA for async abort silicon issue */
 			slot->host->quirks2 |= SDHCI_QUIRK2_CARD_CD_DELAY |
 					SDHCI_QUIRK2_WAIT_FOR_IDLE;
@@ -1896,6 +1898,17 @@ static int sdhci_pci_get_tuning_count(struct sdhci_host *host)
 	return tuning_count;
 }
 
+static int sdhci_gpio_buf_check(struct sdhci_host *host, unsigned int clk)
+{
+	int ret = -ENOSYS;
+	struct sdhci_pci_slot *slot = sdhci_priv(host);
+
+	if (slot->data && slot->data->flis_check)
+		ret = slot->data->flis_check(host, clk);
+
+	return ret;
+}
+
 static const struct sdhci_ops sdhci_pci_ops = {
 	.enable_dma	= sdhci_pci_enable_dma,
 	.platform_bus_width	= sdhci_pci_bus_width,
@@ -1905,6 +1918,7 @@ static const struct sdhci_ops sdhci_pci_ops = {
 	.get_cd		= sdhci_pci_get_cd,
 	.platform_reset_exit = sdhci_platform_reset_exit,
 	.get_tuning_count = sdhci_pci_get_tuning_count,
+	.gpio_buf_check = sdhci_gpio_buf_check,
 };
 
 /*****************************************************************************\

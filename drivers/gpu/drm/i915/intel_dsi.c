@@ -37,6 +37,18 @@
 /* the sub-encoders aka panel drivers */
 static const struct intel_dsi_device intel_dsi_devices[] = {
 	{
+		.panel_id = MIPI_DSI_GENERIC_PANEL_ID,
+		.type = INTEL_DSI_VIDEO_MODE,
+		.name = "vbt-generic-dsi-vid-mode-display",
+		.dev_ops = &vbt_generic_dsi_display_ops,
+	},
+	{
+		.panel_id = MIPI_DSI_AUO_B101UAN01_PANEL_ID,
+		.type = INTEL_DSI_VIDEO_MODE,
+		.name = "auo-b101uan01-dsi-vid-mode-display",
+		.dev_ops = &auo_b101uan01_dsi_display_ops,
+	},
+	{
 		.panel_id = MIPI_DSI_AUO_B080XAT_PANEL_ID,
 		.type = INTEL_DSI_VIDEO_MODE,
 		.name = "auo-b080xat-dsi-vid-mode-display",
@@ -47,6 +59,12 @@ static const struct intel_dsi_device intel_dsi_devices[] = {
 		.type = INTEL_DSI_VIDEO_MODE,
 		.name = "auo-panasonic-dsi-vid-mode-display",
 		.dev_ops = &panasonic_vvx09f006a00_dsi_display_ops,
+	},
+	{
+		.panel_id = MIPI_DSI_JDI_LPM070W425B_PANEL_ID,
+		.type = INTEL_DSI_VIDEO_MODE,
+		.name = "jdi-lpm070w425b-dsi-vid-mode-display",
+		.dev_ops = &jdi_lpm070w425b_dsi_display_ops,
 	},
 };
 
@@ -130,27 +148,32 @@ void intel_dsi_device_ready(struct intel_encoder *encoder)
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	int pipe = intel_crtc->pipe;
-	u32 temp;
 
 	DRM_DEBUG_KMS("\n");
 
 	if (intel_dsi->dev.dev_ops->panel_reset)
 		intel_dsi->dev.dev_ops->panel_reset(&intel_dsi->dev);
 
-	I915_WRITE_BITS(MIPI_PORT_CTRL(pipe), LP_OUTPUT_HOLD, LP_OUTPUT_HOLD);
-	usleep_range(1000, 1500);
-	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY |
-			ULPS_STATE_EXIT, DEVICE_READY | ULPS_STATE_MASK);
-	usleep_range(2000, 2500);
-	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY,
-			DEVICE_READY | ULPS_STATE_MASK);
-	usleep_range(2000, 2500);
-	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), 0x00,
-			DEVICE_READY | ULPS_STATE_MASK);
-	usleep_range(2000, 2500);
-	I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY,
-			DEVICE_READY | ULPS_STATE_MASK);
-	usleep_range(2000, 2500);
+	if (is_vid_mode(intel_dsi)) {
+		I915_WRITE_BITS(MIPI_PORT_CTRL(pipe), LP_OUTPUT_HOLD,
+							LP_OUTPUT_HOLD);
+
+		usleep_range(1000, 1500);
+		I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY |
+				ULPS_STATE_EXIT, DEVICE_READY |
+				ULPS_STATE_MASK);
+
+		usleep_range(2000, 2500);
+		I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY,
+				DEVICE_READY | ULPS_STATE_MASK);
+		usleep_range(2000, 2500);
+		I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), 0x00,
+				DEVICE_READY | ULPS_STATE_MASK);
+		usleep_range(2000, 2500);
+		I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), DEVICE_READY,
+				DEVICE_READY | ULPS_STATE_MASK);
+		usleep_range(2000, 2500);
+	}
 
 	if (intel_dsi->dev.dev_ops->send_otp_cmds)
 		intel_dsi->dev.dev_ops->send_otp_cmds(&intel_dsi->dev);
@@ -159,7 +182,6 @@ void intel_dsi_device_ready(struct intel_encoder *encoder)
 
 static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 {
-	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	DRM_DEBUG_KMS("\n");
 
 	/* put device in ready state */
@@ -173,7 +195,7 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	int pipe = intel_crtc->pipe;
-	int intr_stat, dpi_ctrl;
+	int intr_stat;
 	u32 temp;
 
 	DRM_DEBUG_KMS("\n");
@@ -186,30 +208,6 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 		msleep(20); /* XXX */
 		dpi_send_cmd(intel_dsi, TURN_ON);
 		msleep(100);
-#if 0
-		intr_stat = I915_READ(MIPI_INTR_STAT(pipe));
-		if (intr_stat & SPL_PKT_SENT_INTERRUPT)
-			I915_WRITE(MIPI_INTR_STAT(pipe),
-					SPL_PKT_SENT_INTERRUPT);
-
-		/* XXX: fix the bits with constants */
-		I915_WRITE(MIPI_DPI_CONTROL(pipe), ((0x1 << 1) &
-				~(0x1 << 0) & ~(0x1 << 6)));
-		I915_WRITE(MIPI_DPI_CONTROL(pipe), 0x2);
-
-		udelay(500);
-
-		/* Wait till SPL Packet Sent status bit is not set */
-		if (wait_for(I915_READ(MIPI_INTR_STAT(pipe)) &
-				SPL_PKT_SENT_INTERRUPT, 50))
-			DRM_ERROR("SPL Packet Sent failed\n");
-#endif
-		intr_stat = I915_READ(MIPI_INTR_STAT(pipe));
-#if 0
-		if (intr_stat & SPL_PKT_SENT_INTERRUPT)
-			I915_WRITE(MIPI_INTR_STAT(pipe),
-					SPL_PKT_SENT_INTERRUPT);
-#endif
 
 		temp = I915_READ(MIPI_PORT_CTRL(pipe));
 		temp = temp | intel_dsi->port_bits;
@@ -522,7 +520,7 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 		&intel_crtc->config.adjusted_mode;
 	int pipe = intel_crtc->pipe;
 	unsigned int bpp = intel_crtc->config.pipe_bpp;
-	u32 val, tmp;
+	u32 val;
 
 	band_gap_reset(dev_priv);
 
@@ -716,10 +714,11 @@ bool intel_dsi_init(struct drm_device *dev)
 	 * default ASUS panel ID for now */
 	if (i915_mipi_panel_id <= 0) {
 		/* check if panel id available from VBT */
-		if (!dev_priv->mipi_panel_id) {
+		if (!dev_priv->vbt.dsi.panel_id) {
 			/* default Panasonic panel */
 			dev_priv->mipi_panel_id = MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID;
-		}
+		} else
+			dev_priv->mipi_panel_id = dev_priv->vbt.dsi.panel_id;
 	} else
 		dev_priv->mipi_panel_id = i915_mipi_panel_id;
 

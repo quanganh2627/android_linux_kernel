@@ -70,7 +70,9 @@
 #define PREFIX "intel_idle: "
 
 #define CLPU_CR_C6_POLICY_CONFIG	0x668
-#define DISABLE_C6_DEMOTION		0x0f0f0f01
+#define CLPU_MD_C6_POLICY_CONFIG	0x669
+#define DISABLE_CORE_C6_DEMOTION	0x0
+#define DISABLE_MODULE_C6_DEMOTION	0x0
 
 static struct cpuidle_driver intel_idle_driver = {
 	.name = "intel_idle",
@@ -673,6 +675,17 @@ static int intel_idle(struct cpuidle_device *dev,
 	unsigned int cstate;
 	int cpu = smp_processor_id();
 
+#if (defined(CONFIG_REMOVEME_INTEL_ATOM_MRFLD_POWER) && \
+	defined(CONFIG_PM_DEBUG))
+	{
+		/* Get Cstate based on ignore table from PMU driver */
+		unsigned int ncstate;
+		cstate =
+		(((eax) >> MWAIT_SUBSTATE_SIZE) & MWAIT_CSTATE_MASK) + 1;
+		ncstate = pmu_get_new_cstate(cstate, &index);
+		eax	= flg2MWAIT(drv->states[index].flags);
+	}
+#endif
 	cstate = (((eax) >> MWAIT_SUBSTATE_SIZE) & MWAIT_CSTATE_MASK) + 1;
 
 	/*
@@ -1068,10 +1081,17 @@ static int __init intel_idle_init(void)
 			return retval;
 		}
 
-		if (platform_is(INTEL_ATOM_BYT))
+		if (platform_is(INTEL_ATOM_BYT)) {
+			/* Disable automatic core C6 demotion by PUNIT */
 			if (wrmsr_on_cpu(i, CLPU_CR_C6_POLICY_CONFIG,
-						DISABLE_C6_DEMOTION, 0x0))
-				pr_debug(PREFIX "Error to disable C6 demotion");
+					DISABLE_CORE_C6_DEMOTION, 0x0))
+				pr_err("Error to disable core C6 demotion");
+
+			/* Disable automatic module C6 demotion by PUNIT */
+			if (wrmsr_on_cpu(i, CLPU_MD_C6_POLICY_CONFIG,
+					DISABLE_MODULE_C6_DEMOTION, 0x0))
+				pr_err("Error to disable module C6 demotion");
+		}
 	}
 	register_cpu_notifier(&cpu_hotplug_notifier);
 

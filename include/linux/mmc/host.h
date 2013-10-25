@@ -325,6 +325,7 @@ struct mmc_host {
 #define MMC_CAP2_LED_SUPPORT	(1 << 18)	/* led support */
 #define MMC_CAP2_PWCTRL_POWER	(1 << 19)	/* power control card power */
 #define MMC_CAP2_FIXED_NCRC	(1 << 20)	/* fixed NCRC */
+#define MMC_CAP2_HS200_WA	(1 << 21)	/* WA: 100MHz clock in HS200 */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
