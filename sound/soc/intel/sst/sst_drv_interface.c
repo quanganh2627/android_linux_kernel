@@ -493,6 +493,8 @@ static int sst_cdev_open(struct snd_sst_params *str_params,
 		stream = &sst_drv_ctx->streams[str_id];
 		stream->compr_cb = cb->compr_cb;
 		stream->compr_cb_param = cb->param;
+		stream->drain_notify = cb->drain_notify;
+		stream->drain_cb_param = cb->drain_cb_param;
 	} else {
 		pr_err("stream encountered error during alloc %d\n", str_id);
 		str_id = -EINVAL;

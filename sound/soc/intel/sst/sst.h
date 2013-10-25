@@ -260,6 +260,9 @@ struct stream_info {
 	u32			cumm_bytes;
 	void			*compr_cb_param;
 	void (*compr_cb)	(void *compr_cb_param);
+	void			*drain_cb_param;
+	void (*drain_notify)	(void *drain_cb_param);
+
 	unsigned int		num_ch;
 	unsigned int		pipe_id;
 	unsigned int		str_id;
