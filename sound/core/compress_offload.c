@@ -268,25 +268,16 @@ static ssize_t snd_compr_write(struct file *f, const char __user *buf,
 	struct snd_compr_file *data = f->private_data;
 	struct snd_compr_stream *stream;
 	size_t avail;
-	int retval = 0;
+	int retval;
 
 	if (snd_BUG_ON(!data))
 		return -EFAULT;
 
 	stream = &data->stream;
 	mutex_lock(&stream->device->lock);
-	 /*
-	 * if the stream is in paused state, return the
-	 * number of bytes consumed as 0
-	 */
-	if (stream->runtime->state == SNDRV_PCM_STATE_PAUSED) {
-		mutex_unlock(&stream->device->lock);
-		return retval;
-	}
-	/* write is allowed when stream is running or prepared or in setup */
+	/* write is allowed when stream is running or has been steup */
 	if (stream->runtime->state != SNDRV_PCM_STATE_SETUP &&
-			stream->runtime->state != SNDRV_PCM_STATE_RUNNING &&
-			stream->runtime->state != SNDRV_PCM_STATE_PREPARED) {
+			stream->runtime->state != SNDRV_PCM_STATE_RUNNING) {
 		mutex_unlock(&stream->device->lock);
 		return -EBADFD;
 	}
@@ -393,7 +384,8 @@ static unsigned int snd_compr_poll(struct file *f, poll_table *wait)
 		return -EFAULT;
 
 	mutex_lock(&stream->device->lock);
-	if (stream->runtime->state == SNDRV_PCM_STATE_OPEN) {
+	if (stream->runtime->state == SNDRV_PCM_STATE_PAUSED ||
+			stream->runtime->state == SNDRV_PCM_STATE_OPEN) {
 		retval = -EBADFD;
 		goto out;
 	}
@@ -649,7 +641,6 @@ static int snd_compr_pause(struct snd_compr_stream *stream)
 
 	if (stream->runtime->state != SNDRV_PCM_STATE_RUNNING)
 		return -EPERM;
-
 	retval = stream->ops->trigger(stream, SNDRV_PCM_TRIGGER_PAUSE_PUSH);
 	if (!retval)
 		stream->runtime->state = SNDRV_PCM_STATE_PAUSED;
@@ -663,10 +654,8 @@ static int snd_compr_resume(struct snd_compr_stream *stream)
 	if (stream->runtime->state != SNDRV_PCM_STATE_PAUSED)
 		return -EPERM;
 	retval = stream->ops->trigger(stream, SNDRV_PCM_TRIGGER_PAUSE_RELEASE);
-	if (!retval) {
+	if (!retval)
 		stream->runtime->state = SNDRV_PCM_STATE_RUNNING;
-		wake_up(&stream->runtime->sleep);
-	}
 	return retval;
 }
 
@@ -701,12 +690,12 @@ static int snd_compr_stop(struct snd_compr_stream *stream)
 
 static int snd_compr_drain(struct snd_compr_stream *stream)
 {
-	int retval = 0;
+	int retval;
 
-	if (stream->runtime->state == SNDRV_PCM_STATE_SETUP)
+	if (stream->runtime->state == SNDRV_PCM_STATE_PREPARED ||
+			stream->runtime->state == SNDRV_PCM_STATE_SETUP)
 		return -EPERM;
-	if (stream->runtime->state != SNDRV_PCM_STATE_PREPARED)
-		retval = stream->ops->trigger(stream, SND_COMPR_TRIGGER_DRAIN);
+	retval = stream->ops->trigger(stream, SND_COMPR_TRIGGER_DRAIN);
 	if (!retval) {
 		stream->runtime->state = SNDRV_PCM_STATE_DRAINING;
 		wake_up(&stream->runtime->sleep);
@@ -738,16 +727,17 @@ static int snd_compr_next_track(struct snd_compr_stream *stream)
 
 static int snd_compr_partial_drain(struct snd_compr_stream *stream)
 {
-	int retval = 0;
-
-	if (stream->runtime->state == SNDRV_PCM_STATE_SETUP)
+	int retval;
+	if (stream->runtime->state == SNDRV_PCM_STATE_PREPARED ||
+			stream->runtime->state == SNDRV_PCM_STATE_SETUP)
 		return -EPERM;
-	if (stream->runtime->state != SNDRV_PCM_STATE_PREPARED)
-		retval = stream->ops->trigger(stream, SND_COMPR_TRIGGER_PARTIAL_DRAIN);
-	if (retval)
-		pr_err("Partial drain returned failure\n");
-	else
-		stream->runtime->state = SNDRV_PCM_STATE_SETUP;
+	/* stream can be drained only when next track has been signalled */
+	if (stream->next_track == false)
+		return -EPERM;
+
+	retval = stream->ops->trigger(stream, SND_COMPR_TRIGGER_PARTIAL_DRAIN);
+
+	stream->next_track = false;
 	return retval;
 }
 
