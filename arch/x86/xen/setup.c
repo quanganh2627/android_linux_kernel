@@ -222,10 +222,11 @@ static void __init xen_set_identity_and_release_chunk(
 		(void)HYPERVISOR_update_va_mapping(
 			(unsigned long)__va(pfn << PAGE_SHIFT),
 			mfn_pte(pfn, PAGE_KERNEL_IO), 0);
-
+#ifndef CONFIG_X86_INTEL_MID
 	if (start_pfn < nr_pages)
 		*released += xen_release_chunk(
 			start_pfn, min(end_pfn, nr_pages));
+#endif
 
 	*identity += set_phys_range_identity(start_pfn, end_pfn);
 }
