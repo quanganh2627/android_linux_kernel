@@ -2249,6 +2249,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		struct mmc_command cmd = {0};
 		struct mmc_request mrq = {NULL};
 		unsigned int intmask;
+		unsigned long t = jiffies + msecs_to_jiffies(150);
 
 		if (!tuning_loop_counter && !timeout)
 			break;
@@ -2296,29 +2297,45 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 
 		/* delete the timer created by send command */
 		del_timer(&host->timer);
-		intmask = sdhci_readl(host, SDHCI_INT_STATUS);
-		if (intmask & SDHCI_INT_DATA_AVAIL) {
-			host->tuning_done = 1;
-			sdhci_writel(host, intmask & SDHCI_INT_DATA_AVAIL,
-				SDHCI_INT_STATUS);
-		}
 
-		spin_unlock(&host->lock);
-		enable_irq(host->irq);
+		if (host->quirks2 & SDHCI_QUIRK2_TUNING_POLL) {
+			while (!time_after(jiffies, t)) {
+				intmask = sdhci_readl(host, SDHCI_INT_STATUS);
+				if (intmask & SDHCI_INT_DATA_AVAIL) {
+					host->tuning_done = 1;
+					sdhci_writel(host,
+						intmask & SDHCI_INT_DATA_AVAIL,
+						SDHCI_INT_STATUS);
+					break;
+				}
+			}
+		} else {
+			intmask = sdhci_readl(host, SDHCI_INT_STATUS);
+			if (intmask & SDHCI_INT_DATA_AVAIL) {
+				host->tuning_done = 1;
+				sdhci_writel(host,
+					intmask & SDHCI_INT_DATA_AVAIL,
+					SDHCI_INT_STATUS);
+			}
+			spin_unlock(&host->lock);
+			enable_irq(host->irq);
 
-		/* Wait for Buffer Read Ready interrupt */
-		if (!host->tuning_done)
-			wait_event_interruptible_timeout(host->buf_ready_int,
+			if (!host->tuning_done)
+				/* Wait for Buffer Read Ready interrupt */
+				wait_event_interruptible_timeout(
+						host->buf_ready_int,
 						(host->tuning_done == 1),
 						msecs_to_jiffies(50));
-		disable_irq(host->irq);
-		spin_lock(&host->lock);
+			disable_irq(host->irq);
+			spin_lock(&host->lock);
 
-		intmask = sdhci_readl(host, SDHCI_INT_STATUS);
-		if (intmask & SDHCI_INT_DATA_AVAIL) {
-			host->tuning_done = 1;
-			sdhci_writel(host, intmask & SDHCI_INT_DATA_AVAIL,
-				SDHCI_INT_STATUS);
+			intmask = sdhci_readl(host, SDHCI_INT_STATUS);
+			if (intmask & SDHCI_INT_DATA_AVAIL) {
+				host->tuning_done = 1;
+				sdhci_writel(host,
+					intmask & SDHCI_INT_DATA_AVAIL,
+					SDHCI_INT_STATUS);
+			}
 		}
 
 		if (!host->tuning_done) {
