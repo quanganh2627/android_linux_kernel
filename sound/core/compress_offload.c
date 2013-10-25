@@ -269,16 +269,25 @@ static ssize_t snd_compr_write(struct file *f, const char __user *buf,
 	struct snd_compr_file *data = f->private_data;
 	struct snd_compr_stream *stream;
 	size_t avail;
-	int retval;
+	int retval = 0;
 
 	if (snd_BUG_ON(!data))
 		return -EFAULT;
 
 	stream = &data->stream;
 	mutex_lock(&stream->device->lock);
-	/* write is allowed when stream is running or has been steup */
+	 /*
+	 * if the stream is in paused state, return the
+	 * number of bytes consumed as 0
+	 */
+	if (stream->runtime->state == SNDRV_PCM_STATE_PAUSED) {
+		mutex_unlock(&stream->device->lock);
+		return retval;
+	}
+	/* write is allowed when stream is running or prepared or in setup */
 	if (stream->runtime->state != SNDRV_PCM_STATE_SETUP &&
-			stream->runtime->state != SNDRV_PCM_STATE_RUNNING) {
+			stream->runtime->state != SNDRV_PCM_STATE_RUNNING &&
+			stream->runtime->state != SNDRV_PCM_STATE_PREPARED) {
 		mutex_unlock(&stream->device->lock);
 		return -EBADFD;
 	}
