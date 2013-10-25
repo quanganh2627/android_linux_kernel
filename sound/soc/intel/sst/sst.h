@@ -879,6 +879,18 @@ static inline struct stream_info *get_stream_info(int str_id)
 	return &sst_drv_ctx->streams[str_id];
 }
 
+static inline int get_stream_id_mrfld(u32 pipe_id)
+{
+	int i;
+
+	for (i = 1; i <= sst_drv_ctx->info.max_streams; i++)
+		if (pipe_id == sst_drv_ctx->streams[i].pipe_id)
+			return i;
+
+	pr_debug("%s: no such pipe_id(%u)", __func__, pipe_id);
+	return -1;
+}
+
 int register_sst(struct device *);
 int unregister_sst(struct device *);
 

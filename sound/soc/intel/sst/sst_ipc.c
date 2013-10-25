@@ -149,18 +149,6 @@ static int sst_send_runtime_param(struct snd_sst_runtime_params *params)
 	return sst_send_ipc_msg_nowait(&msg);
 }
 
-static inline int get_stream_id_mrfld(u32 pipe_id)
-{
-	int i;
-
-	for (i = 1; i <= sst_drv_ctx->info.max_streams; i++)
-		if (pipe_id == sst_drv_ctx->streams[i].pipe_id)
-			return i;
-
-	pr_err("%s: no such pipe_id(%u)", __func__, pipe_id);
-	return -1;
-}
-
 void sst_post_message_mrfld(struct work_struct *work)
 {
 	struct ipc_post *msg;
