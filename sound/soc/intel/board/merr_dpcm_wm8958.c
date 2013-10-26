@@ -229,6 +229,14 @@ static int mrfld_wm8958_compr_set_params(struct snd_compr_stream *cstream)
 	return mrfld_wm8958_set_clk_fmt(codec_dai);
 }
 
+static const struct snd_soc_pcm_stream mrfld_wm8958_dai_params = {
+	.formats = SNDRV_PCM_FMTBIT_S24_LE,
+	.rate_min = 48000,
+	.rate_max = 48000,
+	.channels_min = 2,
+	.channels_max = 2,
+};
+
 static int merr_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 			    struct snd_pcm_hw_params *params)
 {
@@ -378,7 +386,6 @@ static const struct snd_soc_dapm_route map[] = {
 
 	{ "AIF1 Playback", NULL, "VFLEXCNT" },
 	{ "AIF1 Capture", NULL, "VFLEXCNT" },
-
 };
 
 static const struct wm8958_micd_rate micdet_rates[] = {
@@ -683,6 +690,18 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 		.capture_count = 8,
 		.dynamic = 1,
 	},
+	/* CODEC<->CODEC link */
+	{
+		.name = "Merrifield Codec-Loop Port",
+		.stream_name = "Saltbay Codec-Loop",
+		.cpu_dai_name = "snd-soc-dummy-dai",
+		.codec_dai_name = "wm8994-aif1",
+		.codec_name = "wm8994-codec",
+		.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF
+						| SND_SOC_DAIFMT_CBS_CFS,
+		.params = &mrfld_wm8958_dai_params,
+	},
+
 	/* back ends */
 	{
 		.name = "SSP2-Codec",

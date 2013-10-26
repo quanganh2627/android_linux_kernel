@@ -463,14 +463,14 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("tone"),
 	SND_SOC_DAPM_OUTPUT("aware"),
 	SND_SOC_DAPM_OUTPUT("vad"),
-	SST_SSP_AIF_IN("modem_in", SSP_MODEM, sst_ssp_event),
+	SST_SSP_INPUT("modem_in", SSP_MODEM, sst_ssp_event),
 	SST_SSP_AIF_IN("codec_in0", SSP_CODEC, sst_ssp_event),
 	SST_SSP_AIF_IN("codec_in1", SSP_CODEC, sst_ssp_event),
-	SST_SSP_AIF_IN("bt_fm_in", SSP_FM, sst_ssp_event),
-	SST_SSP_AIF_OUT("modem_out", SSP_MODEM, sst_ssp_event),
+	SST_SSP_INPUT("bt_fm_in", SSP_FM, sst_ssp_event),
+	SST_SSP_OUTPUT("modem_out", SSP_MODEM, sst_ssp_event),
 	SST_SSP_AIF_OUT("codec_out0", SSP_CODEC, sst_ssp_event),
 	SST_SSP_AIF_OUT("codec_out1", SSP_CODEC, sst_ssp_event),
-	SST_SSP_AIF_OUT("bt_fm_out", SSP_FM, sst_ssp_event),
+	SST_SSP_OUTPUT("bt_fm_out", SSP_FM, sst_ssp_event),
 
 	/* Media Paths */
 	/* MediaX IN paths are set via ALLOC, so no SET_MEDIA_PATH command */
