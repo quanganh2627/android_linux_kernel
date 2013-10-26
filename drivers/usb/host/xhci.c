@@ -27,16 +27,11 @@
 #include <linux/moduleparam.h>
 #include <linux/slab.h>
 #include <linux/dmi.h>
-#include <linux/pci.h>
-#include <acpi/acpi.h>
-#include "../../acpi/acpica/achware.h"
 
 #include "xhci.h"
 
 #define DRIVER_AUTHOR "Sarah Sharp"
 #define DRIVER_DESC "'eXtensible' Host Controller (xHC) Driver"
-
-static struct xhci_hcd *xhci_host;
 
 /* Some 0.95 hardware can't handle the chain bit on a Link TRB being cleared */
 static int link_quirk;
@@ -209,79 +204,6 @@ static int xhci_free_msi(struct xhci_hcd *xhci)
 	return 0;
 }
 
-#ifdef CONFIG_ACPI
-bool pci_check_pme_enable_and_status(struct pci_dev *dev)
-{
-	int pmcsr_pos;
-	u16 pmcsr;
-	bool ret = false;
-
-	if (!dev->pm_cap)
-		return false;
-
-	pmcsr_pos = dev->pm_cap + PCI_PM_CTRL;
-	pci_read_config_word(dev, pmcsr_pos, &pmcsr);
-	if (!(pmcsr & PCI_PM_CTRL_PME_STATUS))
-		return false;
-
-	if (pmcsr & PCI_PM_CTRL_PME_ENABLE)
-		return true;
-
-	return ret;
-}
-
-static void xhci_byt_pm_check_work(struct work_struct *work)
-{
-	struct usb_hcd		*hcd;
-	struct pci_dev		*pdev;
-	u32			gpe_en = 0;
-	unsigned long		flags;
-	int			pmcsr_pos = 0;
-	u16			pmcsr = 0;
-
-	if (xhci_host)
-		hcd = xhci_to_hcd(xhci_host);
-	else
-		return;
-
-	pdev = to_pci_dev(hcd->self.controller);
-
-	/* No need to put XHCI back to D0, as PMC will do */
-	msleep(20);
-
-	if (pci_check_pme_enable_and_status(pdev)) {
-		/* wait for PCI core PME polling to be done */
-		xhci_dbg(xhci_host, "PCI STS/EN set\n");
-		msleep(1200);
-	}
-
-	/* sometimes PME received in D0 which is not expected, clear them */
-	pmcsr_pos = pdev->pm_cap + PCI_PM_CTRL;
-	pci_read_config_word(pdev, pmcsr_pos, &pmcsr);
-
-	/* If PME_STS and PME_EN not cleared in time, then clear it*/
-	if (pmcsr & (PCI_PM_CTRL_PME_STATUS | PCI_PM_CTRL_PME_ENABLE)) {
-		pci_write_config_word(pdev, pmcsr_pos,
-					pmcsr & (~PCI_PM_CTRL_PME_ENABLE));
-		pci_read_config_word(pdev, pmcsr_pos, &pmcsr);
-	}
-
-	xhci_dbg(xhci_host, "PCI STS/EN = 0x%x\n", pmcsr);
-
-	/* clear status of GPE.PME_B0 */
-	acpi_hw_register_write(0xf1, 0x2000);
-
-	/* re-enable GPE.PME_B0 interrupt */
-	acpi_hw_register_read(0xf2, &gpe_en);
-	gpe_en = gpe_en | 0x2000;
-	acpi_hw_register_write(0xf2, gpe_en);
-
-	spin_lock_irqsave(&xhci_host->lock, flags);
-	xhci_host->pm_check_flag = 0;
-	spin_unlock_irqrestore(&xhci_host->lock, flags);
-}
-#endif
-
 /*
  * Set up MSI
  */
@@ -302,24 +224,6 @@ static int xhci_setup_msi(struct xhci_hcd *xhci)
 		xhci_dbg(xhci, "disable MSI interrupt\n");
 		pci_disable_msi(pdev);
 	}
-
-#ifdef CONFIG_ACPI
-	/* Workaround: register a shared interrupt handler on ACPI to
-	 * to handle wake up event */
-	if (pdev->vendor == PCI_VENDOR_ID_INTEL &&
-		pdev->device == PCI_DEVICE_ID_INTEL_BYT_USH) {
-		xhci_host = xhci;
-		INIT_WORK(&xhci->pm_check, xhci_byt_pm_check_work);
-
-		/* map PMC related MMIO for this workaround */
-		xhci_host->pmc_base_addr = ioremap_nocache(0xfed03000, 0x1000);
-		/* use Fixed value 9 for the ACPI interrupt */
-		ret = request_irq(9, (irq_handler_t)xhci_byt_pm_irq,
-			IRQF_SHARED, "xhci-acpi-wa", xhci_to_hcd(xhci));
-		if (ret)
-			xhci_dbg(xhci, "fail request interrupt handler\n");
-	}
-#endif
 
 	return ret;
 }
@@ -446,7 +350,6 @@ static int xhci_try_enable_msi(struct usb_hcd *hcd)
 		return 0;
 
 	pdev = to_pci_dev(xhci_to_hcd(xhci)->self.controller);
-
 	/*
 	 * Some Fresco Logic host controllers advertise MSI, but fail to
 	 * generate interrupts.  Don't even try to enable MSI.
@@ -1273,7 +1176,6 @@ static int xhci_check_args(struct usb_hcd *hcd, struct usb_device *udev,
 	}
 
 	xhci = hcd_to_xhci(hcd);
-
 	if (check_virt_dev) {
 		if (!udev->slot_id || !xhci->devs[udev->slot_id]) {
 			printk(KERN_DEBUG "xHCI %s called with unaddressed "
@@ -3594,9 +3496,20 @@ void xhci_free_dev(struct usb_hcd *hcd, struct usb_device *udev)
 {
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 	struct xhci_virt_device *virt_dev;
+	struct device *dev = hcd->self.controller;
 	unsigned long flags;
 	u32 state;
 	int i, ret;
+
+#ifndef CONFIG_USB_DEFAULT_PERSIST
+	/*
+	 * We called pm_runtime_get_noresume when the device was attached.
+	 * Decrement the counter here to allow controller to runtime suspend
+	 * if no devices remain.
+	 */
+	if (xhci->quirks & XHCI_RESET_ON_RESUME)
+		pm_runtime_put_noidle(dev);
+#endif
 
 	ret = xhci_check_args(hcd, udev, NULL, 0, true, __func__);
 	/* If the host is halted due to driver unload, we still need to free the
@@ -3669,6 +3582,7 @@ static int xhci_reserve_host_control_ep_resources(struct xhci_hcd *xhci)
 int xhci_alloc_dev(struct usb_hcd *hcd, struct usb_device *udev)
 {
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	struct device *dev = hcd->self.controller;
 	unsigned long flags;
 	int timeleft;
 	int ret;
@@ -3733,6 +3647,16 @@ int xhci_alloc_dev(struct usb_hcd *hcd, struct usb_device *udev)
 		udev->slot_id = 0;
 		goto disable_slot;
 	}
+
+
+#ifndef CONFIG_USB_DEFAULT_PERSIST
+	/*
+	 * If resetting upon resume, we can't put the controller into runtime
+	 * suspend if there is a device attached.
+	 */
+	if (xhci->quirks & XHCI_RESET_ON_RESUME)
+		pm_runtime_get_noresume(dev);
+#endif
 
 	/* Is this a LS or FS device under a HS hub? */
 	/* Hub or peripherial? */
@@ -4801,6 +4725,13 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	xhci_print_registers(xhci);
 
 	get_quirks(dev, xhci);
+
+	/* In xhci controllers which follow xhci 1.0 spec gives a spurious
+	 * success event after a short transfer. This quirk will ignore such
+	 * spurious event.
+	 */
+	if (xhci->hci_version > 0x96)
+		xhci->quirks |= XHCI_SPURIOUS_SUCCESS;
 
 	/* Make sure the HC is halted. */
 	retval = xhci_halt(xhci);

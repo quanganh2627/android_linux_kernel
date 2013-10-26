@@ -1521,7 +1521,6 @@ struct xhci_hcd {
 #define XHCI_PLAT		(1 << 16)
 #define XHCI_PORT_DISABLE_QUIRK	(1 << 17)
 #define XHCI_LPM_DISABLE_QUIRK	(1 << 18)
-
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */
