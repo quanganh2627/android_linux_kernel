@@ -93,7 +93,7 @@ int lp855x_ext_read_byte(u8 reg);
 	#define LP8556_DRV3_DIS	0x00
 	#define LP8556_DRV2_EN	0x10
 	#define LP8556_DRV2_DIS	0x00
-	#define LP8556_RSRVD_32	0x0C
+	#define LP8556_RSRVD_32	0x04
 	#define LP8556_IBOOST_LIM_0_9A_1_6A	0x00
 	#define LP8556_IBOOST_LIM_1_2A_2_1A	0x01
 	#define LP8556_IBOOST_LIM_1_5A_2_6A	0x02
