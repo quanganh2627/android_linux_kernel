@@ -4291,11 +4291,12 @@ void valleyview_enable_rps(struct drm_device *dev)
 		vlv_rs_initialize(dev);
 
 	/* Setu Gfx Turbo */
-	if (i915_enable_turbo > 0)
+	if (i915_enable_turbo > 0) {
 		if (dev_priv->rps.state)
 			vlv_turbo_initialize(dev);
 		else
 			vlv_turbo_disable(dev);
+	}
 }
 
 void ironlake_teardown_rc6(struct drm_device *dev)
@@ -6322,7 +6323,6 @@ bool vlv_rs_initialize(struct drm_device *dev)
 void vlv_rs_setstate(struct drm_device *dev, bool enable)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 regdata = 0;
 
 	if (dev_priv->rc6.enabled == enable)
 		return;
