@@ -183,7 +183,7 @@ static inline int is_fw_running(struct intel_sst_drv *drv)
 	pm_runtime_get_sync(drv->dev);
 	atomic_inc(&drv->pm_usage_count);
 	if (drv->sst_state != SST_FW_RUNNING) {
-		pr_err("FW not running, cannot read SRAM\n");
+		pr_err("FW not running\n");
 		sst_pm_runtime_put(drv);
 		return -EFAULT;
 	}
@@ -928,8 +928,12 @@ static ssize_t sst_debug_ssp_reg_read(struct file *file,
 	buf[0] = 0;
 
 	for (i = 0; i < num_ssp ; i++) {
+		if (!sst_drv_ctx->debugfs.ssp[i]) {
+			pr_err("ssp %d port not mapped\n", i);
+			continue;
+		}
 		off = sst_drv_ctx->pdata->debugfs_data->ssp_reg_size * i;
-		pos = dump_ssp_port((sst_drv_ctx->debugfs.ssp + off), buf, pos);
+		pos = dump_ssp_port((sst_drv_ctx->debugfs.ssp[i]), buf, pos);
 	}
 	sst_pm_runtime_put(drv);
 
@@ -947,13 +951,16 @@ static int dump_dma_reg(char *buf, int pos, int dma)
 {
 	int i, index = 0;
 	int off = 0 ;
-	int dma_offset;
 	void __iomem *dma_reg;
+
+	if (!sst_drv_ctx->debugfs.dma_reg[dma]) {
+		pr_err("dma %d not mapped\n", dma);
+		return pos;
+	}
 
 	pos += sprintf(buf + pos, "\nDump DMA%d Reg\n\n", dma);
 
-	dma_offset = sst_drv_ctx->pdata->debugfs_data->dma_reg_size * dma;
-	dma_reg = sst_drv_ctx->debugfs.dma_reg + dma_offset;
+	dma_reg = sst_drv_ctx->debugfs.dma_reg[dma];
 
 	/* Dump the DMA channel registers */
 	for (i = 0; i < DMA_NUM_CH; i++) {

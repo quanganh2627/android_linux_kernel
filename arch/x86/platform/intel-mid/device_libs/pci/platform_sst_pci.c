@@ -47,6 +47,7 @@
 struct sst_platform_info sst_data;
 
 static struct sst_ssp_info ssp_inf_ctp = {
+	.base_add = CTP_SSP_BASE,
 	.gpio = {
 		.alt_function = LNW_ALT_2,
 	},
@@ -175,7 +176,6 @@ static int set_ctp_sst_config(struct sst_platform_info *sst_info)
 {
 	unsigned int conf_len;
 
-	ssp_inf_ctp.base_add = CTP_SSP_BASE;
 	ssp_inf_ctp.gpio.i2s_rx_alt = get_gpio_by_name("gpio_i2s3_rx");
 	ssp_inf_ctp.gpio.i2s_tx_alt = get_gpio_by_name("gpio_i2s3_rx");
 	ssp_inf_ctp.gpio.i2s_frame = get_gpio_by_name("gpio_i2s3_fs");

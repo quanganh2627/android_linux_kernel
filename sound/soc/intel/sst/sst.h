@@ -342,8 +342,8 @@ struct sst_debugfs {
 	struct dentry		*root;
 #endif
 	int			runtime_pm_status;
-	void __iomem            *ssp;
-	void __iomem            *dma_reg;
+	void __iomem            *ssp[SST_MAX_SSP_PORTS];
+	void __iomem            *dma_reg[SST_MAX_DMA];
 };
 
 struct lpe_log_buf_hdr {
