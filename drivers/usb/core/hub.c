@@ -3016,6 +3016,13 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 			goto err_lpm3;
 	}
 
+	/*
+	 * Hold port wakeup mutex before set port suspend if device may
+	 * generate remote wakeup to avoid race condition.
+	 */
+	if (udev->do_remote_wakeup)
+		mutex_lock(&port_dev->wakeup_mutex);
+
 	/* see 7.1.7.6 */
 	if (hub_is_superspeed(hub->hdev))
 		status = hub_set_port_link_state(hub, port1, USB_SS_PORT_LS_U3);
@@ -3082,6 +3089,9 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 		}
 		usb_set_device_state(udev, USB_STATE_SUSPENDED);
 	}
+
+	if (udev->do_remote_wakeup)
+		mutex_unlock(&port_dev->wakeup_mutex);
 
 	if (status == 0 && !udev->do_remote_wakeup && udev->persist_enabled) {
 		pm_runtime_put_sync(&port_dev->dev);
@@ -4634,7 +4644,12 @@ static int hub_handle_remote_wakeup(struct usb_hub *hub, unsigned int port,
 		msleep(10);
 
 		usb_lock_device(udev);
+		/* hold port mutex before handle remote wakup */
+		if (hub->ports[port - 1])
+			mutex_lock(&hub->ports[port - 1]->wakeup_mutex);
 		ret = usb_remote_wakeup(udev);
+		if (hub->ports[port - 1])
+			mutex_unlock(&hub->ports[port - 1]->wakeup_mutex);
 		usb_unlock_device(udev);
 		if (ret < 0)
 			connect_change = 1;
