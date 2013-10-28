@@ -23,6 +23,7 @@
 #define IPCMSG_OSC_CLK		0xE6 /* Turn on/off osc clock */
 #define IPCMSG_S0IX_COUNTER	0xEB /* Get S0ix residency */
 #define IPCMSG_CLEAR_FABERROR	0xE3 /* Clear fabric error log */
+#define IPCMSG_SCULOG_CTRL	0xE1 /* SCU logging control message */
 #define IPCMSG_STORE_NV_DATA	0xCD /* Store the Non Volatile data to RAM */
 
 #define IPC_CMD_UMIP_RD     0
@@ -47,7 +48,9 @@
 #define MAX_MSIC_REG   0x3FF
 #define MIN_MSIC_REG   0x0
 
-
+/* Command id associated with SCULOG_CTRL */
+#define IPC_CMD_SCU_LOG_SUSPEND	1
+#define IPC_CMD_SCU_LOG_RESUME	2
 
 /* Command id associated with message IPCMSG_VRTC */
 #define IPC_CMD_VRTC_SETTIME      1 /* Set time */

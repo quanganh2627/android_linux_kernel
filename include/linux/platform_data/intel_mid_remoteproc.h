@@ -33,6 +33,7 @@
 #define RP_S0IX_COUNTER		0xE8
 #define RP_WRITE_OSNIB		0xE4
 #define RP_CLEAR_FABERROR	0xE3
+#define RP_SCULOG_CTRL		0xE1
 #define RP_FW_UPDATE		0xFE
 #define RP_VRTC			0xFA
 #define RP_PMDB			0xE0

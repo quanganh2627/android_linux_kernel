@@ -168,6 +168,7 @@ static int scu_ipc_fw_logging_command(void *tx_buf)
 		ret = scu_ipc_command(tx_buf);
 		break;
 	case RP_CLEAR_FABERROR:
+	case RP_SCULOG_CTRL:
 		ret = scu_ipc_simple_command(tx_buf);
 		break;
 	default:
