@@ -774,6 +774,21 @@ static void intel_enable_hdmi(struct intel_encoder *encoder)
 	}
 }
 
+int intel_hdmi_encoder_status(struct drm_encoder *encoder)
+{
+	struct drm_device *dev = encoder->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 hdmib_control = I915_READ(GEN3_SDVOB);
+
+	if ((hdmib_control & SDVO_ENABLE) &&
+		(hdmib_control & SDVO_AUDIO_ENABLE) &&
+	    dev_priv->late_resume) {
+		DRM_DEBUG_DRIVER("HDMI encoder inuse!\n");
+		return true;
+	} else
+		return false;
+}
+
 static void vlv_enable_hdmi(struct intel_encoder *encoder)
 {
 }
@@ -1221,6 +1236,10 @@ static void intel_hdmi_destroy(struct drm_connector *connector)
 	drm_connector_cleanup(connector);
 	kfree(connector);
 }
+
+static const struct drm_encoder_helper_funcs intel_hdmi_helper_funcs = {
+	.inuse = intel_hdmi_encoder_status,
+};
 
 static const struct drm_connector_funcs intel_hdmi_connector_funcs = {
 	.dpms = intel_connector_dpms,

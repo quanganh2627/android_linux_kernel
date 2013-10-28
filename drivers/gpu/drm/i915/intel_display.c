@@ -10292,6 +10292,7 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	drm_kms_helper_poll_enable(dev);
 	display_save_restore_hotplug(dev, RESTOREHPD);
 	dev_priv->s0ixstat = true;
+	dev_priv->late_resume = true;
 	/* KMS EnterVT equivalent */
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
 		drm_modeset_lock_all(dev);
@@ -10308,6 +10309,7 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 		/* Config may have changed between suspend and resume */
 		intel_resume_hotplug(dev);
 	}
+	dev_priv->late_resume = true;
 	mid_hdmi_audio_resume(dev);
 	dev_priv->s0ixstat = false;
 	return 0;

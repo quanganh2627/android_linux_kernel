@@ -1319,6 +1319,7 @@ typedef struct drm_i915_private {
 	u32 irq_mask;
 	u32 hotplugstat;
 	bool s0ixstat;
+	bool late_resume;
 	u32 gt_irq_mask;
 	u32 pm_irq_mask;
 
