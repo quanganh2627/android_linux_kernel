@@ -1948,6 +1948,10 @@ static int max17042_probe(struct i2c_client *client,
 	int ret, i, gpio;
 	struct acpi_gpio_info gpio_info;
 
+#ifdef CONFIG_XEN
+	return -ENODEV;
+#endif
+
 #ifdef CONFIG_ACPI
 	client->dev.platform_data = max17042_platform_data(NULL);
 	dev_info(&client->dev, "%s: %d: dev->irq = %d\n",

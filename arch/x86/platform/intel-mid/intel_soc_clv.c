@@ -18,6 +18,10 @@
  *
  */
 
+#ifdef CONFIG_XEN
+#include <asm/hypervisor.h>
+#include <asm/xen/hypercall.h>
+#endif
 #include "intel_soc_pmu.h"
 
 

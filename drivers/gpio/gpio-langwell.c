@@ -761,10 +761,11 @@ static void lnw_irq_handler(unsigned irq, struct irq_desc *desc)
 	enum GPIO_REG reg_type;
 	struct irq_desc *lnw_irq_desc;
 	unsigned int lnw_irq;
-	if (!xen_start_info)
-		lnw = irq_data_get_irq_handler_data(data);
-	else
-		lnw = xen_irq_get_handler_data(irq);
+#ifdef CONFIG_XEN
+	lnw = xen_irq_get_handler_data(irq);
+#else
+	lnw = irq_data_get_irq_handler_data(data);
+#endif /* CONFIG_XEN */
 
 	debug = lnw->debug;
 
@@ -1348,11 +1349,11 @@ static int lnw_gpio_probe(struct pci_dev *pdev,
 	}
 
 	lnw_irq_init_hw(lnw);
-
-	if (!xen_start_info)
-		irq_set_handler_data(pdev->irq, lnw);
-	else
-		xen_irq_set_handler_data(pdev->irq, lnw);
+#ifdef CONFIG_XEN
+	xen_irq_set_handler_data(pdev->irq, lnw);
+#else
+	irq_set_handler_data(pdev->irq, lnw);
+#endif /* CONFIG_XEN */
 	irq_set_chained_handler(pdev->irq, lnw_irq_handler);
 
 	pm_runtime_put_noidle(&pdev->dev);

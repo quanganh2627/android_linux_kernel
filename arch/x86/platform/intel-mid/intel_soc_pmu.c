@@ -1918,9 +1918,11 @@ mid_pmu_probe(struct pci_dev *dev, const struct pci_device_id *pci_id)
 	if (platform_is(INTEL_ATOM_MRFLD) && !enable_s3)
 		__pm_stay_awake(mid_pmu_cxt->pmu_wake_lock);
 #endif
+#ifdef CONFIG_XEN
 	/* Force gfx subsystem to be powered up */
 	pmu_nc_set_power_state(dc_islands, OSPM_ISLAND_UP, OSPM_REG_TYPE);
 	pmu_nc_set_power_state(gfx_islands, OSPM_ISLAND_UP, APM_REG_TYPE);
+#endif
 	return 0;
 
 out_err5:
@@ -1999,13 +2001,13 @@ static int standby_enter(void)
 	/* time stamp for end of s3 entry */
 	time_stamp_for_sleep_state_latency(s3_state, false, true);
 
-	if (xen_start_info)
-		HYPERVISOR_mwait_op(mid_pmu_cxt->s3_hint, 1, (void *) &temp, 1);
-	else {
-		__monitor((void *) &temp, 0, 0);
-		smp_mb();
-		__mwait(mid_pmu_cxt->s3_hint, 1);
-	}
+#ifdef CONFIG_XEN
+	HYPERVISOR_mwait_op(mid_pmu_cxt->s3_hint, 1, (void *) &temp, 1);
+#else
+	__monitor((void *) &temp, 0, 0);
+	smp_mb();
+	__mwait(mid_pmu_cxt->s3_hint, 1);
+#endif
 	/* time stamp for start of s3 exit */
 	time_stamp_for_sleep_state_latency(s3_state, true, false);
 
