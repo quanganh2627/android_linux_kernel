@@ -18,6 +18,7 @@
  */
 
 #include <linux/iova.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 
 void
@@ -488,3 +489,6 @@ copy_reserved_iova(struct iova_domain *from, struct iova_domain *to)
 	spin_unlock_irqrestore(&from->iova_rbtree_lock, flags);
 }
 EXPORT_SYMBOL_GPL(copy_reserved_iova);
+
+MODULE_AUTHOR("Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>");
+MODULE_LICENSE("GPL");
