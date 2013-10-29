@@ -18,6 +18,7 @@
  */
 
 #include <linux/iova.h>
+#include <linux/slab.h>
 
 void
 init_iova_domain(struct iova_domain *iovad, unsigned long pfn_32bit)
@@ -194,6 +195,50 @@ iova_insert_rbtree(struct rb_root *root, struct iova *iova)
 	/* Add new node and rebalance tree. */
 	rb_link_node(&iova->node, parent, new);
 	rb_insert_color(&iova->node, root);
+}
+
+static struct kmem_cache *iova_cache;
+static unsigned int iova_cache_users;
+static DEFINE_MUTEX(iova_cache_mutex);
+
+static struct iova *alloc_iova_mem(void)
+{
+	return kmem_cache_alloc(iova_cache, GFP_ATOMIC);
+}
+
+static void free_iova_mem(struct iova *iova)
+{
+	kmem_cache_free(iova_cache, iova);
+}
+
+int iova_cache_get(void)
+{
+	mutex_lock(&iova_cache_mutex);
+	if (!iova_cache_users) {
+		iova_cache = kmem_cache_create(
+			"iommu_iova", sizeof(struct iova), 0,
+			SLAB_HWCACHE_ALIGN, NULL);
+		if (!iova_cache) {
+			mutex_unlock(&iova_cache_mutex);
+			printk(KERN_ERR "Couldn't create iova cache\n");
+			return -ENOMEM;
+		}
+	}
+
+	iova_cache_users++;
+	mutex_unlock(&iova_cache_mutex);
+
+	return 0;
+}
+
+void iova_cache_put(void)
+{
+	mutex_lock(&iova_cache_mutex);
+	BUG_ON(!iova_cache_users);
+	iova_cache_users--;
+	if (!iova_cache_users)
+		kmem_cache_destroy(iova_cache);
+	mutex_unlock(&iova_cache_mutex);
 }
 
 /**
