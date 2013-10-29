@@ -1086,6 +1086,9 @@ static void ehci_hsic_remove(struct pci_dev *pdev)
 	if (!hcd)
 		return;
 
+	hsic.hsic_stopped = 1;
+	hsic_enable = 0;
+
 	if (pci_dev_run_wake(pdev))
 		pm_runtime_get_noresume(&pdev->dev);
 
@@ -1128,9 +1131,6 @@ static void ehci_hsic_remove(struct pci_dev *pdev)
 	gpio_free(hsic.wakeup_gpio);
 	pci_disable_device(pdev);
 
-	hsic.hsic_stopped = 1;
-	hsic_enable = 0;
-
 	destroy_workqueue(hsic.work_queue);
 	wake_lock_destroy(&hsic.s3_wake_lock);
 	usb_unregister_notify(&hsic.hsic_pm_nb);
@@ -1141,10 +1141,13 @@ static void ehci_hsic_shutdown(struct pci_dev *pdev)
 {
 	struct usb_hcd *hcd;
 
+	mutex_lock(&hsic.hsic_mutex);
 	if (hsic.hsic_stopped == 1) {
 		dev_dbg(&pdev->dev, "hsic stopped return\n");
+		mutex_unlock(&hsic.hsic_mutex);
 		return;
 	}
+	mutex_unlock(&hsic.hsic_mutex);
 
 	dev_dbg(&pdev->dev, "%s --->\n", __func__);
 	hcd = pci_get_drvdata(pdev);
