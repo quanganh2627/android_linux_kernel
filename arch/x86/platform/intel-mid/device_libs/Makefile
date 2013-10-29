@@ -110,3 +110,5 @@ obj-$(subst m,y,$(CONFIG_INTEL_MID_GPS)) += platform_gps.o
 obj-$(subst m,y,$(CONFIG_WIFI_PLATFORM_DATA)) += platform_wifi.o
 # SCU log
 obj-$(subst m,y,$(CONFIG_SCU_LOGGING)) += platform_scu_log.o
+# Display Control Device
+obj-y += platform_display.o
