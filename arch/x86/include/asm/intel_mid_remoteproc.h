@@ -35,6 +35,7 @@
 #define RP_FW_UPDATE		0xFE
 #define RP_VRTC			0xFA
 #define RP_PMDB			0xE0
+#define RP_INDIRECT_WRITE	0x05
 
 /*
  * Assigning some temp ids for following devices
