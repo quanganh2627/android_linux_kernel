@@ -551,9 +551,18 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	card->dapm.idle_bias_off = true;
 	/* Set overcurrent detection threshold base and scale factor
 	   for jack type identification and button events. */
-	/* Threshold base = 2000uA; scale factor = 0.5 =>
-	   effective threshold of 1000uA */
-	rt5640_config_ovcd_thld(codec, RT5640_MIC1_OVTH_2000UA, RT5640_MIC_OVCD_SF_0P5);
+
+	if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1))
+		/* The mic bias resistor in BYT FFRD8 PR1 is reduced from
+		2.1K to 1.5K. Therefore the correct over current threshold
+		for this bias resistance is 1500uA. */
+		rt5640_config_ovcd_thld(codec, RT5640_MIC1_OVTH_1500UA,
+					RT5640_MIC_OVCD_SF_1P0);
+	else
+		/* Threshold base = 2000uA; scale factor = 0.5 =>
+		effective threshold of 1000uA */
+		rt5640_config_ovcd_thld(codec, RT5640_MIC1_OVTH_2000UA,
+					RT5640_MIC_OVCD_SF_0P5);
 
 	/* FFRD8 uses codec's JD1 for jack detection */
 	if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||
