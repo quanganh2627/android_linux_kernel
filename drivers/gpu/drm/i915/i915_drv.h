@@ -2337,6 +2337,7 @@ int i915_gem_context_destroy_ioctl(struct drm_device *dev, void *data,
 				   struct drm_file *file);
 
 void intel_panel_actually_set_backlight(struct drm_device *dev, u32 level);
+void intel_panel_actually_set_mipi_backlight(struct drm_device *dev, u32 level);
 
 /* i915_gem_gtt.c */
 void i915_gem_cleanup_aliasing_ppgtt(struct drm_device *dev);
@@ -2487,7 +2488,7 @@ static inline void intel_opregion_asle_intr(struct drm_device *dev) { return; }
 int i915_dpst_context(struct drm_device *dev, void *data,
 			struct drm_file *file_priv);
 u32 i915_dpst_get_brightness(struct drm_device *dev);
-void i915_dpst_set_brightness(struct drm_device *dev, u32 brightness_val);
+u32 i915_dpst_compute_brightness(struct drm_device *dev, u32 brightness_val);
 void i915_dpst_irq_handler(struct drm_device *dev);
 int i915_dpst_disable_hist_interrupt(struct drm_device *dev);
 int i915_dpst_enable_hist_interrupt(struct drm_device *dev);
