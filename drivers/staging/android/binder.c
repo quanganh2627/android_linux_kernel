@@ -76,11 +76,11 @@ BINDER_DEBUG_ENTRY(proc);
 
 /* This is only defined in include/asm-arm/sizes.h */
 #ifndef SZ_1K
-#define SZ_1K                               0x400
+#define SZ_1K		0x400
 #endif
 
 #ifndef SZ_4M
-#define SZ_4M                               0x400000
+#define SZ_4M		0x400000
 #endif
 
 #define FORBIDDEN_MMAP_FLAGS                (VM_WRITE)
@@ -1240,12 +1240,13 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 	if (buffer->target_node)
 		binder_dec_node(buffer->target_node, 1, 0);
 
-	offp = (size_t *)(buffer->data +
+	offp = (binder_size_t *)(buffer->data +
 			  ALIGN(buffer->data_size, sizeof(binder_size_t)));
 	if (failed_at)
 		off_end = failed_at;
 	else
-		off_end = (void *)offp + buffer->offsets_size;
+		off_end = offp + buffer->offsets_size / sizeof(*offp);
+
 	for (; offp < off_end; offp++) {
 		struct flat_binder_object *fp;
 		if (*offp > buffer->data_size - sizeof(*fp) ||
@@ -1440,19 +1441,22 @@ static void binder_transaction(struct binder_proc *proc,
 
 	if (reply)
 		binder_debug(BINDER_DEBUG_TRANSACTION,
-			     "%d:%d BC_REPLY %d -> %d:%d, data %x-%x size %zd-%zd\n",
+			     "%d:%d BC_REPLY %d -> %d:%d, data %p-%p size %zd-%zd\n",
 			     proc->pid, thread->pid, t->debug_id,
 			     target_proc->pid, target_thread->pid,
-			     tr->data.ptr.buffer, tr->data.ptr.offsets,
-			     tr->data_size, tr->offsets_size);
+			     BINDER_PTR tr->data.ptr.buffer,
+			     BINDER_PTR tr->data.ptr.offsets,
+			     BINDER_SIZE_T tr->data_size,
+			     BINDER_SIZE_T tr->offsets_size);
 	else
 		binder_debug(BINDER_DEBUG_TRANSACTION,
-			     "%d:%d BC_TRANSACTION %d -> %d - node %d, data %x-%x size %zd-%zd\n",
+			     "%d:%d BC_TRANSACTION %d -> %d - node %d, data %p-%p size %zd-%zd\n",
 			     proc->pid, thread->pid, t->debug_id,
 			     target_proc->pid, target_node->debug_id,
 			     BINDER_PTR tr->data.ptr.buffer,
 			     BINDER_PTR tr->data.ptr.offsets,
-			     (size_t) tr->data_size, (size_t) tr->offsets_size);
+			     BINDER_SIZE_T tr->data_size,
+			     BINDER_SIZE_T tr->offsets_size);
 
 	if (!reply && !(tr->flags & TF_ONE_WAY))
 		t->from = thread;
@@ -1481,7 +1485,7 @@ static void binder_transaction(struct binder_proc *proc,
 	if (target_node)
 		binder_inc_node(target_node, 1, 0, NULL);
 
-	offp = (size_t *)(t->buffer->data +
+	offp = (binder_size_t *)(t->buffer->data +
 			  ALIGN(tr->data_size, sizeof(binder_size_t)));
 
 	if (copy_from_user(t->buffer->data,
@@ -1506,7 +1510,7 @@ static void binder_transaction(struct binder_proc *proc,
 		return_error = BR_FAILED_REPLY;
 		goto err_bad_offset;
 	}
-	off_end = (void *)offp + tr->offsets_size;
+	off_end = offp + tr->offsets_size / sizeof(*offp);
 	for (; offp < off_end; offp++) {
 		struct flat_binder_object *fp;
 		if (*offp > t->buffer->data_size - sizeof(*fp) ||
@@ -1731,11 +1735,11 @@ err_no_context_mgr_node:
 }
 
 int binder_thread_write(struct binder_proc *proc, struct binder_thread *thread,
-			void __user *buffer, int size, signed long *consumed)
+			char  __user *buffer, int size, binder_long *consumed)
 {
 	uint32_t cmd;
-	binder_ptr __user ptr = buffer + *consumed;
-	void __user *end = buffer + size;
+	char __user *ptr = buffer + *consumed;
+	char __user *end = buffer + size;
 
 	while (ptr < end && thread->return_error == BR_OK) {
 		if (get_user(cmd, (uint32_t __user *)ptr))
@@ -2111,11 +2115,11 @@ static int binder_has_thread_work(struct binder_thread *thread)
 
 static int binder_thread_read(struct binder_proc *proc,
 			      struct binder_thread *thread,
-			      void  __user *buffer, int size,
-			      signed long *consumed, int non_block)
+			      char __user *buffer, int size,
+			      binder_long *consumed, int non_block)
 {
-	binder_ptr __user ptr = buffer + *consumed;
-	void __user *end = buffer + size;
+	char __user *ptr = buffer + *consumed;
+	char __user *end = buffer + size;
 
 	int ret = 0;
 	int wait_for_proc_work;
@@ -2306,7 +2310,7 @@ retry:
 			ptr += sizeof(uint32_t);
 			if (put_user(death->cookie, (binder_ptr __user *)ptr))
 				return -EFAULT;
-			ptr += sizeof(void *);
+			ptr += sizeof(binder_ptr);
 			binder_stat_br(proc, thread, cmd);
 			binder_debug(BINDER_DEBUG_DEATH_NOTIFICATION,
 				     "%d:%d %s %p\n",
@@ -2378,7 +2382,7 @@ retry:
 		trace_binder_transaction_received(t);
 		binder_stat_br(proc, thread, cmd);
 		binder_debug(BINDER_DEBUG_TRANSACTION,
-			     "%d:%d %s %d %d:%d, cmd %d size %zd-%zd ptr %p-%p\n",
+			     "%d:%d %s %d %d:%d, cmd %u size %zd-%zd ptr %p-%p\n",
 			     proc->pid, thread->pid,
 			     (cmd == BR_TRANSACTION) ? "BR_TRANSACTION" :
 			     "BR_REPLY",
@@ -2457,7 +2461,7 @@ static void binder_release_work(struct list_head *list)
 			death = container_of(w, struct binder_ref_death, work);
 			binder_debug(BINDER_DEBUG_DEAD_TRANSACTION,
 				"undelivered death notification, %p\n",
-				death->cookie);
+				BINDER_PTR death->cookie);
 			kfree(death);
 			binder_stats_deleted(BINDER_STAT_DEATH);
 		} break;
@@ -2680,9 +2684,11 @@ static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				ret = -EPERM;
 				goto err;
 			}
-		} else
+		} else {
 			binder_context_mgr_uid = current->cred->euid;
-		binder_context_mgr_node = binder_new_node(proc, (binder_ptr) NULL, (binder_ptr) NULL);
+		}
+		binder_context_mgr_node = binder_new_node(proc, (binder_ptr) 0,
+							  (binder_ptr) 0);
 		if (binder_context_mgr_node == NULL) {
 			ret = -ENOMEM;
 			goto err;
