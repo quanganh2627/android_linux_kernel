@@ -535,7 +535,6 @@ static void ush_hsic_port_enable(void)
 {
 	printk(KERN_ERR "%s---->\n", __func__);
 	hsic_enable = 1;
-	hsic.port_disconnect = 0;
 	if (hsic.modem_dev) {
 		dev_dbg(&pci_dev->dev,
 			"Disable auto suspend in port enable\n");
@@ -578,6 +577,8 @@ static void hsic_aux_work(struct work_struct *work)
 	if (hsic.port_disconnect == 0)
 		hsic_port_logical_disconnect(hsic.rh_dev,
 				HSIC_USH_PORT);
+	else
+		ush_hsic_port_disable();
 
 	usleep_range(hsic.reenumeration_delay,
 			hsic.reenumeration_delay + 1000);
@@ -787,6 +788,9 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 		if (hsic.port_disconnect == 0)
 			hsic_port_logical_disconnect(hsic.rh_dev,
 					HSIC_USH_PORT);
+		else
+			ush_hsic_port_disable();
+
 		usleep_range(5000, 6000);
 		ush_hsic_port_enable();
 	} else {
