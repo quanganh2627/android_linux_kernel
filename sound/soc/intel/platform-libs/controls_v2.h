@@ -392,11 +392,14 @@ enum sst_cmd {
 	SBA_VB_START		= 85,
 	MMX_SET_SWM		= 114,
 	SBA_SET_SWM		= 114,
+	SBA_SET_MDRP            = 116,
 	SBA_HW_SET_SSP		= 117,
 	SBA_SET_MEDIA_LOOP_MAP	= 118,
 	SBA_SET_MEDIA_PATH	= 119,
 	MMX_SET_MEDIA_PATH	= 119,
-	SBA_VB_STOP		= 126,
+	SBA_VB_LPRO		= 126,
+	SBA_VB_SET_FIR          = 128,
+	SBA_VB_SET_IIR          = 129,
 };
 
 enum sst_ssp_port {
@@ -509,6 +512,12 @@ struct sst_cmd_set_gain_dual {
 	struct sst_dsp_header header;
 	u16    gain_cell_num;
 	struct gain_cell cell_gains[NUM_GAIN_CELLS];
+} __packed;
+
+struct sst_cmd_set_params {
+	struct sst_destination_id dst;
+	u16 command_id;
+	char params[0];
 } __packed;
 
 /*

@@ -22,6 +22,7 @@
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/slab.h>
 #include <sound/soc.h>
 #include <sound/tlv.h>
 #include "../platform_ipc_v2.h"
@@ -67,6 +68,65 @@ static int sst_fill_and_send_cmd(struct sst_data *sst,
 
 	print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, cmd_data, len);
 	return ret;
+}
+
+int sst_algo_bytes_ctl_info(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_info *uinfo)
+{
+	struct sst_algo_control *bc = (void *)kcontrol->private_value;
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = bc->max;
+
+	if (bc->params == NULL) {
+		bc->params = devm_kzalloc(platform->dev, bc->max, GFP_KERNEL);
+		if (bc->params == NULL) {
+			pr_err("kzalloc failed\n");
+			return -ENOMEM;
+		}
+	}
+	return 0;
+}
+
+static int sst_algo_control_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct sst_algo_control *bc = (void *)kcontrol->private_value;
+
+	pr_debug("in %s\n", __func__);
+	switch (bc->type) {
+	case SST_ALGO_PARAMS:
+		if (bc->params)
+			memcpy(ucontrol->value.bytes.data, bc->params, bc->max);
+		break;
+	case SST_ALGO_BYPASS:
+		ucontrol->value.integer.value[0] = bc->bypass ? 1 : 0;
+		pr_debug("%s: bypass  %d\n", __func__, bc->bypass);
+		break;
+	}
+	return 0;
+}
+
+static int sst_algo_control_set(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct sst_algo_control *bc = (void *)kcontrol->private_value;
+
+	pr_debug("in %s\n", __func__);
+	switch (bc->type) {
+	case SST_ALGO_PARAMS:
+		if (bc->params)
+			memcpy(bc->params, ucontrol->value.bytes.data, bc->max);
+		break;
+	case SST_ALGO_BYPASS:
+		bc->bypass = !!ucontrol->value.integer.value[0];
+		pr_debug("%s: Mute %d\n", __func__, bc->bypass);
+		break;
+	}
+	/*FIXME * if pipe is enabled, need to send the algo params from here
+	sst_send_algo_cmd() */
+	return 0;
 }
 
 static int sst_gain_ctl_info(struct snd_kcontrol *kcontrol,
@@ -429,6 +489,47 @@ static int sst_set_media_path(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void sst_send_algo_cmd(struct snd_soc_platform *platform,
+	struct sst_data *sst, struct sst_algo_control *bc)
+{
+	int len;
+	struct sst_cmd_set_params *cmd;
+
+	cmd = kzalloc(sizeof(struct sst_dsp_header) + bc->max, GFP_KERNEL);
+	if (cmd == NULL) {
+		pr_err("Failed to send cmd, kzalloc failed\n");
+		return;
+	}
+
+	SST_FILL_DESTINATION(2, cmd->dst, bc->pipe_id, bc->module_id);
+	cmd->command_id = bc->cmd_id;
+	memcpy(cmd->params, bc->params, bc->max);
+	len = sizeof(cmd->dst) + sizeof(cmd->command_id) + bc->max;
+
+	sst_fill_and_send_cmd(sst, SST_IPC_IA_SET_PARAMS, SST_FLAG_BLOCKED,
+			      bc->task_id, 0, cmd, len);
+	kfree(cmd);
+}
+
+static void sst_get_and_send_pipe_algo(struct snd_soc_platform *platform,
+	struct snd_soc_dapm_widget *w)
+{
+	struct snd_kcontrol *kctl;
+	struct snd_soc_dapm_context *dapm = &platform->dapm;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct sst_algo_control *bc;
+
+	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
+
+	list_for_each_entry(kctl, &dapm->card->snd_card->controls, list) {
+		if (strstr(kctl->id.name, "Params") && strstr(kctl->id.name, w->name)) {
+			pr_debug("Found algo control name =%s pipe=%s\n", kctl->id.name,  w->name);
+			bc = (void *)kctl->private_value;
+			sst_send_algo_cmd(platform, sst, bc);
+		}
+	}
+}
+
 static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *k, int event)
 {
@@ -456,6 +557,8 @@ static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 			      SST_TASK_SBA, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		sst_get_and_send_pipe_algo(w->platform, w);
 	return 0;
 }
 
@@ -695,6 +798,31 @@ static const struct snd_kcontrol_new sst_gain_controls[] = {
 	SST_GAIN("modem_out", SST_PATH_INDEX_MODEM_OUT, SST_TASK_SBA, 0, &sst_gains[29]),
 };
 
+static const struct snd_kcontrol_new sst_algo_controls[] = {
+	SST_ALGO_KCONTROL_BYTES("media_loop1_out", "fir", 272, SST_MODULE_ID_FIR_24,
+		 SST_PATH_INDEX_MEDIA_LOOP1_OUT, 0, SST_TASK_SBA, SBA_VB_SET_FIR),
+	SST_ALGO_KCONTROL_BYTES("media_loop1_out", "iir", 300, SST_MODULE_ID_IIR_24,
+		SST_PATH_INDEX_MEDIA_LOOP1_OUT, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
+	SST_ALGO_KCONTROL_BYTES("media_loop1_out", "mdrp", 76, SST_MODULE_ID_MDRP,
+		SST_PATH_INDEX_MEDIA_LOOP1_OUT, 0, SST_TASK_SBA, SBA_SET_MDRP),
+	SST_ALGO_KCONTROL_BYTES("media_loop2_out", "fir", 272, SST_MODULE_ID_FIR_24,
+		SST_PATH_INDEX_MEDIA_LOOP2_OUT, 0, SST_TASK_SBA, SBA_VB_SET_FIR),
+	SST_ALGO_KCONTROL_BYTES("media_loop2_out", "iir", 300, SST_MODULE_ID_IIR_24,
+		SST_PATH_INDEX_MEDIA_LOOP2_OUT, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
+	SST_ALGO_KCONTROL_BYTES("media_loop2_out", "mdrp", 76, SST_MODULE_ID_MDRP,
+		SST_PATH_INDEX_MEDIA_LOOP2_OUT, 0, SST_TASK_SBA, SBA_SET_MDRP),
+	SST_ALGO_KCONTROL_BYTES("aware_out", "fir", 272, SST_MODULE_ID_FIR_24,
+		SST_PATH_INDEX_AWARE_OUT, 0, SST_TASK_SBA, SBA_VB_SET_FIR),
+	SST_ALGO_KCONTROL_BYTES("aware_out", "iir", 300, SST_MODULE_ID_IIR_24,
+		SST_PATH_INDEX_AWARE_OUT, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
+	SST_ALGO_KCONTROL_BYTES("vad_out", "fir", 272, SST_MODULE_ID_FIR_24,
+		SST_PATH_INDEX_VAD_OUT, 0, SST_TASK_SBA, SBA_VB_SET_FIR),
+	SST_ALGO_KCONTROL_BYTES("vad_out", "iir", 300, SST_MODULE_ID_IIR_24,
+		SST_PATH_INDEX_VAD_OUT, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
+	SST_ALGO_KCONTROL_BYTES("sprot_loop_out", "lpro", 192, SST_MODULE_ID_SPROT,
+		SST_PATH_INDEX_SPROT_LOOP_OUT, 0, SST_TASK_SBA, SBA_VB_LPRO),
+};
+
 int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 {
 	int i;
@@ -728,6 +856,9 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 	}
 	snd_soc_add_platform_controls(platform, sst_gain_controls,
 			ARRAY_SIZE(sst_gain_controls));
+
+	snd_soc_add_platform_controls(platform, sst_algo_controls,
+			ARRAY_SIZE(sst_algo_controls));
 
 	return 0;
 }

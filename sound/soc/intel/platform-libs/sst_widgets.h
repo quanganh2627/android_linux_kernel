@@ -147,8 +147,8 @@ struct sst_gain_value {
 	  .module_id = xmod, .pipe_id = xpipe, .task_id = xtask,\
 	  .instance_id = xinstance, .gain_val = xgain_val }
 
-#define SST_CONTROL_NAME(xpname, xinstance, xtype) \
-	xpname " " "gain" " " #xinstance " " xtype
+#define SST_CONTROL_NAME(xpname, xmname, xinstance, xtype) \
+	xpname " " xmname " " #xinstance " " xtype
 
 /*
  * 3 Controls for each Gain module
@@ -159,13 +159,13 @@ struct sst_gain_value {
 #define SST_GAIN_KCONTROLS(xpname, xmin_gain, xmax_gain, xmin_tc, xmax_tc, \
 			   xhandler_get, xhandler_put, \
 			   xmod, xpipe, xinstance, xtask, tlv_array, xgain_val) \
-	{ SST_GAIN_KCONTROL_INT(SST_CONTROL_NAME(xpname, xinstance, "rampduration"), \
+	{ SST_GAIN_KCONTROL_INT(SST_CONTROL_NAME(xpname, "gain", xinstance, "rampduration"), \
 		xhandler_get, xhandler_put, xmod, xpipe, xinstance, xtask, SST_GAIN_RAMP_DURATION, \
 		xgain_val, xmin_tc, xmax_tc) }, \
-	{ SST_GAIN_KCONTROL_BOOL(SST_CONTROL_NAME(xpname, xinstance, "mute"), \
+	{ SST_GAIN_KCONTROL_BOOL(SST_CONTROL_NAME(xpname, "gain", xinstance, "mute"), \
 		xhandler_get, xhandler_put, xmod, xpipe, xinstance, xtask, \
 		xgain_val) } ,\
-	{ SST_GAIN_KCONTROL_TLV(SST_CONTROL_NAME(xpname, xinstance, "volume"), \
+	{ SST_GAIN_KCONTROL_TLV(SST_CONTROL_NAME(xpname, "gain", xinstance, "volume"), \
 		xhandler_get, xhandler_put, xmod, xpipe, xinstance, xtask, tlv_array, \
 		xgain_val, xmin_gain, xmax_gain) }
 
@@ -173,5 +173,47 @@ struct sst_gain_value {
 #define SST_GAIN_TC_MAX		5000
 #define SST_GAIN_MIN_VALUE	-1440 /* in 0.1 DB units */
 #define SST_GAIN_MAX_VALUE	360
+
+enum sst_algo_kcontrol_type {
+	SST_ALGO_PARAMS,
+	SST_ALGO_BYPASS,
+};
+
+struct sst_algo_control {
+	enum sst_algo_kcontrol_type type;
+	int max;
+	u16 module_id;
+	u16 pipe_id;
+	u16 instance_id;
+	u16 task_id;
+	u16 cmd_id;
+	bool bypass;
+	unsigned char *params;
+};
+
+#define SST_ALGO_KCONTROL_BYTES(xpname, xmname, xcount, xmod, \
+				xpipe, xinstance, xtask, xcmd) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,\
+	.name = SST_CONTROL_NAME(xpname, xmname, xinstance, "params"), \
+	.info = sst_algo_bytes_ctl_info, \
+	.get = sst_algo_control_get, .put = sst_algo_control_set, \
+	.private_value = (unsigned long)&(struct sst_algo_control) \
+	{.max = xcount, .type = SST_ALGO_PARAMS, .module_id = xmod, \
+	.pipe_id = xpipe, .instance_id = xinstance, .task_id = xtask, .cmd_id = xcmd} }
+
+#define SST_ALGO_KCONTROL_BOOL(xpname, xmname, xmod, xpipe, xinstance, xtask) \
+{      .iface = SNDRV_CTL_ELEM_IFACE_MIXER, \
+	.name = SST_CONTROL_NAME(xpname, xmname, xinstance, "bypass"), \
+	.info = snd_soc_info_bool_ext, \
+	.get = sst_algo_control_get, .put = sst_algo_control_set, \
+	.private_value = (unsigned long)&(struct sst_algo_control) \
+	{.type = SST_ALGO_BYPASS, .module_id = xmod, .pipe_id = xpipe, \
+	.task_id = xtask, .instance_id = xinstance, .bypass = 0 } }
+
+#define SST_ALGO_BYPASS_PARAMS(xpname, xmname, xcount, xmod, xpipe, \
+				xinstance, xtask, xcmd)  \
+	SST_ALGO_KCONTROL_BOOL(xpname, xmname, xmod, xpipe, xinstance, xtask), \
+	SST_ALGO_KCONTROL_BYTES(xpname, xmname, xcount, xmod, xpipe, xinstance, xtask, xcmd)
+
 
 #endif
