@@ -894,11 +894,6 @@ struct intel_gen6_power_mgmt {
 	struct work_struct work;
 	u32 pm_iir;
 
-	/* lock - irqsave spinlock that protectects the work_struct and
-	* pm_iir. */
-	spinlock_t lock;
-
-
 	/* On vlv we need to manually drop to Vmin with a delayed work. */
 	struct delayed_work vlv_work;
 

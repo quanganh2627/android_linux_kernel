@@ -4213,7 +4213,7 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 					dev_priv->rps.rpe_delay);
 
 	/* Clear out any stale interrupts first */
-	spin_lock_irqsave(&dev_priv->rps.lock, flags);
+	spin_lock_irqsave(&dev_priv->irq_lock, flags);
 	WARN_ON(dev_priv->rps.pm_iir != 0);
 	I915_WRITE(GEN6_PMIIR, I915_READ(GEN6_PMIIR));
 	if (dev_priv->use_RC0_residency_for_turbo)
@@ -4221,7 +4221,7 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 	else
 		dev_priv->pm_irq_mask &= ~GEN6_PM_RPS_EVENTS;
 	I915_WRITE(GEN6_PMIMR, dev_priv->pm_irq_mask);
-	spin_unlock_irqrestore(&dev_priv->rps.lock, flags);
+	spin_unlock_irqrestore(&dev_priv->irq_lock, flags);
 
 	dev_priv->rps.enabled = true;
 
@@ -4252,9 +4252,9 @@ void vlv_turbo_disable(struct drm_device *dev)
 	* register (PMIMR) to mask PM interrupts. The only risk is in leaving
 	* stale bits in PMIIR and PMIMR which gen6_enable_rps will clean up. */
 
-	spin_lock_irqsave(&dev_priv->rps.lock, flags);
+	spin_lock_irqsave(&dev_priv->irq_lock, flags);
 	dev_priv->rps.pm_iir = 0;
-	spin_unlock_irqrestore(&dev_priv->rps.lock, flags);
+	spin_unlock_irqrestore(&dev_priv->irq_lock, flags);
 
 	I915_WRITE(GEN6_PMIIR, I915_READ(GEN6_PMIIR));
 
