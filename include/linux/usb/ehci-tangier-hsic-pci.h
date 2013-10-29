@@ -3,6 +3,7 @@
 
 #include <linux/notifier.h>
 #include <linux/usb.h>
+#include <linux/wakelock.h>
 
 #define HSIC_AUX_GPIO_NAME       "usb_hsic_aux1"
 #define HSIC_WAKEUP_GPIO_NAME    "usb_hsic_aux2"
@@ -32,10 +33,23 @@
 #define HSIC_BUS_INACTIVITYDURATION               500
 #define HSIC_REMOTEWAKEUP                         1
 
+enum wlock_state {
+	UNLOCKED,
+	LOCKED
+};
+
+enum s3_state {
+	RESUMED,
+	RESUMING,
+	SUSPENDED,
+	SUSPENDING
+};
+
 struct hsic_tangier_priv {
 	struct delayed_work  hsic_aux;
 	wait_queue_head_t    aux_wq;
 	struct mutex         hsic_mutex;
+	struct mutex         wlock_mutex;
 	unsigned             hsic_mutex_init:1;
 	unsigned             aux_wq_init:1;
 	unsigned             hsic_aux_irq_enable:1;
@@ -57,6 +71,11 @@ struct hsic_tangier_priv {
 	struct usb_device           *modem_dev;
 	struct workqueue_struct     *work_queue;
 	struct work_struct          wakeup_work;
+	struct notifier_block       hsic_pm_nb;
+	struct notifier_block       hsic_s3_entry_nb;
+	struct wake_lock            s3_wake_lock;
+	enum wlock_state            s3_wlock_state;
+	enum wlock_state            s3_rt_state;
 };
 
 enum {

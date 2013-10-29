@@ -25,6 +25,8 @@
 #include <asm/intel-mid.h>
 #include <linux/wakelock.h>
 #include <linux/jiffies.h>
+#include <linux/usb.h>
+#include <linux/suspend.h>
 
 static struct pci_dev	*pci_dev;
 
@@ -389,6 +391,104 @@ static void hsic_notify(struct usb_device *udev, unsigned action)
 		break ;
 	}
 	return;
+}
+
+static void s3_wake_lock(void)
+{
+	mutex_lock(&hsic.wlock_mutex);
+	if (hsic.s3_wlock_state == UNLOCKED) {
+		wake_lock(&hsic.s3_wake_lock);
+		hsic.s3_wlock_state = LOCKED;
+	}
+	mutex_unlock(&hsic.wlock_mutex);
+}
+
+static void s3_wake_unlock(void)
+{
+	mutex_lock(&hsic.wlock_mutex);
+	if (hsic.s3_wlock_state == LOCKED) {
+		wake_unlock(&hsic.s3_wake_lock);
+		hsic.s3_wlock_state = LOCKED;
+	}
+	mutex_unlock(&hsic.wlock_mutex);
+}
+
+static void hsic_port_suspend(struct usb_device *udev)
+{
+	int retval;
+	struct pci_dev *pdev = to_pci_dev(udev->bus->controller);
+
+	if (pdev->device != 0x119d)
+		return;
+
+	/* Ignore USB devices on external hub */
+	if (udev->parent && udev->parent->parent)
+		return;
+
+	/* Only valid for hsic port1 */
+	if (udev->portnum == 2) {
+		pr_debug("%s ignore hsic port2\n", __func__);
+		return;
+	}
+
+	/* Modem dev */
+	if ((udev->parent) && (hsic.s3_rt_state != SUSPENDING)) {
+		pr_debug("%s s3 wlock unlocked\n", __func__);
+		s3_wake_unlock();
+	}
+}
+
+static void hsic_port_resume(struct usb_device *udev)
+{
+	int retval;
+	struct pci_dev *pdev = to_pci_dev(udev->bus->controller);
+
+	if (pdev->device != 0x119d)
+		return;
+
+	/* Ignore USB devices on external hub */
+	if (udev->parent && udev->parent->parent)
+		return;
+
+	/* Only valid for hsic port1 */
+	if (udev->portnum == 2) {
+		pr_debug("%s ignore hsic port2\n", __func__);
+		return;
+	}
+
+	/* Modem dev */
+	if ((udev->parent) && (hsic.s3_rt_state != SUSPENDING)) {
+		pr_debug("%s s3 wlock locked\n", __func__);
+		s3_wake_lock();
+	}
+}
+
+static int hsic_pm_notify(struct notifier_block *self,
+		unsigned long action, void *dev)
+{
+	switch (action) {
+	case USB_PORT_SUSPEND:
+		hsic_port_suspend(dev);
+		break;
+	case USB_PORT_RESUME:
+		hsic_port_resume(dev);
+		break;
+	}
+	return NOTIFY_OK;
+}
+
+static int hsic_s3_entry_notify(struct notifier_block *self,
+		unsigned long action, void *dummy)
+{
+	switch (action) {
+	case PM_SUSPEND_PREPARE:
+		hsic.s3_rt_state = SUSPENDING;
+		break;
+	case PM_POST_SUSPEND:
+		hsic.s3_rt_state = SUSPENDED;
+		break;
+	}
+	return NOTIFY_OK;
 }
 
 static void hsic_aux_work(struct work_struct *work)
@@ -846,6 +946,13 @@ static int ehci_hsic_probe(struct pci_dev *pdev,
 		return -ENODEV;
 	pdev->current_state = PCI_D0;
 
+	wake_lock_init(&hsic.s3_wake_lock,
+			WAKE_LOCK_SUSPEND, "hsic_s3_wlock");
+	hsic.hsic_pm_nb.notifier_call = hsic_pm_notify;
+	usb_register_notify(&hsic.hsic_pm_nb);
+	hsic.hsic_s3_entry_nb.notifier_call = hsic_s3_entry_notify;
+	register_pm_notifier(&hsic.hsic_s3_entry_nb);
+
 	/* we need not call pci_enable_dev since otg transceiver already take
 	 * the control of this device and this probe actaully gets called by
 	 * otg transceiver driver with HNP protocol.
@@ -915,6 +1022,7 @@ static int ehci_hsic_probe(struct pci_dev *pdev,
 
 	if (hsic.hsic_mutex_init == 0) {
 		mutex_init(&hsic.hsic_mutex);
+		mutex_init(&hsic.wlock_mutex);
 		hsic.hsic_mutex_init = 1;
 	}
 
@@ -948,6 +1056,7 @@ static int ehci_hsic_probe(struct pci_dev *pdev,
 	}
 	hsic.hsic_stopped = 0;
 	hsic_enable = 1;
+	hsic.s3_rt_state = RESUMED;
 
 	return retval;
 
@@ -965,6 +1074,7 @@ clear_companion:
 disable_pci:
 	pci_disable_device(pdev);
 	dev_err(&pdev->dev, "init %s fail, %d\n", dev_name(&pdev->dev), retval);
+	wake_lock_destroy(&hsic.s3_wake_lock);
 	return retval;
 }
 
@@ -1022,6 +1132,9 @@ static void ehci_hsic_remove(struct pci_dev *pdev)
 	hsic_enable = 0;
 
 	destroy_workqueue(hsic.work_queue);
+	wake_lock_destroy(&hsic.s3_wake_lock);
+	usb_unregister_notify(&hsic.hsic_pm_nb);
+	unregister_pm_notifier(&hsic.hsic_s3_entry_nb);
 }
 
 static void ehci_hsic_shutdown(struct pci_dev *pdev)
