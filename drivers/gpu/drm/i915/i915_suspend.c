@@ -30,6 +30,7 @@
 #include "intel_drv.h"
 #include "i915_reg.h"
 #include "intel_clrmgr.h"
+#include "linux/mfd/intel_mid_pmic.h"
 
 static u8 i915_read_indexed(struct drm_device *dev, u16 index_port, u16 data_port, u8 reg)
 {
@@ -699,6 +700,11 @@ static void vlv_punit_write32_bits(struct drm_i915_private *dev_priv,
 	vlv_punit_write(dev_priv, reg, tmp);
 }
 
+static int set_vhdmi_state(u8 value)
+{
+	return intel_mid_pmic_writeb(VHDMICNT, value);
+}
+
 static int set_power_state_with_timeout(
 				struct drm_i915_private *dev_priv,
 				u32 ctrl, u32 ctrl_mask,
@@ -767,6 +773,13 @@ static void valleyview_power_gate_disp(struct drm_i915_private *dev_priv)
 		dev_err(&dev_priv->bridge_dev->dev,
 				"Power gate DPIO CMN timed out, suspend might fail\n");
 	}
+
+	/* 4. VHDMI power switch off */
+	ret = set_vhdmi_state(VHDMI_OFF);
+	if (ret) {
+		dev_err(&dev_priv->bridge_dev->dev,
+				"Power gate HDMI failed\n");
+	}
 }
 
 static void valleyview_power_ungate_disp(struct drm_i915_private *dev_priv)
@@ -793,16 +806,22 @@ static void valleyview_power_ungate_disp(struct drm_i915_private *dev_priv)
 	}
 
 	/* 3. Power ungate display controller */
-    ret = set_power_state_with_timeout(dev_priv,
-            VLV_IOSFSB_PWRGT_CNT_CTRL,
-            VLV_PWRGT_DISP_CNT_MASK,
-            VLV_IOSFSB_PWRGT_STATUS,
-            VLV_PWRGT_DISP_CNT_MASK,
-            0);
-    if (ret) {
-        dev_err(&dev_priv->bridge_dev->dev,
-        "Power ungate DISP Controller timed out, resume might fail\n");
-    }
+	ret = set_power_state_with_timeout(dev_priv,
+		VLV_IOSFSB_PWRGT_CNT_CTRL,
+		VLV_PWRGT_DISP_CNT_MASK,
+		VLV_IOSFSB_PWRGT_STATUS,
+		VLV_PWRGT_DISP_CNT_MASK, 0);
+	if (ret) {
+		dev_err(&dev_priv->bridge_dev->dev,
+		"Power ungate DISP Controller timed out, resume might fail\n");
+	}
+
+	/* 4. VHDMI power switch */
+	ret = set_vhdmi_state(VHDMI_ON);
+	if (ret) {
+		dev_err(&dev_priv->bridge_dev->dev,
+				"Power gate VHDMI failed\n");
+	}
 }
 
 /* follow the sequence below for VLV suspend*/

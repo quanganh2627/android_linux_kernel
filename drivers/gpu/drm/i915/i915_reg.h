@@ -5859,4 +5859,11 @@ EDP_PSR_SW_TIMER
 #define GUNIT_CZCLOCK_GATING_DISABLE1 0x02060
 #define GUNIT_CZCLOCK_GATING_DISABLE2 0x02064
 
+/* VHDMI switch control */
+#define VHDMICNT		0x6d
+#define VHDMI_ON		0x03
+#define VHDMI_OFF		0x02
+
+
+
 #endif /* _I915_REG_H_ */
