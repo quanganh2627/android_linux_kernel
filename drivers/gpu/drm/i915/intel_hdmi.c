@@ -778,7 +778,7 @@ int intel_hdmi_encoder_status(struct drm_encoder *encoder)
 {
 	struct drm_device *dev = encoder->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 hdmib_control = I915_READ(GEN3_SDVOB);
+	u32 hdmib_control = I915_READ(HDMIB);
 
 	if ((hdmib_control & SDVO_ENABLE) &&
 		(hdmib_control & SDVO_AUDIO_ENABLE) &&
@@ -1412,7 +1412,7 @@ void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 		pr_err("failed to allocate memory");
 	} else {
 		hdmi_priv->dev = dev;
-		hdmi_priv->hdmib_reg = GEN3_SDVOB;
+		hdmi_priv->hdmib_reg = HDMIB;
 		hdmi_priv->monitor_type = MONITOR_TYPE_HDMI;
 		hdmi_priv->is_hdcp_supported = true;
 		i915_hdmi_audio_init(hdmi_priv);
