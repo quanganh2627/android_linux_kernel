@@ -156,10 +156,10 @@ ssize_t i915_gamma_enable_read(struct file *filp,
 	struct drm_device *dev = filp->private_data;
 	drm_i915_private_t *dev_priv = dev->dev_private;
 
-	len = sprintf(buf, "%s\n",
+	len = scnprintf(buf, sizeof(buf), "%s\n",
 		dev_priv->gamma_enabled ? "Enabled" : "Disabled");
 	return simple_read_from_buffer(ubuf, max, ppos,
-	(const void *) buf, 10);
+		(const void *) buf, len);
 }
 
 ssize_t i915_gamma_enable_write(struct file *filp,
@@ -465,10 +465,10 @@ ssize_t i915_csc_enable_read(struct file *filp,
 	struct drm_device *dev = filp->private_data;
 	drm_i915_private_t *dev_priv = dev->dev_private;
 
-	len = sprintf(buf, "%s\n",
+	len = scnprintf(buf, sizeof(buf), "%s\n",
 		dev_priv->csc_enabled ? "Enabled" : "Disabled");
 	return simple_read_from_buffer(ubuf, max, ppos,
-	(const void *) buf, 10);
+		(const void *) buf, len);
 }
 
 ssize_t i915_csc_enable_write(struct file *filp,
@@ -2600,7 +2600,7 @@ i915_dpst_status(struct drm_device *dev, char *buf, int *len)
 	if (!(IS_VALLEYVIEW(dev)))
 		return -ENODEV;
 
-	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "DPST Enabled: %s\n",
+	*len = scnprintf(buf, MAX_BUFFER_STR_LEN, "DPST Enabled: %s\n",
 			yesno(dev_priv->dpst.enabled ? 1 : 0));
 
 	return 0;
@@ -2614,7 +2614,7 @@ i915_dpst_irq_count(struct drm_device *dev, char *buf, int *len)
 	if (!(IS_VALLEYVIEW(dev)))
 		return -ENODEV;
 
-	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "DPST Interrupt Count: %d\n",
+	*len = scnprintf(buf, MAX_BUFFER_STR_LEN, "DPST Interrupt Count: %d\n",
 					dev_priv->dpst.num_interrupt);
 
 	return 0;
@@ -2634,10 +2634,10 @@ i915_dpst_dump_reg(struct drm_device *dev, char *buf, int *len)
 	bpcr_data = I915_READ(BLC_PWM_CTL);
 	dpst_set_level = I915_READ(BLC_PWM_CTL) & 0xffff;
 
-	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "IEBTGR: 0x%x & IEHCR: 0x%x",
+	*len = scnprintf(buf, MAX_BUFFER_STR_LEN, "IEBTGR: 0x%x & IEHCR: 0x%x",
 				btgr_data, hcr_data);
 
-	*len += snprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len),
+	*len += scnprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len),
 			" & IEBPCR: 0x%x DPST_SET_LEVEL: 0x%x\n",
 			 bpcr_data, dpst_set_level);
 
@@ -2653,13 +2653,13 @@ i915_dpst_get_bin_data(struct drm_device *dev, char *buf, int *len)
 	if (!(IS_VALLEYVIEW(dev)))
 		return -ENODEV;
 
-	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "Bin Data:\n");
+	*len = scnprintf(buf, MAX_BUFFER_STR_LEN, "Bin Data:\n");
 
 	for (index = 0; index < DPST_BIN_COUNT; index++)
-		*len += snprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len),
+		*len += scnprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len),
 				"%d ", dev_priv->dpst.bin_data[index]);
 
-	*len += snprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len), "\n");
+	*len += scnprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len), "\n");
 
 	return 0;
 }
@@ -2673,13 +2673,13 @@ i915_dpst_get_luma_data(struct drm_device *dev, char *buf, int *len)
 	if (!(IS_VALLEYVIEW(dev)))
 		return -ENODEV;
 
-	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "LUMA Data:\n");
+	*len = scnprintf(buf, MAX_BUFFER_STR_LEN, "LUMA Data:\n");
 
 	for (index = 0; index < DPST_LUMA_COUNT; index++)
-		*len += snprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len),
+		*len += scnprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len),
 				"%d ", dev_priv->dpst.luma_data[index]);
 
-	*len += snprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len), "\n");
+	*len += scnprintf(&buf[*len], (MAX_BUFFER_STR_LEN - *len), "\n");
 
 	return 0;
 }
@@ -2703,7 +2703,7 @@ i915_read_dpst_api(struct file *filp,
 	if (i915_debugfs_vars.dpst.dpst_input == 0)
 		return len;
 
-	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+	scnprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
 			sizeof(control), sizeof(operation), sizeof(val));
 
 	no_of_tokens = sscanf(i915_debugfs_vars.dpst.dpst_vars,
@@ -2752,14 +2752,14 @@ i915_read_dpst_api(struct file *filp,
 		i915_dpst_irq_count(dev, buf, &len);
 
 	} else if (strcmp(operation, DPST_FACTOR_TOKEN) == 0) {
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"DPST Backlight Factor: %d\n",
 				(dev_priv->dpst.blc_adjustment / 100));
 
 	} else if (strcmp(operation, DPST_LEVEL_TOKEN) == 0) {
 		dpst_set_level = I915_READ(BLC_PWM_CTL) & 0xffff;
 
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 					"User Applied Backlight Level: 0x%x\n",
 					(dev_priv->backlight.level));
 
@@ -2769,23 +2769,20 @@ i915_read_dpst_api(struct file *filp,
 		if (dev_priv->is_mipi) {
 
 #ifdef CONFIG_CRYSTAL_COVE
-			len += snprintf(&buf[len], (sizeof(buf) - len),
+			len += scnprintf(&buf[len], (sizeof(buf) - len),
 					"DPST Applied Backlight Level: 0x%x\n",
 					intel_mid_pmic_readb(0x4E));
 #else
-			len += snprintf(&buf[len], (sizeof(buf) - len),
+			len += scnprintf(&buf[len], (sizeof(buf) - len),
 					"DPST Applied Backlight not supported\n");
 #endif
 		} else {
-			len += snprintf(&buf[len], (sizeof(buf) - len),
+			len += scnprintf(&buf[len], (sizeof(buf) - len),
 					"DPST Applied Backlight Level: 0x%x\n",
 					dpst_set_level);
 		}
 	} else
-		len = snprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
-
-	if (len > sizeof(buf))
-		len = sizeof(buf);
+		len = scnprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
 
 	i915_debugfs_vars.dpst.dpst_input = 0;
 	simple_read_from_buffer(ubuf, max, ppos, buf, len);
@@ -2916,10 +2913,8 @@ i915_rps_init_read(struct file *filp, char __user *ubuf, size_t max,
 		return -ENODEV;
 
 	rval = I915_READ(GEN6_RP_CONTROL);
-	len = snprintf(buf, sizeof(buf),
+	len = scnprintf(buf, sizeof(buf),
 		       "Turbo Enabled: %s\n", yesno(rval & GEN6_RP_ENABLE));
-	if (len > sizeof(buf))
-		len = sizeof(buf);
 
 	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
 }
@@ -2975,7 +2970,7 @@ i915_rpm_enabled(struct drm_device *drm_dev, char *buf, int *len)
 	if (!(IS_VALLEYVIEW(drm_dev)))
 		return -ENODEV;
 
-	*len = snprintf(buf, MAX_BUFFER_STR_LEN, "RPM Enabled: %s\n",
+	*len = scnprintf(buf, MAX_BUFFER_STR_LEN, "RPM Enabled: %s\n",
 				yesno(i915_pm_runtime_enabled(dev)));
 
 	return 0;
@@ -3032,7 +3027,7 @@ i915_read_rpm_api(struct file *filp,
 	if (i915_debugfs_vars.rpm.rpm_input == 0)
 		return len;
 
-	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+	scnprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
 		sizeof(control), sizeof(operation), sizeof(val));
 
 	no_of_tokens = sscanf(i915_debugfs_vars.rpm.rpm_vars,
@@ -3081,10 +3076,7 @@ i915_read_rpm_api(struct file *filp,
 		if (ret)
 			return ret;
 	} else
-		len = snprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
-
-	if (len > sizeof(buf))
-		len = sizeof(buf);
+		len = scnprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
 
 	i915_debugfs_vars.rpm.rpm_input = 0;
 	simple_read_from_buffer(ubuf, max, ppos, buf, len);
@@ -3165,30 +3157,30 @@ i915_read_turbo_api(struct file *filp,
 			return ret;
 
 		reg_val = I915_READ(GEN6_RP_CONTROL);
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"Turbo Enabled: %s\n",
 				yesno(reg_val & GEN6_RP_ENABLE));
 
 		if (len < 0)
 			return len;
 
-		len += snprintf(&buf[len], (sizeof(buf) - len),
+		len += scnprintf(&buf[len], (sizeof(buf) - len),
 				"Max Gpu Freq _max_delay_: %d\n",
 				dev_priv->rps.max_delay);
-		len += snprintf(&buf[len], (sizeof(buf) - len),
+		len += scnprintf(&buf[len], (sizeof(buf) - len),
 				"Min Gpu Freq _min_delay_: %d\n",
 				dev_priv->rps.min_delay);
 
 		reg_val = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
-		len += snprintf(&buf[len], (sizeof(buf) - len),
+		len += scnprintf(&buf[len], (sizeof(buf) - len),
 				"Cur Gpu Freq _cur_delay_: %d\n", reg_val >> 8);
-		len += snprintf(&buf[len], (sizeof(buf) - len),
+		len += scnprintf(&buf[len], (sizeof(buf) - len),
 				"Up Threshold: %d\n", atomic_read(
 					&dev_priv->turbodebug.up_threshold));
-		len += snprintf(&buf[len], (sizeof(buf) - len),
+		len += scnprintf(&buf[len], (sizeof(buf) - len),
 				"Down Threshold: %d\n",	atomic_read(
 					&dev_priv->turbodebug.down_threshold));
-		len += snprintf(&buf[len], (sizeof(buf) - len),
+		len += scnprintf(&buf[len], (sizeof(buf) - len),
 				"RP_UP: %d\nRP_DOWN:%d\n",
 				dev_priv->rps.rp_up_masked,
 				dev_priv->rps.rp_down_masked);
@@ -3203,7 +3195,7 @@ i915_read_turbo_api(struct file *filp,
 		if (ret)
 			return ret;
 
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"Turbo Enabled: Yes\n");
 
 	} else if (strcmp(operation, DISABLE_TOKEN) == 0) {
@@ -3214,7 +3206,7 @@ i915_read_turbo_api(struct file *filp,
 		if (ret)
 			return ret;
 
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"Turbo Enabled: No\n");
 
 	} else if (strcmp(operation, RP_MAXFREQ_TOKEN) == 0) {
@@ -3227,7 +3219,7 @@ i915_read_turbo_api(struct file *filp,
 		if (ret)
 			return ret;
 
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"OPERATION: SUCCESSFUL\n");
 	} else if (strcmp(operation, RP_MINFREQ_TOKEN) == 0) {
 
@@ -3239,15 +3231,12 @@ i915_read_turbo_api(struct file *filp,
 		if (ret)
 			return ret;
 
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"OPERATION: SUCCESSFUL\n");
 
 	} else
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"NOTSUPPORTED\n");
-
-	if (len > sizeof(buf))
-		len = sizeof(buf);
 
 	i915_debugfs_vars.turbo.turbo_input = 0;
 	simple_read_from_buffer(ubuf, max, ppos, buf, len);
@@ -3309,7 +3298,7 @@ static inline bool is_rc6_enabled(struct drm_device *dev)
 static int
 rc6_status(struct drm_device *dev, char *buf, int *len)
 {
-	*len = snprintf(buf, MAX_BUFFER_STR_LEN,
+	*len = scnprintf(buf, MAX_BUFFER_STR_LEN,
 			"RC6 ENABLED: %s\n",
 			yesno(is_rc6_enabled(dev)));
 	return 0;
@@ -3393,7 +3382,7 @@ i915_read_rc6_api(struct file *filp,
 		rc6_status(dev, buf, &len);
 
 	} else if (strcmp(operation, RC6_POWER_TOKEN) == 0) {
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"RENDER WELL: %s & MEDIA WELL: %s\n",
 				(I915_READ(VLV_POWER_WELL_STATUS_REG) &
 					VLV_RENDER_WELL_STATUS_MASK)
@@ -3403,43 +3392,40 @@ i915_read_rc6_api(struct file *filp,
 					? "UP" : "DOWN");
 
 	} else if (strcmp(operation, READ_COUNTER_0_TOKEN) == 0) {
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"RENDER WELL C0 COUNTER: 0x%x & ",
 				(unsigned int) I915_READ(GEN6_GT_GFX_RC6));
-		len += snprintf(&buf[len], (sizeof(buf) - len),
+		len += scnprintf(&buf[len], (sizeof(buf) - len),
 				"MEDIA WELL C1 COUNTER: 0x%x\n",
 				(unsigned int) I915_READ(GEN6_GT_GFX_RC6p));
 
 	} else if (strcmp(operation, READ_COUNTER_1_TOKEN) == 0) {
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"RENDER WELL C1 COUNTER: 0x%x & ",
 				(unsigned int)I915_READ(GEN6_GT_GFX_RC6pp));
-		len += snprintf(&buf[len], (sizeof(buf) - len),
+		len += scnprintf(&buf[len], (sizeof(buf) - len),
 				"MEDIA WELL C1 COUNTER: 0x%x\n",
 				(unsigned int)
 					I915_READ(VLV_MEDIA_C1_COUNT_REG));
 
 	} else if (strcmp(operation, READ_COUNTER_6_TOKEN) == 0) {
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"RENDER WELL C6 COUNTER: 0x%x & ",
 				(unsigned int)
 					I915_READ(VLV_RENDER_C0_COUNT_REG));
-		len += snprintf(&buf[len], (sizeof(buf) - len),
+		len += scnprintf(&buf[len], (sizeof(buf) - len),
 				"MEDIA WELL C6 COUNTER: 0x%x\n",
 				(unsigned int)
 					I915_READ(VLV_MEDIA_C0_COUNT_REG));
 
 	} else if (strcmp(operation, MULTITHREAD_TOKEN) == 0) {
-		len = snprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
+		len = scnprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
 
 	} else if (strcmp(operation, RC6_SINGLETHREAD_TOKEN) == 0) {
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 			"SINGLE THREAD ENABLED: Yes\n");
 	} else
-		len = snprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
-
-	if (len > sizeof(buf))
-		len = sizeof(buf);
+		len = scnprintf(buf, sizeof(buf), "NOTSUPPORTED\n");
 
 	i915_debugfs_vars.rc6.rc6_input = 0;
 	simple_read_from_buffer(ubuf, max, ppos, buf, len);
@@ -3500,21 +3486,17 @@ i915_read_rc6_status(struct file *filp,
 	if (!(IS_VALLEYVIEW(dev)))
 		return -ENODEV;
 
-	len = snprintf(buf, sizeof(buf),
+	len = scnprintf(buf, sizeof(buf),
 		"RC6 is %s\n",
 		(is_rc6_enabled(dev)) ?
 				"enabled" : "disabled");
 
-	len += snprintf(&buf[len], (sizeof(buf) - len),
+	len += scnprintf(&buf[len], (sizeof(buf) - len),
 		"Render well is %s & Media well is %s\n",
 		(I915_READ(VLV_POWER_WELL_STATUS_REG) &
 			VLV_RENDER_WELL_STATUS_MASK) ? "UP" : "DOWN",
 		(I915_READ(VLV_POWER_WELL_STATUS_REG) &
 			VLV_MEDIA_WELL_STATUS_MASK) ? "UP" : "DOWN");
-
-
-	if (len > sizeof(buf))
-		len = sizeof(buf);
 
 	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
 }
@@ -3605,7 +3587,7 @@ i915_mmio_read_api(struct file *filp,
 		if (ret)
 			return -EINVAL;
 
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"0x%x: 0x%x\n",
 				(unsigned int) mmio_offset,
 				(unsigned int) I915_READ(mmio_offset));
@@ -3620,15 +3602,12 @@ i915_mmio_read_api(struct file *filp,
 			return -EINVAL;
 
 		I915_WRITE(mmio_offset, mmio_to_write);
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"0x%x: 0x%x\n",
 				(unsigned int) mmio_offset,
 				(unsigned int) I915_READ(mmio_offset));
 	} else
-		len = snprintf(buf, sizeof(buf), "Operation Not Supported\n");
-
-	if (len > sizeof(buf))
-		len = sizeof(buf);
+		len = scnprintf(buf, sizeof(buf), "Operation Not Supported\n");
 
 	i915_debugfs_vars.mmio.mmio_input = 0;
 
@@ -3714,22 +3693,19 @@ i915_iosf_read_api(struct file *filp,
 	if (strcmp(operation, READ_TOKEN) == 0) {
 		if (strcmp(port, IOSF_PUNIT_TOKEN) == 0) {
 			iosf_val = vlv_punit_read(dev_priv, iosf_reg);
-			len = snprintf(buf, sizeof(buf),
+			len = scnprintf(buf, sizeof(buf),
 				"0x%x: 0x%x\n", (unsigned int) iosf_reg,
 						(unsigned int) iosf_val);
 		} else if (strcmp(port, IOSF_FUSE_TOKEN) == 0) {
 			iosf_val = vlv_nc_read(dev_priv, iosf_reg);
-			len = snprintf(buf, sizeof(buf),
+			len = scnprintf(buf, sizeof(buf),
 				"0x%x: 0x%x\n", (unsigned int) iosf_reg,
 						(unsigned int) iosf_val);
 		}
 	} else {
-		len = snprintf(buf, sizeof(buf),
+		len = scnprintf(buf, sizeof(buf),
 				"IOSF WRITE not supported\n");
 	}
-
-	if (len > sizeof(buf))
-		len = sizeof(buf);
 
 	i915_debugfs_vars.iosf.iosf_input = 0;
 
