@@ -1858,6 +1858,7 @@ struct drm_i915_file_private {
 				 (dev)->pci_device == 0x0106 ||	\
 				 (dev)->pci_device == 0x010A)
 #define IS_VALLEYVIEW(dev)	(INTEL_INFO(dev)->is_valleyview)
+#define IS_CHERRYVIEW(dev)     (INTEL_INFO(dev)->is_valleyview && IS_GEN8(dev))
 #define IS_VALLEYVIEWP_M(dev)	((dev)->pci_device == 0x0F31)
 #define IS_HASWELL(dev)	(INTEL_INFO(dev)->is_haswell)
 #define IS_MOBILE(dev)		(INTEL_INFO(dev)->is_mobile)
@@ -1878,6 +1879,7 @@ struct drm_i915_file_private {
 #define IS_GEN5(dev)	(INTEL_INFO(dev)->gen == 5)
 #define IS_GEN6(dev)	(INTEL_INFO(dev)->gen == 6)
 #define IS_GEN7(dev)	(INTEL_INFO(dev)->gen == 7)
+#define IS_GEN8(dev)	(INTEL_INFO(dev)->gen == 8)
 
 #define HAS_BSD(dev)            (INTEL_INFO(dev)->has_bsd_ring)
 #define HAS_BLT(dev)            (INTEL_INFO(dev)->has_blt_ring)
