@@ -52,9 +52,38 @@ static bool is_edp(struct intel_dp *intel_dp)
 	return intel_dig_port->base.type == INTEL_OUTPUT_EDP;
 }
 
+/**
+ * intel_dev_to_first_encoder - Return first associated drm_encoder or NULL.
+ * @device - drm_device structure
+ */
+static struct drm_encoder *intel_dev_to_first_encoder(struct drm_device *device)
+{
+	struct drm_encoder *drm_encoder;
+	struct drm_mode_config *mode_config;
+
+	mode_config = &device->mode_config;
+	mutex_lock(&mode_config->mutex);
+
+	drm_encoder = list_first_entry_or_null(&mode_config->encoder_list,
+		struct drm_encoder, head);
+
+	mutex_unlock(&mode_config->mutex);
+
+	/*  Return value may be NULL. */
+	return drm_encoder;
+}
+
+/**
+ * intel_dev_to_dp - Return NULL or associated struct intel_dp.
+ * @device - drm_device structure
+ */
 static struct intel_dp *intel_dev_to_dp(struct drm_device *device)
 {
-	struct drm_encoder *drm_encoder = container_of(device, struct drm_encoder, dev);  
+	struct drm_encoder *drm_encoder;
+
+	drm_encoder = intel_dev_to_first_encoder(device);
+	if (!drm_encoder)
+		return NULL;
 
 	return enc_to_intel_dp(drm_encoder);
 }
