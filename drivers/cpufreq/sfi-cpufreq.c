@@ -578,4 +578,64 @@ static void __exit sfi_cpufreq_exit(void)
 late_initcall(sfi_cpufreq_init);
 module_exit(sfi_cpufreq_exit);
 
+unsigned int ehalt_enable __read_mostly = 1; /* default enable */
+int set_ehalt_feature(const char *val, struct kernel_param *kp)
+{
+	int i, nc;
+	u32 lo, hi;
+	int rv = param_set_int(val, kp);
+
+	if (rv)
+		return rv;
+
+	/* disable eHALT for SLM */
+	nc = num_possible_cpus();
+	if (boot_cpu_data.x86_model == X86_ATOM_ARCH_SLM) {
+		for (i = 0; i < nc; i++) {
+			rdmsr_on_cpu(i, MSR_IA32_POWER_MISC, &lo, &hi);
+			if (ehalt_enable)
+				lo = lo |
+				(ENABLE_ULFM_AUTOCM | ENABLE_INDP_AUTOCM);
+			else
+				lo = lo &
+				(~(ENABLE_ULFM_AUTOCM | ENABLE_INDP_AUTOCM));
+			wrmsr_on_cpu(i, MSR_IA32_POWER_MISC, lo, hi);
+		}
+	}
+	return 0;
+}
+MODULE_PARM_DESC(ehalt_enable, "to enable/disable ehalt feature(1:Enable; 0:Disable)");
+module_param_call(ehalt_enable, set_ehalt_feature, param_get_uint,
+		  &ehalt_enable, S_IRUGO | S_IWUSR);
+
+unsigned int turbo_enable  __read_mostly = 1; /* default enable */
+int set_turbo_feature(const char *val, struct kernel_param *kp)
+{
+	int i, nc;
+	u32 lo, hi;
+	int rv = param_set_int(val, kp);
+
+	if (rv)
+		return rv;
+
+	/* enable/disable Turbo */
+	nc = num_possible_cpus();
+	if (boot_cpu_data.x86_model == X86_ATOM_ARCH_SLM) {
+		for (i = 0; i < nc; i++) {
+			rdmsr_on_cpu(i, MSR_IA32_MISC_ENABLE, &lo, &hi);
+			if (turbo_enable)
+				hi = hi &
+				 (~(MSR_IA32_MISC_ENABLE_TURBO_DISABLE >> 32));
+			else
+				hi = hi |
+				(MSR_IA32_MISC_ENABLE_TURBO_DISABLE >> 32);
+			wrmsr_on_cpu(i, MSR_IA32_MISC_ENABLE, lo, hi);
+		}
+	}
+	return 0;
+}
+MODULE_PARM_DESC(turbo_enable, "to enable/disable turbo feature(1:Enable; 0:Disable)");
+module_param_call(turbo_enable, set_turbo_feature, param_get_uint,
+		  &turbo_enable, S_IRUGO | S_IWUSR);
+
 MODULE_ALIAS("sfi");
