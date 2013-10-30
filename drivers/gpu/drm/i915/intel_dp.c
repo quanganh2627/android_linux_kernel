@@ -1807,7 +1807,6 @@ void intel_edp_disable_psr(struct intel_dp *intel_dp, enum PSR_MODE mode)
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	struct drm_device *dev = intel_dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_crtc *crtc = intel_dig_port->base.base.crtc;
 	/* struct intel_encoder *intel_encoder;*/
 	uint32_t val = 0;
 	int count = 0;

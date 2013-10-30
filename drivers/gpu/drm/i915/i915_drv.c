@@ -708,7 +708,6 @@ static int i915_drm_thaw(struct drm_device *dev, bool restore_gtt)
 
 int i915_resume_common(struct drm_device *dev, bool restore_gtt)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
 
 	if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
