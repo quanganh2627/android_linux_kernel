@@ -212,11 +212,11 @@ void mei_stop(struct mei_device *dev)
 
 	mei_cancel_work(dev);
 
+	mei_nfc_host_exit(dev);
+
 	mutex_lock(&dev->device_lock);
 
 	mei_wd_stop(dev);
-
-	mei_nfc_host_exit();
 
 	dev->dev_state = MEI_DEV_POWER_DOWN;
 	mei_reset(dev, 0);
