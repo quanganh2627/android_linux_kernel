@@ -1,6 +1,10 @@
 #EXTRA CFLAGS
 ccflags-y += -Werror
 
+ifeq (${TARGET_BUILD_VARIANT},$(filter ${TARGET_BUILD_VARIANT}, eng))
+ccflags-y += -DCONFIG_SND_VERBOSE_PRINTK -DCONFIG_SND_DEBUG -DCONFIG_SND_DEBUG_VERBOSE
+endif
+
 # SST Platform Driver
 PLATFORM_LIBS = platform-libs/controls_v1.o platform-libs/controls_v2.o \
 		platform-libs/ipc_lib_v2.o
