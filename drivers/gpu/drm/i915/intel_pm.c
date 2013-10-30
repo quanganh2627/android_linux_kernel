@@ -31,6 +31,7 @@
 #include "../../../platform/x86/intel_ips.h"
 #include <linux/module.h>
 #include <drm/i915_powerwell.h>
+#include <psb_powermgmt.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	#include <linux/earlysuspend.h>
@@ -5899,6 +5900,41 @@ void intel_s0ix_init(struct drm_device *dev)
 	register_early_suspend(&intel_display_early_suspend);
 }
 #endif
+
+bool ospm_power_is_hw_on(int hw_islands)
+{
+#if 0
+	struct drm_device *drm_dev = gdev;
+	unsigned long flags;
+	bool ret = false;
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+	u32 data = vlv_punit_read(dev_priv, VLV_IOSFSB_PWRGT_STATUS);
+	if ((VLV_POWER_GATE_DISPLAY_MASK & data)
+			== VLV_POWER_GATE_DISPLAY_MASK) {
+		DRM_ERROR("Display Island not ON\n");
+		return false;
+	} else {
+		return true;
+	}
+#endif
+	return true;
+}
+EXPORT_SYMBOL(ospm_power_is_hw_on);
+
+/* Dummy Function for HDMI Audio Power management.
+ * Will be updated once S0iX code is integrated
+ */
+bool ospm_power_using_hw_begin(int hw_island, UHBUsage usage)
+{
+	return true;
+}
+EXPORT_SYMBOL(ospm_power_using_hw_begin);
+
+void ospm_power_using_hw_end(int hw_island)
+{
+	return;
+}
+EXPORT_SYMBOL(ospm_power_using_hw_end);
 
 /* Set up chip specific power management-related functions */
 void intel_init_pm(struct drm_device *dev)
