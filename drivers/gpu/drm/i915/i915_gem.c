@@ -2270,7 +2270,7 @@ static bool i915_request_guilty(struct drm_i915_gem_request *request,
 					    request_to_vm(request))) {
 			*inside = true;
 			DRM_DEBUG_TDR("Head in obj 0x%08x\n",
-				request->batch_obj);
+				(unsigned int)request->batch_obj);
 			return true;
 		}
 	}
@@ -2278,7 +2278,7 @@ static bool i915_request_guilty(struct drm_i915_gem_request *request,
 	if (i915_head_inside_request(acthd, request->head, request->tail)) {
 		*inside = false;
 		DRM_DEBUG_TDR("Head in req 0x%08x (HD: 0x%08x TL: 0x%08x)\n",
-			request, request->head, request->tail);
+			(unsigned int)request, request->head, request->tail);
 		return true;
 	}
 

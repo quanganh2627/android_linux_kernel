@@ -1739,7 +1739,6 @@ static void i915_error_work_func(struct work_struct *work)
 	char *reset_event[] = { I915_RESET_UEVENT "=1", NULL };
 	char *reset_done_event[] = { I915_ERROR_UEVENT "=0", NULL };
 	int i, ret;
-	int pipe;
 
 	mutex_lock(&dev->struct_mutex);
 
@@ -1946,8 +1945,6 @@ void i915_handle_error(struct drm_device *dev, struct intel_hangcheck *hc)
 	int full_reset = 0;
 	unsigned long cur_time;
 	unsigned long last_reset;
-	unsigned long irqflags;
-	u32 ring_flags;
 
 	i915_capture_error_state(dev);
 	i915_report_and_clear_eir(dev);
