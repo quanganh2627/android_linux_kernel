@@ -221,6 +221,11 @@ DEFINE_SSP_REG(GAFR1_U, 0x44);
 				| SSCR1_RFT | SSCR1_TFT | SSCR1_MWDS \
 				| SSCR1_SPH | SSCR1_SPO | SSCR1_LBM)
 
+/* add CS control call back feature to give user capability
+to control CS signal by themselves*/
+#define CS_DEASSERT	0
+#define CS_ASSERT		1
+
 struct callback_param {
 	void *drv_context;
 	u32 direction;
@@ -297,6 +302,9 @@ struct ssp_drv_context {
 
 	unsigned long quirks;
 	u32 rx_fifo_threshold;
+
+	int cs_change;
+	void (*cs_control)(u32 command);
 };
 
 struct chip_data {
@@ -310,6 +318,7 @@ struct chip_data {
 	u32 speed_hz;
 	int (*write)(struct ssp_drv_context *sspc);
 	int (*read)(struct ssp_drv_context *sspc);
+	void (*cs_control)(u32 command);
 };
 
 
@@ -327,6 +336,7 @@ struct intel_mid_ssp_spi_chip {
 	u32 timeout;
 	u8 enable_loopback;
 	u8 dma_enabled;
+	void (*cs_control)(u32 command);
 };
 
 #define SPI_DIB_NAME_LEN  16
