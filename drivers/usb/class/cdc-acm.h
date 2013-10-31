@@ -123,6 +123,9 @@ struct acm {
 	unsigned int throttle_req:1;			/* throttle requested */
 	u8 bInterval;
 	struct list_head delayed_wb_list;		/* delayed wb list */
+
+	unsigned int bytes_rx, bytes_tx;		/* flow statistics */
+	unsigned int packets_rx, packets_tx;
 };
 
 #define CDC_DATA_INTERFACE_TYPE	0x0a

@@ -295,6 +295,57 @@ static ssize_t show_country_rel_date
 }
 
 static DEVICE_ATTR(iCountryCodeRelDate, S_IRUGO, show_country_rel_date, NULL);
+
+
+static ssize_t flow_statistics_show
+(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct usb_interface *intf = to_usb_interface(dev);
+	struct acm *acm = usb_get_intfdata(intf);
+	unsigned long flags;
+	int ret;
+
+	if (!acm)
+		return 0;
+
+	spin_lock_irqsave(&acm->write_lock, flags);
+	ret = sprintf(buf, "ACM%d\tRX packets:%d\t  TX packets:%d\n"
+		"\tRX bytes:%d\t  TX bytes:%d\n",
+		acm->minor, acm->packets_rx, acm->packets_tx,
+		acm->bytes_rx, acm->bytes_tx);
+	spin_unlock_irqrestore(&acm->write_lock, flags);
+
+	return ret;
+}
+
+static ssize_t flow_statistics_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct usb_interface *intf = to_usb_interface(dev);
+	struct acm *acm = usb_get_intfdata(intf);
+	unsigned long flags;
+	u32 tmp;
+
+	if (!acm || size > 2)
+		return -EINVAL;
+
+	if (sscanf(buf, "%d", &tmp) == 1) {
+		if (tmp == 0) {
+			spin_lock_irqsave(&acm->write_lock, flags);
+			acm->bytes_rx = acm->bytes_tx = 0;
+			acm->packets_rx = acm->packets_tx = 0;
+			spin_unlock_irqrestore(&acm->write_lock, flags);
+		}
+		return size;
+	}
+
+	return -1;
+}
+
+
+static DEVICE_ATTR(stats, S_IRUGO | S_IWUSR | S_IROTH, flow_statistics_show,
+	flow_statistics_store);
+
 /*
  * Interrupt handlers for various ACM device responses
  */
@@ -479,6 +530,12 @@ static void acm_read_bulk_callback(struct urb *urb)
 		}
 
 	}
+
+	spin_lock_irqsave(&acm->write_lock, flags);
+	acm->bytes_rx += urb->actual_length;
+	acm->packets_rx++;
+	spin_unlock_irqrestore(&acm->write_lock, flags);
+
 	acm_process_read_urb(acm, urb);
 
 	/* throttle device if requested by tty */
@@ -507,6 +564,8 @@ static void acm_write_bulk(struct urb *urb)
 			urb->status);
 
 	spin_lock_irqsave(&acm->write_lock, flags);
+	acm->bytes_tx += urb->actual_length;
+	acm->packets_tx++;
 	acm_write_done(acm, wb);
 	spin_unlock_irqrestore(&acm->write_lock, flags);
 	schedule_work(&acm->work);
@@ -1400,6 +1459,10 @@ skip_countries:
 		goto alloc_fail8;
 	}
 
+	i = device_create_file(&intf->dev, &dev_attr_stats);
+	if (i < 0)
+		goto alloc_fail8;
+
 	/* Enable Runtime-PM for HSIC */
 	if (is_hsic_host(usb_dev)) {
 		dev_dbg(&intf->dev,
@@ -1488,6 +1551,7 @@ static void acm_disconnect(struct usb_interface *intf)
 				&dev_attr_iCountryCodeRelDate);
 	}
 	device_remove_file(&acm->control->dev, &dev_attr_bmCapabilities);
+	device_remove_file(&acm->control->dev, &dev_attr_stats);
 	usb_set_intfdata(acm->control, NULL);
 	usb_set_intfdata(acm->data, NULL);
 	mutex_unlock(&acm->mutex);
