@@ -4574,6 +4574,10 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 loop_disable:
 		hub_port_disable(hub, port1, 1);
 loop:
+		/* If the hcd was already quiesce,
+		 * we needn't to continue retry. */
+		if (hcd->state == HC_STATE_QUIESCING)
+			return -ESHUTDOWN;
 		usb_ep0_reinit(udev);
 		release_devnum(udev);
 		hub_free_dev(udev);
