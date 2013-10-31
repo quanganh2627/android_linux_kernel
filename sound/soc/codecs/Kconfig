@@ -230,6 +230,8 @@ config SND_SOC_RT5640
 	tristate
 config SND_SOC_RT5642
 	tristate
+config SND_SOC_RT5672
+	tristate
 config SND_SOC_CS42L73
 	tristate
 
