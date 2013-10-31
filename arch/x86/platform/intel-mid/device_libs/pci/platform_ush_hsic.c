@@ -21,7 +21,8 @@ static struct ush_hsic_pdata hsic_pdata = {
 
 static unsigned int is_ush_hsic_supported(void)
 {
-	return  INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0);
+	return  INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||
+		INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1);
 }
 
 static struct ush_hsic_pdata *get_hsic_platform_data(struct pci_dev *pdev)
