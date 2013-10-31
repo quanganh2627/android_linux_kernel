@@ -133,7 +133,7 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pdata = {
 	.use_mains			= false,
 	.use_usb			= true,
 	.enable_control			= SMB347_CHG_ENABLE_PIN_ACTIVE_LOW,
-	.otg_control			= SMB347_OTG_CONTROL_DISABLED,
+	.otg_control			= SMB347_OTG_CONTROL_SW,
 	.char_config_regs		= {
 						/* Reg  Value */
 						0x00, 0x46,
@@ -153,7 +153,7 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pdata = {
 						0x10, 0x40,
 			/* disable suspend as charging didnot start*/
 						0x30, 0x42,  /*orig:0x46*/
-						0x31, 0x80
+						0x31, 0x01
 					},
 };
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
@@ -187,7 +187,7 @@ static char *smb347_supplied_to[] = {
 	"max17047_battery",
 };
 
-static void *platform_get_batt_charge_profile()
+static void *platform_get_batt_charge_profile(void)
 {
 	struct ps_temp_chg_table temp_mon_range[BATT_TEMP_NR_RNG];
 
@@ -281,6 +281,36 @@ static void *get_platform_data(void)
 		else
 			return &smb347_ev10_pdata;
 	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
+		if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
+			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1)) {
+			/* enable APSD */
+			byt_t_ffrd8_pdata.char_config_regs[4] = 0x2;
+			byt_t_ffrd8_pdata.char_config_regs[5] = 0x97;
+			/* enable APSD interrupt along with others */
+			byt_t_ffrd8_pdata.char_config_regs[12] = 0x6;
+			byt_t_ffrd8_pdata.char_config_regs[13] = 0x06;
+			/* I2C control OTG */
+			byt_t_ffrd8_pdata.char_config_regs[18] = 0x9;
+			byt_t_ffrd8_pdata.char_config_regs[19] = 0x80;
+			/* OTG current  500mA*/
+			byt_t_ffrd8_pdata.char_config_regs[20] = 0xA;
+			byt_t_ffrd8_pdata.char_config_regs[21] = 0x47;
+			/* OTG interrupt settings */
+			byt_t_ffrd8_pdata.char_config_regs[24] = 0xC;
+			byt_t_ffrd8_pdata.char_config_regs[25] = 0xBF;
+			byt_t_ffrd8_pdata.char_config_regs[26] = 0xD;
+			byt_t_ffrd8_pdata.char_config_regs[27] = 0xF4;
+			byt_t_ffrd8_pdata.board_version =
+					BOARD_VERSION_BYT_FFRD8_PR1;
+			byt_t_ffrd8_pdata.gpio_mux = 131; /* GPIO_SUS1*/
+			/* configure output */
+			lnw_gpio_set_alt(byt_t_ffrd8_pdata.gpio_mux, 0);
+			gpio_request(byt_t_ffrd8_pdata.gpio_mux, "gpio_mux");
+		} else {
+			byt_t_ffrd8_pdata.board_version =
+					BOARD_VERSION_BYT_FFRD8_PR0,
+			byt_t_ffrd8_pdata.gpio_mux = -1;
+		}
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
 		byt_t_ffrd8_pdata.enable_control = SMB347_CHG_ENABLE_SW;
 		platform_init_chrg_params(&byt_t_ffrd8_pdata);
