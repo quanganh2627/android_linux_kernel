@@ -686,7 +686,7 @@ void vlv_restore_rc6_regs(struct drm_device *drm_dev)
 #define TIMEOUT 100
 
 /* write with mask */
-static void vlv_punit_write32_bits(struct drm_i915_private *dev_priv,
+void vlv_punit_write32_bits(struct drm_i915_private *dev_priv,
 				u32 reg, u32 val, u32 mask)
 {
 	u32 tmp;

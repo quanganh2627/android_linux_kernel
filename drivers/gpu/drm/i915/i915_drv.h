@@ -2587,6 +2587,8 @@ void vlv_force_wake_restore(struct drm_i915_private *dev_priv, int fw_engine);
 #define FORCEWAKE_ALL		(FORCEWAKE_RENDER | FORCEWAKE_MEDIA)
 
 /* intel_sideband.c */
+void vlv_punit_write32_bits(struct drm_i915_private *dev_priv,
+			u32 reg, u32 val, u32 mask);
 u32 vlv_punit_read(struct drm_i915_private *dev_priv, u8 addr);
 void vlv_punit_write(struct drm_i915_private *dev_priv, u8 addr, u32 val);
 u32 vlv_nc_read(struct drm_i915_private *dev_priv, u16 addr);

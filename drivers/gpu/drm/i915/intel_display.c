@@ -4116,6 +4116,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	struct intel_encoder *encoder;
 	int pipe = intel_crtc->pipe;
 	int plane = intel_crtc->plane;
+	u32 data = 0;
 
 	if (!intel_crtc->active)
 		return;
@@ -4185,6 +4186,14 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 
 		I915_WRITE_BITS(VLV_DISPLAY_BASE + 0x61230, 0, 0x80000000);
 		I915_WRITE_BITS(VLV_DISPLAY_BASE + 0x6014, 0, 0x80000000);
+	}
+
+	data = vlv_punit_read(dev_priv, VLV_IOSFSB_PWRGT_STATUS);
+	/* Power gate DPIO RX Lanes */
+	if ((VLV_PWRGT_DPIO_RX_LANES_MASK & data) !=
+		VLV_PWRGT_DPIO_RX_LANES_MASK) {
+		vlv_punit_write32_bits(dev_priv, VLV_IOSFSB_PWRGT_CNT_CTRL,
+		VLV_PWRGT_DPIO_RX_LANES_MASK, VLV_PWRGT_DPIO_RX_LANES_MASK);
 	}
 }
 
