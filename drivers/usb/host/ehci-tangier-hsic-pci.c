@@ -230,6 +230,10 @@ static irqreturn_t hsic_wakeup_gpio_irq(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
+	/* take a wake lock during 25ms, because resume lasts 20ms, after that
+	USB framework will prevent to go in low power if there is traffic */
+	wake_lock_timeout(&hsic.resume_wake_lock, msecs_to_jiffies(25));
+
 	queue_work(hsic.work_queue, &hsic.wakeup_work);
 	dev_dbg(dev,
 		"%s<----\n", __func__);
@@ -946,6 +950,8 @@ static int ehci_hsic_probe(struct pci_dev *pdev,
 		return -ENODEV;
 	pdev->current_state = PCI_D0;
 
+	wake_lock_init(&hsic.resume_wake_lock,
+		WAKE_LOCK_SUSPEND, "hsic_aux2_wlock");
 	wake_lock_init(&hsic.s3_wake_lock,
 			WAKE_LOCK_SUSPEND, "hsic_s3_wlock");
 	hsic.hsic_pm_nb.notifier_call = hsic_pm_notify;
@@ -1074,6 +1080,7 @@ clear_companion:
 disable_pci:
 	pci_disable_device(pdev);
 	dev_err(&pdev->dev, "init %s fail, %d\n", dev_name(&pdev->dev), retval);
+	wake_lock_destroy(&(hsic.resume_wake_lock));
 	wake_lock_destroy(&hsic.s3_wake_lock);
 	return retval;
 }
@@ -1132,6 +1139,7 @@ static void ehci_hsic_remove(struct pci_dev *pdev)
 	pci_disable_device(pdev);
 
 	destroy_workqueue(hsic.work_queue);
+	wake_lock_destroy(&(hsic.resume_wake_lock));
 	wake_lock_destroy(&hsic.s3_wake_lock);
 	usb_unregister_notify(&hsic.hsic_pm_nb);
 	unregister_pm_notifier(&hsic.hsic_s3_entry_nb);

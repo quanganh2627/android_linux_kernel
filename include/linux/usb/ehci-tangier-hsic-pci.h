@@ -73,6 +73,7 @@ struct hsic_tangier_priv {
 	struct work_struct          wakeup_work;
 	struct notifier_block       hsic_pm_nb;
 	struct notifier_block       hsic_s3_entry_nb;
+	struct wake_lock            resume_wake_lock;
 	struct wake_lock            s3_wake_lock;
 	enum wlock_state            s3_wlock_state;
 	enum wlock_state            s3_rt_state;
