@@ -445,7 +445,8 @@ void __init camera_byt_init_device(void)
 		struct byt_device_table *table = NULL;
 		int entry_num = 0;
 		int i;
-		if (spid.hardware_id == BYT_TABLET_BLK_8PR0) {
+		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
+		    spid.hardware_id == BYT_TABLET_BLK_8PR1) {
 			table = byt_ffrd8_cam_table;
 			entry_num = ARRAY_SIZE(byt_ffrd8_cam_table);
 		} else {

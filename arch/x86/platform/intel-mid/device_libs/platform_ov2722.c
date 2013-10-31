@@ -106,7 +106,8 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 		gp_camera1_power_down = pin;
 
-		if (spid.hardware_id == BYT_TABLET_BLK_8PR0)
+		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
+		    spid.hardware_id == BYT_TABLET_BLK_8PR1)
 			ret = gpio_direction_output(pin, 0);
 		else
 			ret = gpio_direction_output(pin, 1);
@@ -119,7 +120,8 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	}
 	if (flag) {
-		if (spid.hardware_id == BYT_TABLET_BLK_8PR0)
+		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
+		    spid.hardware_id == BYT_TABLET_BLK_8PR1)
 			gpio_set_value(gp_camera1_power_down, 0);
 		else
 			gpio_set_value(gp_camera1_power_down, 1);
@@ -129,7 +131,8 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		gpio_set_value(gp_camera1_reset, 1);
 	} else {
 		gpio_set_value(gp_camera1_reset, 0);
-		if (spid.hardware_id == BYT_TABLET_BLK_8PR0)
+		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
+		    spid.hardware_id == BYT_TABLET_BLK_8PR1)
 			gpio_set_value(gp_camera1_power_down, 1);
 		else
 			gpio_set_value(gp_camera1_power_down, 0);
