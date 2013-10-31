@@ -51,8 +51,8 @@ struct ps_pse_mod_prof {
 	/* Low battery level voltage */
 	u16 low_batt_mV;
 	/* upper and lower temperature limits on discharging */
-	u8 disch_tmp_ul;
-	u8 disch_tmp_ll;
+	s8 disch_tmp_ul;
+	s8 disch_tmp_ll;
 	/* number of temperature monitoring ranges */
 	u16 temp_mon_ranges;
 	struct ps_temp_chg_table temp_mon_range[BATT_TEMP_NR_RNG];

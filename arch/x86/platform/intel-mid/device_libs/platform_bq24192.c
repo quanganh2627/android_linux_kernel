@@ -123,8 +123,8 @@ static void dump_batt_chrg_profile(struct ps_pse_mod_prof *bcprof,
 	pr_info("ChrgProf: voltage_max:%u\n", bcprof->voltage_max);
 	pr_info("ChrgProf: chrg_term_mA:%u\n", bcprof->chrg_term_mA);
 	pr_info("ChrgProf: low_batt_mV:%u\n", bcprof->low_batt_mV);
-	pr_info("ChrgProf: disch_tmp_ul:%u\n", bcprof->disch_tmp_ul);
-	pr_info("ChrgProf: disch_tmp_ll:%u\n", bcprof->disch_tmp_ll);
+	pr_info("ChrgProf: disch_tmp_ul:%d\n", bcprof->disch_tmp_ul);
+	pr_info("ChrgProf: disch_tmp_ll:%d\n", bcprof->disch_tmp_ll);
 	pr_info("ChrgProf: temp_mon_ranges:%u\n",
 			bcprof->temp_mon_ranges);
 
