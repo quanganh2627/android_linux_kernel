@@ -2341,13 +2341,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		if (!host->tuning_done) {
 			pr_warn(DRIVER_NAME ": Timeout waiting for "
 				"Buffer Read Ready interrupt during tuning "
-				"procedure, falling back to fixed sampling "
-				"clock\n");
-			ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
-			ctrl &= ~SDHCI_CTRL_TUNED_CLK;
-			ctrl &= ~SDHCI_CTRL_EXEC_TUNING;
-			sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
-
+				"procedure\n");
 			pr_warn("%s: present %08x, ctrl2 %08x, irq %08x\n"
 				"%s: loop %d, timeout %ld, retry....\n",
 				mmc_hostname(host->mmc),
@@ -2356,9 +2350,6 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 				sdhci_readl(host, SDHCI_INT_STATUS),
 				mmc_hostname(host->mmc),
 				tuning_loop_counter, timeout);
-
-			err = -EIO;
-			goto out;
 		}
 
 		host->tuning_done = 0;
