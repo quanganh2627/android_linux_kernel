@@ -1189,8 +1189,10 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	 * If the sprite is completely covering the primary plane,
 	 * we can disable the primary and save power.
 	 */
-	disable_primary = drm_rect_equals(&dst, &clip);
-	WARN_ON(disable_primary && !visible);
+	if (!IS_VALLEYVIEW(dev)) {
+		disable_primary = drm_rect_equals(&dst, &clip);
+		WARN_ON(disable_primary && !visible);
+	}
 
 	mutex_lock(&dev->struct_mutex);
 
@@ -1209,8 +1211,10 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	 * Be sure to re-enable the primary before the sprite is no longer
 	 * covering it fully.
 	 */
-	if (!disable_primary)
-		intel_enable_primary(crtc);
+	if (!IS_VALLEYVIEW(dev)) {
+		if (!disable_primary)
+			intel_enable_primary(crtc);
+	}
 
 	if (visible)
 		intel_plane->update_plane(plane, crtc, fb, obj,
@@ -1219,8 +1223,10 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	else
 		intel_plane->disable_plane(plane, crtc);
 
-	if (disable_primary)
-		intel_disable_primary(crtc);
+	if (!IS_VALLEYVIEW(dev)) {
+		if (disable_primary)
+			intel_disable_primary(crtc);
+	}
 
 	/* Unpin old obj after new one is active to avoid ugliness */
 	if (old_obj) {
