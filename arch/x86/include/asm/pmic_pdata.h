@@ -1,12 +1,20 @@
 #ifndef __PMIC_PDATA_H__
 #define __PMIC_PDATA_H__
 
+struct temp_lookup {
+	int adc_val;
+	int temp;
+	int temp_err;
+};
+
 /*
  * pmic cove charger driver info
  */
 struct pmic_platform_data {
 	void (*cc_to_reg)(int, u8*);
 	void (*cv_to_reg)(int, u8*);
+	int max_tbl_row_cnt;
+	struct temp_lookup *adc_tbl;
 };
 
 extern int pmic_get_status(void);
