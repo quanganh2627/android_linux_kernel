@@ -278,6 +278,10 @@ static int dwc3_start_host(struct usb_hcd *hcd)
 	dwc_set_host_mode(hcd);
 	dwc_disable_ssphy_p3(hcd);
 
+	/* Clear the hcd->flags.
+	 * To prevent incorrect flags set during last time. */
+	hcd->flags = 0;
+
 	ret = usb_add_hcd(hcd, otg_irqnum, IRQF_SHARED);
 	if (ret)
 		return -EINVAL;
