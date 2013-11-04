@@ -278,6 +278,7 @@ static struct ahash_alg digest_algs_base = {
 
 /* Algorithm specific attributes */
 static struct dx_digest_alg dx_digest_algs[] = {
+#ifdef USE_SEP54_AHASH
 	{			/* sha1 */
 	 .hash_type = DXDI_HASH_SHA1,
 	 .mac_type = DXDI_MAC_NONE,
@@ -383,6 +384,7 @@ static struct dx_digest_alg dx_digest_algs[] = {
 		   .halg.statesize = SEP_AES_BLOCK_SIZE}
 	 }
 #endif /* USE_SEP54_AES */
+#endif /* USE_SEP54_AHASH */
 };				/*dx_ahash_algs[] */
 
 #define DX_DIGEST_NUM \
