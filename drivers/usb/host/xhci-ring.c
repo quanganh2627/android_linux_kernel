@@ -2322,8 +2322,11 @@ static int process_bulk_intr_td(struct xhci_hcd *xhci, struct xhci_td *td,
 					*status = 0;
 			}
 		} else {
-			td->urb->actual_length =
-				td->urb->transfer_buffer_length;
+			if (trb_comp_code != COMP_STOP_INVAL)
+				td->urb->actual_length =
+					td->urb->transfer_buffer_length;
+			else
+				td->urb->actual_length = 0;
 			/* Ignore a short packet completion if the
 			 * untransferred length was zero.
 			 */
