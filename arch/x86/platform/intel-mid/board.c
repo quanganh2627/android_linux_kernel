@@ -36,11 +36,11 @@
 #include <asm/io_apic.h>
 #include <asm/intel-mid.h>
 #include <asm/intel_mid_vrtc.h>
-#include <asm/io.h>
+#include <linux/io.h>
 #include <asm/i8259.h>
 #include <asm/intel_scu_ipc.h>
 #include <asm/apb_timer.h>
-#include <asm/reboot.h>
+#include <linux/reboot.h>
 
 /*
  * IPC devices
@@ -277,12 +277,13 @@ struct devs_id __initconst device_ids[] = {
 	{"wm5102", SFI_DEV_TYPE_I2C, 0, &wm5102_platform_data, NULL},
 	{"lm49453_codec", SFI_DEV_TYPE_I2C, 1, &no_platform_data, NULL},
 	{"cs42l73", SFI_DEV_TYPE_I2C, 1, &cs42l73_platform_data, NULL},
-#ifndef CONFIG_HSI_NO_MODEM
+#ifdef CONFIG_HSI
 	{"hsi_ifx_modem", SFI_DEV_TYPE_HSI, 0, &hsi_modem_platform_data, NULL},
 	{"hsi_ffl_modem", SFI_DEV_TYPE_HSI, 0, &ffl_modem_platform_data, NULL},
 	{"hsi_edlp_modem", SFI_DEV_TYPE_HSI, 0, &edlp_modem_platform_data,
-						NULL},
-	{"hsi_edlp_fast", SFI_DEV_TYPE_HSI, 0, &edlp_fast_platform_data, NULL},
+		&sfi_handle_edlp_dev},
+	{"hsi_edlp_fast", SFI_DEV_TYPE_HSI, 0, &edlp_fast_platform_data,
+		&sfi_handle_edlp_fast_dev},
 #endif
 	{"XMM_6260", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
 		&sfi_handle_mdm},

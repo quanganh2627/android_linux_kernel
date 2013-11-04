@@ -38,11 +38,11 @@
 #include <asm/io_apic.h>
 #include <asm/intel-mid.h>
 #include <asm/intel_mid_vrtc.h>
-#include <asm/io.h>
+#include <linux/io.h>
 #include <asm/i8259.h>
 #include <asm/intel_scu_ipc.h>
 #include <asm/apb_timer.h>
-#include <asm/reboot.h>
+#include <linux/reboot.h>
 #include "intel_mid_weak_decls.h"
 #include <asm/spid.h>
 
@@ -206,8 +206,8 @@ static int __init sfi_parse_gpio(struct sfi_table_header *table)
 
 	pr_debug("GPIO pin info:\n");
 	for (i = 0; i < num; i++, pentry++)
-		pr_debug("info[%2d]: controller = %16.16s, pin_name = %16.16s,"
-		" pin = %d\n", i,
+		pr_debug("info[%2d]: controller = %16.16s, pin_name = %16.16s, pin = %d\n",
+			i,
 			pentry->controller_name,
 			pentry->pin_name,
 			pentry->pin_no);
@@ -432,7 +432,6 @@ static void sfi_handle_hsi_dev(struct sfi_device_table_entry *pentry,
 		pentry->host_num,
 		pentry->name,
 		pentry->addr);
-
 	memset(&hsi_info, 0, sizeof(hsi_info));
 	hsi_info.name = pentry->name;
 	hsi_info.hsi_id = pentry->host_num;
@@ -457,8 +456,7 @@ static void __init sfi_handle_sd_dev(struct sfi_device_table_entry *pentry,
 	sd_info.bus_num = pentry->host_num;
 	sd_info.board_ref_clock = pentry->max_freq;
 	sd_info.addr = pentry->addr;
-	pr_info("SDIO bus = %d, name = %16.16s, "
-			"ref_clock = %d, addr =0x%x\n",
+	pr_info("SDIO bus = %d, name = %16.16s, ref_clock = %d, addr =0x%x\n",
 			sd_info.bus_num,
 			sd_info.name,
 			sd_info.board_ref_clock,
@@ -493,6 +491,10 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 	int num, i;
 	int ioapic;
 	struct io_apic_irq_attr irq_attr;
+	struct sfi_device_table_entry *hsi_modem_entry = NULL;
+	struct devs_id *hsi_device = NULL;
+	void (*hsi_sfi_handler)(struct sfi_device_table_entry *pentry,
+				struct devs_id *dev) = NULL;
 
 	sb = (struct sfi_table_simple *)table;
 	num = SFI_GET_NUM_ENTRIES(sb, struct sfi_device_table_entry);
@@ -542,7 +544,7 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 				}
 				io_apic_set_pci_routing(NULL, irq, &irq_attr);
 			} else
-				printk(KERN_INFO "APIC entry not found for: name=%s, irq=%d, ioapic=%d\n",
+				pr_info("APIC entry not found for: name=%s, irq=%d, ioapic=%d\n",
 					pentry->name, irq, ioapic);
 		}
 		dev = get_device_id(pentry->type, pentry->name);
@@ -552,6 +554,12 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 
 		if (dev->device_handler) {
 			dev->device_handler(pentry, dev);
+			if (pentry->type == SFI_DEV_TYPE_MDM)
+				hsi_modem_entry = pentry;
+			if (pentry->type == SFI_DEV_TYPE_HSI) {
+				hsi_sfi_handler = dev->device_handler;
+				hsi_device = dev;
+			}
 		} else {
 			switch (pentry->type) {
 			case SFI_DEV_TYPE_IPC:
@@ -575,6 +583,9 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 			}
 		}
 	}
+	if (hsi_modem_entry)
+		if (hsi_sfi_handler)
+			hsi_sfi_handler(hsi_modem_entry, hsi_device);
 
 	return 0;
 }
