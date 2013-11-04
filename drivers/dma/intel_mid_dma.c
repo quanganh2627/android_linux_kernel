@@ -684,14 +684,20 @@ static inline void dma_wait_for_suspend(struct dma_chan *chan, unsigned int mask
 	iowrite32(cfg_lo.cfg_lo, midc->ch_regs + CFG_LOW);
 	/* wait till FIFO gets empty */
 	/* FIFO should be cleared in couple of milli secs */
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < 40; i++) {
 		cfg_lo.cfg_lo = ioread32(midc->ch_regs + CFG_LOW);
 		if (cfg_lo.cfgx.fifo_empty)
 			break;
-	/* use delay since this might called from atomic context */
-		mdelay(1);
+		/* use delay since this might called from atomic context */
+		udelay(100);
 	}
-	pr_debug("waited for %d ms for FIFO to get empty", i);
+
+	if (i == 40)
+		pr_info("Waited 4ms for chan[%d] FIFO to get empty\n",
+			chan->chan_id);
+	else
+		pr_debug("waited for %d us for FIFO to get empty", i*100);
+
 	iowrite32(DISABLE_CHANNEL(midc->ch_id), mid->dma_base + DMA_CHAN_EN);
 
 	cfg_lo.cfg_lo = ioread32(midc->ch_regs + CFG_LOW);
