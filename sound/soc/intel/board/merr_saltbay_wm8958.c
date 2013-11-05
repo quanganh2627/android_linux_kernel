@@ -326,24 +326,22 @@ static const struct snd_soc_dapm_route map[] = {
 	{ "IN1LP", NULL, "AMIC" },
 
 	/* SWM map link the SWM outs to codec AIF */
-	{ "AIF1DAC1L", "NULL", "Codec OUT0"  },
-	{ "AIF1DAC1R", "NULL", "Codec OUT0"  },
-	{ "AIF1DAC2L", "NULL", "Codec OUT1"  },
-	{ "AIF1DAC2R", "NULL", "Codec OUT1"  },
-	{ "Codec IN0", "NULL", "AIF1ADC1L" },
-	{ "Codec IN0", "NULL", "AIF1ADC1R" },
-	{ "Codec IN1", "NULL", "AIF1ADC2L" },
-	{ "Codec IN1", "NULL", "AIF1ADC2R" },
+	{ "AIF1DAC1L", NULL, "Codec OUT0"  },
+	{ "AIF1DAC1R", NULL, "Codec OUT0"  },
+	{ "AIF1DAC2L", NULL, "Codec OUT1"  },
+	{ "AIF1DAC2R", NULL, "Codec OUT1"  },
+	{ "Codec IN0", NULL, "AIF1ADC1L" },
+	{ "Codec IN0", NULL, "AIF1ADC1R" },
+	{ "Codec IN1", NULL, "AIF1ADC1L" },
+	{ "Codec IN1", NULL, "AIF1ADC1R" },
 
-	{ "AIF1DAC1L", "NULL", "VFLEXCNT" },
-	{ "AIF1DAC1R", "NULL", "VFLEXCNT" },
-	{ "AIF1DAC2L", "NULL", "VFLEXCNT" },
-	{ "AIF1DAC2R", "NULL", "VFLEXCNT" },
+	{ "AIF1DAC1L", NULL, "VFLEXCNT" },
+	{ "AIF1DAC1R", NULL, "VFLEXCNT" },
+	{ "AIF1DAC2L", NULL, "VFLEXCNT" },
+	{ "AIF1DAC2R", NULL, "VFLEXCNT" },
 
-	{ "AIF1ADC1L", "NULL", "VFLEXCNT" },
-	{ "AIF1ADC1R", "NULL", "VFLEXCNT" },
-	{ "AIF1ADC2L", "NULL", "VFLEXCNT" },
-	{ "AIF1ADC2R", "NULL", "VFLEXCNT" },
+	{ "AIF1ADC1L", NULL, "VFLEXCNT" },
+	{ "AIF1ADC1R", NULL, "VFLEXCNT" },
 
 };
 
