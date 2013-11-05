@@ -301,17 +301,17 @@ arch_initcall(acpi_spid_init);
  * TILDE (0x7E), until \0 or maxlen characters occur.
  * param char *str_buf buffer of characters to look for
  * param int maxlen max number of characters to look for
- * return int 0 if valid, otherwise index of the first non valid character
+ * return true if valid, otherwise false
  * */
-static int chk_prt_validity(char *strbuf, int max_len)
+static bool chk_prt_validity(char *strbuf, int max_len)
 {
 	int idx = 0;
 	while ((idx < max_len) && (strbuf[idx] != '\0')) {
 		if ((strbuf[idx] < 0x20) || (strbuf[idx] > 0x7E))
-			return idx;
+			return false;
 		idx++;
 	}
-	return 0;
+	return true;
 }
 
 int __init sfi_handle_spid(struct sfi_table_header *table)
@@ -348,7 +348,7 @@ int __init sfi_handle_spid(struct sfi_table_header *table)
 		pr_err("SFI OEMB does not contains SSN\n");
 		intel_platform_ssn[0] = '\0';
 	} else {
-		if (chk_prt_validity(oemb->ssn, INTEL_PLATFORM_SSN_SIZE) != 0) {
+		if (!chk_prt_validity(oemb->ssn, INTEL_PLATFORM_SSN_SIZE)) {
 			pr_err("SSN contains non printable character\n");
 			intel_platform_ssn[0] = '\0';
 		} else {
