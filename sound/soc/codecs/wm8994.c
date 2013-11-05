@@ -639,6 +639,11 @@ SOC_SINGLE_TLV("AIF2DAC 3D Stereo Volume", WM8994_AIF2_DAC_FILTERS_2,
 	       10, 15, 0, wm8994_3d_tlv),
 SOC_SINGLE("AIF2DAC 3D Stereo Switch", WM8994_AIF2_DAC_FILTERS_2,
 	   8, 1, 0),
+
+SOC_SINGLE_TLV("MIXINL MIXOUTL Volume", WM8994_INPUT_MIXER_3, 0, 7, 0,
+	       mixin_boost_tlv),
+SOC_SINGLE_TLV("MIXINR MIXOUTR Volume", WM8994_INPUT_MIXER_4, 0, 7, 0,
+	       mixin_boost_tlv),
 };
 
 static const struct snd_kcontrol_new wm8994_eq_controls[] = {
