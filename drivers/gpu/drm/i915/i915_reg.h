@@ -2320,11 +2320,11 @@ EDP_PSR_SW_TIMER
 #define   PP_SEQUENCE_STATE_ON_S1_2	(0xa << 0)
 #define   PP_SEQUENCE_STATE_ON_S1_3	(0xb << 0)
 #define   PP_SEQUENCE_STATE_RESET	(0xf << 0)
-#define PP_CONTROL	0x61204
+#define PP_CONTROL	(dev_priv->info->display_mmio_offset + 0x61204)
 #define   POWER_TARGET_ON	(1 << 0)
-#define PP_ON_DELAYS	0x61208
-#define PP_OFF_DELAYS	0x6120c
-#define PP_DIVISOR	0x61210
+#define PP_ON_DELAYS	(dev_priv->info->display_mmio_offset + 0x61208)
+#define PP_OFF_DELAYS	(dev_priv->info->display_mmio_offset + 0x6120c)
+#define PP_DIVISOR	(dev_priv->info->display_mmio_offset + 0x61210)
 
 /* Panel fitting */
 #define PFIT_CONTROL	(dev_priv->info->display_mmio_offset + 0x61230)
