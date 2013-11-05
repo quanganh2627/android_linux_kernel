@@ -3287,6 +3287,7 @@ CONFIG_INTEL_MODEM_NVRAM=y
 CONFIG_INTEL_SCU_FLIS=y
 # CONFIG_INTEL_SOC_PMC is not set
 # CONFIG_INTEL_BYT_EC is not set
+# CONFIG_INTEL_CRYSTALCOVE_PAGE0 is not set
 
 #
 # Hardware Spinlock drivers
