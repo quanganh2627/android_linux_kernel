@@ -191,6 +191,7 @@ enum sst_algo_types {
 	SST_ALGO_VTSV = 0x73,
 	SST_ALGO_AUDCLASSIFIER = 0x80,
 	SST_ALGO_VOLUME_CONTROL = 0x92,
+	SST_ALGO_GEQ = 0x99,
 };
 
 enum stream_type {

@@ -48,6 +48,7 @@ static struct sst_module_info sst_modules_mrfld[] = {
 	{"aac_dec", SST_CODEC_TYPE_AAC, 0, SST_LIB_NOT_FOUND},
 	{"audclass_lib", SST_ALGO_AUDCLASSIFIER, 0, SST_LIB_NOT_FOUND},
 	{"vtsv_lib", SST_ALGO_VTSV, 0, SST_LIB_NOT_FOUND},
+	{"geq_lib", SST_ALGO_GEQ, 0, SST_LIB_NOT_FOUND},
 };
 
 /**
