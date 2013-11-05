@@ -936,6 +936,10 @@ struct intel_gen6_power_mgmt {
 	 * Must be taken after struct_mutex if nested.
 	 */
 	struct mutex hw_lock;
+
+	/* Delayed work to adjust RC6 promotion timer */
+	struct delayed_work vlv_media_timeout_work;
+
 };
 
 /* RC6 related */

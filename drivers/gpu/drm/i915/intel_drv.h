@@ -789,6 +789,8 @@ extern bool vlv_rs_initialize(struct drm_device *dev);
 extern void vlv_rs_sleepstateinit(struct drm_device *dev,
 					bool   bdisable_rs);
 extern void vlv_rs_setstate(struct drm_device *dev, bool enable);
+extern void vlv_modify_rc6_promotion_timer(struct drm_i915_private *dev_priv,
+					    bool media_active);
 
 extern bool vlv_turbo_initialize(struct drm_device *dev);
 extern void vlv_turbo_disable(struct drm_device *dev);
