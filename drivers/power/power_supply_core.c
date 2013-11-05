@@ -522,7 +522,14 @@ static int ps_set_cur_charge_cntl_limit(struct thermal_cooling_device *tcd,
 
 	if (WARN_ON(tcd == NULL))
 		return -EINVAL;
+
 	psy = tcd->devdata;
+
+	ret = psy->get_property(psy,
+		POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX, &val);
+	if (state >= val.intval)
+		return -EINVAL;
+
 	val.intval = state;
 	ret = psy->set_property(psy,
 		POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT, &val);
