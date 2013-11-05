@@ -231,7 +231,8 @@ int config_pin_flis(unsigned int name, enum flis_param_t param, u32 val)
 			pr_err("update shim failed\n");
 			return ret;
 		}
-	} else if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) {
+	} else if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
+		intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
 		mmft = isfi->mmio_flis_t;
 		off = mmft[name].offset;
 
@@ -320,7 +321,8 @@ int get_pin_flis(unsigned int name, enum flis_param_t param, u32 *val)
 		*val = (data >> pos) & mask;
 
 		pr_debug("read: data = 0x%x, val = 0x%x\n", data, *val);
-	} else if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) {
+	} else if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
+		intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
 		mmft = isfi->mmio_flis_t;
 		off = mmft[name].offset;
 
