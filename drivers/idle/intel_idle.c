@@ -66,6 +66,8 @@
 #include <asm/mwait.h>
 #include <asm/msr.h>
 
+#include <asm/io_apic.h>
+
 #define INTEL_IDLE_VERSION "0.4"
 #define PREFIX "intel_idle: "
 
@@ -537,6 +539,16 @@ static struct cpuidle_state mfld_cstates[CPUIDLE_STATE_MAX] = {
 		.enter = NULL }
 };
 
+static inline bool is_irq_pending(void)
+{
+	int i, base = APIC_IRR;
+
+	for (i = 0; i < 8; i++)
+		if (apic_read(base + i*0x10) != 0)
+			return true;
+
+	return false;
+}
 static int enter_s0ix_state(u32 eax, int gov_req_state, int s0ix_state,
 		  struct cpuidle_device *dev, int index)
 {
@@ -574,6 +586,9 @@ static int enter_s0ix_state(u32 eax, int gov_req_state, int s0ix_state,
 	smp_mb();
 	if (!need_resched())
 		__mwait(eax, 1);
+
+	if (!need_resched() && is_irq_pending() == 0)
+		__get_cpu_var(update_buckets) = 0;
 
 	if (likely(eax == C6_HINT))
 		atomic_dec(&nr_cpus_in_c6);
@@ -749,6 +764,11 @@ static int intel_idle(struct cpuidle_device *dev,
 		smp_mb();
 		if (!need_resched())
 			__mwait(eax, ecx);
+#if defined(CONFIG_REMOVEME_INTEL_ATOM_MDFLD_POWER) || \
+	defined(CONFIG_REMOVEME_INTEL_ATOM_CLV_POWER)
+		if (!need_resched() && is_irq_pending() == 0)
+			__get_cpu_var(update_buckets) = 0;
+#endif
 	}
 
 	if (!(lapic_timer_reliable_states & (1 << (cstate))))
@@ -1095,6 +1115,8 @@ static int intel_idle_cpu_init(int cpu)
 
 	if (icpu->auto_demotion_disable_flags)
 		smp_call_function_single(cpu, auto_demotion_disable, NULL, 1);
+
+	__get_cpu_var(update_buckets) = 1;
 
 	return 0;
 }
