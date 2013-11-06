@@ -345,7 +345,7 @@ int sst_wait_timeout(struct intel_sst_drv *sst_drv_ctx, struct sst_block *block)
 		/* event wake */
 		pr_debug("sst: Event wake %x\n", block->condition);
 		pr_debug("sst: message ret: %d\n", block->ret_code);
-		retval = block->ret_code;
+		retval = -block->ret_code;
 	} else {
 		block->on = false;
 		pr_err("sst: Wait timed-out condition:%#x, msg_id:%#x\n",

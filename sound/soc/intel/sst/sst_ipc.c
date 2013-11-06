@@ -486,7 +486,7 @@ static int process_fw_init(struct ipc_post *msg)
 			sst_drv_ctx->sst_state =  SST_ERROR;
 			pr_debug("FW Init failed, Error %x\n", init->result);
 			pr_err("FW Init failed, Error %x\n", init->result);
-			retval = -init->result;
+			retval = init->result;
 			goto ret;
 		}
 		pr_debug("FW Version %02x.%02x.%02x\n", init->fw_version.major,
