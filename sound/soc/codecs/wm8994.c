@@ -970,7 +970,7 @@ static void vmid_dereference(struct snd_soc_codec *codec)
 				    WM8994_VMID_RAMP_MASK, 0);
 
 		snd_soc_update_bits(codec, WM8994_POWER_MANAGEMENT_1,
-				    WM8994_VMID_SEL_MASK, 0);
+				    WM8994_BIAS_ENA | WM8994_VMID_SEL_MASK, 0);
 	}
 
 	pm_runtime_put(codec->dev);
