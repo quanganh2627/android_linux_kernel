@@ -127,10 +127,18 @@ static struct notifier_block pnw_sleep_pm_notifier = {
 };
 
 /* the root hub will call this callback when device added/removed */
-static int otg_notify(struct usb_device *udev, unsigned action)
+static int otg_notify(struct notifier_block *nb, unsigned long action,
+		struct usb_device *udev)
 {
 	struct usb_phy			*otg;
 	struct intel_mid_otg_xceiv	*iotg;
+
+	/* skip bus add/remove notification, else access udev->parent could
+	 * panic if bus register and unregister quickly(setup failed). And we
+	 * do not care bus event.
+	 */
+	if (action == USB_BUS_ADD || action == USB_BUS_REMOVE)
+		return NOTIFY_DONE;
 
 	/* Ignore root hub add/remove event */
 	if (!udev->parent) {
