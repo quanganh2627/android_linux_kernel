@@ -39,15 +39,19 @@ static int charger_detect_enable(struct dwc_otg2 *otg)
 
 static void usb2phy_eye_optimization(struct dwc_otg2 *otg)
 {
+	struct intel_dwc_otg_pdata *data;
 	struct usb_phy *phy;
+
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
 
 	phy = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (!phy)
 		return;
 
-	/* Set 0x7f for better quality in eye diagram
-	 * It means ZHSDRV = 0b11 and IHSTX = 0b1111*/
-	usb_phy_io_write(phy, 0x4f, TUSB1211_VENDOR_SPECIFIC1_SET);
+	/* Modify VS1 for better quality in eye diagram */
+	if (data && data->ti_phy_vs1)
+		usb_phy_io_write(phy, data->ti_phy_vs1,
+			TUSB1211_VENDOR_SPECIFIC1_SET);
 
 	usb_put_phy(phy);
 }

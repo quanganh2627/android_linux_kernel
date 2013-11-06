@@ -61,16 +61,19 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 		/* FIXME: Hardcode now, but need to use ACPI table for GPIO */
 		if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, RVP3) ||
 			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, RVP3)) {
-			pr_info("This is BYT RVP\n");
 			dwc_otg_pdata.gpio_cs = 156;
 			dwc_otg_pdata.gpio_reset = 144;
+			dwc_otg_pdata.ti_phy_vs1 = 0x4f;
 		} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||
-			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR0) ||
-			INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
-			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1)) {
-			pr_info("This is BYT FFRD8 PR0/PR1\n");
+			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR0)) {
 			dwc_otg_pdata.gpio_cs = 54;
 			dwc_otg_pdata.gpio_reset = 144;
+			dwc_otg_pdata.ti_phy_vs1 = 0x4f;
+		} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
+			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1)) {
+			dwc_otg_pdata.gpio_cs = 54;
+			dwc_otg_pdata.gpio_reset = 144;
+			dwc_otg_pdata.ti_phy_vs1 = 0x7f;
 		}
 		return &dwc_otg_pdata;
 	default:
