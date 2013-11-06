@@ -1397,7 +1397,8 @@ static void sst_init_lib_mem_mgr(struct intel_sst_drv *ctx)
 						+ lib_info->mod_table_size;
 	mgr->avail = lib_info->mod_end - mgr->current_base + 1;
 
-	pr_debug("current base = 0x%x , avail = 0x%x\n", mgr->current_base, mgr->avail);
+	pr_debug("current base = 0x%lx , avail = 0x%x\n",
+		(unsigned long)mgr->current_base, mgr->avail);
 }
 
 /**
@@ -1629,7 +1630,7 @@ static int sst_relocate_got_entries(Elf32_Rela *table, unsigned int size,
 	return 0;
 }
 
-static int sst_relocate_elf(char *in_elf, int elf_size, u32 rel_base,
+static int sst_relocate_elf(char *in_elf, int elf_size, phys_addr_t rel_base,
 		Elf32_Addr *entry_pt)
 {
 	int retval = 0;
@@ -1639,9 +1640,13 @@ static int sst_relocate_elf(char *in_elf, int elf_size, u32 rel_base,
 	int i, num_sec;
 	Elf32_Rela *rel_table = NULL;
 	unsigned int rela_cnt = 0;
+	u32 rbase;
+
+	BUG_ON(rel_base > (u32)(-1));
+	rbase = (u32) (rel_base & (u32)(~0));
 
 	/* relocate the entry_pt */
-	*entry_pt = (Elf32_Addr)(ehdr->e_entry + rel_base);
+	*entry_pt = (Elf32_Addr)(ehdr->e_entry + rbase);
 	num_sec = ehdr->e_shnum;
 
 	/* Find the relocation(GOT) table through the section header */
@@ -1652,7 +1657,7 @@ static int sst_relocate_elf(char *in_elf, int elf_size, u32 rel_base,
 
 	/* Relocate all the entries in the GOT */
 	retval = sst_relocate_got_entries(rel_table, rela_cnt, in_elf,
-						elf_size, rel_base);
+						elf_size, rbase);
 	if (retval < 0)
 		return retval;
 
@@ -1661,8 +1666,8 @@ static int sst_relocate_elf(char *in_elf, int elf_size, u32 rel_base,
 	/* Update the program headers in the ELF */
 	for (i = 0; i < ehdr->e_phnum; i++) {
 		if (phdr[i].p_type == PT_LOAD) {
-			phdr[i].p_vaddr += rel_base;
-			phdr[i].p_paddr += rel_base;
+			phdr[i].p_vaddr += rbase;
+			phdr[i].p_paddr += rbase;
 		}
 	}
 	pr_debug("program header entries updated\n");
@@ -1673,7 +1678,7 @@ static int sst_relocate_elf(char *in_elf, int elf_size, u32 rel_base,
 #define ALIGN_256 0x100
 
 int sst_get_next_lib_mem(struct sst_mem_mgr *mgr, int size,
-			u32 *lib_base)
+			unsigned long *lib_base)
 {
 	int retval = 0;
 
@@ -1687,7 +1692,7 @@ int sst_get_next_lib_mem(struct sst_mem_mgr *mgr, int size,
 	mgr->current_base += size;
 	mgr->avail -= size;
 	mgr->count++;
-	pr_debug("library base = 0x%x", *lib_base);
+	pr_debug("library base = 0x%lx", *lib_base);
 	pr_debug("library aligned size = 0x%x", size);
 	pr_debug("lib count = %d\n", mgr->count);
 	return retval;
@@ -1766,7 +1771,7 @@ static int sst_request_lib_elf(struct sst_module_info *mod_entry,
 }
 
 static int sst_allocate_lib_mem(const struct firmware *lib, int size,
-	struct sst_mem_mgr *mem_mgr, char **out_elf, u32 *lib_start)
+	struct sst_mem_mgr *mem_mgr, char **out_elf, unsigned long *lib_start)
 {
 	int retval = 0;
 
@@ -1800,7 +1805,7 @@ int sst_load_all_modules_elf(struct intel_sst_drv *ctx, struct sst_module_info *
 	char *out_elf;
 	unsigned int lib_size = 0;
 	unsigned int mod_table_offset = ctx->pdata->lib_info->mod_table_offset;
-	u32 lib_base;
+	unsigned long lib_base;
 
 	pr_debug("In %s", __func__);
 

@@ -767,7 +767,7 @@ static inline int sst_calc_tstamp(struct pcm_stream_info *info,
 {
 	size_t delay_bytes, delay_frames;
 	size_t buffer_sz;
-	size_t pointer_bytes, pointer_samples;
+	u32 pointer_bytes, pointer_samples;
 
 	pr_debug("mrfld ring_buffer_counter %llu in bytes\n",
 			fw_tstamp->ring_buffer_counter);

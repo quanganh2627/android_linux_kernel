@@ -733,7 +733,8 @@ int sst_request_vtsv_file(char *fname, struct intel_sst_drv *ctx,
 {
 	int retval = 0;
 	const struct firmware *file;
-	u32 ddr_virt_addr, file_base;
+	void *ddr_virt_addr;
+	unsigned long file_base;
 
 	if (!ctx->pdata->lib_info) {
 		pr_err("lib_info pointer NULL\n");
@@ -756,9 +757,10 @@ int sst_request_vtsv_file(char *fname, struct intel_sst_drv *ctx,
 			&file_base);
 		*out_file = (void *)file_base;
 	}
-	ddr_virt_addr = (u32)ctx->ddr +
-			(u32)(*out_file - ctx->pdata->lib_info->mod_base);
-	memcpy((void *)ddr_virt_addr, file->data, file->size);
+	ddr_virt_addr = (unsigned char *)ctx->ddr +
+		(unsigned long)(*out_file - ctx->pdata->lib_info->mod_base);
+	memcpy(ddr_virt_addr, file->data, file->size);
+
 	*out_size = file->size;
 	release_firmware(file);
 	return 0;
@@ -772,9 +774,14 @@ int sst_format_vtsv_message(struct intel_sst_drv *ctx,
 	struct snd_sst_vtsv_info vinfo;
 	struct ipc_post *msg;
 
-	vinfo.vfiles[0].addr = (u32)ctx->vcache.file1_in_mem;
+	BUG_ON((unsigned long)ctx->vcache.file1_in_mem & 0xffffffff00000000);
+	BUG_ON((unsigned long)ctx->vcache.file2_in_mem & 0xffffffff00000000);
+
+	vinfo.vfiles[0].addr = (u32)((unsigned long)ctx->vcache.file1_in_mem
+				& 0xffffffff);
 	vinfo.vfiles[0].size = ctx->vcache.size1;
-	vinfo.vfiles[1].addr = (u32)ctx->vcache.file2_in_mem;
+	vinfo.vfiles[1].addr = (u32)((unsigned long)ctx->vcache.file2_in_mem
+				& 0xffffffff);
 	vinfo.vfiles[1].size = ctx->vcache.size2;
 
 	/* Create the vtsv message */

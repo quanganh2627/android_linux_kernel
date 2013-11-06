@@ -598,7 +598,7 @@ void sst_process_message_mrfld(struct ipc_post *msg)
 }
 
 /* Max 6 results each of size 14 bytes + numresults(2bytes) */
-#define MAX_VTSV_RESULT_SIZE 86
+#define MAX_VTSV_RESULT_SIZE 50
 static int send_vtsv_result_event(void *data, int size)
 {
 	char *envp[MAX_VTSV_RESULT_SIZE+2];
