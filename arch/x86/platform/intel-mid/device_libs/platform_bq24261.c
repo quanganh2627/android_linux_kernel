@@ -22,6 +22,8 @@
 #include "platform_ipc.h"
 #include "platform_bq24261.h"
 
+#define BOOST_CUR_LIM	500
+
 static struct power_supply_throttle bq24261_throttle_states[] = {
 	{
 		.throttle_action = PSY_THROTTLE_CC_LIMIT,
@@ -74,7 +76,7 @@ void __init *bq24261_platform_data(void *info)
 	}
 #endif
 	bq24261_pdata.set_iterm = NULL;
-	bq24261_pdata.boost_mode_mA = 1000;
+	bq24261_pdata.boost_mode_mA = BOOST_CUR_LIM;
 
 	return &bq24261_pdata;
 }
