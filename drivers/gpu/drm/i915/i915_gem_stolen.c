@@ -79,7 +79,11 @@ static unsigned long i915_stolen_to_physical(struct drm_device *dev)
 	 * kernel. So if the region is already marked as busy, something
 	 * is seriously wrong.
 	 */
-	r = devm_request_mem_region(dev->dev, base, dev_priv->gtt.stolen_size,
+	/* requesting region from base + 1, to handle the memory
+	 * region conflict with PCI Bus.
+	 */
+	r = devm_request_mem_region(dev->dev, base + 1,
+				dev_priv->gtt.stolen_size - 1,
 				    "Graphics Stolen Memory");
 	if (r == NULL) {
 		DRM_ERROR("conflict detected with stolen region: [0x%08x - 0x%08x]\n",
@@ -87,6 +91,8 @@ static unsigned long i915_stolen_to_physical(struct drm_device *dev)
 		base = 0;
 	}
 
+	DRM_DEBUG_DRIVER("stolen base = 0x%x, size = 0x%x\n",
+		(unsigned int)base, (unsigned int)dev_priv->gtt.stolen_size);
 	return base;
 }
 
@@ -194,7 +200,7 @@ int i915_gem_init_stolen(struct drm_device *dev)
 	if (dev_priv->mm.stolen_base == 0)
 		return 0;
 
-	DRM_DEBUG_KMS("found %zd bytes of stolen memory at %08lx\n",
+	DRM_DEBUG_DRIVER("found %zd bytes of stolen memory at %08lx\n",
 		      dev_priv->gtt.stolen_size, dev_priv->mm.stolen_base);
 
 	if (IS_VALLEYVIEW(dev))
@@ -236,7 +242,7 @@ i915_pages_create_for_stolen(struct drm_device *dev,
 	}
 
 	sg = st->sgl;
-	sg->offset = offset;
+	sg->offset = 0;
 	sg->length = size;
 
 	sg_dma_address(sg) = (dma_addr_t)dev_priv->mm.stolen_base + offset;
@@ -254,6 +260,12 @@ static int i915_gem_object_get_pages_stolen(struct drm_i915_gem_object *obj)
 static void i915_gem_object_put_pages_stolen(struct drm_i915_gem_object *obj)
 {
 	/* Should only be called during free */
+	DRM_DEBUG_DRIVER(
+		"Obj removed from stolen, ptr=0x%x, refcnt=%d, handle_cnt=%d\n",
+			(unsigned int)obj,
+			obj->base.refcount.refcount.counter,
+			obj->base.handle_count.counter);
+
 	sg_free_table(obj->pages);
 	kfree(obj->pages);
 }
@@ -290,6 +302,9 @@ _i915_gem_object_create_stolen(struct drm_device *dev,
 	obj->base.read_domains = I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT;
 	obj->cache_level = HAS_LLC(dev) ? I915_CACHE_LLC : I915_CACHE_NONE;
 
+	DRM_DEBUG_DRIVER("New obj allocated from stolen 0x%x, size = 0x%x\n",
+			(u32)obj, obj->base.size);
+
 	return obj;
 
 cleanup:
@@ -325,6 +340,183 @@ i915_gem_object_create_stolen(struct drm_device *dev, u32 size)
 	return NULL;
 }
 
+static int i915_add_clear_obj_cmd(struct drm_i915_gem_object *obj)
+{
+	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+	struct intel_ring_buffer *ring = &dev_priv->ring[BCS];
+	uint32_t obj_height = (obj->base.size / obj->stride);
+	u32 offset = i915_gem_obj_ggtt_offset(obj);
+	int ret;
+
+#define	COLOR_BLIT_OP		((0x2 << 29) | (0x40 << 22) | (0x3 << 20) | 0x3)
+#define	COLOR_BLIT_OP_DW1	((0x3 << 24) | (0xF0 << 16) | (obj->stride))
+#define	COLOR_BLIT_OP_DW2	((obj_height << 16) | (obj->stride))
+#define	COLOR_BLIT_OP_DW3	(offset)
+#define	COLOR_BLIT_OP_DW4	(0x0)
+
+	ret = intel_ring_begin(ring, 6);
+	if (ret)
+		return ret;
+	intel_ring_emit(ring, COLOR_BLIT_OP);
+	intel_ring_emit(ring, COLOR_BLIT_OP_DW1);
+	intel_ring_emit(ring, COLOR_BLIT_OP_DW2);
+	intel_ring_emit(ring, COLOR_BLIT_OP_DW3);
+	intel_ring_emit(ring, COLOR_BLIT_OP_DW4);
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_advance(ring);
+
+	return 0;
+}
+
+static int i915_memset_stolen_obj_hw(struct drm_i915_gem_object *obj)
+{
+	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+	struct intel_ring_buffer *ring = &dev_priv->ring[BCS];
+	unsigned alignment = 0;
+	bool map_and_fenceable =  true;
+	bool nonblocking = false;
+	u32 seqno;
+	int ret;
+
+	ret = i915_gem_obj_ggtt_pin(obj, alignment, map_and_fenceable,
+		nonblocking);
+	if (ret) {
+		DRM_ERROR("Mapping of User FB to GTT failed\n");
+		return ret;
+	}
+
+	/* Adding commands to the blitter ring to
+	 * clear out the contents of the buffer object
+	 */
+	ret = i915_add_clear_obj_cmd(obj);
+	if (ret) {
+		DRM_ERROR("couldn't add commands in blitter ring\n");
+		i915_gem_object_unpin(obj);
+		return ret;
+	}
+
+	seqno = intel_ring_get_seqno(ring);
+
+	obj->base.read_domains = I915_GEM_DOMAIN_RENDER;
+	obj->base.write_domain = I915_GEM_DOMAIN_RENDER;
+
+	i915_gem_object_move_to_active(obj, ring);
+
+	obj->dirty = 1;
+	obj->last_write_seqno = seqno;
+
+	/* Unconditionally force add_request to emit a full flush. */
+	ring->gpu_caches_dirty = true;
+
+	/* Add a breadcrumb for the completion of the batch buffer */
+	(void)i915_add_request(ring, NULL);
+
+	i915_gem_object_unpin(obj);
+
+	return 0;
+}
+
+static void i915_memset_stolen_obj_sw(struct drm_i915_gem_object *obj)
+{
+	if (!i915_gem_obj_ggtt_bound(obj)) {
+		int ret;
+		char __iomem *base;
+		int size = obj->base.size;
+		struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+		unsigned alignment = 0;
+		bool map_and_fenceable =  true;
+		bool nonblocking = false;
+
+		ret = i915_gem_obj_ggtt_pin(obj, alignment, map_and_fenceable,
+					nonblocking);
+		if (ret) {
+			DRM_ERROR("Mapping of User FB to GTT failed\n");
+			return;
+		}
+
+		/* Get the CPU virtual address of the frame buffer */
+		base =
+			ioremap_wc(dev_priv->gtt.mappable_base +
+				i915_gem_obj_ggtt_offset(obj), size);
+		if (base == NULL) {
+			DRM_ERROR("Mapping of User FB to CPU failed\n");
+			i915_gem_object_unpin(obj);
+			return;
+		}
+
+		memset_io(base, 0, size);
+
+		iounmap(base);
+		i915_gem_object_unpin(obj);
+
+		DRM_DEBUG_DRIVER(
+			"User FB obj ptr=0x%x cleared using CPU virtual address 0x%x\n",
+				(u32)obj, (u32)base);
+	} else
+		BUG_ON(1);
+}
+
+void
+i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
+{
+	struct drm_device *dev = obj->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_mm_node *stolen;
+	u32 size = obj->base.size;
+	int ret = 0;
+
+	if (obj->stolen) {
+		BUG_ON(obj->pages == NULL);
+		return;
+	}
+
+	if (dev_priv->mm.stolen_base == 0)
+		return;
+
+	if (size == 0)
+		return;
+
+	stolen = drm_mm_search_free(&dev_priv->mm.stolen, size, 4096, 0);
+	if (stolen)
+		stolen = drm_mm_get_block(stolen, size, 4096);
+
+	if (stolen == NULL) {
+		DRM_DEBUG_DRIVER("ran out of stolen space\n");
+		return;
+	}
+	/* Set up the object to use the stolen memory,
+	 * backing store no longer managed by shmem layer */
+	drm_gem_object_release(&(obj->base));
+	obj->base.filp = NULL;
+	obj->ops = &i915_gem_object_stolen_ops;
+
+	obj->pages = i915_pages_create_for_stolen(dev,
+						stolen->start, stolen->size);
+	if (obj->pages == NULL)
+		goto cleanup;
+
+	obj->has_dma_mapping = true;
+	i915_gem_object_pin_pages(obj);
+	obj->stolen = stolen;
+
+	DRM_DEBUG_DRIVER("Obj moved to stolen, ptr = 0x%x, size = %x\n",
+			(unsigned int)obj, size);
+
+	obj->base.read_domains = I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT;
+	obj->cache_level = HAS_LLC(dev) ? I915_CACHE_LLC : I915_CACHE_NONE;
+
+	ret = i915_memset_stolen_obj_hw(obj);
+	if (ret)
+		i915_memset_stolen_obj_sw(obj);
+
+	return;
+
+cleanup:
+	drm_mm_put_block(stolen);
+	return;
+}
+
+
 struct drm_i915_gem_object *
 i915_gem_object_create_stolen_for_preallocated(struct drm_device *dev,
 					       u32 stolen_offset,
@@ -341,7 +533,8 @@ i915_gem_object_create_stolen_for_preallocated(struct drm_device *dev,
 	if (!drm_mm_initialized(&dev_priv->mm.stolen))
 		return NULL;
 
-	DRM_DEBUG_KMS("creating preallocated stolen object: stolen_offset=%x, gtt_offset=%x, size=%x\n",
+	DRM_DEBUG_DRIVER(
+		"creating preallocated stolen obj:stolen_off=%x,gtt_off=%x,size=%x\n",
 			stolen_offset, gtt_offset, size);
 
 	/* KISS and expect everything to be page-aligned */

@@ -10574,6 +10574,7 @@ static void intel_user_framebuffer_destroy(struct drm_framebuffer *fb)
 {
 	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
 
+	intel_fb->obj->user_fb = 0;
 	intel_framebuffer_fini(intel_fb);
 	kfree(intel_fb);
 }
@@ -10713,6 +10714,7 @@ intel_user_framebuffer_create(struct drm_device *dev,
 	if (&obj->base == NULL)
 		return ERR_PTR(-ENOENT);
 
+	obj->user_fb = 1;
 	return intel_framebuffer_create(dev, mode_cmd, obj);
 }
 

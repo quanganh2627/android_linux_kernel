@@ -1683,6 +1683,12 @@ struct drm_i915_gem_object {
 	unsigned int has_dma_mapping:1;
 
 	/*
+	 * Is the object associated with user created FB
+	 */
+
+	unsigned int user_fb:1;
+
+	/*
 	 * Is the object to be mapped as read-only to the GPU
 	 * Only honoured if hardware has relevant pte bit
 	 */
@@ -2386,6 +2392,7 @@ i915_gem_object_create_stolen_for_preallocated(struct drm_device *dev,
 					       u32 stolen_offset,
 					       u32 gtt_offset,
 					       u32 size);
+void i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj);
 void i915_gem_object_release_stolen(struct drm_i915_gem_object *obj);
 
 /* i915_gem_tiling.c */
