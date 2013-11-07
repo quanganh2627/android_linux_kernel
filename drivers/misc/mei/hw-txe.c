@@ -499,7 +499,8 @@ static int mei_txe_readiness_wait(struct mei_device *dev)
 		return 0;
 	mutex_unlock(&dev->device_lock);
 	err = wait_event_interruptible_timeout(dev->wait_hw_ready,
-			dev->recvd_hw_ready, SEC_READY_WAIT_TIMEOUT);
+			dev->recvd_hw_ready,
+			msecs_to_jiffies(SEC_READY_WAIT_TIMEOUT));
 	mutex_lock(&dev->device_lock);
 	if (!err && !dev->recvd_hw_ready) {
 		dev_dbg(&dev->pdev->dev,
