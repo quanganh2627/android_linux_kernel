@@ -138,7 +138,8 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pdata = {
 						/* Reg  Value */
 						0x00, 0x46,
 						0x01, 0x65,
-						0x02, 0x93,
+					/* disable opticharge*/
+						0x02, 0x83,
 						0x03, 0xED,
 						0x04, 0xB8,
 						0x05, 0x05,
@@ -153,7 +154,7 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pdata = {
 						0x10, 0x40,
 			/* disable suspend as charging didnot start*/
 						0x30, 0x42,  /*orig:0x46*/
-						0x31, 0x01
+						0x31, 0x00
 					},
 };
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
@@ -283,9 +284,9 @@ static void *get_platform_data(void)
 	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
 		if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
 			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1)) {
-			/* enable APSD */
+			/* enable APSD and disable Opticharge*/
 			byt_t_ffrd8_pdata.char_config_regs[4] = 0x2;
-			byt_t_ffrd8_pdata.char_config_regs[5] = 0x97;
+			byt_t_ffrd8_pdata.char_config_regs[5] = 0x87;
 			/* enable APSD interrupt along with others */
 			byt_t_ffrd8_pdata.char_config_regs[12] = 0x6;
 			byt_t_ffrd8_pdata.char_config_regs[13] = 0x06;
@@ -300,15 +301,15 @@ static void *get_platform_data(void)
 			byt_t_ffrd8_pdata.char_config_regs[25] = 0xBF;
 			byt_t_ffrd8_pdata.char_config_regs[26] = 0xD;
 			byt_t_ffrd8_pdata.char_config_regs[27] = 0xF4;
-			byt_t_ffrd8_pdata.board_version =
-					BOARD_VERSION_BYT_FFRD8_PR1;
+			byt_t_ffrd8_pdata.char_config_regs[32] = 0x31;
+			byt_t_ffrd8_pdata.char_config_regs[33] = 0x01;
+			byt_t_ffrd8_pdata.detect_chg = true;
 			byt_t_ffrd8_pdata.gpio_mux = 131; /* GPIO_SUS1*/
 			/* configure output */
 			lnw_gpio_set_alt(byt_t_ffrd8_pdata.gpio_mux, 0);
 			gpio_request(byt_t_ffrd8_pdata.gpio_mux, "gpio_mux");
 		} else {
-			byt_t_ffrd8_pdata.board_version =
-					BOARD_VERSION_BYT_FFRD8_PR0,
+			byt_t_ffrd8_pdata.detect_chg = false;
 			byt_t_ffrd8_pdata.gpio_mux = -1;
 		}
 #ifdef CONFIG_POWER_SUPPLY_CHARGER

@@ -88,11 +88,6 @@ enum smb347_otg_control {
  */
 #define  MAXSMB34x_CONFIG_REG		18
 #define  MAXSMB347_CONFIG_DATA_SIZE	(MAXSMB34x_CONFIG_REG*2)
-enum {
-	NONE,
-	BOARD_VERSION_BYT_FFRD8_PR0,
-	BOARD_VERSION_BYT_FFRD8_PR1,
-};
 
 struct smb347_charger_platform_data {
 	struct power_supply_info battery_info;
@@ -115,7 +110,7 @@ struct smb347_charger_platform_data {
 	unsigned long supported_cables;
 	struct power_supply_throttle *throttle_states;
 	struct ps_batt_chg_prof *chg_profile;
-	int	board_version;
+	bool	detect_chg;
 	int	gpio_mux;
 };
 

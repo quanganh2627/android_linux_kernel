@@ -135,7 +135,9 @@
  * to bits 1 & 0 respectively.
  */
 #define SMB349_IRQSTAT_E_DCIN_UV_STAT		BIT(0)
-#define SMB349_IRQSTAT_E_DCIN_OV_STAT		BIT(3)
+#define SMB349_IRQSTAT_E_DCIN_UV_IRQ		BIT(1)
+#define SMB349_IRQSTAT_E_DCIN_OV_STAT		BIT(2)
+#define SMB349_IRQSTAT_E_DCIN_OV_IRQ		BIT(3)
 #define IRQSTAT_F				0x3a
 #define IRQSTAT_F_OTG_UV_IRQ			BIT(5)
 #define IRQSTAT_F_OTG_UV_STAT			BIT(4)
@@ -398,8 +400,7 @@ static int smb34x_get_health(struct smb347_charger *smb)
 		goto end;
 	}
 
-	usb = !(stat_e & SMB349_IRQSTAT_E_DCIN_UV_STAT) &&
-			!smb->is_disabled;
+	usb = !smb->is_disabled;
 
 	if (usb) {
 		if (stat_e & SMB349_IRQSTAT_E_DCIN_UV_STAT)
@@ -437,7 +438,8 @@ static int smb347_update_status(struct smb347_charger *smb)
 		if (smb->pdata->use_mains)
 			dc = !(ret & SMB349_IRQSTAT_E_DCIN_UV_STAT);
 		else if (smb->pdata->use_usb) {
-			usb = !(ret & SMB349_IRQSTAT_E_DCIN_UV_STAT) &&
+			usb = !(ret & (SMB349_IRQSTAT_E_DCIN_UV_STAT |
+					SMB349_IRQSTAT_E_DCIN_OV_STAT)) &&
 				!smb->is_disabled;
 		}
 
@@ -545,8 +547,7 @@ err_term:
 static int smb347_is_charger_present(struct smb347_charger *smb)
 {
 	int chg_type;
-	if (smb->pdata->board_version ==
-				BOARD_VERSION_BYT_FFRD8_PR1) {
+	if (smb->pdata->detect_chg) {
 		chg_type = smb347_read(smb, STAT_D);
 
 		return (chg_type <= 0) ? 0 : 1;
@@ -558,8 +559,7 @@ static int smb347_set_otg_reg_ctrl(struct smb347_charger *smb)
 {
 	int ret;
 
-	if (smb->pdata->board_version ==
-				BOARD_VERSION_BYT_FFRD8_PR1) {
+	if (smb->pdata->detect_chg) {
 		smb347_set_writable(smb, true);
 		ret = smb347_read(smb, CFG_OTHER);
 		if (ret < 0)
@@ -574,22 +574,6 @@ err_reg_ctrl:
 	return ret;
 
 
-}
-
-static int smb347_restart_aicl(struct smb347_charger *smb)
-{
-	int ret, reg_offset;
-	if (smb->pdata->board_version ==
-				BOARD_VERSION_BYT_FFRD8_PR1) {
-		reg_offset = CFG_PIN*2;
-		smb347_set_writable(smb, true);
-		smb347_write(smb, CFG_PIN, CFG_PIN_DEFAULT_CFG);
-		smb347_write(smb,
-			smb->pdata->char_config_regs[reg_offset],
-			smb->pdata->char_config_regs[reg_offset+1]);
-		smb347_set_writable(smb, false);
-	}
-	return 0;
 }
 
 static int smb347_charging_set(struct smb347_charger *smb, bool enable)
@@ -884,7 +868,7 @@ static void smb347_otg_drive_vbus(struct smb347_charger *smb, bool enable)
 static void smb347_full_worker(struct work_struct *work)
 {
 	struct smb347_charger *smb =
-		container_of(work, struct smb347_charger, full_worker);
+		container_of(work, struct smb347_charger, full_worker.work);
 
 	dev_info(&smb->client->dev, "%s", __func__);
 
@@ -920,8 +904,12 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 	 * check the UV status and decide disconnect
 	 */
 	power_ok = smb347_read(smb, IRQSTAT_E);
-	if ((power_ok & IRQSTAT_E_USBIN_UV_STAT))
-		ret = 0; /*UV status */
+	if ((power_ok & (SMB349_IRQSTAT_E_DCIN_UV_STAT |
+			 SMB349_IRQSTAT_E_DCIN_OV_STAT |
+			 SMB349_IRQSTAT_E_DCIN_UV_IRQ |
+			 SMB349_IRQSTAT_E_DCIN_OV_IRQ)) && ret != 0)
+		return;
+
 
 	switch (ret) {
 	case SMB_CHRG_TYPE_ACA_DOCK:
@@ -979,7 +967,6 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 	dev_info(&smb->client->dev, "notify usb %d notify charger %d",
 					notify_usb, notify_chrg);
 
-send_ntf:
 	if (notify_usb) {
 		gpio_direction_output(smb->pdata->gpio_mux, 1);
 		atomic_notifier_call_chain(&smb->otg->notifier,
@@ -1193,7 +1180,7 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 	}
 
 	irqstat_a = smb347_read(smb, IRQSTAT_A);
-	if (irqstat_b < 0) {
+	if (irqstat_a < 0) {
 		dev_warn(&smb->client->dev, "reading IRQSTAT_A failed\n");
 		return IRQ_NONE;
 	}
@@ -1301,7 +1288,9 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 	 * If we got an under voltage interrupt it means that AC/USB input
 	 * was connected or disconnected.
 	 */
-	if (irqstat_e & (IRQSTAT_E_USBIN_UV_IRQ | IRQSTAT_E_DCIN_UV_IRQ)) {
+	if (irqstat_e & (IRQSTAT_E_USBIN_UV_IRQ | IRQSTAT_E_DCIN_UV_IRQ |
+			SMB349_IRQSTAT_E_DCIN_OV_IRQ |
+			SMB349_IRQSTAT_E_DCIN_OV_STAT)) {
 		if (smb347_update_status(smb) > 0) {
 			/*
 			 * In SMB349 chip the charging is not starting
@@ -1319,10 +1308,13 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 #endif
 		}
 
-		if (smb->mains_online || smb->usb_online)
+		if (smb->mains_online || smb->usb_online) {
 			dev_info(&smb->client->dev, "Charger connected\n");
-		else
+			smb->online = 1;
+		} else {
 			dev_info(&smb->client->dev, "Charger disconnected\n");
+			smb->online = 0;
+		}
 
 		ret = IRQ_HANDLED;
 	}
@@ -1361,8 +1353,7 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 
 		smb347_update_status(smb);
 
-		if (smb->pdata->board_version ==
-					BOARD_VERSION_BYT_FFRD8_PR1)
+		if (smb->pdata->detect_chg)
 			smb34x_update_charger_type(smb);
 
 		if (smb->pdata->use_mains)
@@ -1768,9 +1759,6 @@ static int smb347_usb_set_property(struct power_supply *psy,
 		smb->max_cv = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_ENABLE_CHARGING:
-		/* re-run aicl to enable fast charging */
-		if (val->intval)
-			smb347_restart_aicl(smb);
 		ret = smb347_charging_set(smb, (bool)val->intval);
 		if (ret < 0)
 			dev_err(&smb->client->dev,
@@ -2264,7 +2252,8 @@ static int smb347_probe(struct i2c_client *client,
 		}
 	}
 
-	smb34x_update_charger_type(smb);
+	if (smb->pdata->detect_chg)
+		smb34x_update_charger_type(smb);
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
 	INIT_DELAYED_WORK(&smb->full_worker, smb347_full_worker);
 #endif
