@@ -592,6 +592,9 @@ int desc_q_enqueue(void *q_h, struct sep_sw_desc *desc_p, bool may_backlog)
 	int rc;
 
 	mutex_lock(&q_p->qlock);
+#ifdef SEP_RUNTIME_PM
+	dx_sep_pm_runtime_get();
+#endif
 
 	if (IS_Q_FULL(q_p) ||	/* Queue is full */
 	    (q_p->backlog_q.cur_q_len > 0) ||	/* or already have pending d. */
@@ -626,6 +629,9 @@ int desc_q_enqueue(void *q_h, struct sep_sw_desc *desc_p, bool may_backlog)
 		rc = -EINPROGRESS;
 	}
 
+#ifdef SEP_RUNTIME_PM
+	dx_sep_pm_runtime_put();
+#endif
 	mutex_unlock(&q_p->qlock);
 
 	return rc;		/* Enqueued to desc. queue */

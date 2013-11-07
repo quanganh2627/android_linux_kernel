@@ -3545,6 +3545,9 @@ void init_client_ctx(struct queue_drvdata *drvdata,
 		mutex_init(&client_ctx->reg_memrefs[i].buf_lock);
 		/* The rest of the fields are 0/NULL from kzalloc */
 	}
+
+	init_waitqueue_head(&client_ctx->memref_wq);
+	client_ctx->memref_cnt = 0;
 }
 
 /**

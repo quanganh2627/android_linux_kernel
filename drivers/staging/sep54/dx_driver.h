@@ -36,6 +36,7 @@
 #include <linux/dmapool.h>
 #include <linux/completion.h>
 #include <linux/export.h>
+#include <linux/semaphore.h>
 
 #define DX_CC_HOST_VIRT	/* must be defined before including dx_cc_regs.h */
 #include "dx_cc_regs.h"
@@ -264,6 +265,15 @@ struct registered_memref {
 	struct client_dma_buffer dma_obj;
 };
 
+struct async_ctx_info {
+	struct dxdi_sepapp_params *dxdi_params;
+	struct dxdi_sepapp_kparams *dxdi_kparams;
+	struct sepapp_client_params *sw_desc_params;
+	struct client_dma_buffer *local_dma_objs[SEPAPP_MAX_PARAMS];
+	struct mlli_tables_list mlli_tables[SEPAPP_MAX_PARAMS];
+	int session_id;
+};
+
 /*
  * struct sep_client_ctx - SeP client application context allocated per each
  *                         open()
@@ -281,6 +291,10 @@ struct sep_client_ctx {
 	struct registered_memref reg_memrefs[MAX_REG_MEMREF_PER_CLIENT_CTX];
 	struct sep_app_session
 	    sepapp_sessions[MAX_SEPAPP_SESSION_PER_CLIENT_CTX];
+
+	wait_queue_head_t memref_wq;
+	int memref_cnt;
+	struct mutex memref_lock;
 };
 
 /**
@@ -363,6 +377,8 @@ struct sep_op_ctx {
 	struct client_dma_buffer dout_dma_obj;
 	void *spad_buf_p;
 	dma_addr_t spad_buf_dma_addr;
+
+	struct async_ctx_info async_info;
 };
 
 /***************************/
