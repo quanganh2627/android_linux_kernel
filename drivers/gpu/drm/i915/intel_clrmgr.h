@@ -47,26 +47,26 @@ struct hue_saturationlut {
 /* Gamma correction defines */
 #define GAMMA_MAX_VAL			1024
 #define SHIFTBY6(val) (val<<6)
-#define PIPEA_GAMMA_MAX_RED		0x70010
-#define PIPEA_GAMMA_MAX_GREEN	0x70014
-#define PIPEA_GAMMA_MAX_BLUE		0x70018
+#define PIPEA_GAMMA_MAX_RED	(dev_priv->info->display_mmio_offset + 0x70010)
+#define PIPEA_GAMMA_MAX_GREEN	(dev_priv->info->display_mmio_offset + 0x70014)
+#define PIPEA_GAMMA_MAX_BLUE	(dev_priv->info->display_mmio_offset + 0x70018)
 /* Sprite gamma correction regs */
-#define GAMMA_SPA_GAMC0			0x721F4
-#define GAMMA_SPA_GAMC1			0x721F0
-#define GAMMA_SPA_GAMC2			0x721EC
-#define GAMMA_SPA_GAMC3			0x721E8
-#define GAMMA_SPA_GAMC4			0x721E4
-#define GAMMA_SPA_GAMC5			0x721E0
+#define GAMMA_SPA_GAMC0		(dev_priv->info->display_mmio_offset + 0x721F4)
+#define GAMMA_SPA_GAMC1		(dev_priv->info->display_mmio_offset + 0x721F0)
+#define GAMMA_SPA_GAMC2		(dev_priv->info->display_mmio_offset + 0x721EC)
+#define GAMMA_SPA_GAMC3		(dev_priv->info->display_mmio_offset + 0x721E8)
+#define GAMMA_SPA_GAMC4		(dev_priv->info->display_mmio_offset + 0x721E4)
+#define GAMMA_SPA_GAMC5		(dev_priv->info->display_mmio_offset + 0x721E0)
 
-#define GAMMA_SPB_GAMC0			0x721F4
-#define GAMMA_SPB_GAMC1			0x721F0
-#define GAMMA_SPB_GAMC2			0x721EC
-#define GAMMA_SPB_GAMC3			0x721E8
-#define GAMMA_SPB_GAMC4			0x721E4
-#define GAMMA_SPB_GAMC5			0x721E0
+#define GAMMA_SPB_GAMC0		(dev_priv->info->display_mmio_offset + 0x721F4)
+#define GAMMA_SPB_GAMC1		(dev_priv->info->display_mmio_offset + 0x721F0)
+#define GAMMA_SPB_GAMC2		(dev_priv->info->display_mmio_offset + 0x721EC)
+#define GAMMA_SPB_GAMC3		(dev_priv->info->display_mmio_offset + 0x721E8)
+#define GAMMA_SPB_GAMC4		(dev_priv->info->display_mmio_offset + 0x721E4)
+#define GAMMA_SPB_GAMC5		(dev_priv->info->display_mmio_offset + 0x721E0)
 
-#define GAMMA_SPA_CNTRL			0x72180
-#define GAMMA_SPB_CNTRL			0x72280
+#define GAMMA_SPA_CNTRL		(dev_priv->info->display_mmio_offset + 0x72180)
+#define GAMMA_SPB_CNTRL		(dev_priv->info->display_mmio_offset + 0x72280)
 #define GAMMA_ENABLE_SPR			(1<<30)
 #define GAMMA_SP_MAX_COUNT			6
 #define NO_SPRITE_REG				4

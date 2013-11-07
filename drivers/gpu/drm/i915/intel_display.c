@@ -10295,8 +10295,7 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	i915_rpm_get_disp(dev);
-
-	  /* Restore Gamma/Csc/Hue/Saturation/Brightness/Contrast */
+	/* Restore Gamma/Csc/Hue/Saturation/Brightness/Contrast */
 	if (!intel_restore_clr_mgr_status(dev))
 		DRM_ERROR("Restore Color manager status failed");
 
