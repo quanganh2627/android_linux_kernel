@@ -68,15 +68,6 @@ static const struct intel_dsi_device intel_dsi_devices[] = {
 	},
 };
 
-static void vlv_cck_modify(struct drm_i915_private *dev_priv, u32 reg, u32 val,
-			   u32 mask)
-{
-	u32 tmp = vlv_cck_read(dev_priv, reg);
-	tmp &= ~mask;
-	tmp |= val;
-	vlv_cck_write(dev_priv, reg, tmp);
-}
-
 
 static struct intel_dsi *intel_attached_dsi(struct drm_connector *connector)
 {
@@ -392,19 +383,6 @@ static int intel_dsi_mode_valid(struct drm_connector *connector,
 	return intel_dsi->dev.dev_ops->mode_valid(&intel_dsi->dev, mode);
 }
 
-/* return txclkesc cycles in terms of divider and duration in us */
-static u16 txclkesc(u32 divider, unsigned int us)
-{
-	switch (divider) {
-	case ESCAPE_CLOCK_DIVIDER_1:
-	default:
-		return 20 * us;
-	case ESCAPE_CLOCK_DIVIDER_2:
-		return 10 * us;
-	case ESCAPE_CLOCK_DIVIDER_4:
-		return 5 * us;
-	}
-}
 
 /* return pixels in terms of txbyteclkhs */
 static u32 txbyteclkhs(u32 pixels, int bpp, int lane_count)

@@ -656,7 +656,8 @@ static bool intel_sdvo_get_active_outputs(struct intel_sdvo *intel_sdvo,
 				    SDVO_CMD_GET_ACTIVE_OUTPUTS,
 				    outputs, sizeof(*outputs));
 }
-
+/*Retaining the unused function, as it might be used in future */
+#if 0
 static bool intel_sdvo_set_encoder_power_state(struct intel_sdvo *intel_sdvo,
 					       int mode)
 {
@@ -680,7 +681,7 @@ static bool intel_sdvo_set_encoder_power_state(struct intel_sdvo *intel_sdvo,
 	return intel_sdvo_set_value(intel_sdvo,
 				    SDVO_CMD_SET_ENCODER_POWER_STATE, &state, sizeof(state));
 }
-
+#endif
 static bool intel_sdvo_get_input_pixel_clock_range(struct intel_sdvo *intel_sdvo,
 						   int *clock_min,
 						   int *clock_max)
