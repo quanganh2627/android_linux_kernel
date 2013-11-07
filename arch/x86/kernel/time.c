@@ -77,8 +77,8 @@ void __init hpet_time_init(void)
 {
 	if (!hpet_enable())
 		setup_pit_timer();
-	/* Skip the lecacy timer setup for Valleyview2 */
-	if (intel_mid_identify_cpu() != INTEL_MID_CPU_CHIP_VALLEYVIEW2)
+	/* Skip the lecacy timer setup for CPU with ARAT timer */
+	if (!boot_cpu_has(X86_FEATURE_ARAT))
 		setup_default_timer_irq();
 }
 

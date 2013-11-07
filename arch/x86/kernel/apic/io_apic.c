@@ -2882,9 +2882,9 @@ void __init setup_IO_APIC(void)
 	sync_Arb_IDs();
 	setup_IO_APIC_irqs();
 	init_IO_APIC_traps();
-	/* Skip the timer check for Valleyview2 */
-	if (intel_mid_identify_cpu() != INTEL_MID_CPU_CHIP_VALLEYVIEW2 &&
-		legacy_pic->nr_legacy_irqs)
+
+	/* Skip the timer check for newer CPU with ARAT timer */
+	if (!boot_cpu_has(X86_FEATURE_ARAT) && legacy_pic->nr_legacy_irqs)
 		check_timer();
 }
 
