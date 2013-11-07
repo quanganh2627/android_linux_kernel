@@ -204,6 +204,13 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	if (intel_dsi->dev.dev_ops->enable)
 		intel_dsi->dev.dev_ops->enable(&intel_dsi->dev);
 
+	/* Adjust backlight timing for specific panel */
+	if (intel_dsi->backlight_on_delay >= 20)
+		msleep(intel_dsi->backlight_on_delay);
+	else
+		usleep_range(intel_dsi->backlight_on_delay * 1000,
+			(intel_dsi->backlight_on_delay * 1000) + 500);
+
 	intel_panel_enable_backlight(dev, pipe);
 }
 
