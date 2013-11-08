@@ -129,6 +129,7 @@ static int process_cable_props(struct power_supply_cable_props *cap)
 
 	switch (cap->chrg_evt) {
 	case POWER_SUPPLY_CHARGER_EVENT_CONNECT:
+	case POWER_SUPPLY_CHARGER_EVENT_RESUME:
 		cable->cable_props.cable_stat = EXTCON_CHRGR_CABLE_CONNECTED;
 		break;
 	case POWER_SUPPLY_CHARGER_EVENT_UPDATE:
