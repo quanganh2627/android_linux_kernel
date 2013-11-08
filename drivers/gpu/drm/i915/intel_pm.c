@@ -33,6 +33,8 @@
 #include <linux/module.h>
 #include <drm/i915_powerwell.h>
 #include <psb_powermgmt.h>
+#include <linux/early_suspend_sysfs.h>
+
 static struct drm_device *gdev;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -5896,13 +5898,12 @@ void intel_aux_display_runtime_put(struct drm_i915_private *dev_priv)
 	hsw_enable_package_c8(dev_priv);
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static int set_vhdmi_state(u8 value)
 {
 	return intel_mid_pmic_writeb(VHDMICNT, value);
 }
 
-static void display_early_suspend(struct early_suspend *h)
+static void display_early_suspend_handler(void)
 {
 	struct drm_device *drm_dev = gdev;
 	struct drm_i915_private *dev_priv = gdev->dev_private;
@@ -5923,7 +5924,7 @@ static void display_early_suspend(struct early_suspend *h)
 	}
 }
 
-static void display_late_resume(struct early_suspend *h)
+static void display_late_resume_handler(void)
 {
 	struct drm_device *drm_dev = gdev;
 	struct drm_i915_private *dev_priv = gdev->dev_private;
@@ -5943,6 +5944,30 @@ static void display_late_resume(struct early_suspend *h)
 		dev_priv->early_suspended = false;
 		DRM_DEBUG_PM("Late Resume finished\n");
 	}
+}
+
+static ssize_t early_suspend_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (!strncmp(buf, EARLY_SUSPEND_ON, EARLY_SUSPEND_STATUS_LEN))
+		display_early_suspend_handler();
+	else if (!strncmp(buf, EARLY_SUSPEND_OFF, EARLY_SUSPEND_STATUS_LEN))
+		display_late_resume_handler();
+
+	return count;
+}
+
+static DEVICE_EARLY_SUSPEND_ATTR(early_suspend_store);
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void display_early_suspend(struct early_suspend *h)
+{
+	display_early_suspend_handler();
+}
+
+static void display_late_resume(struct early_suspend *h)
+{
+	display_late_resume_handler();
 }
 
 static struct early_suspend intel_display_early_suspend = {
@@ -6004,6 +6029,9 @@ void intel_init_pm(struct drm_device *dev)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	intel_s0ix_init(dev);
 #endif
+	device_create_file(&dev->pdev->dev, &dev_attr_early_suspend);
+
+	register_early_suspend_device(&dev->pdev->dev);
 
 	if (I915_HAS_FBC(dev)) {
 		if (HAS_PCH_SPLIT(dev)) {
