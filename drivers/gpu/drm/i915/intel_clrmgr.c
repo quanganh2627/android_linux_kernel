@@ -33,12 +33,12 @@
 #include "intel_clrmgr.h"
 
 /* Gamma lookup table for Sprite planes */
-u32 gammaSpriteSoftlut[GAMMA_SP_MAX_COUNT] = {
+u32 gamma_sprite_softlut[GAMMA_SP_MAX_COUNT] = {
 	0, 0, 0, 0, 0, 1023
 };
 
 /* Gamma soft lookup table for default gamma =1.0 */
-u32 gammaSoftlut[GAMMA_CORRECT_MAX_COUNT] =  {
+u32 gamma_softlut[GAMMA_CORRECT_MAX_COUNT] =  {
 	0x000000, 0x0, 0x020202, 0x0, 0x040404, 0x0, 0x060606, 0x0,
 	0x080808, 0x0, 0x0A0A0A, 0x0, 0x0C0C0C, 0x0, 0x0E0E0E, 0x0,
 	0x101010, 0x0, 0x121212, 0x0, 0x141414, 0x0, 0x161616, 0x0,
@@ -74,12 +74,12 @@ u32 gammaSoftlut[GAMMA_CORRECT_MAX_COUNT] =  {
 };
 
 /* Color space conversion coff's */
-u32 CSCSoftlut[CSC_MAX_COEFF_COUNT] = {
+u32 csc_softlut[CSC_MAX_COEFF_COUNT] = {
 	1024,	 0, 67108864, 0, 0, 1024
 };
 
 /* Hue Saturation defaults */
-struct HueSaturationlut SavedHSValues[NO_SPRITE_REG] = {
+struct hue_saturationlut savedhsvalues[NO_SPRITE_REG] = {
 	{SPRITEA, 0x1000000},
 	{SPRITEB, 0x1000000},
 	{SPRITEC, 0x1000000},
@@ -87,7 +87,7 @@ struct HueSaturationlut SavedHSValues[NO_SPRITE_REG] = {
 };
 
 /* Contrast brightness defaults */
-struct ContBrightlut SavedCBValues[NO_SPRITE_REG] = {
+struct cont_brightlut savedcbvalues[NO_SPRITE_REG] = {
 	{SPRITEA, 0x80},
 	{SPRITEB, 0x80},
 	{SPRITEC, 0x80},
@@ -96,7 +96,7 @@ struct ContBrightlut SavedCBValues[NO_SPRITE_REG] = {
 
 /* Enable color space conversion on PIPE */
 int
-do_intel_enable_CSC(struct drm_device *dev, void *data, struct drm_crtc *crtc)
+do_intel_enable_csc(struct drm_device *dev, void *data, struct drm_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = NULL;
@@ -139,30 +139,30 @@ do_intel_enable_CSC(struct drm_device *dev, void *data, struct drm_crtc *crtc)
 
 /* This function is a wrapper for csc IOCTL */
 int
-intel_enable_CSC(struct drm_device *dev, void *data, struct drm_file *priv)
+intel_enable_csc(struct drm_device *dev, void *data, struct drm_file *priv)
 {
-	struct CSC_Coeff *wgCSCCoeff = NULL;
+	struct csc_coeff *wgcsccoeff = NULL;
 	struct drm_mode_object *obj;
 	struct drm_crtc *crtc = NULL;
 
-	wgCSCCoeff = (struct CSC_Coeff *)data;
-	obj = drm_mode_object_find(dev, wgCSCCoeff->crtc_id,
+	wgcsccoeff = (struct csc_coeff *)data;
+	obj = drm_mode_object_find(dev, wgcsccoeff->crtc_id,
 			DRM_MODE_OBJECT_CRTC);
 	if (!obj) {
 		DRM_DEBUG_DRIVER("Unknown CRTC ID %d\n",
-			wgCSCCoeff->crtc_id);
+			wgcsccoeff->crtc_id);
 			return -EINVAL;
 	}
 
 	crtc = obj_to_crtc(obj);
 	DRM_DEBUG_DRIVER("[CRTC:%d]\n", crtc->base.id);
-	return do_intel_enable_CSC(dev, wgCSCCoeff->VLV_CSC_Coeff, crtc);
+	return do_intel_enable_csc(dev, wgcsccoeff->vlv_csc_coeff, crtc);
 }
 
 
 /* Disable color space conversion on PIPE */
 void
-do_intel_disable_CSC(struct drm_device *dev, struct drm_crtc *crtc)
+do_intel_disable_csc(struct drm_device *dev, struct drm_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = NULL;
@@ -216,7 +216,7 @@ int parse_clrmgr_input(uint *dest, char *src, int max, int read)
 }
 
 /* Gamma correction for sprite planes on External display */
-int intel_enable_external_sprite_gamma(struct drm_crtc *crtc, int planeId)
+int intel_enable_external_sprite_gamma(struct drm_crtc *crtc, int planeid)
 {
 	DRM_ERROR("This functionality is not implemented yet\n");
 	return -ENOSYS;
@@ -241,21 +241,21 @@ int intel_enable_sprite_gamma(struct drm_crtc *crtc, int planeid)
 {
 	u32 count = 0;
 	u32 status = 0;
-	u32 controlReg = 0;
-	u32 correctReg = 0;
+	u32 controlreg = 0;
+	u32 correctreg = 0;
 
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	switch (planeid) {
 	case SPRITEA:
-		correctReg = GAMMA_SPA_GAMC0;
-		controlReg = GAMMA_SPA_CNTRL;
+		correctreg = GAMMA_SPA_GAMC0;
+		controlreg = GAMMA_SPA_CNTRL;
 		break;
 
 	case SPRITEB:
-		correctReg = GAMMA_SPB_GAMC0;
-		controlReg = GAMMA_SPB_CNTRL;
+		correctreg = GAMMA_SPB_GAMC0;
+		controlreg = GAMMA_SPB_CNTRL;
 		break;
 
 	case SPRITEC:
@@ -270,14 +270,14 @@ int intel_enable_sprite_gamma(struct drm_crtc *crtc, int planeid)
 	/* Write gamma cofficients in gamma regs*/
 	while (count < GAMMA_SP_MAX_COUNT) {
 		/* Write and read */
-		I915_WRITE(correctReg - 4*count, gammaSpriteSoftlut[count]);
-		status = I915_READ(correctReg - 4*count++);
+		I915_WRITE(correctreg - 4 * count, gamma_sprite_softlut[count]);
+		status = I915_READ(correctreg - 4 * count++);
 	}
 
 	/* Enable gamma on plane */
-	status = I915_READ(controlReg);
+	status = I915_READ(controlreg);
 	status |= GAMMA_ENABLE_SPR;
-	I915_WRITE(controlReg, status);
+	I915_WRITE(controlreg, status);
 
 	DRM_DEBUG("Gamma applied on plane sprite%c\n",
 		(planeid == SPRITEA) ? 'A' : 'B');
@@ -312,12 +312,12 @@ int intel_enable_primary_gamma(struct drm_crtc *crtc)
 	 /* 10.6 mode Gamma Implementation */
 	while (count < GAMMA_CORRECT_MAX_COUNT) {
 		/* Get the gamma corrected value from table */
-		odd = gammaSoftlut[count];
-		even = gammaSoftlut[count + 1];
+		odd = gamma_softlut[count];
+		even = gamma_softlut[count + 1];
 
 		/* Write even and odd parts in palette regs*/
-		I915_WRITE(palreg + 4*count, even);
-		I915_WRITE(palreg + 4*++count, odd);
+		I915_WRITE(palreg + 4 * count, even);
+		I915_WRITE(palreg + 4 * ++count, odd);
 		count++;
 	}
 
@@ -370,12 +370,12 @@ int intel_enable_pipe_gamma(struct drm_crtc *crtc)
 	 /* 10.6 mode Gamma Implementation */
 	while (count < GAMMA_CORRECT_MAX_COUNT) {
 		/* Get the gamma corrected value from table */
-		odd = gammaSoftlut[count];
-		even = gammaSoftlut[count + 1];
+		odd = gamma_softlut[count];
+		even = gamma_softlut[count + 1];
 
 		/* Write even and odd parts in palette regs*/
-		I915_WRITE(palreg + 4*count, even);
-		I915_WRITE(palreg + 4*++count, odd);
+		I915_WRITE(palreg + 4 * count, even);
+		I915_WRITE(palreg + 4 * ++count, odd);
 		count++;
 	}
 
@@ -459,18 +459,18 @@ int intel_disable_external_pipe_gamma(struct drm_crtc *crtc)
 int intel_disable_sprite_gamma(struct drm_crtc *crtc, u32 planeid)
 {
 	u32 status = 0;
-	u32 controlReg = 0;
+	u32 controlreg = 0;
 
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	switch (planeid) {
 	case SPRITEA:
-		controlReg = GAMMA_SPA_CNTRL;
+		controlreg = GAMMA_SPA_CNTRL;
 		break;
 
 	case SPRITEB:
-		controlReg = GAMMA_SPB_CNTRL;
+		controlreg = GAMMA_SPB_CNTRL;
 		break;
 
 	default:
@@ -482,9 +482,9 @@ int intel_disable_sprite_gamma(struct drm_crtc *crtc, u32 planeid)
 	intel_crtc_load_lut(crtc);
 
 	/* Disable gamma on PIPE config  */
-	status = I915_READ(controlReg);
+	status = I915_READ(controlreg);
 	status &= ~(GAMMA_ENABLE_SPR);
-	I915_WRITE(controlReg, status);
+	I915_WRITE(controlreg, status);
 
 	/* TODO: Reset gamma table default */
 	DRM_DEBUG("Gamma on Sprite %c disabled\n",
@@ -582,7 +582,7 @@ int intel_crtc_disable_gamma(struct drm_crtc *crtc, u32 identifier)
 
 /* Tune Contrast Brightness Value for Sprite */
 int intel_sprite_cb_adjust(drm_i915_private_t *dev_priv,
-		struct ContBrightlut *cb_ptr)
+		struct cont_brightlut *cb_ptr)
 {
 	if (!dev_priv || !cb_ptr) {
 		DRM_ERROR("Contrast Brightness: Invalid Arguments\n");
@@ -620,7 +620,7 @@ int intel_sprite_cb_adjust(drm_i915_private_t *dev_priv,
 
 /* Tune Hue Saturation Value for Sprite */
 int intel_sprite_hs_adjust(drm_i915_private_t *dev_priv,
-		struct HueSaturationlut *hs_ptr)
+		struct hue_saturationlut *hs_ptr)
 {
 	if (!dev_priv || !hs_ptr) {
 		DRM_ERROR("Hue Saturation: Invalid Arguments\n");
@@ -663,7 +663,7 @@ static bool intel_restore_cb(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	while (count < NO_SPRITE_REG) {
-		if (intel_sprite_cb_adjust(dev_priv, &SavedCBValues[count++])) {
+		if (intel_sprite_cb_adjust(dev_priv, &savedcbvalues[count++])) {
 			DRM_ERROR("Color Restore: Error restoring CB\n");
 			return false;
 		}
@@ -679,7 +679,7 @@ static bool intel_restore_hs(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	while (count < NO_SPRITE_REG) {
-		if (intel_sprite_hs_adjust(dev_priv, &SavedHSValues[count++])) {
+		if (intel_sprite_hs_adjust(dev_priv, &savedhsvalues[count++])) {
 			DRM_ERROR("Color Restore: Error restoring HS\n");
 			return false;
 		}
@@ -722,7 +722,7 @@ bool intel_restore_clr_mgr_status(struct drm_device *dev)
 
 	/* If csc enabled, restore csc */
 	if (dev_priv->csc_enabled) {
-		if (do_intel_enable_CSC(dev, (void *) CSCSoftlut, crtc)) {
+		if (do_intel_enable_csc(dev, (void *) csc_softlut, crtc)) {
 			DRM_ERROR("Color Restore: CSC failed\n");
 			return false;
 		}
@@ -751,10 +751,10 @@ void intel_save_cb_status(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	SavedCBValues[0].val = I915_READ(SPRITEA_CB_REG);
-	SavedCBValues[1].val = I915_READ(SPRITEB_CB_REG);
-	SavedCBValues[2].val = I915_READ(SPRITEC_CB_REG);
-	SavedCBValues[3].val = I915_READ(SPRITED_CB_REG);
+	savedcbvalues[0].val = I915_READ(SPRITEA_CB_REG);
+	savedcbvalues[1].val = I915_READ(SPRITEB_CB_REG);
+	savedcbvalues[2].val = I915_READ(SPRITEC_CB_REG);
+	savedcbvalues[3].val = I915_READ(SPRITED_CB_REG);
 }
 
 /* Save hue saturation values */
@@ -762,10 +762,10 @@ void intel_save_hs_status(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	SavedHSValues[0].val = I915_READ(SPRITEA_HS_REG);
-	SavedHSValues[1].val = I915_READ(SPRITEB_HS_REG);
-	SavedHSValues[2].val = I915_READ(SPRITEC_HS_REG);
-	SavedHSValues[3].val = I915_READ(SPRITED_HS_REG);
+	savedhsvalues[0].val = I915_READ(SPRITEA_HS_REG);
+	savedhsvalues[1].val = I915_READ(SPRITEB_HS_REG);
+	savedhsvalues[2].val = I915_READ(SPRITEC_HS_REG);
+	savedhsvalues[3].val = I915_READ(SPRITED_HS_REG);
 }
 
 /* Save the required register values to be restored */

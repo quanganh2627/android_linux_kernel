@@ -131,7 +131,7 @@ ssize_t i915_gamma_adjust_write(struct file *filp,
 	}
 
 	/* Parse data and load the gamma  table */
-	ret = parse_clrmgr_input(gammaSoftlut, buf,
+	ret = parse_clrmgr_input(gamma_softlut, buf,
 		GAMMA_CORRECT_MAX_COUNT, count);
 	if (ret < 0)
 		DRM_ERROR("Gamma table loading failed\n");
@@ -268,7 +268,7 @@ ssize_t i915_cb_adjust_write(struct file *filp,
 {
 	int ret = count;
 	struct drm_device *dev = filp->private_data;
-	struct ContBrightlut *cb_ptr = NULL;
+	struct cont_brightlut *cb_ptr = NULL;
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	char *buf = NULL;
 
@@ -284,7 +284,7 @@ ssize_t i915_cb_adjust_write(struct file *filp,
 		return -ENOMEM;
 	}
 
-	cb_ptr = kzalloc(sizeof(struct ContBrightlut), GFP_KERNEL);
+	cb_ptr = kzalloc(sizeof(struct cont_brightlut), GFP_KERNEL);
 	if (!cb_ptr) {
 		DRM_ERROR("Contrast Brightness adjust: insufficient memory\n");
 		kfree(buf);
@@ -342,7 +342,7 @@ ssize_t i915_hs_adjust_write(struct file *filp,
 {
 	int ret = count;
 	struct drm_device *dev = filp->private_data;
-	struct HueSaturationlut *hs_ptr = NULL;
+	struct hue_saturationlut *hs_ptr = NULL;
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	char *buf = NULL;
 
@@ -358,7 +358,7 @@ ssize_t i915_hs_adjust_write(struct file *filp,
 		return -ENOMEM;
 	}
 
-	hs_ptr = kzalloc(sizeof(struct HueSaturationlut), GFP_KERNEL);
+	hs_ptr = kzalloc(sizeof(struct hue_saturationlut), GFP_KERNEL);
 	if (!hs_ptr) {
 		DRM_ERROR("Hue Saturation adjust: insufficient memory\n");
 		kfree(buf);
@@ -439,7 +439,7 @@ ssize_t i915_csc_adjust_write(struct file *filp,
 	}
 
 	/* Parse data and load the csc  table */
-	ret = parse_clrmgr_input(CSCSoftlut, buf,
+	ret = parse_clrmgr_input(csc_softlut, buf,
 		CSC_MAX_COEFF_COUNT, count);
 	if (ret < 0)
 		DRM_ERROR("CSC table loading failed\n");
@@ -529,15 +529,15 @@ ssize_t i915_csc_enable_write(struct file *filp,
 
 	/* if CSC enabled, apply CSC correction */
 	if (dev_priv->csc_enabled) {
-		if (do_intel_enable_CSC(dev,
-			(void *) CSCSoftlut, crtc)) {
+		if (do_intel_enable_csc(dev,
+			(void *) csc_softlut, crtc)) {
 			DRM_ERROR("CSC correction failed\n");
 			ret = -EINVAL;
 		} else
 			ret = count;
 	} else {
 		/* Disable CSC on this CRTC */
-		do_intel_disable_CSC(dev, crtc);
+		do_intel_disable_csc(dev, crtc);
 		ret = count;
 	}
 

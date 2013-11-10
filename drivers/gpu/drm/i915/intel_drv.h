@@ -668,7 +668,7 @@ intel_pipe_to_cpu_transcoder(struct drm_i915_private *dev_priv,
 			     enum pipe pipe);
 extern void intel_wait_for_vblank(struct drm_device *dev, int pipe);
 extern void intel_wait_for_pipe_off(struct drm_device *dev, int pipe);
-extern int intel_enable_CSC(struct drm_device *dev, void *csc_params,
+extern int intel_enable_csc(struct drm_device *dev, void *csc_params,
 		struct drm_file *file_priv);
 extern int ironlake_get_lanes_required(int target_clock, int link_bw, int bpp);
 extern void vlv_wait_port_ready(struct drm_i915_private *dev_priv, int port);

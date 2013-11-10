@@ -29,12 +29,12 @@
 #ifndef _I915_CLR_MNGR_H_
 #define _I915_CLR_MNGR_H_
 
-struct ContBrightlut {
+struct cont_brightlut {
 	short sprite_no;
 	u32 val;
 };
 
-struct HueSaturationlut {
+struct hue_saturationlut {
 	short sprite_no;
 	u32 val;
 };
@@ -73,31 +73,31 @@ struct HueSaturationlut {
 
 
 /* Color manager features */
-enum ClrMgrFeatures {
-	ClrMgrCsc = 1,
-	ClrMgrGamma,
-	ClrMgrContrBright,
-	ClrMgrHueSat,
+enum clrmgrfeatures {
+	clrmgrcsc = 1,
+	clrmgrgamma,
+	clrmgrcontrbright,
+	clrmgrhuesat,
 };
 
 /* Required for sysfs entry calls */
 
-extern u32 CSCSoftlut[CSC_MAX_COEFF_COUNT];
-extern u32 gammaSoftlut[GAMMA_CORRECT_MAX_COUNT];
-extern u32 gammaSpriteSoftlut[GAMMA_SP_MAX_COUNT];
+extern u32 csc_softlut[CSC_MAX_COEFF_COUNT];
+extern u32 gamma_softlut[GAMMA_CORRECT_MAX_COUNT];
+extern u32 gamma_sprite_softlut[GAMMA_SP_MAX_COUNT];
 
 /* Prototypes */
 int parse_clrmgr_input(uint *dest, char *src, int max, int read);
-int do_intel_enable_CSC(struct drm_device *dev, void *data,
+int do_intel_enable_csc(struct drm_device *dev, void *data,
 				struct drm_crtc *crtc);
 bool intel_pipe_has_type(const struct drm_crtc *crtc, int type);
-void do_intel_disable_CSC(struct drm_device *dev, struct drm_crtc *crtc);
+void do_intel_disable_csc(struct drm_device *dev, struct drm_crtc *crtc);
 int intel_crtc_enable_gamma(struct drm_crtc *crtc, u32 identifier);
 int intel_crtc_disable_gamma(struct drm_crtc *crtc, u32 identifier);
 int intel_sprite_cb_adjust(drm_i915_private_t *dev_priv,
-		struct ContBrightlut *cb_ptr);
+		struct cont_brightlut *cb_ptr);
 int intel_sprite_hs_adjust(drm_i915_private_t *dev_priv,
-		struct HueSaturationlut *hs_ptr);
+		struct hue_saturationlut *hs_ptr);
 void intel_save_clr_mgr_status(struct drm_device *dev);
 bool intel_restore_clr_mgr_status(struct drm_device *dev);
 #endif
