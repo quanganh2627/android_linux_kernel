@@ -435,7 +435,7 @@ struct intel_hdmi {
 	bool has_hdmi_sink;
 	bool has_audio;
 	enum hdmi_force_audio force_audio;
-	enum hdmi_panel_fitter pfit;
+	enum panel_fitter pfit;
 	bool rgb_quant_range_selectable;
 	struct edid *edid;
 	uint32_t edid_mode_count;

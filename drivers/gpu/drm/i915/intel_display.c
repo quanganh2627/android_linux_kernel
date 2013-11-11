@@ -2290,6 +2290,10 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		intel_crtc->dspaddr_offset = linear_offset;
 	}
 
+	if (BYT_CR_CONFIG)
+		I915_WRITE(PIPESRC(plane),
+			((fb->width - 1) << 16) | (fb->height - 1));
+
 	I915_WRITE(DSPSTRIDE(plane), fb->pitches[0]);
 	if (INTEL_INFO(dev)->gen >= 4) {
 		I915_MODIFY_DISPBASE(DSPSURF(plane),

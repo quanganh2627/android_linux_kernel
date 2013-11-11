@@ -579,8 +579,8 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 		else if (intel_dsi->pfit == LETTERBOX)
 			val = PFIT_ENABLE | (intel_crtc->pipe <<
 				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
-		DRM_DEBUG_DRIVER("pfit val = %x", val);
-		I915_WRITE(PFIT_CONTROL, val);	602
+		DRM_DEBUG_KMS("pfit val = %x", val);
+		I915_WRITE(PFIT_CONTROL, val);
 	}
 }
 
@@ -639,7 +639,7 @@ static int intel_dsi_set_property(struct drm_connector *connector,
 	struct drm_i915_private *dev_priv = connector->dev->dev_private;
 	int ret;
 
-	ret = drm_connector_property_set_value(connector, property, value);
+	ret = drm_object_property_set_value(&connector->base, property, value);
 	if (ret)
 		return ret;
 
