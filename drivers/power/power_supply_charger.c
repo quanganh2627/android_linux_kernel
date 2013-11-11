@@ -555,6 +555,7 @@ static int get_battery_status(struct power_supply *psy)
 	int cnt, status, ret;
 	struct power_supply *chrgr_lst[MAX_CHARGER_COUNT];
 	struct batt_props bat_prop;
+	int health;
 
 	if (!IS_BATTERY(psy))
 		return -EINVAL;
@@ -572,14 +573,19 @@ static int get_battery_status(struct power_supply *psy)
 			status = POWER_SUPPLY_STATUS_NOT_CHARGING;
 
 		if (IS_CHARGING_CAN_BE_ENABLED(chrgr_lst[cnt]) &&
-			(IS_HEALTH_GOOD(psy)) &&
 				(IS_HEALTH_GOOD(chrgr_lst[cnt]))) {
-
-			if ((bat_prop.algo_stat == PSY_ALGO_STAT_FULL) ||
-				(bat_prop.algo_stat == PSY_ALGO_STAT_MAINT))
-				status = POWER_SUPPLY_STATUS_FULL;
-			else if (IS_CHARGING_ENABLED(chrgr_lst[cnt]))
-				status = POWER_SUPPLY_STATUS_CHARGING;
+			health = HEALTH(psy);
+			if ((health == POWER_SUPPLY_HEALTH_GOOD) ||
+				(health == POWER_SUPPLY_HEALTH_DEAD)) {
+				/* do charging with Good / Dead battery */
+				if ((bat_prop.algo_stat ==
+							PSY_ALGO_STAT_FULL) ||
+					(bat_prop.algo_stat ==
+							PSY_ALGO_STAT_MAINT))
+					status = POWER_SUPPLY_STATUS_FULL;
+				else
+					status = POWER_SUPPLY_STATUS_CHARGING;
+			}
 		}
 	}
 	pr_devel("%s: Set status=%d for %s\n", __func__, status, psy->name);
