@@ -66,7 +66,10 @@
 
 /* Power Limit registers */
 #define PKG_TURBO_POWER_LIMIT	0x610
+#define PKG_TURBO_CFG		0x670
 #define CPU_PWR_BUDGET_CTL	0x02
+/* Magic number symbolising Dynamic Turbo OFF */
+#define DISABLE_DYNAMIC_TURBO	0xB0FF
 
 /* IRQ details */
 #define SOC_DTS_CONTROL		0x80
@@ -410,6 +413,49 @@ static int soc_get_cur_state(struct thermal_cooling_device *cdev,
 	return 0;
 }
 
+static void set_floor_freq(int val)
+{
+	u32 eax;
+
+	eax = read_soc_reg(CPU_PWR_BUDGET_CTL);
+
+	/* Set bits[8:14] of eax to val */
+	eax = (eax & ~(0x7F << 8)) | (val << 8);
+
+	write_soc_reg(CPU_PWR_BUDGET_CTL, eax);
+}
+
+static int disable_dynamic_turbo(struct cooling_device_info *cdev_info)
+{
+	u32 eax, edx;
+
+	mutex_lock(&cdev_info->lock_state);
+
+	rdmsr_on_cpu(0, PKG_TURBO_CFG, &eax, &edx);
+
+	/* Set bits[0:2] to 0 to enable TjMax Turbo mode */
+	eax = eax & ~0x07;
+
+	/* Set bit[8] to 0 to disable Dynamic Turbo */
+	eax = eax & ~(1 << 8);
+
+	/* Set bits[9:11] to 0 disable Dynamic Turbo Policy */
+	eax = eax & ~(0x07 << 9);
+
+	wrmsr_on_cpu(0, PKG_TURBO_CFG, eax, edx);
+
+	/*
+	 * Now that we disabled Dynamic Turbo, we can
+	 * make the floor frequency ratio also 0.
+	 */
+	set_floor_freq(0);
+
+	cdev_info->soc_cur_state = DISABLE_DYNAMIC_TURBO;
+
+	mutex_unlock(&cdev_info->lock_state);
+	return 0;
+}
+
 static int soc_set_cur_state(struct thermal_cooling_device *cdev,
 				unsigned long state)
 {
@@ -417,6 +463,9 @@ static int soc_set_cur_state(struct thermal_cooling_device *cdev,
 	struct soc_throttle_data *data;
 	struct cooling_device_info *cdev_info =
 			(struct cooling_device_info *)cdev->devdata;
+
+	if (state == DISABLE_DYNAMIC_TURBO)
+		return disable_dynamic_turbo(cdev_info);
 
 	if (state >= SOC_MAX_STATES) {
 		pr_err("Invalid SoC throttle state:%ld\n", state);
@@ -434,12 +483,7 @@ static int soc_set_cur_state(struct thermal_cooling_device *cdev,
 
 	wrmsr_on_cpu(0, PKG_TURBO_POWER_LIMIT, eax, edx);
 
-	eax = read_soc_reg(CPU_PWR_BUDGET_CTL);
-
-	/* Set bits[8:14] of eax to 'data->floor_freq' */
-	eax = (eax & ~(0x7F << 8)) | (data->floor_freq << 8);
-
-	write_soc_reg(CPU_PWR_BUDGET_CTL, eax);
+	set_floor_freq(data->floor_freq);
 
 	cdev_info->soc_cur_state = state;
 
