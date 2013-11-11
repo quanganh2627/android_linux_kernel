@@ -10,12 +10,21 @@
 #define GPADC_SYSTEMP0	(1 << 6)
 #define GPADC_SYSTEMP1	(1 << 7)
 #define GPADC_SYSTEMP2	(1 << 8)
-#define GPADC_CH_NUM	9
+#define GPADC_USBID	(1 << 9)
+#define GPADC_PEAK	(1 << 10)
+#define GPADC_ADC	(1 << 11)
+#define GPADC_VREF	(1 << 12)
 
+#define BCOVE_GPADC_CH_NUM	9
+#define SCOVE_GPADC_CH_NUM	12
+
+#define MUSBID		(1 << 0)
+#define MPEAK		(1 << 1)
 #define MBATTEMP	(1 << 2)
 #define MSYSTEMP	(1 << 3)
 #define MBATT		(1 << 4)
 #define MVIBATT		(1 << 5)
+#define MGPMEAS		(1 << 6)
 #define MCCTICK		(1 << 7)
 
 #define GPADC_RSL(channel, res) (res->data[ffs(channel)-1])
@@ -43,6 +52,7 @@ struct iio_dev;
 struct intel_basincove_gpadc_platform_data {
 	int channel_num;
 	unsigned long intr;
+	u8 intr_mask;
 	struct iio_map *gpadc_iio_maps;
 	struct gpadc_regmap_t *gpadc_regmaps;
 	struct gpadc_regs_t *gpadc_regs;
@@ -50,7 +60,7 @@ struct intel_basincove_gpadc_platform_data {
 };
 
 struct gpadc_result {
-	int data[GPADC_CH_NUM];
+	int data[SCOVE_GPADC_CH_NUM];
 };
 
 int iio_basincove_gpadc_sample(struct iio_dev *indio_dev,

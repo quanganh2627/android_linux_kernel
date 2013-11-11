@@ -59,6 +59,7 @@ struct gpadc_info {
 	wait_queue_head_t wait;
 	int sample_done;
 	void __iomem *intr;
+	u8 intr_mask;
 	int channel_num;
 	struct gpadc_regmap_t *gpadc_regmaps;
 	struct gpadc_regs_t *gpadc_regs;
@@ -166,7 +167,7 @@ int iio_basincove_gpadc_sample(struct iio_dev *indio_dev,
 
 	mutex_lock(&info->lock);
 
-	mask = MBATTEMP | MSYSTEMP | MBATT | MVIBATT | MCCTICK;
+	mask = info->intr_mask;
 	gpadc_clear_bits(regs->madcirq, mask);
 	gpadc_clear_bits(regs->mirqlvl1, regs->mirqlvl1_adc);
 
@@ -199,9 +200,9 @@ int iio_basincove_gpadc_sample(struct iio_dev *indio_dev,
 
 	for (i = 0; i < info->channel_num; i++) {
 		if (ch & (1 << i)) {
-			gpadc_read(info->gpadc_regmaps[i].rslth, &th);
 			gpadc_read(info->gpadc_regmaps[i].rsltl, &tl);
-			res->data[i] = ((th & 0x3) << 8) + tl;
+			gpadc_read(info->gpadc_regmaps[i].rslth, &th);
+			res->data[i] = ((th & 0xF) << 8) + tl;
 		}
 	}
 
@@ -401,6 +402,7 @@ static int bcove_gpadc_probe(struct platform_device *pdev)
 		err = -ENOMEM;
 		goto err_free;
 	}
+	info->intr_mask = pdata->intr_mask;
 	info->channel_num = pdata->channel_num;
 	info->gpadc_regmaps = pdata->gpadc_regmaps;
 	info->gpadc_regs = pdata->gpadc_regs;
