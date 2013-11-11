@@ -473,7 +473,7 @@ struct intel_device_info {
 #undef DEFINE_FLAG
 #undef SEP_SEMICOLON
 
-enum hdmi_panel_fitter {
+enum panel_fitter {
 	PFIT_OFF,
 	AUTOSCALE,
 	PILLARBOX,

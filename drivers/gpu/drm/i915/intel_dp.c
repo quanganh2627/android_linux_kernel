@@ -930,6 +930,21 @@ static void intel_dp_mode_set(struct intel_encoder *encoder)
 		intel_write_eld(&encoder->base, adjusted_mode);
 	}
 
+	if (intel_dp->pfit && (adjusted_mode->hdisplay < PFIT_SIZE_LIMIT)) {
+		u32 val = 0;
+		if (intel_dp->pfit == AUTOSCALE)
+			val = PFIT_ENABLE | (intel_crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
+		if (intel_dp->pfit == PILLARBOX)
+			val = PFIT_ENABLE | (intel_crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
+		else if (intel_dp->pfit == LETTERBOX)
+			val = PFIT_ENABLE | (intel_crtc->pipe <<
+				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
+		DRM_DEBUG_DRIVER("pfit val = %x", val);
+		I915_WRITE(PFIT_CONTROL, val);
+	 }
+
 	intel_dp_init_link_config(intel_dp);
 
 	/* Split out the IBX/CPU vs CPT settings */
@@ -3417,6 +3432,17 @@ intel_dp_set_property(struct drm_connector *connector,
 		goto done;
 	}
 
+	if (property == dev_priv->force_pfit_property) {
+		if (val == intel_dp->pfit)
+			return 0;
+
+		DRM_DEBUG_DRIVER("val = %d", (int)val);
+		intel_dp->pfit = val;
+		if (is_edp(intel_dp))
+			return 0;
+		goto done;
+	}
+
 	return -EINVAL;
 
 done:
@@ -3533,6 +3559,7 @@ intel_dp_add_properties(struct intel_dp *intel_dp, struct drm_connector *connect
 
 	intel_attach_force_audio_property(connector);
 	intel_attach_broadcast_rgb_property(connector);
+	intel_attach_force_pfit_property(connector);
 	intel_dp->color_range_auto = true;
 
 	if (is_edp(intel_dp)) {
@@ -3798,6 +3825,7 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 	/* Preserve the current hw state. */
 	intel_dp->DP = I915_READ(intel_dp->output_reg);
 	intel_dp->attached_connector = intel_connector;
+	intel_dp->pfit = 0;
 
 	type = DRM_MODE_CONNECTOR_DisplayPort;
 	/*

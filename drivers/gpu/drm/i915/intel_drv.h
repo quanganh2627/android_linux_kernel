@@ -457,6 +457,7 @@ struct intel_dp {
 	uint8_t  link_configuration[DP_LINK_CONFIGURATION_SIZE];
 	bool has_audio;
 	enum hdmi_force_audio force_audio;
+	enum panel_fitter pfit;
 	uint32_t color_range;
 	bool color_range_auto;
 	uint8_t link_bw;
