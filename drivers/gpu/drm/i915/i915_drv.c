@@ -907,9 +907,10 @@ static int i915_mmap(struct file *filp, struct vm_area_struct *vma)
 static int i915_release(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
+#ifdef CONFIG_PM_RUNTIME
 	struct drm_file *file_priv = filp->private_data;
 	struct drm_device *dev = file_priv->minor->dev;
-#ifdef CONFIG_PM_RUNTIME
+
 	i915_rpm_get_callback(dev);
 #endif
 #ifdef CONFIG_DRM_VXD_BYT
@@ -930,8 +931,11 @@ static int i915_release(struct inode *inode, struct file *filp)
 static long i915_ioctl(struct file *filp,
 	      unsigned int cmd, unsigned long arg)
 {
+#ifdef CONFIG_PM_RUNTIME
 	struct drm_file *file_priv = filp->private_data;
 	struct drm_device *dev = file_priv->minor->dev;
+#endif
+
 #ifdef CONFIG_DRM_VXD_BYT
 	unsigned int nr = DRM_IOCTL_NR(cmd);
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -990,6 +994,7 @@ static int i915_pm_suspend(struct device *dev)
 	return ret;
 }
 
+#ifdef CONFIG_PM_RUNTIME
 static int i915_rpm_suspend(struct device *dev)
 {
 	int ret;
@@ -1000,6 +1005,7 @@ static int i915_rpm_suspend(struct device *dev)
 
 	return ret;
 }
+#endif
 
 static int i915_pm_resume(struct device *dev)
 {
@@ -1014,6 +1020,7 @@ static int i915_pm_resume(struct device *dev)
 	return ret;
 }
 
+#ifdef CONFIG_PM_RUNTIME
 static int i915_rpm_resume(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
@@ -1026,6 +1033,7 @@ static int i915_rpm_resume(struct device *dev)
 
 	return ret;
 }
+#endif
 
 static int i915_pm_freeze(struct device *dev)
 {

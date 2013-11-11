@@ -2685,7 +2685,7 @@ i915_dpst_get_luma_data(struct drm_device *dev, char *buf, int *len)
 }
 
 
-static int
+static ssize_t
 i915_read_dpst_api(struct file *filp,
 			char __user *ubuf,
 			size_t max,
@@ -2703,7 +2703,7 @@ i915_read_dpst_api(struct file *filp,
 	if (i915_debugfs_vars.dpst.dpst_input == 0)
 		return len;
 
-	scnprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+	scnprintf(format, sizeof(format), "%%%zus %%%zus %%%zus",
 			sizeof(control), sizeof(operation), sizeof(val));
 
 	no_of_tokens = sscanf(i915_debugfs_vars.dpst.dpst_vars,
@@ -3011,7 +3011,7 @@ i915_display_pm(struct drm_device *drm_dev, long unsigned int val)
 }
 
 
-static int
+static ssize_t
 i915_read_rpm_api(struct file *filp,
 		char __user *ubuf,
 		size_t max,
@@ -3027,7 +3027,7 @@ i915_read_rpm_api(struct file *filp,
 	if (i915_debugfs_vars.rpm.rpm_input == 0)
 		return len;
 
-	scnprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+	scnprintf(format, sizeof(format), "%%%zus %%%zus %%%zus",
 		sizeof(control), sizeof(operation), sizeof(val));
 
 	no_of_tokens = sscanf(i915_debugfs_vars.rpm.rpm_vars,
@@ -3121,7 +3121,7 @@ static const struct file_operations i915_rpm_fops = {
 	.llseek = default_llseek,
 };
 
-static int
+static ssize_t
 i915_read_turbo_api(struct file *filp,
 		   char __user *ubuf,
 		   size_t max,
@@ -3140,7 +3140,7 @@ i915_read_turbo_api(struct file *filp,
 	if (i915_debugfs_vars.turbo.turbo_input == 0)
 		return len;
 
-	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+	snprintf(format, sizeof(format), "%%%zus %%%zus %%%zus",
 			sizeof(control), sizeof(operation), sizeof(val));
 
 	no_of_tokens = sscanf(i915_debugfs_vars.turbo.turbo_vars,
@@ -3330,7 +3330,7 @@ rc6_enable_disable(struct drm_device *dev, long unsigned int val)
 }
 
 
-static int
+static ssize_t
 i915_read_rc6_api(struct file *filp,
 		   char __user *ubuf,
 		   size_t max,
@@ -3347,7 +3347,7 @@ i915_read_rc6_api(struct file *filp,
 	if (i915_debugfs_vars.rc6.rc6_input == 0)
 		return len;
 
-	snprintf(format, sizeof(format), "%%%ds %%%ds",
+	snprintf(format, sizeof(format), "%%%zus %%%zus",
 				sizeof(control), sizeof(operation));
 
 	no_of_tokens = sscanf(i915_debugfs_vars.rc6.rc6_vars,
@@ -3472,7 +3472,7 @@ static const struct file_operations i915_rc6_fops = {
 };
 
 
-static int
+static ssize_t
 i915_read_rc6_status(struct file *filp,
 		   char __user *ubuf,
 		   size_t max,
@@ -3570,7 +3570,7 @@ i915_mmio_read_api(struct file *filp,
 	if (i915_debugfs_vars.mmio.mmio_input == 0)
 		return len;
 
-	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+	snprintf(format, sizeof(format), "%%%zus %%%zus %%%zus",
 				sizeof(operation), sizeof(offset), sizeof(val));
 
 	no_of_tokens = sscanf(i915_debugfs_vars.mmio.mmio_vars,
@@ -3675,7 +3675,7 @@ i915_iosf_read_api(struct file *filp,
 	if (i915_debugfs_vars.iosf.iosf_input == 0)
 		return len;
 
-	snprintf(format, sizeof(format), "%%%ds %%%ds %%%ds",
+	snprintf(format, sizeof(format), "%%%zus %%%zus %%%zus",
 			sizeof(operation), sizeof(port), sizeof(offset));
 
 	noOfTokens = sscanf(i915_debugfs_vars.iosf.iosf_vars,

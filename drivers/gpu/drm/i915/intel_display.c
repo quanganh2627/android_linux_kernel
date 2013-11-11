@@ -7549,7 +7549,7 @@ static int intel_crtc_cursor_set(struct drm_crtc *crtc,
 	if (&obj->base == NULL)
 		return -ENOENT;
 	if (obj->base.size < width * height * 4) {
-		DRM_ERROR("buffer is to small %d needs to be bigger than %d\n",\
+		DRM_ERROR("buffer too small %zu needs to be bigger than %u\n",
 				obj->base.size, width * height * 4);
 		ret = -ENOMEM;
 		goto fail;
