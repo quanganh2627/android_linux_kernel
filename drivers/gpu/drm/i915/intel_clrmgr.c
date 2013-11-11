@@ -144,6 +144,9 @@ intel_enable_csc(struct drm_device *dev, void *data, struct drm_file *priv)
 	struct csc_coeff *wgcsccoeff = NULL;
 	struct drm_mode_object *obj;
 	struct drm_crtc *crtc = NULL;
+	int i = 0;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	dev_priv->csc_enabled = 1;
 
 	wgcsccoeff = (struct csc_coeff *)data;
 	obj = drm_mode_object_find(dev, wgcsccoeff->crtc_id,
@@ -156,7 +159,9 @@ intel_enable_csc(struct drm_device *dev, void *data, struct drm_file *priv)
 
 	crtc = obj_to_crtc(obj);
 	DRM_DEBUG_DRIVER("[CRTC:%d]\n", crtc->base.id);
-	return do_intel_enable_csc(dev, wgcsccoeff->vlv_csc_coeff, crtc);
+	for (i = 0; i < 6; i++)
+		csc_softlut[i] = (u32)wgcsccoeff->vlv_csc_coeff[i].value;
+	return do_intel_enable_csc(dev, (void *)csc_softlut, crtc);
 }
 
 
@@ -168,6 +173,7 @@ do_intel_disable_csc(struct drm_device *dev, struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = NULL;
 	u32 pipeconf = 0;
 	int pipe = 0;
+	dev_priv->csc_enabled = 0;
 
 	intel_crtc = to_intel_crtc(crtc);
 	pipe = intel_crtc->pipe;
