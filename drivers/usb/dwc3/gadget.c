@@ -3374,6 +3374,7 @@ int dwc3_runtime_suspend(struct device *device)
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
+	__dwc3_vbus_draw(dwc, OTG_DEVICE_SUSPEND);
 	dev_dbg(dwc->dev, "%s(): suspended\n", __func__);
 	dev_vdbg(dwc->dev, "<--- %s()\n", __func__);
 
@@ -3533,6 +3534,7 @@ int dwc3_runtime_resume(struct device *device)
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
+	__dwc3_vbus_draw(dwc, OTG_DEVICE_RESUME);
 	dev_dbg(dwc->dev, "%s(): resumed\n", __func__);
 	dev_dbg(dwc->dev, "<--- %s()\n", __func__);
 	return 0;
