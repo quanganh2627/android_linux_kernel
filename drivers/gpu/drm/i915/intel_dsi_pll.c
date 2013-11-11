@@ -274,9 +274,15 @@ int intel_enable_dsi_pll(struct intel_dsi *intel_dsi)
 {
 	struct drm_encoder *encoder = &(intel_dsi->base.base);
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
-	struct drm_i915_private *dev_priv = intel_dsi->base.base.dev->dev_private;
 	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
+	struct drm_i915_private *dev_priv =
+					intel_dsi->base.base.dev->dev_private;
 	u32 tmp;
+
+	if (BYT_CR_CONFIG)
+		mode = intel_dsi->attached_connector->panel.fixed_mode;
+	else
+		mode = &intel_crtc->config.requested_mode;
 
 	DRM_DEBUG_KMS("\n");
 	band_gap_reset(dev_priv);

@@ -406,6 +406,7 @@ static void set_dsi_timings(struct drm_encoder *encoder,
 	u16 hactive, hfp, hsync, hbp, vfp, vsync, vbp;
 
 	hactive = mode->hdisplay;
+
 	hfp = mode->hsync_start - mode->hdisplay;
 	hsync = mode->hsync_end - mode->hsync_start;
 	hbp = mode->htotal - mode->hsync_end;
@@ -486,11 +487,15 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(encoder);
-	struct drm_display_mode *adjusted_mode =
-		&intel_crtc->config.adjusted_mode;
 	int pipe = intel_crtc->pipe;
 	unsigned int bpp = intel_crtc->config.pipe_bpp;
+	struct drm_display_mode *adjusted_mode;
 	u32 val;
+
+	if (BYT_CR_CONFIG)
+		adjusted_mode =	intel_dsi->attached_connector->panel.fixed_mode;
+	else
+		adjusted_mode = &intel_crtc->config.adjusted_mode;
 
 	dsi_config(encoder);
 
@@ -567,20 +572,25 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 
 		I915_WRITE(MIPI_DBI_BW_CTRL(pipe), intel_dsi->bw_timer);
 	}
-
-	if (intel_dsi->pfit && (adjusted_mode->hdisplay < PFIT_SIZE_LIMIT)) {
-		u32 val = 0;
-		if (intel_dsi->pfit == AUTOSCALE)
-			val = PFIT_ENABLE | (intel_crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
-		if (intel_dsi->pfit == PILLARBOX)
-			val = PFIT_ENABLE | (intel_crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
-		else if (intel_dsi->pfit == LETTERBOX)
-			val = PFIT_ENABLE | (intel_crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
-		DRM_DEBUG_KMS("pfit val = %x", val);
+	if (BYT_CR_CONFIG) {
+		val = PFIT_ENABLE | (intel_crtc->pipe <<
+			PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
 		I915_WRITE(PFIT_CONTROL, val);
+	} else {
+		if (intel_dsi->pfit && (adjusted_mode->hdisplay <
+			PFIT_SIZE_LIMIT)) {
+			if (intel_dsi->pfit == AUTOSCALE)
+				val = PFIT_ENABLE | (intel_crtc->pipe <<
+					PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
+			if (intel_dsi->pfit == PILLARBOX)
+				val = PFIT_ENABLE | (intel_crtc->pipe <<
+					PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
+			else if (intel_dsi->pfit == LETTERBOX)
+				val = PFIT_ENABLE | (intel_crtc->pipe <<
+					PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
+			DRM_DEBUG_DRIVER("pfit val = %x", val);
+			I915_WRITE(PFIT_CONTROL, val);
+		}
 	}
 }
 
@@ -593,12 +603,44 @@ intel_dsi_detect(struct drm_connector *connector, bool force)
 	return intel_dsi->dev.dev_ops->detect(&intel_dsi->dev);
 }
 
+static struct drm_display_mode *get_mode_12x8(void)
+{
+	struct drm_display_mode *mode = NULL;
+	/* Allocate */
+	mode = kzalloc(sizeof(*mode), GFP_KERNEL);
+	if (!mode) {
+		DRM_DEBUG_KMS("Panasonic panel: No memory\n");
+		return NULL;
+	}
+
+	/* Hardcode 1280x800 */
+	mode->hdisplay = 1280;
+	mode->hsync_start = mode->hdisplay + 110;
+	mode->hsync_end = mode->hsync_start + 38;
+	mode->htotal = mode->hsync_end + 90;
+
+	mode->vdisplay = 800;
+	mode->vsync_start = mode->vdisplay + 15;
+	mode->vsync_end = mode->vsync_start + 10;
+	mode->vtotal = mode->vsync_end + 10;
+
+	mode->vrefresh = 60;
+	mode->clock =  mode->vrefresh * mode->vtotal *
+			mode->htotal / 1000;
+
+	/* Configure */
+	drm_mode_set_name(mode);
+	drm_mode_set_crtcinfo(mode, 0);
+	mode->type |= DRM_MODE_TYPE_PREFERRED;
+	return mode;
+}
+
 static int intel_dsi_get_modes(struct drm_connector *connector)
 {
 	struct intel_connector *intel_connector = to_intel_connector(connector);
 	struct intel_dsi *intel_dsi = intel_attached_dsi(connector);
 	struct drm_display_mode *mode;
-
+	struct drm_display_mode *input_mode = NULL;
 	DRM_DEBUG_KMS("\n");
 
 	if (!intel_connector->panel.fixed_mode) {
@@ -606,8 +648,13 @@ static int intel_dsi_get_modes(struct drm_connector *connector)
 		return 0;
 	}
 
+	if (BYT_CR_CONFIG)
+		input_mode = get_mode_12x8();
+	else
+		input_mode = intel_connector->panel.fixed_mode;
+
 	mode = drm_mode_duplicate(connector->dev,
-				  intel_connector->panel.fixed_mode);
+				  input_mode);
 	if (!mode) {
 		DRM_DEBUG_KMS("drm_mode_duplicate failed\n");
 		return 0;
@@ -779,7 +826,10 @@ bool intel_dsi_init(struct drm_device *dev)
 	}
 
 	dev_priv->is_mipi = true;
-	fixed_mode->type |= DRM_MODE_TYPE_PREFERRED;
+
+	if (!BYT_CR_CONFIG)
+		fixed_mode->type |= DRM_MODE_TYPE_PREFERRED;
+
 	intel_panel_init(&intel_connector->panel, fixed_mode);
 	intel_panel_setup_backlight(connector);
 

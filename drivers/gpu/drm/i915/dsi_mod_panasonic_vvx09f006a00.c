@@ -49,8 +49,13 @@ static void  vvx09f006a00_get_panel_info(int pipe,
 	}
 
 	if (pipe == 0) {
-		connector->display_info.width_mm = 192;
-		connector->display_info.height_mm = 120;
+		if (BYT_CR_CONFIG) {
+			connector->display_info.width_mm = 128;
+			connector->display_info.height_mm = 80;
+		} else {
+			connector->display_info.width_mm = 192;
+			connector->display_info.height_mm = 120;
+		}
 	}
 
 	return;
@@ -98,8 +103,8 @@ static struct drm_display_mode *vvx09f006a00_get_modes(
 	/* Configure */
 	drm_mode_set_name(mode);
 	drm_mode_set_crtcinfo(mode, 0);
-	mode->type |= DRM_MODE_TYPE_PREFERRED;
-
+	if (!BYT_CR_CONFIG)
+		mode->type |= DRM_MODE_TYPE_PREFERRED;
 	return mode;
 }
 
