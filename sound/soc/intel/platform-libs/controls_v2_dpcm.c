@@ -51,6 +51,8 @@ static inline void sst_fill_byte_control(char *param,
 	}
 	byte_data->len = len;
 	memcpy(byte_data->bytes, cmd_data, len);
+	print_hex_dump_bytes("writing to lpe: ", DUMP_PREFIX_OFFSET,
+			     byte_data, len + sizeof(*byte_data));
 }
 
 static int sst_fill_and_send_cmd(struct sst_data *sst,
@@ -66,7 +68,6 @@ static int sst_fill_and_send_cmd(struct sst_data *sst,
 					       sst->byte_stream);
 	mutex_unlock(&sst->lock);
 
-	print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, cmd_data, len);
 	return ret;
 }
 
