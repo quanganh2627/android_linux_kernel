@@ -56,26 +56,28 @@ struct cfg_match {
 
 static struct cfg_match cfg_assoc_tbl[] = {
 	/* Saltbay PR1 */
-	{"XMM7160_CONF_1", "XMM_7160_REV3", INTEL_MID_CPU_CHIP_TANGIER},
+	{"XMM7160_CONF_1", "XMM_7160_REV3", CPU_TANGIER},
 	/* Saltbay PR2 */
-	{"XMM7160_CONF_2", "XMM_7160_REV3_5", INTEL_MID_CPU_CHIP_TANGIER},
-	{"XMM7160_CONF_2", "XMM_7160_REV4", INTEL_MID_CPU_CHIP_TANGIER},
+	{"XMM7160_CONF_2", "XMM_7160_REV3_5", CPU_TANGIER},
+	{"XMM7160_CONF_2", "XMM_7160_REV4", CPU_TANGIER},
 	/* Saltbay PR2 7260 */
-	{"XMM7260_CONF_2", "XMM_7260_REV1", INTEL_MID_CPU_CHIP_TANGIER},
-	{"XMM7260_CONF_5", "XMM_7260_REV2", INTEL_MID_CPU_CHIP_TANGIER},
+	{"XMM7260_CONF_2", "XMM_7260_REV1", CPU_TANGIER},
+	{"XMM7260_CONF_5", "XMM_7260_REV2", CPU_TANGIER},
 	/* Baytrail FFRD8 */
-	{"XMM7160_CONF_3", "XMM_7160", INTEL_MID_CPU_CHIP_VALLEYVIEW2},
+	{"XMM7160_CONF_3", "XMM_7160", CPU_VVIEW2},
 	/* CTP 7160 */
-	{"XMM7160_CONF_4", "XMM_7160_REV3", INTEL_MID_CPU_CHIP_CLOVERVIEW},
-	{"XMM7160_CONF_5", "XMM_7160_REV3_5", INTEL_MID_CPU_CHIP_CLOVERVIEW},
-	{"XMM7160_CONF_5", "XMM_7160_REV4", INTEL_MID_CPU_CHIP_CLOVERVIEW},
+	{"XMM7160_CONF_4", "XMM_7160_REV3", CPU_CLVIEW},
+	{"XMM7160_CONF_5", "XMM_7160_REV3_5", CPU_CLVIEW},
+	{"XMM7160_CONF_5", "XMM_7160_REV4", CPU_CLVIEW},
 	/* Redhookbay */
-	{"XMM6360_CONF_1", "XMM_6360", INTEL_MID_CPU_CHIP_CLOVERVIEW},
+	{"XMM6360_CONF_1", "XMM_6360", CPU_CLVIEW},
 	/* Moorefield */
-	{"XMM7260_CONF_1", "XMM_7260_REV1", INTEL_MID_CPU_CHIP_ANNIEDALE},
-	{"XMM7160_CONF_6", "XMM_7160_REV3_5", INTEL_MID_CPU_CHIP_ANNIEDALE},
-	{"XMM7160_CONF_6", "XMM_7160_REV4", INTEL_MID_CPU_CHIP_ANNIEDALE},
-	{"XMM7260_CONF_4", "XMM_7260_REV2", INTEL_MID_CPU_CHIP_ANNIEDALE},
+	{"XMM7260_CONF_1", "XMM_7260_REV1", CPU_ANNIEDALE},
+	{"XMM7160_CONF_6", "XMM_7160_REV3_5", CPU_ANNIEDALE},
+	{"XMM7160_CONF_6", "XMM_7160_REV4", CPU_ANNIEDALE},
+	{"XMM7260_CONF_4", "XMM_7260_REV2", CPU_ANNIEDALE},
+	/* Cherrytrail */
+	{"XMM7260_CONF_2", "XMM_7260_REV1", CPU_CHERRYVIEW},
 };
 
 /* Modem data */
@@ -170,7 +172,8 @@ void *pmic_data[] = {
 	&pmic_ctp,		/* PMIC_CLVT */
 	&pmic_mrfl,		/* PMIC_MRFL */
 	NULL,			/* PMIC_BYT, not supported throught SFI */
-	&pmic_moor		/* PMIC_MOOR */
+	&pmic_moor,		/* PMIC_MOOR */
+	NULL,			/* PMIC_CHT, not supported throught SFI */
 };
 
 void *cpu_data[] = {
@@ -178,8 +181,9 @@ void *cpu_data[] = {
 	&cpu_generic,		/* CPU_PWELL */
 	&cpu_generic,		/* CPU_CLVIEW */
 	&cpu_tangier,		/* CPU_TANGIER */
-	&cpu_generic,		/* CPU_VVIEW */
+	NULL,				/* CPU_VVIEW, not supported throught SFI */
 	&cpu_tangier,		/* CPU_ANNIEDALE */
+	NULL,				/* CPU_CHERRYVIEW, not supported throught SFI */
 };
 
 /*
@@ -336,13 +340,14 @@ int mcd_get_modem_ver(char *mdm_name)
 	return MODEM_UNSUP;
 }
 
-void mcd_get_config_ver(char *mdm_name, int mid_cpu)
+int mcd_get_config_ver(char *mdm_name, int mid_cpu)
 {
 	ssize_t i = 0;
 
 	if (strstr(mdm_name, "CONF"))
 		strncpy(config_name, mdm_name, SFI_NAME_LEN);
 	else {
+		memset(config_name, 0, SFI_NAME_LEN);
 		for (i = 0; i < ARRAY_SIZE(cfg_assoc_tbl); i++) {
 			if (!strncmp(cfg_assoc_tbl[i].mdm_name, mdm_name, SFI_NAME_LEN)
 					&& (cfg_assoc_tbl[i].cpu_type == mid_cpu)) {
@@ -351,7 +356,10 @@ void mcd_get_config_ver(char *mdm_name, int mid_cpu)
 				break;
 			}
 		}
+		if (!strlen(config_name))
+			return -1;
 	}
+	return 0;
 }
 
 int mcd_get_cpu_ver(void)
@@ -419,8 +427,11 @@ void *modem_platform_data(void *data)
 	mcd_info->mdm_ver = mcd_get_modem_ver(mdm_name);
 	mcd_info->cpu_ver = mcd_get_cpu_ver();
 	mcd_info->pmic_ver = mcd_get_pmic_ver();
-	mcd_get_config_ver(mdm_name, intel_mid_identify_cpu());
-
+	if (mcd_get_config_ver(mdm_name, mcd_info->cpu_ver)) {
+		pr_err("%s: no telephony configuration found", __func__);
+		kfree(mcd_info);
+		return NULL;
+	}
 	pr_info("SFI %s cpu: %d mdm: %d pmic: %d.\n", __func__,
 		mcd_info->cpu_ver, mcd_info->mdm_ver, mcd_info->pmic_ver);
 	pr_info("SFI %s cpu: %s, mdm: %s:, conf: %s\n", __func__,
@@ -543,7 +554,12 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 		/* we will overwrite most of the values */
 		mcd_reg_info->cpu_data = &cpu_tangier;
 		cpu_data = mcd_reg_info->cpu_data;
-		mid_cpu = INTEL_MID_CPU_CHIP_VALLEYVIEW2;
+	} else if (strstr(out_obj->string.pointer, "CherryView")) {
+		mcd_reg_info->cpu_ver = CPU_CHERRYVIEW;
+		strncpy(cpu_name, "CHERRYVIEW", SFI_NAME_LEN);
+		/* we will overwrite most of the values */
+		mcd_reg_info->cpu_data = &cpu_tangier;
+		cpu_data = mcd_reg_info->cpu_data;
 	} else {
 		pr_err("%s: ERROR CPU name %s Not supported!\n", __func__,
 		       cpu_name);
@@ -565,21 +581,40 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	}
 	mcd_reg_info->modem_data = modem_data[mcd_reg_info->mdm_ver];
 
-	mcd_get_config_ver(out_obj->string.pointer, mid_cpu);
+	/* Retrieve Telephony configuration name from ACPI */
+	status = get_acpi_param(handle, ACPI_TYPE_STRING, "CONF", &out_obj);
+	if (ACPI_FAILURE(status)) {
+		if (mcd_get_config_ver(modem_name, mcd_reg_info->cpu_ver)) {
+			pr_err("%s: ERROR evaluating Modem Name\n", __func__);
+			goto free_mdm_info;
+		}
+	} else
+		mcd_get_config_ver(out_obj->string.pointer, mcd_reg_info->cpu_ver);
 
 	/* PMIC */
-	if (mcd_reg_info->cpu_ver == CPU_VVIEW2)
+	switch (mcd_reg_info->cpu_ver) {
+	case CPU_VVIEW2:
 		mcd_reg_info->pmic_ver = PMIC_BYT;
+		/* mrfl is closest to BYT */
+		mcd_reg_info->pmic_data = &pmic_mrfl;
+		pmic_data = mcd_reg_info->pmic_data;
+		break;
+	case CPU_CHERRYVIEW:
+		mcd_reg_info->pmic_ver = PMIC_CHT;
+		/* moorefield is closest to CHT */
+		mcd_reg_info->pmic_data = &pmic_moor;
+		pmic_data = mcd_reg_info->pmic_data;
+		break;
+	default:
+		mcd_reg_info->pmic_ver = PMIC_UNSUP;
+		break;
+	}
 
 	status = get_acpi_param(handle, ACPI_TYPE_PACKAGE, "PMIC", &out_obj);
 	if (ACPI_FAILURE(status)) {
 		pr_err("%s: ERROR evaluating PMIC info\n", __func__);
 		goto free_mdm_info;
 	}
-
-	/* mrfl is closest to BYT */
-	mcd_reg_info->pmic_data = &pmic_mrfl;
-	pmic_data = mcd_reg_info->pmic_data;
 
 	item = &(out_obj->package.elements[0]);
 	pmic_data->chipctrl = (int)item->integer.value;
