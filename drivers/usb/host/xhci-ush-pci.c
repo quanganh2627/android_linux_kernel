@@ -391,7 +391,7 @@ static void hsicdev_remove(struct usb_device *udev)
 		mutex_lock(&hsic.hsic_mutex);
 		hsic.modem_dev = NULL;
 		mutex_unlock(&hsic.hsic_mutex);
-		usb_enable_autosuspend(hsic.rh_dev);
+		usb_disable_autosuspend(hsic.rh_dev);
 	}
 }
 
@@ -518,13 +518,13 @@ static void ush_hsic_port_disable(void)
 	if (hsic.modem_dev) {
 		dev_dbg(&pci_dev->dev,
 			"Disable auto suspend in port disable\n");
-		usb_enable_autosuspend(hsic.modem_dev);
-		usb_enable_autosuspend(hsic.rh_dev);
+		usb_disable_autosuspend(hsic.modem_dev);
+		usb_disable_autosuspend(hsic.rh_dev);
 	}
 	if (hsic.rh_dev) {
 		dev_dbg(&pci_dev->dev,
 			"%s----> disable port\n", __func__);
-		usb_enable_autosuspend(hsic.rh_dev);
+		usb_disable_autosuspend(hsic.rh_dev);
 		clear_port_feature(hsic.rh_dev, HSIC_USH_PORT,
 				USB_PORT_FEAT_POWER);
 	}
