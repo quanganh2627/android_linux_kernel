@@ -363,7 +363,7 @@ static int fsa9285_detect_dev(struct fsa9285_chip *chip)
 	/* handle SDP case before enabling CHG_DETB */
 	if (w_man_chg_cntl & CHGCTRL_ASSERT_CHG_DETB)
 		ret = chip->pdata->sdp_pre_setup();
-	else
+	else if (!discon_evt)
 		ret = chip->pdata->sdp_post_setup();
 
 	if (ret < 0)

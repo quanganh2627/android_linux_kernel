@@ -1138,8 +1138,6 @@ static int smb347_hw_init(struct smb347_charger *smb)
 	if (ret < 0)
 		goto fail;
 
-	ret = smb347_update_online(smb);
-
 	smb347_set_writable(smb, false);
 	return ret;
 
@@ -1280,9 +1278,11 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 		ret = IRQ_HANDLED;
 	}
 
-	if (irqstat_d & IRQSTAT_D_APSD_STAT) {
-		smb347_disable_suspend(smb);
-		ret = IRQ_HANDLED;
+	if (smb->pdata->detect_chg) {
+		if (irqstat_d & IRQSTAT_D_APSD_STAT) {
+			smb347_disable_suspend(smb);
+			ret = IRQ_HANDLED;
+		}
 	}
 	/*
 	 * If we got an under voltage interrupt it means that AC/USB input
@@ -1781,7 +1781,8 @@ static int smb347_usb_set_property(struct power_supply *psy,
 			 * OTG cannot function if charger is put to
 			 *  suspend state, send fake ntf in such case
 			 */
-			if (smb347_is_charger_present(smb))
+			if (!smb->pdata->detect_chg ||
+				smb347_is_charger_present(smb))
 				ret = smb347_disable_charger();
 			else
 				smb->is_disabled = true;
