@@ -528,7 +528,8 @@ static void cpufreq_interactive_idle_start(void)
 		 * min indefinitely.  This should probably be a quirk of
 		 * the CPUFreq driver.
 		 */
-		if (!pending)
+		/* No need to reschdule on Merrifield platform */
+		if (!pending && (boot_cpu_data.x86_model != 0x4a))
 			cpufreq_interactive_timer_resched(pcpu);
 	}
 
