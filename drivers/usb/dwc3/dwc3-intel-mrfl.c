@@ -1081,9 +1081,10 @@ int dwc3_intel_resume(struct dwc_otg2 *otg)
 
 	/* From synopsys spec 12.2.11.
 	 * Software cannot access memory-mapped I/O space
-	 * for 10ms.
+	 * for 10ms. Delay 5 ms here should be enough. Too
+	 * long a delay causes hibernation exit failure.
 	 */
-	mdelay(10);
+	mdelay(5);
 
 	pci_restore_state(pci_dev);
 	if (pci_enable_device(pci_dev) < 0) {
