@@ -229,4 +229,16 @@ struct sst_algo_control {
 	SST_ALGO_KCONTROL_BOOL(xpname, xmname, xmod, xpipe, xinstance, xtask), \
 	SST_ALGO_KCONTROL_BYTES(xpname, xmname, xcount, xmod, xpipe, xinstance, xtask, xcmd)
 
+/* only 4 slots/channels supported atm */
+#define SST_SSP_SLOT_ENUM(s_ch_no, is_tx, xtexts) \
+	(struct soc_enum){ .reg = s_ch_no, .reg2 = is_tx, .max = 4+1, .texts = xtexts, }
+
+#define SST_SLOT_CTL_NAME(xpname, xmname, s_ch_name) \
+	xpname " " xmname " " s_ch_name
+
+#define SST_SSP_SLOT_CTL(xpname, xmname, s_ch_name, s_ch_no, is_tx, xtexts, xget, xput) \
+	SOC_DAPM_ENUM_EXT(SST_SLOT_CTL_NAME(xpname, xmname, s_ch_name), \
+			  SST_SSP_SLOT_ENUM(s_ch_no, is_tx, xtexts), \
+			  xget, xput)
+
 #endif

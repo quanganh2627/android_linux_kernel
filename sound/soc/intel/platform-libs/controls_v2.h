@@ -400,6 +400,7 @@ enum sst_cmd {
 	SBA_VB_LPRO		= 126,
 	SBA_VB_SET_FIR          = 128,
 	SBA_VB_SET_IIR          = 129,
+	SBA_SET_SSP_SLOT_MAP	= 130,
 };
 
 enum sst_ssp_port {
@@ -578,6 +579,19 @@ struct sst_cmd_sba_hw_set_ssp {
 	u16 frame_sync_width;           /* 1 to N clocks */
 	u16 ssp_protocol:8;		/* 0: PCM, 1: I2S, 2:TI SSP Mode */
 	u16 start_delay:8;		/* Start delay in terms of clock ticks */
+} __packed;
+
+#define SST_MAX_TDM_SLOTS 8
+
+struct sst_param_sba_ssp_slot_map {
+	struct sst_dsp_header header;
+
+	u16 param_id;
+	u16 param_len;
+	u16 ssp_index;
+
+	u8 rx_slot_map[SST_MAX_TDM_SLOTS];
+	u8 tx_slot_map[SST_MAX_TDM_SLOTS];
 } __packed;
 
 int sst_mix_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);

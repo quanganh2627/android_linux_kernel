@@ -70,8 +70,93 @@ static int sst_fill_and_send_cmd(struct sst_data *sst,
 	return ret;
 }
 
+/*
+ * slot map value is a bitfield where each bit represents a FW channel
+ *
+ *			3 2 1 0		# 0 = codec0, 1 = codec1
+ *			RLRLRLRL	# 3, 4 = reserved
+ *
+ * e.g. slot 0 rx map =	00001100b -> data from slot 0 goes into codec_in1 L,R
+ */
+static u8 sst_ssp_slot_map[SST_MAX_TDM_SLOTS] = {
+	0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, /* default rx map */
+};
+
+/*
+ * channel map value is a bitfield where each bit represents a slot
+ *
+ *			  76543210	# 0 = slot 0, 1 = slot 1
+ *
+ * e.g. codec1_0 tx map = 00000101b -> data from codec_out1_0 goes into slot 0, 2
+ */
+static u8 sst_ssp_channel_map[SST_MAX_TDM_SLOTS] = {
+	0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, /* default tx map */
+};
+
+static int sst_slot_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_enum *e = (void *)kcontrol->private_value;
+	unsigned int ctl_no = e->reg;
+	unsigned int is_tx = e->reg2;
+	unsigned int val, mux;
+	u8 *map = is_tx ? sst_ssp_channel_map : sst_ssp_slot_map;
+
+	val = 1 << ctl_no;
+	/* search which slot/channel has this bit set - there should be only one */
+	for (mux = e->max; mux > 0;  mux--)
+		if (map[mux - 1] & val)
+			break;
+
+	ucontrol->value.enumerated.item[0] = mux;
+	pr_debug("%s: %s - %s map = %#x\n", __func__, is_tx ? "tx channel" : "rx slot",
+		 e->texts[mux], mux ? map[mux - 1] : -1);
+	return 0;
+}
+
+/*
+ * (de)interleaver controls are defined in opposite sense to be user-friendly
+ *
+ * Instead of the enum value being the value set to the register, it is the
+ * register address; and the kcontrol_no is the value written to the register.
+ *
+ * This means that whenever an enum is set, we need to clear the bit
+ * for that kcontrol_no for all the interleaver OR deinterleaver registers
+ */
+static int sst_slot_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_enum *e = (void *)kcontrol->private_value;
+	int i;
+	unsigned int ctl_no = e->reg;
+	unsigned int is_tx = e->reg2;
+	unsigned int slot_channel_no;
+	unsigned int val, mux;
+	u8 *map = is_tx ? sst_ssp_channel_map : sst_ssp_slot_map;
+
+	val = 1 << ctl_no;
+	mux = ucontrol->value.enumerated.item[0];
+	if (mux > e->max - 1)
+		return -EINVAL;
+
+	/* first clear all registers of this bit */
+	for (i = 0; i < e->max; i++)
+		map[i] &= ~val;
+
+	if (mux == 0) /* kctl set to 'none' */
+		return 0;
+
+	/* offset by one to take "None" into account */
+	slot_channel_no = mux - 1;
+	map[slot_channel_no] |= val;
+
+	pr_debug("%s: %s %s map = %#x\n", __func__, is_tx ? "tx channel" : "rx slot",
+		 e->texts[mux], map[slot_channel_no]);
+	return 0;
+}
+
 static void sst_send_algo_cmd(struct sst_data *sst,
-	 struct sst_algo_control *bc)
+			      struct sst_algo_control *bc)
 {
 	int len;
 	struct sst_cmd_set_params *cmd;
@@ -95,7 +180,7 @@ static void sst_send_algo_cmd(struct sst_data *sst,
 }
 
 static void sst_find_and_send_pipe_algo(struct snd_soc_platform *platform,
-	struct snd_soc_dapm_widget *w)
+					struct snd_soc_dapm_widget *w)
 {
 	struct sst_algo_control *bc;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
@@ -478,6 +563,29 @@ static int sst_vb_trigger_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void sst_send_slot_map(struct sst_data *sst)
+{
+	struct sst_param_sba_ssp_slot_map cmd;
+
+	pr_debug("Enter: %s", __func__);
+
+	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
+	cmd.header.command_id = SBA_SET_SSP_SLOT_MAP;
+	cmd.header.length = sizeof(struct sst_param_sba_ssp_slot_map)
+				- sizeof(struct sst_dsp_header);
+
+	cmd.param_id = SBA_SET_SSP_SLOT_MAP;
+	cmd.param_len = sizeof(cmd.rx_slot_map) + sizeof(cmd.tx_slot_map) + sizeof(cmd.ssp_index);
+	cmd.ssp_index = SSP_CODEC;
+
+	memcpy(cmd.rx_slot_map, &sst_ssp_slot_map[0], sizeof(cmd.rx_slot_map));
+	memcpy(cmd.tx_slot_map, &sst_ssp_channel_map[0], sizeof(cmd.tx_slot_map));
+
+	sst_fill_and_send_cmd(sst, SST_IPC_IA_SET_PARAMS, SST_FLAG_BLOCKED,
+			      SST_TASK_SBA, 0, &cmd,
+			      sizeof(cmd.header) + cmd.header.length);
+}
+
 static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 			 struct snd_kcontrol *k, int event)
 {
@@ -516,8 +624,10 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 			      SST_TASK_SBA, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
 
-	if (SND_SOC_DAPM_EVENT_ON(event))
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		sst_find_and_send_pipe_algo(w->platform, w);
+		sst_send_slot_map(sst);
+	}
 	return 0;
 }
 
@@ -774,6 +884,37 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"VOIP Playback", NULL, "VBTimer"},
 };
 
+static const char * const slot_names[] = {
+	"none",
+	"slot 0", "slot 1", "slot 2", "slot 3",
+	"slot 4", "slot 5", "slot 6", "slot 7", /* not supported by FW */
+};
+
+static const char * const channel_names[] = {
+	"none",
+	"codec_out0_0", "codec_out0_1", "codec_out1_0", "codec_out1_1",
+	"codec_out2_0", "codec_out2_1", "codec_out3_0", "codec_out3_1", /* not supported by FW */
+};
+
+#define SST_INTERLEAVER(xpname, slot_name, slotno) \
+	SST_SSP_SLOT_CTL(xpname, "interleaver", slot_name, slotno, 1, \
+			 channel_names, sst_slot_get, sst_slot_put)
+
+#define SST_DEINTERLEAVER(xpname, channel_name, channel_no) \
+	SST_SSP_SLOT_CTL(xpname, "deinterleaver", channel_name, channel_no, 0, \
+			 slot_names, sst_slot_get, sst_slot_put)
+
+static const struct snd_kcontrol_new sst_slot_controls[] = {
+	SST_INTERLEAVER("codec_out", "slot 0", 0),
+	SST_INTERLEAVER("codec_out", "slot 1", 1),
+	SST_INTERLEAVER("codec_out", "slot 2", 2),
+	SST_INTERLEAVER("codec_out", "slot 3", 3),
+	SST_DEINTERLEAVER("codec_in", "codec_in0_0", 0),
+	SST_DEINTERLEAVER("codec_in", "codec_in0_1", 1),
+	SST_DEINTERLEAVER("codec_in", "codec_in1_0", 2),
+	SST_DEINTERLEAVER("codec_in", "codec_in1_1", 3),
+};
+
 /* Gain helper with min/max set */
 #define SST_GAIN(name, path_id, task_id, instance, gain_var)			\
 	SST_GAIN_KCONTROLS(name, SST_GAIN_MIN_VALUE, SST_GAIN_MAX_VALUE,	\
@@ -1023,11 +1164,14 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 		sst_gains[i].r_gain = SST_GAIN_VOLUME_DEFAULT;
 		sst_gains[i].ramp_duration = SST_GAIN_RAMP_DURATION_DEFAULT;
 	}
+
 	snd_soc_add_platform_controls(platform, sst_gain_controls,
 			ARRAY_SIZE(sst_gain_controls));
 
 	snd_soc_add_platform_controls(platform, sst_algo_controls,
 			ARRAY_SIZE(sst_algo_controls));
+	snd_soc_add_platform_controls(platform, sst_slot_controls,
+			ARRAY_SIZE(sst_slot_controls));
 
 	ret = sst_map_modules_to_pipe(platform);
 
