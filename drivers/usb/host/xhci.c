@@ -156,6 +156,14 @@ int xhci_reset(struct xhci_hcd *xhci)
 	u32 state;
 	int ret, i;
 
+	/* If any ports under compliance test, then giveup to reset host */
+	if ((xhci->quirks & XHCI_COMP_PLC_QUIRK) &&
+			usb_quirk_ignore_comp_plc(&xhci->op_regs->port_status_base,
+				HCS_MAX_PORTS(xhci->hcs_params1))) {
+		xhci_dbg(xhci, "xHC under compliance testing, aborting reset\n");
+		return 0;
+	}
+
 	state = xhci_readl(xhci, &xhci->op_regs->status);
 	if ((state & STS_HALT) == 0) {
 		xhci_warn(xhci, "Host controller not halted, aborting reset.\n");

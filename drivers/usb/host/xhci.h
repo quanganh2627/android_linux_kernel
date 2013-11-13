@@ -283,6 +283,8 @@ struct xhci_op_regs {
 #define XDEV_U0		(0x0 << 5)
 #define XDEV_U2		(0x2 << 5)
 #define XDEV_U3		(0x3 << 5)
+#define XDEV_COMP	(0xa << 5)
+#define XDEV_LOOPBACK	(0xb << 5)
 #define XDEV_RESUME	(0xf << 5)
 /* true: port has power (see HCC_PPC) */
 #define PORT_POWER	(1 << 9)
@@ -1547,6 +1549,7 @@ struct xhci_hcd {
 #define XHCI_PLAT		(1 << 16)
 #define XHCI_PORT_DISABLE_QUIRK	(1 << 17)
 #define XHCI_LPM_DISABLE_QUIRK	(1 << 18)
+#define XHCI_COMP_PLC_QUIRK		(1 << 19)
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */

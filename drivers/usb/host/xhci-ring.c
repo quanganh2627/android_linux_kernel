@@ -1710,6 +1710,16 @@ static void handle_port_status(struct xhci_hcd *xhci,
 		usb_hcd_resume_root_hub(hcd);
 	}
 
+	/* Some xHC will generate PLC event during compliance test.
+	 * To avoid break compliance test, ignore this interrupt. */
+	if ((xhci->quirks & XHCI_COMP_PLC_QUIRK) &&
+		usb_quirk_ignore_comp_plc(&xhci->op_regs->port_status_base,
+				HCS_MAX_PORTS(xhci->hcs_params1))) {
+		xhci_test_and_clear_bit(xhci, port_array,
+				faked_port_index, PORT_PLC);
+		return 0;
+	}
+
 	if ((temp & PORT_PLC) && (temp & PORT_PLS_MASK) == XDEV_RESUME) {
 		xhci_dbg(xhci, "port resume event for port %d\n", port_id);
 
