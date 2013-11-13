@@ -33,7 +33,6 @@
 #include <linux/moduleparam.h>
 #include "intel_drv.h"
 #include "linux/mfd/intel_mid_pmic.h"
-#include <linux/platform_data/lp855x.h>
 
 #define PCI_LBPC 0xf4 /* legacy/combination backlight modes */
 
@@ -615,31 +614,6 @@ void intel_panel_enable_backlight(struct drm_device *dev,
 
 		intel_panel_actually_set_mipi_backlight(dev,
 					dev_priv->backlight.level);
-
-		if (lpdata) {
-			/* FIXME: Need to find the right delay so that registers
-			 * A9, A5 and A7 can be updated. Other the LP8556 chip
-			 * restores default values.
-			 * Tried delays <= 20ms. didn't work.
-			 */
-			msleep(30);
-
-			lp855x_ext_write_byte(LP8556_CFG9,
-						LP8556_VBOOST_MAX_NA_21V |
-						LP8556_JUMP_DIS |
-						LP8556_JMP_TSHOLD_10P |
-						LP8556_JMP_VOLT_0_5V);
-			lp855x_ext_write_byte(LP8556_CFG5,
-						LP8556_PWM_DRECT_DIS |
-						LP8556_PS_MODE_5P5D |
-						LP8556_PWM_FREQ_9616HZ);
-			lp855x_ext_write_byte(LP8556_CFG7,
-						LP8556_RSRVD_76 |
-						LP8556_DRV3_EN |
-						LP8556_DRV2_EN |
-						LP8556_RSRVD_32 |
-						LP8556_IBOOST_LIM_1_8A_NA);
-		}
 #else
 		DRM_ERROR("Backlight not supported yet\n");
 #endif
