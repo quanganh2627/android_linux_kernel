@@ -80,6 +80,8 @@ int intel_mid_rproc_init(void)
 				RP_MSIC_KPD_LED);
 	register_rpmsg_service("rpmsg_modem_nvram", RPROC_SCU,
 					RP_IPC_RAW_COMMAND);
+	register_rpmsg_service("rpmsg_mid_pwm", RPROC_SCU,
+				RP_MSIC_PWM);
 
 	err = platform_device_register(&intel_scu_device);
 	if (err < 0)
