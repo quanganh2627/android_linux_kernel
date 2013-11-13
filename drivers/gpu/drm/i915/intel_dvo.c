@@ -408,6 +408,7 @@ static const struct drm_encoder_funcs intel_dvo_enc_funcs = {
  * Other chips with DVO LVDS will need to extend this to deal with the LVDS
  * chip being on DVOB/C and having multiple pipes.
  */
+
 static struct drm_display_mode *
 intel_dvo_get_current_mode(struct drm_connector *connector)
 {
@@ -439,6 +440,7 @@ intel_dvo_get_current_mode(struct drm_connector *connector)
 
 	return mode;
 }
+
 
 void intel_dvo_init(struct drm_device *dev)
 {
@@ -528,6 +530,7 @@ void intel_dvo_init(struct drm_device *dev)
 			encoder_type = DRM_MODE_ENCODER_LVDS;
 			break;
 		}
+		intel_encoder->base.encoder_type = encoder_type;
 
 		drm_connector_helper_add(connector,
 					 &intel_dvo_connector_helper_funcs);

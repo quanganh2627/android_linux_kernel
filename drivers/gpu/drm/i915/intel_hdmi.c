@@ -1147,7 +1147,7 @@ static void intel_hdmi_pre_enable(struct intel_encoder *encoder)
 
 	/* Enable clock channels for this port */
 	mutex_lock(&dev_priv->dpio_lock);
-	val = vlv_dpio_read(dev_priv, DPIO_DATA_LANE_A(port));
+
 	val = 0;
 	if (pipe)
 		val |= (1<<21);

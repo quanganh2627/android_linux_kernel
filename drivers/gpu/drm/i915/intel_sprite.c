@@ -461,8 +461,6 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		rotate = true;
 
 	/* Sizes are 0 based */
-	src_w--;
-	src_h--;
 	crtc_w--;
 	crtc_h--;
 	/*

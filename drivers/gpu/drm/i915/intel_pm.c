@@ -133,16 +133,9 @@ static void g4x_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_framebuffer *fb = crtc->fb;
-	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
-	struct drm_i915_gem_object *obj = intel_fb->obj;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	int plane = intel_crtc->plane == 0 ? DPFC_CTL_PLANEA : DPFC_CTL_PLANEB;
 	unsigned long stall_watermark = 200;
-	u32 dpfc_ctl;
 
-	dpfc_ctl = plane | DPFC_SR_EN | DPFC_CTL_LIMIT_1X;
-	dpfc_ctl |= DPFC_CTL_FENCE_EN | obj->fence_reg;
 	I915_WRITE(DPFC_CHICKEN, DPFC_HT_MODIFY);
 
 	I915_WRITE(DPFC_RECOMP_CTL, DPFC_RECOMP_STALL_EN |

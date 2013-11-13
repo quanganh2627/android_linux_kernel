@@ -111,14 +111,11 @@ void dsi_hs_mode_enable(struct intel_dsi *intel_dsi, bool enable)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
 	enum pipe pipe = intel_crtc->pipe;
-	u32 temp;
 	u32 mask = DBI_FIFO_EMPTY;
 
 	if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) & mask) == mask, 50))
 		DRM_ERROR("Timeout waiting for DBI FIFO empty\n");
 
-	temp = I915_READ(MIPI_HS_LP_DBI_ENABLE(pipe));
-	temp &= DBI_HS_LP_MODE_MASK;
 	I915_WRITE(MIPI_HS_LP_DBI_ENABLE(pipe), enable ? DBI_HS_MODE : DBI_LP_MODE);
 
 	intel_dsi->hs = enable;

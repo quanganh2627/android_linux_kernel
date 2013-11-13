@@ -4769,7 +4769,7 @@ static void vlv_pllb_recal_opamp(struct drm_i915_private *dev_priv)
 
 	reg_val = vlv_dpio_read(dev_priv, DPIO_CALIBRATION);
 	reg_val &= 0x8cffffff;
-	reg_val = 0x8c000000;
+	reg_val |= 0x8c000000;
 	vlv_dpio_write(dev_priv, DPIO_CALIBRATION, reg_val);
 
 	reg_val = vlv_dpio_read(dev_priv, DPIO_IREF(1));
@@ -6474,6 +6474,11 @@ static int ironlake_crtc_mode_set(struct drm_crtc *crtc,
 	if (intel_crtc->config.has_pch_encoder) {
 		pll = intel_crtc_to_shared_dpll(intel_crtc);
 
+	}
+	if (pll == NULL) {
+		DRM_DEBUG_DRIVER("failed to find PLL for pipe %c\n",
+				pipe_name(pipe));
+		return -EINVAL;
 	}
 
 	intel_set_pipe_timings(intel_crtc);

@@ -50,15 +50,13 @@ struct gpio_table gtable[] = {
 
 static u8 *mipi_exec_send_packet(struct intel_dsi *intel_dsi, u8 *data)
 {
-	u8 type, byte, mode, vc, port;
+	u8 type, byte, vc;
 	u16 len;
 
 	DRM_DEBUG_DRIVER("MIPI: Executing sene packet element\n");
 
 	byte = *data++;
-	mode = (byte >> MIPI_TRANSFER_MODE_SHIFT) & 0x1;
 	vc = (byte >> MIPI_VIRTUAL_CHANNEL_SHIFT) & 0x3;
-	port = (byte >> MIPI_PORT_SHIFT) & 0x3;
 
 	/* get packet type and increment the pointer */
 	type = *data++;

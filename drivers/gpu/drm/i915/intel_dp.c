@@ -2050,7 +2050,6 @@ static void vlv_pre_enable_dp(struct intel_encoder *encoder)
 
 	mutex_lock(&dev_priv->dpio_lock);
 
-	val = vlv_dpio_read(dev_priv, DPIO_DATA_LANE_A(port));
 	val = 0;
 	if (pipe)
 		val |= (1<<21);
@@ -4010,14 +4009,7 @@ int intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
 	if (intel_dp == NULL) {
 		DRM_ERROR("Intel Dp  = NULL");
 	} else {
-		/*
-		For SW Timer mode, exit and disable have the exact
-		implementation, hence reusing
-		*/
-		if (EDP_PSR_MODE == EDP_PSR_HW_TIMER)
-			intel_edp_exit_psr(intel_dp);
-		else
-			intel_edp_disable_psr(intel_dp, EDP_PSR_MODE);
+		intel_edp_exit_psr(intel_dp);
 	}
 	return 0;
 }
