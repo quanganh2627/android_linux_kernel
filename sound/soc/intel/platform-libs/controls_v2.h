@@ -389,6 +389,8 @@ enum sst_cmd {
 	SBA_VB_SET_GAIN		= 33,
 	MMX_SET_GAIN_TIMECONST	= 36,
 	SBA_VB_SET_TIMECONST	= 36,
+	SBA_PROBE		= 66,
+	MMX_PROBE		= 66,
 	SBA_VB_START		= 85,
 	MMX_SET_SWM		= 114,
 	SBA_SET_SWM		= 114,
@@ -593,6 +595,47 @@ struct sst_param_sba_ssp_slot_map {
 	u8 rx_slot_map[SST_MAX_TDM_SLOTS];
 	u8 tx_slot_map[SST_MAX_TDM_SLOTS];
 } __packed;
+
+enum {
+	SST_PROBE_EXTRACTOR = 0,
+	SST_PROBE_INJECTOR = 1,
+};
+
+struct sst_cmd_probe {
+	struct sst_dsp_header header;
+
+	u16 switch_state;
+	struct sst_destination_id probe_dst;
+
+	u16 shared_mem:1;
+	u16 probe_in:1;
+	u16 probe_out:1;
+	u16 rsvd_1:13;
+
+	u16 rsvd_2:5;
+	u16 probe_mode:2;
+	u16 rsvd_3:1;
+	u16 sample_length:2;
+	u16 rate:3;
+	u16 format:3;
+
+	u16 sm_buf_id;
+
+	u16 gain[6];
+	u16 rsvd_4[9];
+} __packed;
+
+struct sst_probe_config {
+	const char *name;
+	u16 loc_id;
+	u16 mod_id;
+	u8 task_id;
+	struct pcm_cfg {
+		u8 s_length:2;
+		u8 rate:3;
+		u8 format:3;
+	} cfg;
+};
 
 int sst_mix_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
 int sst_mix_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);

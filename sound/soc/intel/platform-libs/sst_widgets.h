@@ -241,4 +241,19 @@ struct sst_algo_control {
 			  SST_SSP_SLOT_ENUM(s_ch_no, is_tx, xtexts), \
 			  xget, xput)
 
+struct sst_probe_value {
+	unsigned int val;
+	const struct soc_enum *p_enum;
+};
+
+#define SST_PROBE_CTL_NAME(dir, num, type) \
+	dir #num " " type
+
+#define SST_PROBE_ENUM(xname, xenum, xhandler_get, xhandler_put) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
+	.info = sst_probe_enum_info, \
+	.get = xhandler_get, .put = xhandler_put, \
+	.private_value = (unsigned long)&(struct sst_probe_value) \
+	{ .val = 0, .p_enum = &xenum } }
+
 #endif

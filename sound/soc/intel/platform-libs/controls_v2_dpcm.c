@@ -70,6 +70,43 @@ static int sst_fill_and_send_cmd(struct sst_data *sst,
 	return ret;
 }
 
+static int sst_probe_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct sst_probe_value *v = (void *)kcontrol->private_value;
+
+	ucontrol->value.enumerated.item[0] = v->val;
+	return 0;
+}
+
+static int sst_probe_put(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct sst_probe_value *v = (void *)kcontrol->private_value;
+	const struct soc_enum *e = v->p_enum;
+
+	if (ucontrol->value.enumerated.item[0] > e->max - 1)
+		return -EINVAL;
+	v->val = ucontrol->value.enumerated.item[0];
+	return 0;
+}
+
+int sst_probe_enum_info(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
+{
+	struct sst_probe_value *v = (void *)kcontrol->private_value;
+	const struct soc_enum *e = v->p_enum;
+
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
+	uinfo->count = 1;
+	uinfo->value.enumerated.items = e->max;
+
+	if (uinfo->value.enumerated.item > e->max - 1)
+		uinfo->value.enumerated.item = e->max - 1;
+	strcpy(uinfo->value.enumerated.name,
+		e->texts[uinfo->value.enumerated.item]);
+	return 0;
+}
 /*
  * slot map value is a bitfield where each bit represents a FW channel
  *
@@ -697,6 +734,73 @@ static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int sst_send_probe_cmd(struct sst_data *sst, u16 probe_pipe_id,
+			      int mode, int switch_state,
+			      const struct sst_probe_config *probe_cfg)
+{
+	struct sst_cmd_probe cmd;
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	SST_FILL_DESTINATION(3, cmd.header.dst, SST_DEFAULT_CELL_NBR,
+			     probe_pipe_id, SST_DEFAULT_MODULE_ID);
+	cmd.header.command_id = SBA_PROBE;
+	cmd.header.length = sizeof(struct sst_cmd_probe)
+				 - sizeof(struct sst_dsp_header);
+	cmd.switch_state = switch_state;
+
+	SST_FILL_DESTINATION(2, cmd.probe_dst,
+			     probe_cfg->loc_id, probe_cfg->mod_id);
+
+	cmd.shared_mem = 1;
+	cmd.probe_in = 0;
+	cmd.probe_out = 0;
+
+	cmd.probe_mode = mode;
+	cmd.sample_length = probe_cfg->cfg.s_length;
+	cmd.rate = probe_cfg->cfg.rate;
+	cmd.format = probe_cfg->cfg.format;
+	cmd.sm_buf_id = 1;
+
+	return sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
+				     probe_cfg->task_id, 0, &cmd,
+				     sizeof(cmd.header) + cmd.header.length);
+}
+
+static const struct snd_kcontrol_new sst_probe_controls[];
+static const struct sst_probe_config sst_probes[];
+
+#define SST_MAX_PROBE_STREAMS 8
+int sst_dpcm_probe_send(struct snd_soc_platform *platform, u16 probe_pipe_id,
+			int substream, int direction, bool on)
+{
+	int switch_state = on ? SST_SWITCH_ON : SST_SWITCH_OFF;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	const struct sst_probe_config *probe_cfg;
+	struct sst_probe_value *probe_val;
+	char *type;
+	int offset;
+	int mode;
+
+	if (direction == SNDRV_PCM_STREAM_CAPTURE) {
+		mode = SST_PROBE_EXTRACTOR;
+		offset = 0;
+		type = "extractor";
+	} else {
+		mode = SST_PROBE_INJECTOR;
+		offset = SST_MAX_PROBE_STREAMS;
+		type = "injector";
+	}
+	/* get the value of the probe connection kcontrol */
+	probe_val = (void *)sst_probe_controls[substream + offset].private_value;
+	probe_cfg = &sst_probes[probe_val->val];
+
+	pr_debug("%s: substream=%d, direction=%d\n", __func__, substream, direction);
+	pr_debug("%s: %s probe point at %s\n", __func__, type, probe_cfg->name);
+
+	return sst_send_probe_cmd(sst, probe_pipe_id, mode, switch_state, probe_cfg);
+}
+
 static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("tone"),
 	SND_SOC_DAPM_OUTPUT("aware"),
@@ -913,6 +1017,74 @@ static const struct snd_kcontrol_new sst_slot_controls[] = {
 	SST_DEINTERLEAVER("codec_in", "codec_in0_1", 1),
 	SST_DEINTERLEAVER("codec_in", "codec_in1_0", 2),
 	SST_DEINTERLEAVER("codec_in", "codec_in1_1", 3),
+};
+
+#define SST_NUM_PROBE_CONNECTION_PTS 31
+static const struct sst_probe_config sst_probes[SST_NUM_PROBE_CONNECTION_PTS] = {
+	/* TODO: get this struct from FW config data */
+	/* TODO: only gain outputs supported currently */
+	{ "media0_in gain", SST_PATH_INDEX_MEDIA0_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_MMX, { 1, 2, 1 } },
+	{ "media1_in gain", SST_PATH_INDEX_MEDIA1_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_MMX, { 1, 2, 1 } },
+	{ "media2_in gain", SST_PATH_INDEX_MEDIA2_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_MMX, { 1, 2, 1 } },
+	{ "media3_in gain", SST_PATH_INDEX_MEDIA3_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_MMX, { 1, 2, 1 } },
+	{ "pcm0_in gain", SST_PATH_INDEX_PCM0_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "pcm1_in gain", SST_PATH_INDEX_PCM1_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "pcm1_out gain", SST_PATH_INDEX_PCM1_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "pcm2_out gain", SST_PATH_INDEX_PCM2_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "voip_in gain", SST_PATH_INDEX_VOIP_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "voip_out gain", SST_PATH_INDEX_VOIP_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "aware_out gain", SST_PATH_INDEX_AWARE_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "vad_out gain", SST_PATH_INDEX_VAD_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "hf_sns_out gain", SST_PATH_INDEX_HF_SNS_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "hf_out gain", SST_PATH_INDEX_HF_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "speech_out gain", SST_PATH_INDEX_SPEECH_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "txspeech_in gain", SST_PATH_INDEX_TX_SPEECH_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "rxspeech_out gain", SST_PATH_INDEX_RX_SPEECH_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "speech_in gain", SST_PATH_INDEX_SPEECH_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "media_loop1_out gain", SST_PATH_INDEX_MEDIA_LOOP1_OUT , SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "media_loop2_out gain", SST_PATH_INDEX_MEDIA_LOOP2_OUT , SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "tone_in gain", SST_PATH_INDEX_TONE_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "codec_out0 gain", SST_PATH_INDEX_CODEC_OUT0, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "codec_out1 gain", SST_PATH_INDEX_CODEC_OUT1, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "bt_out gain", SST_PATH_INDEX_BT_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "fm_out gain", SST_PATH_INDEX_FM_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "modem_out gain", SST_PATH_INDEX_MODEM_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "codec_in0 gain", SST_PATH_INDEX_CODEC_IN0, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "codec_in1 gain", SST_PATH_INDEX_CODEC_IN1, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "bt_in gain", SST_PATH_INDEX_BT_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "fm_in gain", SST_PATH_INDEX_FM_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "modem_in gain", SST_PATH_INDEX_MODEM_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+};
+
+/* initialized based on names in sst_probes array */
+static const char *sst_probe_enum_texts[SST_NUM_PROBE_CONNECTION_PTS];
+static const SOC_ENUM_SINGLE_EXT_DECL(sst_probe_enum, sst_probe_enum_texts);
+
+#define SST_PROBE_CTL(name, num)						\
+	SST_PROBE_ENUM(SST_PROBE_CTL_NAME(name, num, "connection"),		\
+		       sst_probe_enum, sst_probe_get, sst_probe_put)
+	/* TODO: implement probe gains
+	SOC_SINGLE_EXT_TLV(SST_PROBE_CTL_NAME(name, num, "gains"), xreg, xshift,
+		xmax, xinv, xget, xput, sst_gain_tlv_common)
+	*/
+
+static const struct snd_kcontrol_new sst_probe_controls[] = {
+	SST_PROBE_CTL("probe out", 0),
+	SST_PROBE_CTL("probe out", 1),
+	SST_PROBE_CTL("probe out", 2),
+	SST_PROBE_CTL("probe out", 3),
+	SST_PROBE_CTL("probe out", 4),
+	SST_PROBE_CTL("probe out", 5),
+	SST_PROBE_CTL("probe out", 6),
+	SST_PROBE_CTL("probe out", 7),
+	SST_PROBE_CTL("probe in", 0),
+	SST_PROBE_CTL("probe in", 1),
+	SST_PROBE_CTL("probe in", 2),
+	SST_PROBE_CTL("probe in", 3),
+	SST_PROBE_CTL("probe in", 4),
+	SST_PROBE_CTL("probe in", 5),
+	SST_PROBE_CTL("probe in", 6),
+	SST_PROBE_CTL("probe in", 7),
 };
 
 /* Gain helper with min/max set */
@@ -1172,6 +1344,13 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 			ARRAY_SIZE(sst_algo_controls));
 	snd_soc_add_platform_controls(platform, sst_slot_controls,
 			ARRAY_SIZE(sst_slot_controls));
+
+	/* initialize the names of the probe points */
+	for (i = 0; i < SST_NUM_PROBE_CONNECTION_PTS; i++)
+		sst_probe_enum_texts[i] = sst_probes[i].name;
+
+	snd_soc_add_platform_controls(platform, sst_probe_controls,
+			ARRAY_SIZE(sst_probe_controls));
 
 	ret = sst_map_modules_to_pipe(platform);
 

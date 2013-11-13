@@ -85,6 +85,8 @@ int sst_algo_int_ctl_info(struct snd_kcontrol *kcontrol,
 void sst_set_stream_status(struct sst_runtime_stream *stream, int state);
 int sst_fill_stream_params(void *substream, const struct sst_data *ctx,
 			   struct snd_sst_params *str_params, bool is_compress);
+int sst_dpcm_probe_send(struct snd_soc_platform *platform, u16 probe_pipe,
+			int substream, int direction, bool on);
 
 struct sst_algo_int_control_v2 {
 	struct soc_mixer_control mc;

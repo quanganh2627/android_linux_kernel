@@ -688,7 +688,6 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 		.platform_name = "sst-platform",
 		.playback_count = 8,
 		.capture_count = 8,
-		.dynamic = 1,
 	},
 	/* CODEC<->CODEC link */
 	{
