@@ -465,7 +465,8 @@ static int acm_submit_read_urbs(struct acm *acm, gfp_t mem_flags)
 	return 0;
 }
 
-static void ftrace_dump_acm_data(struct acm *acm, const void *buf, size_t len)
+static void ftrace_dump_acm_data(struct acm *acm, u8 is_out, const void *buf,
+	size_t len)
 {
 	const u8 *ptr = buf;
 	int i, linelen, remaining = len;
@@ -481,7 +482,8 @@ static void ftrace_dump_acm_data(struct acm *acm, const void *buf, size_t len)
 		hex_dump_to_buffer(ptr + i, linelen, rowsize, groupsize,
 				   linebuf, sizeof(linebuf), ascii);
 
-		trace_printk("[ACM %02d] %.4x: %s\n", acm->minor, i, linebuf);
+		trace_printk("[ACM %02d %s] %.4x: %s\n", acm->minor,
+			is_out == 1 ? "-->" : "<--", i, linebuf);
 	}
 
 }
@@ -495,7 +497,7 @@ static void acm_process_read_urb(struct acm *acm, struct urb *urb)
 			urb->actual_length);
 
 	if (is_hsic_host(acm->dev) && acm_data_dump_enable)
-		ftrace_dump_acm_data(acm, urb->transfer_buffer,
+		ftrace_dump_acm_data(acm, 0, urb->transfer_buffer,
 			urb->actual_length);
 
 	tty_flip_buffer_push(&acm->port);
@@ -562,6 +564,11 @@ static void acm_write_bulk(struct urb *urb)
 			urb->actual_length,
 			urb->transfer_buffer_length,
 			urb->status);
+
+	if (is_hsic_host(acm->dev) && acm_data_dump_enable
+		&& usb_pipebulk(urb->pipe))
+		ftrace_dump_acm_data(acm, 1, urb->transfer_buffer,
+			urb->actual_length);
 
 	spin_lock_irqsave(&acm->write_lock, flags);
 	acm->bytes_tx += urb->actual_length;
@@ -1475,14 +1482,14 @@ skip_countries:
 		usb_enable_autosuspend(usb_dev);
 
 	if (is_hsic_host(usb_dev)) {
-		if (!acm_debug_root && usb_debug_root) {
+		if (!acm_debug_root)
 			acm_debug_root = debugfs_create_dir("acm",
 				usb_debug_root);
+
+		if (!acm_debug_data_dump_enable)
 			acm_debug_data_dump_enable = debugfs_create_u32(
 				"acm_data_dump_enable",	0644, acm_debug_root,
 				&acm_data_dump_enable);
-			acm_data_dump_enable = 0;
-		}
 	}
 
 	return 0;
@@ -1579,10 +1586,10 @@ static void acm_disconnect(struct usb_interface *intf)
 		usb_driver_release_interface(&acm_driver, intf == acm->control ?
 					acm->data : acm->control);
 
-	debugfs_remove(acm_debug_root);
 	debugfs_remove(acm_debug_data_dump_enable);
-	acm_debug_root = NULL;
+	debugfs_remove(acm_debug_root);
 	acm_debug_data_dump_enable = NULL;
+	acm_debug_root = NULL;
 
 	tty_port_put(&acm->port);
 }
