@@ -1369,8 +1369,8 @@ static int gen6_ring_invalidate_tlb(struct intel_ring_buffer *ring)
 		DRM_ERROR("%s: wait for SyncFlush to complete timed out\n",
 				ring->name);
 
-	/* only start if stop was sucessfull */
-	if (!ret)
+	/* only start if stop was done by us */
+	if (-EALREADY != ret)
 		ring->start(ring);
 
 	return 0;

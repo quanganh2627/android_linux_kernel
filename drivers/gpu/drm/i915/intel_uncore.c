@@ -864,16 +864,26 @@ static int gen6_do_engine_reset(struct drm_device *dev,
 
 int intel_gpu_engine_reset(struct drm_device *dev, enum intel_ring_id engine)
 {
+	struct drm_i915_private *dev_priv;
+	struct intel_ring_buffer *ring;
 	/* Reset an individual engine */
 	int ret = -ENODEV;
 
 	if (!dev)
 		return -EINVAL;
 
+	dev_priv = dev->dev_private;
+
 	switch (INTEL_INFO(dev)->gen) {
 	case 7:
 	case 6:
 			ret = gen6_do_engine_reset(dev, engine);
+			/* Driver should invalidate TLB after soft resets */
+			if (!ret) {
+				ring = &dev_priv->ring[engine];
+				if (ring->invalidate_tlb)
+					ring->invalidate_tlb(ring);
+			}
 			break;
 	default:
 			DRM_ERROR("Engine reset not supported\n");
