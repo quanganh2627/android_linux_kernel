@@ -21,15 +21,20 @@
 #include "platform_msic_power_btn.h"
 #include <linux/platform_data/intel_mid_remoteproc.h>
 
-#define BCOVE_PBIRQ 0x02
-#define BCOVE_PBIRQMASK	0x0d
-
 static struct intel_msic_power_btn_platform_data msic_power_btn_pdata;
 
 static int mrfl_pb_irq_ack(struct intel_msic_power_btn_platform_data *pdata)
 {
 	intel_scu_ipc_update_register(BCOVE_PBIRQ, 0, MSIC_PWRBTNM);
 	intel_scu_ipc_update_register(BCOVE_PBIRQMASK, 0, MSIC_PWRBTNM);
+
+	return 0;
+}
+
+static int moor_pb_irq_ack(struct intel_msic_power_btn_platform_data *pdata)
+{
+	intel_scu_ipc_update_register(SCOVE_PBIRQ, 0, MSIC_PWRBTNM);
+	intel_scu_ipc_update_register(SCOVE_PBIRQMASK, 0, MSIC_PWRBTNM);
 
 	return 0;
 }
@@ -47,7 +52,12 @@ void __init *msic_power_btn_platform_data(void *info)
 		return NULL;
 	}
 
-	if (INTEL_MID_BOARD(1, PHONE, MRFL)) {
+	if (INTEL_MID_BOARD(1, PHONE, MOOR)) {
+		msic_power_btn_pdata.pbstat = 0xfffff61a;
+		msic_power_btn_pdata.pb_level = (1 << 4);
+		msic_power_btn_pdata.irq_lvl1_mask = 0x100c;
+		msic_power_btn_pdata.irq_ack = moor_pb_irq_ack;
+	} else if (INTEL_MID_BOARD(1, PHONE, MRFL)) {
 		msic_power_btn_pdata.pbstat = 0xfffff61a;
 		msic_power_btn_pdata.pb_level = (1 << 4);
 		msic_power_btn_pdata.irq_lvl1_mask = 0x0c;
