@@ -34,7 +34,7 @@ static int try_to_freeze_tasks(bool user_only)
 	unsigned int elapsed_msecs;
 	bool wakeup = false;
 	int sleep_usecs = USEC_PER_MSEC;
-	char *busy_wq_name;
+	char *busy_wq_name = NULL;
 
 	do_gettimeofday(&start);
 
