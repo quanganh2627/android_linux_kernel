@@ -300,6 +300,26 @@ static unsigned int is_ush_hsic(struct usb_device *udev)
 	return 1;
 }
 
+static void s3_wake_lock(void)
+{
+	mutex_lock(&hsic.wlock_mutex);
+	if (hsic.s3_wlock_state == UNLOCKED) {
+		wake_lock(&hsic.s3_wake_lock);
+		hsic.s3_wlock_state = LOCKED;
+	}
+	mutex_unlock(&hsic.wlock_mutex);
+}
+
+static void s3_wake_unlock(void)
+{
+	mutex_lock(&hsic.wlock_mutex);
+	if (hsic.s3_wlock_state == LOCKED) {
+		wake_unlock(&hsic.s3_wake_lock);
+		hsic.s3_wlock_state = UNLOCKED;
+	}
+	mutex_unlock(&hsic.wlock_mutex);
+}
+
 static void hsicdev_add(struct usb_device *udev)
 {
 
@@ -392,6 +412,7 @@ static void hsicdev_remove(struct usb_device *udev)
 		hsic.modem_dev = NULL;
 		mutex_unlock(&hsic.hsic_mutex);
 		usb_disable_autosuspend(hsic.rh_dev);
+		s3_wake_unlock();
 	}
 }
 
@@ -410,26 +431,6 @@ static int hsic_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
-static void s3_wake_lock(void)
-{
-	mutex_lock(&hsic.wlock_mutex);
-	if (hsic.s3_wlock_state == UNLOCKED) {
-		wake_lock(&hsic.s3_wake_lock);
-		hsic.s3_wlock_state = LOCKED;
-	}
-	mutex_unlock(&hsic.wlock_mutex);
-}
-
-static void s3_wake_unlock(void)
-{
-	mutex_lock(&hsic.wlock_mutex);
-	if (hsic.s3_wlock_state == LOCKED) {
-		wake_unlock(&hsic.s3_wake_lock);
-		hsic.s3_wlock_state = LOCKED;
-	}
-	mutex_unlock(&hsic.wlock_mutex);
-}
-
 static void hsic_port_suspend(struct usb_device *udev)
 {
 	if (is_ush_hsic(udev) == 0) {
@@ -444,7 +445,7 @@ static void hsic_port_suspend(struct usb_device *udev)
 	}
 
 	/* Modem dev */
-	if ((udev->parent) && (hsic.s3_rt_state != SUSPENDING)) {
+	if (udev->parent) {
 		pr_debug("%s s3 wlock unlocked\n", __func__);
 		s3_wake_unlock();
 	}
@@ -491,9 +492,6 @@ static int hsic_s3_entry_notify(struct notifier_block *self,
 	case PM_SUSPEND_PREPARE:
 		hsic.s3_rt_state = SUSPENDING;
 		break;
-	case PM_POST_SUSPEND:
-		hsic.s3_rt_state = SUSPENDED;
-		break;
 	}
 	return NOTIFY_OK;
 }
@@ -529,6 +527,7 @@ static void ush_hsic_port_disable(void)
 				USB_PORT_FEAT_POWER);
 	}
 	hsic_enable = 0;
+	s3_wake_unlock();
 }
 
 static void ush_hsic_port_enable(void)
@@ -550,6 +549,7 @@ static void ush_hsic_port_enable(void)
 		set_port_feature(hsic.rh_dev, HSIC_USH_PORT,
 				USB_PORT_FEAT_POWER);
 	}
+	s3_wake_lock();
 }
 
 static void hsic_port_logical_disconnect(struct usb_device *hdev,
@@ -1197,6 +1197,7 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	hsic.port_disconnect = 0;
 	hsic_enable = 1;
 	hsic.s3_rt_state = RESUMED;
+	s3_wake_lock();
 	return 0;
 
 put_usb3_hcd:
@@ -1269,6 +1270,7 @@ static int xhci_ush_hcd_pci_resume_noirq(struct device *dev)
 
 	dev_dbg(dev, "%s --->\n", __func__);
 	retval = usb_hcd_pci_pm_ops.resume_noirq(dev);
+	hsic.s3_rt_state = RESUMED;
 	dev_dbg(dev, "%s <--- retval = %d\n", __func__, retval);
 	return retval;
 }
