@@ -750,10 +750,24 @@ static int byt_sdio_probe_slot(struct sdhci_pci_slot *slot)
 		slot->chip->pdev->d3_delay = 10;
 		/* reduce the auto suspend delay for SDIO to be 500ms */
 		slot->chip->autosuspend_delay = 500;
+		slot->host->mmc->qos = kzalloc(sizeof(struct pm_qos_request),
+				GFP_KERNEL);
 		break;
 	}
 
+	if (slot->host->mmc->qos)
+		pm_qos_add_request(slot->host->mmc->qos, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
+
 	return 0;
+}
+
+static void byt_sdio_remove_slot(struct sdhci_pci_slot *slot, int dead)
+{
+	if (slot->host->mmc->qos) {
+		pm_qos_remove_request(slot->host->mmc->qos);
+		kfree(slot->host->mmc->qos);
+	}
 }
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_emmc = {
@@ -769,6 +783,7 @@ static const struct sdhci_pci_fixes sdhci_intel_byt_sdio = {
 		SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.allow_runtime_pm = true,
 	.probe_slot	= byt_sdio_probe_slot,
+	.remove_slot	= byt_sdio_remove_slot,
 };
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_sd = {
