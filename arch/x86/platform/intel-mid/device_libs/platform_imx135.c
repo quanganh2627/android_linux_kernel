@@ -238,11 +238,24 @@ static int imx135_csi_configure(struct v4l2_subdev *sd, int flag)
 		ATOMISP_INPUT_FORMAT_RAW_10, atomisp_bayer_order_rggb, flag);
 }
 
+static char *imx135_msr_file_name(void)
+{
+	if (spid.hardware_id == MRFL_PHONE_SB_PR2) {
+		return "00imx135-0-0x4-0.drvb";
+	} else {
+		pr_warn("drvb file name does not exists");
+	}
+
+	return 0;
+}
+
+
 static struct camera_sensor_platform_data imx135_sensor_platform_data = {
 	.gpio_ctrl      = imx135_gpio_ctrl,
 	.flisclk_ctrl   = imx135_flisclk_ctrl,
 	.power_ctrl     = imx135_power_ctrl,
 	.csi_cfg        = imx135_csi_configure,
+	.msr_file_name  = imx135_msr_file_name,
 	.platform_init = imx135_platform_init,
 	.platform_deinit = imx135_platform_deinit,
 };
