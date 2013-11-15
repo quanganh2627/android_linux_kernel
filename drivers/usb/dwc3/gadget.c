@@ -475,11 +475,7 @@ static int dwc3_gadget_set_ep_config(struct dwc3 *dwc, struct dwc3_ep *dep,
 
 	/* Burst size is only needed in SuperSpeed mode */
 	if (dwc->gadget.speed == USB_SPEED_SUPER) {
-		/* In case a function forgets to set maxburst, maxburst may be
-		 * still 0, and we shouldn't minus 1 for it.
-		 */
-		u32 burst = dep->endpoint.maxburst ?
-				dep->endpoint.maxburst - 1 : 0;
+		u32 burst = dep->endpoint.maxburst - 1;
 
 		params.param0 |= DWC3_DEPCFG_BURST_SIZE(burst);
 	}
