@@ -1325,29 +1325,6 @@ static const int arizona_48k_bclk_rates[] = {
 	24576000,
 };
 
-static const unsigned int arizona_48k_rates[] = {
-	12000,
-	24000,
-	48000,
-	96000,
-	192000,
-	384000,
-	768000,
-	4000,
-	8000,
-	16000,
-	32000,
-	64000,
-	128000,
-	256000,
-	512000,
-};
-
-static const struct snd_pcm_hw_constraint_list arizona_48k_constraint = {
-	.count	= ARRAY_SIZE(arizona_48k_rates),
-	.list	= arizona_48k_rates,
-};
-
 static const int arizona_44k1_bclk_rates[] = {
 	-1,
 	44100,
@@ -1368,21 +1345,6 @@ static const int arizona_44k1_bclk_rates[] = {
 	7526400,
 	11289600,
 	22579200,
-};
-
-static const unsigned int arizona_44k1_rates[] = {
-	11025,
-	22050,
-	44100,
-	88200,
-	176400,
-	352800,
-	705600,
-};
-
-static const struct snd_pcm_hw_constraint_list arizona_44k1_constraint = {
-	.count	= ARRAY_SIZE(arizona_44k1_rates),
-	.list	= arizona_44k1_rates,
 };
 
 static int arizona_sr_vals[] = {
@@ -1412,13 +1374,15 @@ static int arizona_sr_vals[] = {
 	512000,
 };
 
-static int arizona_startup(struct snd_pcm_substream *substream,
-			   struct snd_soc_dai *dai)
+static int arizona_hw_params_rate(struct snd_pcm_substream *substream,
+				  struct snd_pcm_hw_params *params,
+				  struct snd_soc_dai *dai)
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct arizona_priv *priv = snd_soc_codec_get_drvdata(codec);
 	struct arizona_dai_priv *dai_priv = &priv->dai[dai->id - 1];
-	const struct snd_pcm_hw_constraint_list *constraint;
+	int base = dai->driver->base;
+	int i, sr_val;
 	unsigned int base_rate;
 
 	switch (dai_priv->clk) {
@@ -1429,31 +1393,16 @@ static int arizona_startup(struct snd_pcm_substream *substream,
 		base_rate = priv->asyncclk;
 		break;
 	default:
-		return 0;
+		arizona_aif_err(dai, "Unknown clock: %d\n", dai_priv->clk);
+		return -EINVAL;
 	}
 
-	if (base_rate == 0)
-		return 0;
-
-	if (base_rate % 8000)
-		constraint = &arizona_44k1_constraint;
-	else
-		constraint = &arizona_48k_constraint;
-
-	return snd_pcm_hw_constraint_list(substream->runtime, 0,
-					  SNDRV_PCM_HW_PARAM_RATE,
-					  constraint);
-}
-
-static int arizona_hw_params_rate(struct snd_pcm_substream *substream,
-				  struct snd_pcm_hw_params *params,
-				  struct snd_soc_dai *dai)
-{
-	struct snd_soc_codec *codec = dai->codec;
-	struct arizona_priv *priv = snd_soc_codec_get_drvdata(codec);
-	struct arizona_dai_priv *dai_priv = &priv->dai[dai->id - 1];
-	int base = dai->driver->base;
-	int i, sr_val;
+	if (!!(base_rate % 8000) != !!(params_rate(params) % 8000)) {
+		arizona_aif_err(dai,
+				"Rate %dHz not supported off %dHz clock\n",
+				params_rate(params), base_rate);
+		return -EINVAL;
+	}
 
 	/*
 	 * We will need to be more flexible than this in future,
@@ -1669,7 +1618,6 @@ static int arizona_set_tristate(struct snd_soc_dai *dai, int tristate)
 }
 
 const struct snd_soc_dai_ops arizona_dai_ops = {
-	.startup = arizona_startup,
 	.set_fmt = arizona_set_fmt,
 	.hw_params = arizona_hw_params,
 	.set_sysclk = arizona_dai_set_sysclk,
@@ -1678,7 +1626,6 @@ const struct snd_soc_dai_ops arizona_dai_ops = {
 EXPORT_SYMBOL_GPL(arizona_dai_ops);
 
 const struct snd_soc_dai_ops arizona_simple_dai_ops = {
-	.startup = arizona_startup,
 	.hw_params = arizona_hw_params_rate,
 	.set_sysclk = arizona_dai_set_sysclk,
 };
