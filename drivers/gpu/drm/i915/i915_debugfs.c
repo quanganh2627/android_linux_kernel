@@ -2495,22 +2495,22 @@ i915_set_max_freq(struct drm_device *dev, int val)
 		mutex_unlock(&dev_priv->rps.hw_lock);
 		return -1;
 	}
-
+	if (IS_VALLEYVIEW(dev))
+		dev_priv->rps.max_delay = val;
+	else
+		dev_priv->rps.max_delay = val / 50;
 	/*
 	 * Turbo will still be enabled, but won't go above the set value.
 	 */
 	if (dev_priv->rps.cur_delay > val) {
 		if (IS_VALLEYVIEW(dev)) {
-			dev_priv->rps.max_delay = val;
 			valleyview_set_rps(dev, val);
 			/* if rps frequency is changed above we need to take
 			* care of bringing it down to rpe through rps timer */
 			mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
 				msecs_to_jiffies(100));
-		} else {
-			dev_priv->rps.max_delay = val / 50;
+		} else
 			gen6_set_rps(dev, val / 50);
-		}
 	}
 
 	mutex_unlock(&dev_priv->rps.hw_lock);
@@ -2859,22 +2859,22 @@ i915_set_min_freq(struct drm_device *dev, int val)
 		mutex_unlock(&dev_priv->rps.hw_lock);
 		return -EINVAL;
 	}
-
+	if (IS_VALLEYVIEW(dev))
+		dev_priv->rps.min_delay = val;
+	else
+		dev_priv->rps.min_delay = val / 50;
 	/*
 	 * Turbo will still be enabled, but won't go below the set value.
 	 */
 	if (dev_priv->rps.cur_delay < val) {
 		if (IS_VALLEYVIEW(dev)) {
-			dev_priv->rps.min_delay = val;
 			valleyview_set_rps(dev, val);
 			/* If rps frequency is changed above we need to take
 			* care of bringing it down to rpe through rps timer*/
 			mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
 					msecs_to_jiffies(100));
-		} else {
-			dev_priv->rps.min_delay = val / 50;
+		} else
 			gen6_set_rps(dev, val / 50);
-		}
 	}
 
 	mutex_unlock(&dev_priv->rps.hw_lock);
