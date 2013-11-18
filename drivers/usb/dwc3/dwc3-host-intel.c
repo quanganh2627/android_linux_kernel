@@ -211,19 +211,20 @@ static void dwc_core_reset(struct usb_hcd *hcd)
 	writel(val, hcd->regs + GCTL);
 }
 
-/* This is a hardware workaround.
- * xHCI RxDetect state is not work well when USB3
- * PHY under P3 state. So force PHY change to P2 when
- * xHCI want to perform receiver detection.
- */
-static void dwc_disable_ssphy_p3(struct usb_hcd *hcd)
+/*
+ * On MERR platform, the suspend clock is 19.2MHz.
+ * Hence PwrDnScale = 19200 / 16 = 1200 (= 0x4B0).
+ * To account for possible jitter of suspend clock and to have margin,
+ * So recommend it to be set to 1250 (= 0x4E2).
+ * */
+static void dwc_set_ssphy_p3_clockrate(struct usb_hcd *hcd)
 {
-	u32 phyval;
+	u32 gctl;
 
-	phyval = readl(hcd->regs + GUSB3PIPECTL0);
-	phyval |= GUSB3PIPE_DISRXDETP3;
-	writel(phyval, hcd->regs + GUSB3PIPECTL0);
-
+	gctl = readl(hcd->regs + GCTL);
+	gctl &= ~GCTL_PWRDNSCALE_MASK;
+	gctl |= GCTL_PWRDNSCALE(0x4E2);
+	writel(gctl, hcd->regs + GCTL);
 }
 
 static ssize_t
@@ -276,7 +277,7 @@ static int dwc3_start_host(struct usb_hcd *hcd)
 	dwc_core_reset(hcd);
 	dwc_silicon_wa(hcd);
 	dwc_set_host_mode(hcd);
-	dwc_disable_ssphy_p3(hcd);
+	dwc_set_ssphy_p3_clockrate(hcd);
 
 	/* Clear the hcd->flags.
 	 * To prevent incorrect flags set during last time. */
