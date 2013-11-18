@@ -1648,7 +1648,8 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	present = mmc_gpio_get_cd(host->mmc);
 	if (present < 0) {
 		/* If polling, assume that the card is always present. */
-		if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
+		if ((host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION) ||
+				(host->mmc->caps & MMC_CAP_NONREMOVABLE))
 			present = 1;
 		else if ((host->quirks2 & SDHCI_QUIRK2_BAD_SD_CD) &&
 				host->ops->get_cd)
