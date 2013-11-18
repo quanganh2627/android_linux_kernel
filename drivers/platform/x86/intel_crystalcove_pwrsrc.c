@@ -53,6 +53,7 @@
 #define VBUSCNTL_SEL			(1 << 1)
 
 #define PWRSRC_EXTCON_CABLE_AC		"CHARGER_AC"
+#define PWRSRC_EXTCON_CABLE_USB		"USB"
 #define PWRSRC_DRV_NAME			"crystal_cove_pwrsrc"
 
 /*
@@ -70,6 +71,7 @@
 
 static const char *byt_extcon_cable[] = {
 	PWRSRC_EXTCON_CABLE_AC,
+	PWRSRC_EXTCON_CABLE_USB,
 	NULL,
 };
 
@@ -152,6 +154,21 @@ int crystal_cove_disable_vbus(void)
 }
 EXPORT_SYMBOL(crystal_cove_disable_vbus);
 
+int crystal_cove_vbus_on_status(void)
+{
+	int ret;
+
+	ret = intel_mid_pmic_readb(CRYSTALCOVE_SPWRSRC_REG);
+	if (ret < 0)
+		return ret;
+
+	if (ret & PWRSRC_VBUS_DET)
+		return  1;
+
+	return 0;
+}
+EXPORT_SYMBOL(crystal_cove_vbus_on_status);
+
 static void handle_pwrsrc_event(struct pwrsrc_info *info, int pwrsrcirq)
 {
 	int spwrsrc, mask;
@@ -164,9 +181,15 @@ static void handle_pwrsrc_event(struct pwrsrc_info *info, int pwrsrcirq)
 		if (spwrsrc & PWRSRC_VBUS_DET) {
 			dev_dbg(&info->pdev->dev, "VBUS attach event\n");
 			mask = 1;
+			if (info->edev)
+				extcon_set_cable_state(info->edev,
+						PWRSRC_EXTCON_CABLE_USB, true);
 		} else {
 			dev_dbg(&info->pdev->dev, "VBUS detach event\n");
 			mask = 0;
+			if (info->edev)
+				extcon_set_cable_state(info->edev,
+						PWRSRC_EXTCON_CABLE_USB, false);
 		}
 		/* notify OTG driver */
 		if (info->otg)
@@ -226,7 +249,7 @@ static int pwrsrc_extcon_dev_reg_callback(struct notifier_block *nb,
 
 	/* check if there is other extcon cables */
 	if (extcon_num_of_cable_devs(EXTCON_CABLE_SDP)) {
-		dev_info(&info->pdev->dev, "unregistering extcon device\n");
+		dev_info(&info->pdev->dev, "unregistering otg device\n");
 		/* Set VBUS supply mode to SW control mode */
 		intel_mid_pmic_writeb(CRYSTALCOVE_VBUSCNTL_REG, 0x02);
 		if (info->nb.notifier_call) {
@@ -237,10 +260,6 @@ static int pwrsrc_extcon_dev_reg_callback(struct notifier_block *nb,
 			usb_put_phy(info->otg);
 			info->otg = NULL;
 		}
-		if (info->edev) {
-			extcon_dev_unregister(info->edev);
-			kfree(info->edev);
-		}
 	}
 
 	return NOTIFY_OK;
@@ -250,6 +269,22 @@ static int pwrsrc_extcon_registration(struct pwrsrc_info *info)
 {
 	int ret = 0;
 
+	/* register with extcon */
+	info->edev = kzalloc(sizeof(struct extcon_dev), GFP_KERNEL);
+	if (!info->edev) {
+		dev_err(&info->pdev->dev, "mem alloc failed\n");
+		ret = -ENOMEM;
+		goto pwrsrc_extcon_fail;
+	}
+	info->edev->name = "BYT-Charger";
+	info->edev->supported_cable = byt_extcon_cable;
+	ret = extcon_dev_register(info->edev, &info->pdev->dev);
+	if (ret) {
+		dev_err(&info->pdev->dev, "extcon registration failed!!\n");
+		kfree(info->edev);
+		goto pwrsrc_extcon_fail;
+	}
+
 	if (extcon_num_of_cable_devs(EXTCON_CABLE_SDP)) {
 		dev_info(&info->pdev->dev,
 			"extcon device is already registered\n");
@@ -258,23 +293,6 @@ static int pwrsrc_extcon_registration(struct pwrsrc_info *info)
 	} else {
 		/* Workaround: Set VBUS supply mode to HW control mode */
 		intel_mid_pmic_writeb(CRYSTALCOVE_VBUSCNTL_REG, 0x00);
-
-		dev_info(&info->pdev->dev, "registering extcon device\n");
-		/* register with extcon */
-		info->edev = kzalloc(sizeof(struct extcon_dev), GFP_KERNEL);
-		if (!info->edev) {
-			dev_err(&info->pdev->dev, "mem alloc failed\n");
-			ret = -ENOMEM;
-			goto pwrsrc_extcon_fail;
-		}
-		info->edev->name = "BYT-Charger";
-		info->edev->supported_cable = byt_extcon_cable;
-		ret = extcon_dev_register(info->edev, &info->pdev->dev);
-		if (ret) {
-			dev_err(&info->pdev->dev, "extcon registration failed!!\n");
-			kfree(info->edev);
-			goto pwrsrc_extcon_fail;
-		}
 
 		/* OTG notification */
 		info->otg = usb_get_phy(USB_PHY_TYPE_USB2);
