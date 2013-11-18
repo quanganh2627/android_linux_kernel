@@ -1942,7 +1942,6 @@ struct drm_i915_file_private {
 #define INTEL_RC6pp_ENABLE			(1<<2)
 
 extern struct drm_ioctl_desc i915_ioctls[];
-extern struct drm_display_mode rot_mode;
 extern int i915_max_ioctl;
 extern unsigned int i915_fbpercrtc __always_unused;
 extern int i915_panel_ignore_lid __read_mostly;
@@ -2540,8 +2539,6 @@ extern int valleyview_rps_min_freq(struct drm_i915_private *dev_priv);
 extern void intel_detect_pch(struct drm_device *dev);
 extern int intel_trans_dp_port_sel(struct drm_crtc *crtc);
 extern int intel_enable_rc6(const struct drm_device *dev);
-extern int i915_rotation_ffrd(const struct drm_device *dev,
-			const struct drm_crtc *crtc);
 extern void valleyview_enable_rps(struct drm_device *dev);
 extern void valleyview_disable_rps(struct drm_device *dev);
 

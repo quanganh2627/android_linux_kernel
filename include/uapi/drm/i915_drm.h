@@ -1158,7 +1158,8 @@ struct drm_i915_reserved_reg_bit_2 {
 };
 
 struct drm_i915_plane_180_rotation {
-	__u32 crtc_id;
+	__u32 obj_id;
+	__u32 obj_type;
 	__u32 rotate;
 };
 

@@ -457,7 +457,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size, true,
 				       src_w != crtc_w || src_h != crtc_h);
 
-	if (sprctl & DISPPLANE_180_ROTATION_ENABLE)
+	if (!intel_plane->rotate180 != !(i915_rotation && (pipe == 0)))
 		rotate = true;
 
 	/* Sizes are 0 based */
@@ -474,10 +474,10 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	}
 
 	I915_WRITE(SPSTRIDE(pipe, plane), fb->pitches[0]);
-	if (rotate)
-		I915_WRITE(SPPOS(pipe, plane), ((rot_mode.vdisplay -
+	if (i915_rotation && (pipe == 0))
+		I915_WRITE(SPPOS(pipe, plane), ((crtc->hwmode.vdisplay -
 			(crtc_y + crtc_h + 1)) << 16) |
-				(rot_mode.hdisplay - (crtc_x + crtc_w + 1)));
+			(crtc->hwmode.hdisplay - (crtc_x + crtc_w + 1)));
 	else
 		I915_WRITE(SPPOS(pipe, plane), (crtc_y << 16) | crtc_x);
 
@@ -507,6 +507,9 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	I915_WRITE(SPSIZE(pipe, plane), (crtc_h << 16) | crtc_w);
 	if (rotate)
 		sprctl |= DISPPLANE_180_ROTATION_ENABLE;
+	else
+		sprctl &= ~DISPPLANE_180_ROTATION_ENABLE;
+
 
 	I915_WRITE(SPCNTR(pipe, plane), sprctl);
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), i915_gem_obj_ggtt_offset(obj) +
@@ -1487,6 +1490,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 
 	intel_plane->pipe = pipe;
 	intel_plane->plane = plane;
+	intel_plane->rotate180 = false;
 	possible_crtcs = (1 << pipe);
 	ret = drm_plane_init(dev, &intel_plane->base, possible_crtcs,
 			     &intel_plane_funcs,

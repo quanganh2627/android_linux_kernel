@@ -131,8 +131,6 @@ static const intel_limit_t intel_limits_i8xx_dac = {
 		.p2_slow = 4, .p2_fast = 2 },
 };
 
-struct drm_display_mode rot_mode;
-
 static const intel_limit_t intel_limits_i8xx_dvo = {
 	.dot = { .min = 25000, .max = 350000 },
 	.vco = { .min = 930000, .max = 1400000 },
@@ -2123,126 +2121,48 @@ unsigned long intel_gen4_compute_page_offset(int *x, int *y,
 	}
 }
 
-int i915_rotation_ffrd(const struct drm_device *dev,
-			const struct drm_crtc *crtc)
-{
-	u32 val;
-	int reg;
-	/* Rotate only for local display.
-	 * Hardcoded to be on pipe A.
-	 * ToDo - Generalize pipe for local display.
-	 */
-	int pipe = 0;
-	u32 sprctla;
-	u32 sprctlb;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	if (intel_pipe_has_type(crtc, INTEL_OUTPUT_HDMI))
-		return 0;
-
-	reg = DSPCNTR(pipe);
-	val = I915_READ(reg);
-	sprctla = I915_READ(SPCNTR(pipe, 0));
-	sprctlb = I915_READ(SPCNTR(pipe, 1));
-	memcpy(&rot_mode, &(crtc->hwmode), sizeof(struct drm_display_mode));
-
-	if (i915_rotation) {
-		val |= DISPPLANE_180_ROTATION_ENABLE;
-		I915_WRITE(reg, val);
-
-		if (!(sprctla & DISPPLANE_180_ROTATION_ENABLE)) {
-			sprctla |= DISPPLANE_180_ROTATION_ENABLE;
-			I915_WRITE(SPCNTR(pipe, 0), sprctla);
-		}
-
-		if (!(sprctlb & DISPPLANE_180_ROTATION_ENABLE)) {
-			sprctlb |= DISPPLANE_180_ROTATION_ENABLE;
-			I915_WRITE(SPCNTR(pipe, 1), sprctlb);
-		}
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(i915_rotation_ffrd);
-
 int i915_set_plane_180_rotation(struct drm_device *dev, void *data,
 				struct drm_file *file)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_i915_plane_180_rotation *rotation = data;
-
-	bool rotate = (rotation->rotate & 0x1) ? true : false;
-	int reg;
-	u32 val;
-	u32 sprctla;
-	u32 sprctlb;
-	int ret = 1;
 	struct drm_mode_object *obj;
 	struct drm_crtc *crtc;
 	struct intel_crtc *intel_crtc;
-	int pipe;
+	struct drm_plane *plane;
+	struct intel_plane *intel_plane;
+	int ret = -EINVAL;
 
-	obj = drm_mode_object_find(dev, rotation->crtc_id,
-			DRM_MODE_OBJECT_CRTC);
+	if (rotation->obj_type == DRM_MODE_OBJECT_PLANE) {
+		obj = drm_mode_object_find(dev, rotation->obj_id,
+						DRM_MODE_OBJECT_PLANE);
+		if (!obj) {
+			DRM_DEBUG_DRIVER("Unknown PLANE ID %d\n",
+					rotation->obj_id);
+			return -EINVAL;
+		}
 
-	if (!obj) {
-		DRM_DEBUG_DRIVER("Unknown CRTC ID %d\n", rotation->crtc_id);
-		return -EINVAL;
-	}
+		plane = obj_to_plane(obj);
+		intel_plane = to_intel_plane(plane);
+		intel_plane->rotate180 = (rotation->rotate & 0x1) ?
+							true : false;
+		ret = 0;
+	} else if (rotation->obj_type == DRM_MODE_OBJECT_CRTC) {
+		obj = drm_mode_object_find(dev, rotation->obj_id,
+						DRM_MODE_OBJECT_CRTC);
+		if (!obj) {
+			DRM_DEBUG_DRIVER("Unknown CRTC ID %d\n",
+						rotation->obj_id);
+			return -EINVAL;
+		}
 
-	crtc = obj_to_crtc(obj);
-	DRM_DEBUG_DRIVER("[CRTC:%d]\n", crtc->base.id);
-	if (!crtc->enabled) {
-		DRM_ERROR("[CRTC:%d] not active\n", crtc->base.id);
-		return -EINVAL;
-	}
-
-	intel_crtc = to_intel_crtc(crtc);
-	pipe = intel_crtc->pipe;
-
-	DRM_DEBUG_DRIVER("pipe = %d\n", pipe);
-	memcpy(&rot_mode, &(crtc->hwmode), sizeof(struct drm_display_mode));
-	reg = DSPCNTR(pipe);
-	val = I915_READ(reg);
-	sprctla = I915_READ(SPCNTR(pipe, 0));
-	sprctlb = I915_READ(SPCNTR(pipe, 1));
-
-	/*Clear older rotation settings*/
-	if (val & DISPLAY_PLANE_ENABLE) {
-		val &= ~DISPPLANE_180_ROTATION_ENABLE;
-		I915_WRITE(reg, val);
+		crtc = obj_to_crtc(obj);
+		DRM_DEBUG_DRIVER("[CRTC:%d]\n", crtc->base.id);
+		intel_crtc = to_intel_crtc(crtc);
+		intel_crtc->rotate180 = (rotation->rotate & 0x1) ?
+							true : false;
 		ret = 0;
 	}
 
-	if (sprctla & DISPLAY_PLANE_ENABLE) {
-		sprctla &= ~DISPPLANE_180_ROTATION_ENABLE;
-		I915_WRITE(SPCNTR(pipe, 0), sprctla);
-		ret = 0;
-	}
-
-	if (sprctlb & DISPLAY_PLANE_ENABLE) {
-		sprctlb &= ~DISPPLANE_180_ROTATION_ENABLE;
-		I915_WRITE(SPCNTR(pipe, 1), sprctlb);
-		ret = 0;
-	}
-
-	if (rotate) {
-		if (val & DISPLAY_PLANE_ENABLE) {
-			val |= DISPPLANE_180_ROTATION_ENABLE;
-			I915_WRITE(reg, val);
-		}
-
-		if (sprctla & DISPLAY_PLANE_ENABLE) {
-			sprctla |= DISPPLANE_180_ROTATION_ENABLE;
-			I915_WRITE(SPCNTR(pipe, 0), sprctla);
-		}
-
-		if (sprctlb & DISPLAY_PLANE_ENABLE) {
-			sprctlb |= DISPPLANE_180_ROTATION_ENABLE;
-			I915_WRITE(SPCNTR(pipe, 1), sprctlb);
-		}
-	}
-
-	i9xx_update_plane(crtc, crtc->fb, 0, 0);
 	return ret;
 }
 
@@ -2255,14 +2175,13 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	struct intel_framebuffer *intel_fb;
 	struct drm_i915_gem_object *obj;
 	int plane = intel_crtc->plane;
+	int pipe = intel_crtc->pipe;
 	unsigned long linear_offset;
 	bool rotate = false;
 	u32 dspcntr;
 	u32 reg;
 	int pixel_size;
-	/* Called to enable 180 degree rotation */
-	if (i915_rotation)
-		i915_rotation_ffrd(dev, crtc);
+
 	switch (plane) {
 	case 0:
 	case 1:
@@ -2311,7 +2230,7 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		BUG();
 	}
 
-	if (dspcntr & DISPPLANE_180_ROTATION_ENABLE)
+	if (!intel_crtc->rotate180 != !(i915_rotation && (pipe == 0)))
 		rotate = true;
 
 	if (INTEL_INFO(dev)->gen >= 4) {
@@ -2326,6 +2245,8 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 
 	if (rotate)
 		dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
+	else
+		dspcntr &= ~DISPPLANE_180_ROTATION_ENABLE;
 
 	I915_WRITE(reg, dspcntr);
 
@@ -10360,9 +10281,9 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 
 	dev_priv->s0ixstat = false; /* Keep the s0ixstat false initially */
 	intel_crtc->s0ix_suspend_state = false;
+	intel_crtc->rotate180 = false;
 
 	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);
-
 }
 
 int intel_get_pipe_from_crtc_id(struct drm_device *dev, void *data,
