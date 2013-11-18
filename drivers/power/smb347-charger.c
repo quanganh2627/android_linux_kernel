@@ -1484,6 +1484,7 @@ static int smb347_irq_init(struct smb347_charger *smb)
 
 	smb347_set_writable(smb, false);
 	smb->client->irq = irq;
+	enable_irq_wake(smb->client->irq);
 	return 0;
 
 fail_readonly:
@@ -2306,6 +2307,38 @@ static int smb347_remove(struct i2c_client *client)
 	return 0;
 }
 
+static void smb347_shutdown(struct i2c_client *client)
+{
+	if (client->irq > 0)
+		disable_irq(client->irq);
+
+	return;
+}
+
+static int smb347_suspend(struct device *dev)
+{
+	struct smb347_charger *smb = dev_get_drvdata(dev);
+
+	if (smb->client->irq > 0)
+		disable_irq(smb->client->irq);
+
+	return 0;
+}
+
+static int smb347_resume(struct device *dev)
+{
+	struct smb347_charger *smb = dev_get_drvdata(dev);
+
+	if (smb->client->irq > 0)
+		enable_irq(smb->client->irq);
+
+	return 0;
+}
+
+static const struct dev_pm_ops smb347_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(smb347_suspend, smb347_resume)
+};
+
 static const struct i2c_device_id smb347_id[] = {
 	{ "smb347", 0},
 	{ "smb349", 1},
@@ -2326,6 +2359,7 @@ static struct i2c_driver smb347_driver = {
 	.driver = {
 		.name	= "smb347",
 		.owner	= THIS_MODULE,
+		.pm	= &smb347_pm_ops,
 #ifdef CONFIG_ACPI
 		.acpi_match_table = ACPI_PTR(smb349_acpi_match),
 #endif
@@ -2333,6 +2367,7 @@ static struct i2c_driver smb347_driver = {
 	.probe		= smb347_probe,
 	.remove		= smb347_remove,
 	.id_table	= smb347_id,
+	.shutdown	= smb347_shutdown,
 };
 
 static int __init smb347_init(void)
