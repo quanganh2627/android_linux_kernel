@@ -53,6 +53,7 @@ obj-$(subst m,y,$(CONFIG_SENSORS_LSM303_MAG)) += platform_lsm303.o
 obj-$(subst m,y,$(CONFIG_SENSORS_APDS990X_FORK)) += platform_apds990x.o
 obj-$(subst m,y,$(CONFIG_A1026)) += platform_a1026.o
 obj-$(subst m,y,$(CONFIG_EXTCON_FSA9285)) += platform_fsa9285.o
+obj-$(subst m,y,$(CONFIG_EXTCON_SMSC375X))	+= platform_smsc375x.o
 obj-$(subst m,y,$(CONFIG_SND_SOC_WM5102)) += platform_wm5102.o
 
 # SPI Devices
