@@ -783,7 +783,7 @@ int intel_hdmi_encoder_status(struct drm_encoder *encoder)
 	if ((hdmib_control & SDVO_ENABLE) &&
 		(hdmib_control & SDVO_AUDIO_ENABLE) &&
 	    dev_priv->late_resume) {
-		DRM_DEBUG_DRIVER("HDMI encoder inuse!\n");
+		DRM_ERROR("HDMI encoder inuse!\n");
 		return true;
 	} else
 		return false;
@@ -1322,6 +1322,8 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 		intel_hdmi->write_infoframe = cpt_write_infoframe;
 		intel_hdmi->set_infoframes = cpt_set_infoframes;
 	}
+
+	drm_encoder_helper_add(&intel_encoder->base, &intel_hdmi_helper_funcs);
 
 	if (HAS_DDI(dev))
 		intel_connector->get_hw_state = intel_ddi_connector_get_hw_state;

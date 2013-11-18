@@ -842,8 +842,25 @@ static void valleyview_power_ungate_disp(struct drm_i915_private *dev_priv)
 static int valleyview_freeze(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_crtc *crtc;
 	u32 reg;
 	u32 i;
+
+	/* Disable crct if audio driver prevented that earlier */
+	if (!dev_priv->audio_suspended) {
+		mutex_lock(&dev->mode_config.mutex);
+		/* audio was not suspended earlier; now we should
+		 * disable the crtc */
+		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+			struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+			if (intel_crtc->pipe == PIPE_B) {
+				dev_priv->display.crtc_disable(crtc);
+				dev_priv->audio_suspended = true;
+				break;
+			}
+		}
+		mutex_unlock(&dev->mode_config.mutex);
+	}
 
 	/* Save Hue/Saturation/Brightness/Contrast status */
 	intel_save_clr_mgr_status(dev);
@@ -943,6 +960,7 @@ static int valleyview_freeze(struct drm_device *dev)
 	reg &= ~VLV_GFX_CLK_FORCE_ON_BIT;
 	I915_WRITE(VLV_GTLC_SURVIVABILITY_REG, reg);
 
+	dev_priv->is_suspending = false;
 	return 0;
 }
 
@@ -967,6 +985,8 @@ static int valleyview_thaw(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int error = 0;
 	u32 reg;
+
+	dev_priv->is_resuming = true;
 
 	/* i) Set Graphics Clocks to Forced ON */
 	reg = I915_READ(VLV_GTLC_SURVIVABILITY_REG);

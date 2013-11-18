@@ -9548,6 +9548,11 @@ check_shared_dpll_state(struct drm_device *dev)
 void
 intel_modeset_check_state(struct drm_device *dev)
 {
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	if (dev_priv->is_suspending)
+		return;
+
 	check_connector_state(dev);
 	check_encoder_state(dev);
 	check_crtc_state(dev);
@@ -10183,7 +10188,12 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
-	int ret;
+
+	dev_priv->is_suspending = true;
+
+	dev_priv->audio_suspended = mid_hdmi_audio_suspend(dev);
+	if (!dev_priv->audio_suspended)
+		DRM_ERROR("Audio active, CRTC will not be suspended\n");
 
 	/* Force a re-detection on Hot-pluggable displays */
 	i915_simulate_hpd(dev, false);
@@ -10196,6 +10206,7 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	drm_kms_helper_poll_disable(dev);
 	display_save_restore_hotplug(dev, SAVEHPD);
 	display_disable_wq(dev);
+	mutex_lock(&dev->mode_config.mutex);
 	dev_priv->s0ixstat = true;
 
 	/* If KMS is active, we do the leavevt stuff here */
@@ -10205,17 +10216,17 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 		 * Disable CRTCs directly since we want to preserve sw state
 		 * for _thaw.
 		 */
-		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
+		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+			struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+			if ((intel_crtc->pipe == PIPE_B) &&
+				(!dev_priv->audio_suspended))
+				continue;
 			dev_priv->display.crtc_disable(crtc);
-
+		}
 	}
 
-	/* TODO: uncomment after HDMI dependancies are merged */
-	ret = mid_hdmi_audio_suspend(dev);
-	if (ret != true)
-		DRM_ERROR("Error suspending HDMI audio\n");
-
 	dev_priv->s0ixstat = false;
+	mutex_unlock(&dev->mode_config.mutex);
 	i915_rpm_put_disp(dev);
 	return 0;
 }
@@ -10230,8 +10241,6 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	/* Re-detect hot pluggable displays */
 	i915_simulate_hpd(dev, true);
 
-	drm_kms_helper_poll_enable(dev);
-	display_save_restore_hotplug(dev, RESTOREHPD);
 	dev_priv->s0ixstat = true;
 	dev_priv->late_resume = true;
 	/* KMS EnterVT equivalent */
@@ -10250,11 +10259,16 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 		/* Config may have changed between suspend and resume */
 		intel_resume_hotplug(dev);
 	}
-	dev_priv->late_resume = true;
+	drm_kms_helper_poll_enable(dev);
+	display_save_restore_hotplug(dev, RESTOREHPD);
+
 	mid_hdmi_audio_resume(dev);
 	/* Restore Gamma/Csc/Hue/Saturation/Brightness/Contrast */
 	if (!intel_restore_clr_mgr_status(dev))
 		DRM_ERROR("Restore Color manager status failed");
+
+	dev_priv->late_resume = false;
+	dev_priv->is_resuming = false;
 	dev_priv->s0ixstat = false;
 	return 0;
 }
@@ -11324,6 +11338,8 @@ void intel_modeset_setup_hw_state(struct drm_device *dev,
 	struct drm_plane *plane;
 	struct intel_crtc *crtc;
 	struct intel_encoder *encoder;
+	struct drm_encoder *drm_encoder = NULL;
+	struct drm_encoder_helper_funcs *encoder_funcs = NULL;
 	int i;
 
 	intel_modeset_readout_hw_state(dev);
@@ -11347,6 +11363,10 @@ void intel_modeset_setup_hw_state(struct drm_device *dev,
 	/* HW state is read out, now we need to sanitize this mess. */
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list,
 			    base.head) {
+		if (encoder->type == INTEL_OUTPUT_HDMI) {
+			drm_encoder = &encoder->base;
+			encoder_funcs = drm_encoder->helper_private;
+		}
 		intel_sanitize_encoder(encoder);
 	}
 
@@ -11377,6 +11397,13 @@ void intel_modeset_setup_hw_state(struct drm_device *dev,
 			struct drm_crtc *crtc =
 				dev_priv->pipe_to_crtc_mapping[pipe];
 
+			if ((drm_encoder != NULL) && (pipe == 1)) {
+				struct drm_encoder_helper_funcs *encoder_funcs =
+					drm_encoder->helper_private;
+					if (encoder_funcs->inuse(
+						drm_encoder))
+						continue;
+			}
 			__intel_set_mode(crtc, &crtc->mode, crtc->x, crtc->y,
 					 crtc->fb);
 		}

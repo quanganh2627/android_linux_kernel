@@ -32,10 +32,10 @@
 #include <linux/module.h>
 #include <drm/i915_powerwell.h>
 #include <psb_powermgmt.h>
+static struct drm_device *gdev;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	#include <linux/earlysuspend.h>
-	static struct drm_device *gdev;
 #endif
 
 /* FBC, or Frame Buffer Compression, is a technique employed to compress the
@@ -5891,7 +5891,6 @@ static struct early_suspend intel_display_early_suspend = {
 
 void intel_s0ix_init(struct drm_device *dev)
 {
-	gdev = dev;
 	register_early_suspend(&intel_display_early_suspend);
 }
 #endif
@@ -5921,13 +5920,16 @@ EXPORT_SYMBOL(ospm_power_is_hw_on);
  */
 bool ospm_power_using_hw_begin(int hw_island, UHBUsage usage)
 {
-	return true;
+	struct drm_device *drm_dev = gdev;
+	i915_rpm_get_disp(drm_dev);
+	return i915_is_device_active(drm_dev);
 }
 EXPORT_SYMBOL(ospm_power_using_hw_begin);
 
 void ospm_power_using_hw_end(int hw_island)
 {
-	return;
+	struct drm_device *drm_dev = gdev;
+	i915_rpm_put_disp(drm_dev);
 }
 EXPORT_SYMBOL(ospm_power_using_hw_end);
 
@@ -5935,6 +5937,7 @@ EXPORT_SYMBOL(ospm_power_using_hw_end);
 void intel_init_pm(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	gdev = dev;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	intel_s0ix_init(dev);
