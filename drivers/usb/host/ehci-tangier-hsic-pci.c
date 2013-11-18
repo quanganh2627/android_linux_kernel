@@ -313,6 +313,26 @@ err:
 	return retval;
 }
 
+static void s3_wake_lock(void)
+{
+	mutex_lock(&hsic.wlock_mutex);
+	if (hsic.s3_wlock_state == UNLOCKED) {
+		wake_lock(&hsic.s3_wake_lock);
+		hsic.s3_wlock_state = LOCKED;
+	}
+	mutex_unlock(&hsic.wlock_mutex);
+}
+
+static void s3_wake_unlock(void)
+{
+	mutex_lock(&hsic.wlock_mutex);
+	if (hsic.s3_wlock_state == LOCKED) {
+		wake_unlock(&hsic.s3_wake_lock);
+		hsic.s3_wlock_state = UNLOCKED;
+	}
+	mutex_unlock(&hsic.wlock_mutex);
+}
+
 /* the root hub will call this callback when device added/removed */
 static void hsic_notify(struct usb_device *udev, unsigned action)
 {
@@ -389,32 +409,13 @@ static void hsic_notify(struct usb_device *udev, unsigned action)
 			pr_debug("%s----> modem dev deleted\n", __func__);
 			hsic.modem_dev = NULL;
 		}
+		s3_wake_unlock();
 		break;
 	default:
 		pr_debug("Notify action not supported\n");
 		break ;
 	}
 	return;
-}
-
-static void s3_wake_lock(void)
-{
-	mutex_lock(&hsic.wlock_mutex);
-	if (hsic.s3_wlock_state == UNLOCKED) {
-		wake_lock(&hsic.s3_wake_lock);
-		hsic.s3_wlock_state = LOCKED;
-	}
-	mutex_unlock(&hsic.wlock_mutex);
-}
-
-static void s3_wake_unlock(void)
-{
-	mutex_lock(&hsic.wlock_mutex);
-	if (hsic.s3_wlock_state == LOCKED) {
-		wake_unlock(&hsic.s3_wake_lock);
-		hsic.s3_wlock_state = LOCKED;
-	}
-	mutex_unlock(&hsic.wlock_mutex);
 }
 
 static void hsic_port_suspend(struct usb_device *udev)
@@ -436,7 +437,7 @@ static void hsic_port_suspend(struct usb_device *udev)
 	}
 
 	/* Modem dev */
-	if ((udev->parent) && (hsic.s3_rt_state != SUSPENDING)) {
+	if (udev->parent) {
 		pr_debug("%s s3 wlock unlocked\n", __func__);
 		s3_wake_unlock();
 	}
@@ -487,9 +488,6 @@ static int hsic_s3_entry_notify(struct notifier_block *self,
 	switch (action) {
 	case PM_SUSPEND_PREPARE:
 		hsic.s3_rt_state = SUSPENDING;
-		break;
-	case PM_POST_SUSPEND:
-		hsic.s3_rt_state = SUSPENDED;
 		break;
 	}
 	return NOTIFY_OK;
@@ -1063,6 +1061,7 @@ static int ehci_hsic_probe(struct pci_dev *pdev,
 	hsic.hsic_stopped = 0;
 	hsic_enable = 1;
 	hsic.s3_rt_state = RESUMED;
+	s3_wake_lock();
 
 	return retval;
 
@@ -1220,6 +1219,7 @@ static int tangier_hsic_resume_noirq(struct device *dev)
 
 	dev_dbg(dev, "%s --->\n", __func__);
 	retval = usb_hcd_pci_pm_ops.resume_noirq(dev);
+	hsic.s3_rt_state = RESUMED;
 	dev_dbg(dev, "%s <--- retval = %d\n", __func__, retval);
 	mutex_unlock(&hsic.hsic_mutex);
 	return retval;

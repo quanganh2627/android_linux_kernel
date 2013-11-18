@@ -565,6 +565,8 @@ static void rx_complete (struct urb *urb)
 			netif_dbg(dev, rx_err, dev->net,
 				  "rx length %d\n", skb->len);
 		}
+		usb_autopm_get_interface_async(dev->intf);
+		usb_autopm_put_interface_async(dev->intf);
 		break;
 
 	/* stalls need manual reset. this is rare ... except that

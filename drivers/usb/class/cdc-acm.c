@@ -531,6 +531,9 @@ static void acm_read_bulk_callback(struct urb *urb)
 			return;
 		}
 
+	} else {
+		usb_autopm_get_interface_async(acm->control);
+		usb_autopm_put_interface_async(acm->control);
 	}
 
 	spin_lock_irqsave(&acm->write_lock, flags);
