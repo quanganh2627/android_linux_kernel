@@ -864,4 +864,13 @@ config INTEL_CRYSTALCOVE_PAGE0
 
 	  If unsure, say N.
 
+config INTEL_BYTCR_BOOST_CNTL
+	bool "Baytrail CR GPIO based reverse boost control"
+	depends on I2C
+	help
+	  This driver provides the access to control reverse VBUS boost on
+	  Baytrail CR platform through GPIO interface.
+
+	  If unsure, say N.
+
 endif # X86_PLATFORM_DEVICES
