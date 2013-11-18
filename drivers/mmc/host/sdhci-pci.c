@@ -604,7 +604,8 @@ static const struct sdhci_pci_fixes sdhci_intel_mfd_sd = {
 
 static const struct sdhci_pci_fixes sdhci_intel_mfd_sdio = {
 	.quirks		= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
-	.quirks2	= SDHCI_QUIRK2_HOST_OFF_CARD_ON,
+	.quirks2	= SDHCI_QUIRK2_HOST_OFF_CARD_ON |
+		SDHCI_QUIRK2_FAKE_VDD,
 	.allow_runtime_pm = true,
 	.probe_slot	= mfd_sdio_probe_slot,
 };
@@ -779,8 +780,7 @@ static const struct sdhci_pci_fixes sdhci_intel_byt_emmc = {
 
 static const struct sdhci_pci_fixes sdhci_intel_byt_sdio = {
 	.quirks2	= SDHCI_QUIRK2_HOST_OFF_CARD_ON |
-		SDHCI_QUIRK2_CAN_VDD_300 | SDHCI_QUIRK2_CAN_VDD_330 |
-		SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+		SDHCI_QUIRK2_PRESET_VALUE_BROKEN | SDHCI_QUIRK2_FAKE_VDD,
 	.allow_runtime_pm = true,
 	.probe_slot	= byt_sdio_probe_slot,
 	.remove_slot	= byt_sdio_remove_slot,
@@ -839,6 +839,7 @@ static int intel_mrfl_mmc_probe_slot(struct sdhci_pci_slot *slot)
 		break;
 	case INTEL_MRFL_SDIO:
 		slot->host->mmc->caps |= MMC_CAP_NONREMOVABLE;
+		slot->host->quirks2 |= SDHCI_QUIRK2_FAKE_VDD;
 		break;
 	}
 
@@ -969,7 +970,8 @@ static const struct sdhci_pci_fixes sdhci_intel_moor_sd = {
 static const struct sdhci_pci_fixes sdhci_intel_moor_sdio = {
 	.quirks		= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
 	.quirks2	= SDHCI_QUIRK2_BROKEN_AUTO_CMD23 |
-				SDHCI_QUIRK2_HIGH_SPEED_SET_LATE,
+				SDHCI_QUIRK2_HIGH_SPEED_SET_LATE |
+				SDHCI_QUIRK2_FAKE_VDD,
 	.allow_runtime_pm = true,
 	.probe_slot	= intel_moor_sdio_probe_slot,
 	.remove_slot	= intel_moor_sdio_remove_slot,

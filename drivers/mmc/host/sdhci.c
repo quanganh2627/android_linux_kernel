@@ -4106,11 +4106,6 @@ int sdhci_add_host(struct sdhci_host *host)
 		sdhci_readl(host, SDHCI_CAPABILITIES);
 
 
-	if (host->quirks2 & SDHCI_QUIRK2_CAN_VDD_300)
-		caps[0] |= SDHCI_CAN_VDD_300;
-	if (host->quirks2 & SDHCI_QUIRK2_CAN_VDD_330)
-		caps[0] |= SDHCI_CAN_VDD_330;
-
 	if (host->version >= SDHCI_SPEC_300)
 		caps[1] = (host->quirks & SDHCI_QUIRK_MISSING_CAPS) ?
 			host->caps1 :
@@ -4408,6 +4403,10 @@ int sdhci_add_host(struct sdhci_host *host)
 				(curr << SDHCI_MAX_CURRENT_180_SHIFT);
 		}
 	}
+
+	if (host->quirks2 & SDHCI_QUIRK2_FAKE_VDD)
+		caps[0] |= SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300 |
+			SDHCI_CAN_VDD_180;
 
 	if (caps[0] & SDHCI_CAN_VDD_330) {
 		ocr_avail |= MMC_VDD_32_33 | MMC_VDD_33_34;
