@@ -431,9 +431,9 @@ enum sst_swm_state {
 	SST_SWM_ON = 3,
 };
 
-#define SST_FILL_LOCATION_IDS(dst, cell_idx, path_id)		do {	\
+#define SST_FILL_LOCATION_IDS(dst, cell_idx, pipe_id)		do {	\
 		dst.location_id.p.cell_nbr_idx = (cell_idx);		\
-		dst.location_id.p.path_id = (path_id);			\
+		dst.location_id.p.path_id = (pipe_id);			\
 	} while (0)
 #define SST_FILL_LOCATION_ID(dst, loc_id)				(\
 	dst.location_id.f = (loc_id))
