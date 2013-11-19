@@ -33,6 +33,7 @@
 #include <linux/moduleparam.h>
 #include "intel_drv.h"
 #include "linux/mfd/intel_mid_pmic.h"
+#include <linux/pwm.h>
 
 #define PCI_LBPC 0xf4 /* legacy/combination backlight modes */
 
@@ -512,7 +513,14 @@ void intel_panel_actually_set_backlight(struct drm_device *dev, u32 level)
 void intel_panel_actually_set_mipi_backlight(struct drm_device *dev, u32 level)
 {
 #ifdef CONFIG_CRYSTAL_COVE
-	intel_mid_pmic_writeb(0x4E, level);
+	if (BYT_CR_CONFIG) {
+		/* FixMe: if level is zero still a pulse is observed consuming
+		power. To fix this issue if requested level is zero then
+		disable pwm and enabled it again if brightness changes */
+		lpio_bl_write_bits(0, LPIO_PWM_CTRL, (0xff - level), 0xFF);
+		lpio_bl_update(0, LPIO_PWM_CTRL);
+	} else
+		intel_mid_pmic_writeb(0x4E, level);
 #else
 	DRM_ERROR("Non PMIC MIPI Backlight control is not supported yet\n");
 #endif
@@ -565,9 +573,17 @@ void intel_panel_disable_backlight(struct drm_device *dev)
 		intel_panel_actually_set_mipi_backlight(dev, 0);
 
 #ifdef CONFIG_CRYSTAL_COVE
-		intel_mid_pmic_writeb(0x51, 0x00);
-		intel_mid_pmic_writeb(0x52, 0x00);
-		intel_mid_pmic_writeb(0x4B, 0x7F);
+		if (BYT_CR_CONFIG) {
+			/* disable the backlight enable signal */
+			vlv_gpio_nc_write(dev_priv, 0x40E0, 0x2000CC00);
+			vlv_gpio_nc_write(dev_priv, 0x40E8, 0x00000004);
+			udelay(500);
+			lpio_bl_write_bits(0, LPIO_PWM_CTRL, 0x00, 0x80000000);
+		} else {
+			intel_mid_pmic_writeb(0x51, 0x00);
+			intel_mid_pmic_writeb(0x52, 0x00);
+			intel_mid_pmic_writeb(0x4B, 0x7F);
+		}
 #else
 		DRM_ERROR("Backlight not supported yet\n");
 #endif
@@ -607,11 +623,30 @@ void intel_panel_enable_backlight(struct drm_device *dev,
 
 	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi) {
 #ifdef CONFIG_CRYSTAL_COVE
-		intel_mid_pmic_writeb(0x4B, 0xFF);
-		intel_mid_pmic_writeb(0x4E, 0xFF);
-		intel_mid_pmic_writeb(0x51, 0x01);
-		intel_mid_pmic_writeb(0x52, 0x01);
+		uint32_t val;
+		if (BYT_CR_CONFIG) {
+			/* GPIOC_94 config to PWM0 function */
+			val = vlv_gps_core_read(dev_priv, 0x40A0);
+			vlv_gps_core_write(dev_priv, 0x40A0, 0x2000CC01);
+			vlv_gps_core_write(dev_priv, 0x40A8, 0x5);
 
+			/* PWM enable */
+			lpio_bl_write(0, LPIO_PWM_CTRL, 0x20c00);
+			lpio_bl_update(0, LPIO_PWM_CTRL);
+			lpio_bl_write_bits(0, LPIO_PWM_CTRL, 0x80000000,
+							0x80000000);
+			lpio_bl_update(0, LPIO_PWM_CTRL);
+
+			/* Backlight enable */
+			vlv_gpio_nc_write(dev_priv, 0x40E0, 0x2000CC00);
+			vlv_gpio_nc_write(dev_priv, 0x40E8, 0x00000005);
+			udelay(500);
+		} else {
+			intel_mid_pmic_writeb(0x4B, 0xFF);
+			intel_mid_pmic_writeb(0x4E, 0xFF);
+			intel_mid_pmic_writeb(0x51, 0x01);
+			intel_mid_pmic_writeb(0x52, 0x01);
+		}
 		intel_panel_actually_set_mipi_backlight(dev,
 					dev_priv->backlight.level);
 #else
