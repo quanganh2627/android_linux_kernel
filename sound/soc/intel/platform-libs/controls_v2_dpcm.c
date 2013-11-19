@@ -823,9 +823,107 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 		SST_PATH_INDEX_SPROT_LOOP_OUT, 0, SST_TASK_SBA, SBA_VB_LPRO),
 };
 
+static inline bool is_sst_dapm_widget(struct snd_soc_dapm_widget *w)
+{
+	if ((w->id == snd_soc_dapm_pga) ||
+	    (w->id == snd_soc_dapm_aif_in) ||
+	    (w->id == snd_soc_dapm_aif_out) ||
+	    (w->id == snd_soc_dapm_input) ||
+	    (w->id == snd_soc_dapm_output) ||
+	    (w->id == snd_soc_dapm_mixer))
+		return true;
+	else
+		return false;
+}
+
+static int sst_fill_module_list(struct snd_kcontrol *kctl,
+	 struct snd_soc_dapm_widget *w, int type)
+{
+	struct module *module = NULL;
+	struct sst_ids *ids = w->priv;
+
+	module = devm_kzalloc(w->platform->dev, sizeof(*module), GFP_KERNEL);
+	if (!module) {
+		pr_err("kzalloc block failed\n");
+		return -ENOMEM;
+	}
+
+	if (type == SST_MODULE_GAIN) {
+		struct sst_gain_mixer_control *mc = (void *)kctl->private_value;
+
+		mc->w = w;
+		module->kctl = kctl;
+		list_add_tail(&module->node, &ids->gain_list);
+	} else if (type == SST_MODULE_ALGO) {
+		struct sst_algo_control *bc = (void *)kctl->private_value;
+
+		bc->w = w;
+		module->kctl = kctl;
+		list_add_tail(&module->node, &ids->algo_list);
+	}
+
+	return 0;
+}
+
+static int sst_fill_widget_module_info(struct snd_soc_dapm_widget *w,
+	struct snd_soc_platform *platform)
+{
+	struct snd_kcontrol *kctl;
+	int index, ret = 0;
+	struct snd_card *card = platform->card->snd_card;
+	char *idx;
+
+	down_read(&card->controls_rwsem);
+
+	list_for_each_entry(kctl, &card->controls, list) {
+		idx = strstr(kctl->id.name, " ");
+		if (idx == NULL)
+			continue;
+		index  = strlen(kctl->id.name) - strlen(idx);
+		if (strstr(kctl->id.name, "volume") &&
+		    !strncmp(kctl->id.name, w->name, index))
+			ret = sst_fill_module_list(kctl, w, SST_MODULE_GAIN);
+		else if (strstr(kctl->id.name, "params") &&
+			 !strncmp(kctl->id.name, w->name, index))
+			ret = sst_fill_module_list(kctl, w, SST_MODULE_ALGO);
+		else if (strstr(kctl->id.name, "mute") &&
+			 !strncmp(kctl->id.name, w->name, index)) {
+			struct sst_gain_mixer_control *mc = (void *)kctl->private_value;
+			mc->w = w;
+		}
+		if (ret < 0) {
+			up_read(&card->controls_rwsem);
+			return ret;
+		}
+	}
+	up_read(&card->controls_rwsem);
+	return 0;
+}
+
+static int sst_map_modules_to_pipe(struct snd_soc_platform *platform)
+{
+	struct snd_soc_dapm_widget *w;
+	struct snd_soc_dapm_context *dapm = &platform->dapm;
+	int ret = 0;
+
+	list_for_each_entry(w, &dapm->card->widgets, list) {
+		if (w->platform && is_sst_dapm_widget(w) && (w->priv)) {
+			struct sst_ids *ids = w->priv;
+
+			pr_debug("widget type=%d name=%s", w->id, w->name);
+			INIT_LIST_HEAD(&ids->algo_list);
+			INIT_LIST_HEAD(&ids->gain_list);
+			ret = sst_fill_widget_module_info(w, platform);
+			if (ret < 0)
+				return ret;
+		}
+	}
+	return 0;
+}
+
 int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 {
-	int i;
+	int i, ret = 0;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
 
 	sst->byte_stream = devm_kzalloc(platform->dev,
@@ -860,5 +958,7 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform, sst_algo_controls,
 			ARRAY_SIZE(sst_algo_controls));
 
-	return 0;
+	ret = sst_map_modules_to_pipe(platform);
+
+	return ret;
 }
