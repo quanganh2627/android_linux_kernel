@@ -217,13 +217,6 @@ static void intel_dsi_disable(struct intel_encoder *encoder)
 
 	DRM_DEBUG_KMS("\n");
 
-	intel_panel_disable_backlight(dev);
-	if (intel_dsi->backlight_off_delay >= 20)
-		msleep(intel_dsi->backlight_off_delay);
-	else
-		usleep_range(intel_dsi->backlight_off_delay * 1000,
-			(intel_dsi->backlight_off_delay * 1000) + 500);
-
 	if (is_cmd_mode(intel_dsi)) {
 		/* XXX Impementation TBD */
 	} else {
@@ -275,6 +268,13 @@ static void intel_dsi_disable(struct intel_encoder *encoder)
 		I915_WRITE_BITS(MIPI_PORT_CTRL(pipe), 0, DPI_ENABLE);
 		usleep_range(1000, 1500);
 	}
+
+	intel_panel_disable_backlight(dev);
+	if (intel_dsi->backlight_off_delay >= 20)
+		msleep(intel_dsi->backlight_off_delay);
+	else
+		usleep_range(intel_dsi->backlight_off_delay * 1000,
+			(intel_dsi->backlight_off_delay * 1000) + 500);
 
 	/* if disable packets are sent before sending shutdown packet then in
 	 * some next enable sequence send turn on packet error is observed */
