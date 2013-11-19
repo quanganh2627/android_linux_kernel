@@ -95,6 +95,18 @@ static int sst_platform_ihf_set_tdm_slot(struct snd_soc_dai *dai,
 							(void *)&params_data);
 }
 
+static int sst_media_digital_mute(struct snd_soc_dai *dai, int mute, int stream)
+{
+
+	pr_debug("%s: enter, mute=%d dai-name=%s dir=%d\n", __func__, mute, dai->name, stream);
+
+#if IS_BUILTIN(CONFIG_SST_MRFLD_DPCM)
+	sst_send_pipe_gains(dai, stream, mute);
+#endif
+
+	return 0;
+}
+
 /* helper functions */
 void sst_set_stream_status(struct sst_runtime_stream *stream,
 					int state)
@@ -504,6 +516,7 @@ static struct snd_soc_dai_ops sst_media_dai_ops = {
 	.hw_params = sst_media_hw_params,
 	.hw_free = sst_media_hw_free,
 	.set_tdm_slot = sst_platform_ihf_set_tdm_slot,
+	.mute_stream = sst_media_digital_mute,
 };
 
 static struct snd_soc_dai_ops sst_loopback_dai_ops = {

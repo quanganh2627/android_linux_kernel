@@ -142,7 +142,7 @@ static int sst_gain_ctl_info(struct snd_kcontrol *kcontrol,
 }
 
 static void sst_send_gain_cmd(struct sst_data *sst, struct sst_gain_value *gv,
-			      u16 task_id, u16 loc_id)
+			      u16 task_id, u16 loc_id, int mute)
 {
 	struct sst_cmd_set_gain_dual cmd;
 	pr_debug("%s", __func__);
@@ -151,7 +151,7 @@ static void sst_send_gain_cmd(struct sst_data *sst, struct sst_gain_value *gv,
 	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
 	cmd.gain_cell_num = 1;
 
-	if (gv->mute) {
+	if (mute || gv->mute) {
 		cmd.cell_gains[0].cell_gain_left = SST_GAIN_MIN_VALUE;
 		cmd.cell_gains[0].cell_gain_right = SST_GAIN_MIN_VALUE;
 	} else {
@@ -219,7 +219,7 @@ static int sst_gain_put(struct snd_kcontrol *kcontrol,
 	};
 
 	/* TODO: send only when module is instantiated */
-	sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id);
+	sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id, 0);
 	return 0;
 }
 
@@ -823,6 +823,7 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 		SST_PATH_INDEX_SPROT_LOOP_OUT, 0, SST_TASK_SBA, SBA_VB_LPRO),
 };
 
+
 static inline bool is_sst_dapm_widget(struct snd_soc_dapm_widget *w)
 {
 	if ((w->id == snd_soc_dapm_pga) ||
@@ -834,6 +835,43 @@ static inline bool is_sst_dapm_widget(struct snd_soc_dapm_widget *w)
 		return true;
 	else
 		return false;
+}
+
+static void  sst_set_gain(struct snd_kcontrol *kctl, struct sst_data *sst,
+	struct snd_card *card, int mute)
+{
+	struct sst_gain_mixer_control *mc;
+	struct sst_gain_value *gv;
+
+	pr_debug("control name=%s", kctl->id.name);
+	mc = (void *)kctl->private_value;
+	gv = mc->gain_val;
+
+	sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id, mute);
+}
+
+int sst_send_pipe_gains(struct snd_soc_dai *dai, int stream, int mute)
+{
+	struct snd_soc_platform *platform = dai->platform;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct snd_soc_dapm_context *dapm = &platform->dapm;
+	struct snd_card *card = platform->card->snd_card;
+	struct snd_soc_dapm_widget *w;
+
+	pr_debug("%s: enter, dai-name=%s dir=%d\n", __func__, dai->name, stream);
+
+	list_for_each_entry(w, &dapm->card->widgets, list) {
+		if (w->power && w->platform && is_sst_dapm_widget(w)) {
+			struct sst_ids *ids = w->priv;
+			struct module *gain = NULL;
+
+			pr_debug("widget is power up name=%s\n", w->name);
+			list_for_each_entry(gain, &ids->gain_list, node) {
+				sst_set_gain(gain->kctl, sst, card, mute);
+			}
+		}
+	}
+	return 0;
 }
 
 static int sst_fill_module_list(struct snd_kcontrol *kctl,
