@@ -29,6 +29,7 @@
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
+#include <linux/shmem_fs.h>
 
 /*
  * The BIOS typically reserves some of the system's memory for the exclusive
@@ -476,6 +477,25 @@ i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 	if (size == 0)
 		return;
 
+	/* The alloced field stores how many data pages are allocated
+	 * to the file. If already shmem space has been allocated for
+	 * the frame buffer, then we shall not use the stolen area as
+	 * a backing store for the object */
+	if (obj->base.filp) {
+		struct inode *inode = file_inode(obj->base.filp);
+		struct shmem_inode_info *info = SHMEM_I(inode);
+		if (!inode)
+			return;
+		spin_lock(&info->lock);
+		ret = info->alloced;
+		spin_unlock(&info->lock);
+		if (ret > 0) {
+			DRM_DEBUG_DRIVER(
+				"Already shmem space alloced, %d pges\n", ret);
+			return;
+		}
+	}
+
 	stolen = drm_mm_search_free(&dev_priv->mm.stolen, size, 4096, 0);
 	if (stolen)
 		stolen = drm_mm_get_block(stolen, size, 4096);
@@ -494,9 +514,9 @@ i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 						stolen->start, stolen->size);
 	if (obj->pages == NULL)
 		goto cleanup;
-
-	obj->has_dma_mapping = true;
 	i915_gem_object_pin_pages(obj);
+	list_add_tail(&obj->global_list, &dev_priv->mm.unbound_list);
+	obj->has_dma_mapping = true;
 	obj->stolen = stolen;
 
 	DRM_DEBUG_DRIVER("Obj moved to stolen, ptr = 0x%x, size = %x\n",
