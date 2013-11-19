@@ -411,7 +411,7 @@ static void hsicdev_remove(struct usb_device *udev)
 		mutex_lock(&hsic.hsic_mutex);
 		hsic.modem_dev = NULL;
 		mutex_unlock(&hsic.hsic_mutex);
-		usb_disable_autosuspend(hsic.rh_dev);
+		usb_enable_autosuspend(hsic.rh_dev);
 		s3_wake_unlock();
 	}
 }
@@ -513,6 +513,7 @@ static int set_port_feature(struct usb_device *hdev, int port1, int feature)
 static void ush_hsic_port_disable(void)
 {
 	printk(KERN_ERR "%s---->\n", __func__);
+	hsic_enable = 0;
 	if (hsic.modem_dev) {
 		dev_dbg(&pci_dev->dev,
 			"Disable auto suspend in port disable\n");
@@ -526,7 +527,6 @@ static void ush_hsic_port_disable(void)
 		clear_port_feature(hsic.rh_dev, HSIC_USH_PORT,
 				USB_PORT_FEAT_POWER);
 	}
-	hsic_enable = 0;
 	s3_wake_unlock();
 }
 
@@ -568,18 +568,13 @@ static void hsic_aux_work(struct work_struct *work)
 	dev_dbg(&pci_dev->dev,
 		"%s---->\n", __func__);
 	mutex_lock(&hsic.hsic_mutex);
-	if (!hsic.rh_dev) {
+	if ((!hsic.rh_dev) || (hsic_enable == 0)) {
 		dev_dbg(&pci_dev->dev,
 			"root hub is already removed\n");
 		mutex_unlock(&hsic.hsic_mutex);
 		return;
 	}
-	if (hsic.port_disconnect == 0)
-		hsic_port_logical_disconnect(hsic.rh_dev,
-				HSIC_USH_PORT);
-	else
-		ush_hsic_port_disable();
-
+	ush_hsic_port_disable();
 	usleep_range(hsic.reenumeration_delay,
 			hsic.reenumeration_delay + 1000);
 	ush_hsic_port_enable();
@@ -597,7 +592,7 @@ static void wakeup_work(struct work_struct *work)
 	dev_dbg(&pci_dev->dev,
 		"%s---->\n", __func__);
 	mutex_lock(&hsic.hsic_mutex);
-	if (hsic.modem_dev == NULL) {
+	if ((hsic.modem_dev == NULL) || (hsic_enable == 0)) {
 		mutex_unlock(&hsic.hsic_mutex);
 		dev_dbg(&pci_dev->dev,
 			"%s---->Modem not created\n", __func__);
@@ -785,12 +780,7 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 
 		/* add this due to hcd release
 			 doesn't set hcd to NULL */
-		if (hsic.port_disconnect == 0)
-			hsic_port_logical_disconnect(hsic.rh_dev,
-					HSIC_USH_PORT);
-		else
-			ush_hsic_port_disable();
-
+		ush_hsic_port_disable();
 		usleep_range(5000, 6000);
 		ush_hsic_port_enable();
 	} else {
@@ -800,6 +790,11 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 		if (hsic.port_disconnect == 0)
 			hsic_port_logical_disconnect(hsic.rh_dev,
 					HSIC_USH_PORT);
+		else {
+			ush_hsic_port_disable();
+			if (hsic.rh_dev)
+				usb_enable_autosuspend(hsic.rh_dev);
+		}
 	}
 	mutex_unlock(&hsic.hsic_mutex);
 	return size;
