@@ -17,6 +17,8 @@
 #include <linux/memblock.h>
 #include <linux/pstore_ram.h>
 #include <linux/bootmem.h>
+#include <linux/efi.h>
+#include <linux/nls.h>
 
 #define SZ_4K	0x00001000
 #define SZ_2M	0x00200000
@@ -51,6 +53,42 @@ static struct platform_device pstore_ram_dev = {
 
 static __initdata bool intel_mid_pstore_ram_inited;
 
+static const char EFIVAR_PSTORE_ADDR[] = "PstoreAddr";
+static const char EFIVAR_PSTORE_SIZE[] = "PstoreSize";
+
+static void uefi_set_pstore_buffer(unsigned long *addr, unsigned long *size)
+{
+	int ret;
+	wchar_t varname[sizeof(EFIVAR_PSTORE_ADDR)];
+	u32 attributes = EFI_VARIABLE_NON_VOLATILE
+		| EFI_VARIABLE_BOOTSERVICE_ACCESS
+		| EFI_VARIABLE_RUNTIME_ACCESS;
+
+	utf8s_to_utf16s(EFIVAR_PSTORE_ADDR, sizeof(EFIVAR_PSTORE_ADDR),
+			UTF16_LITTLE_ENDIAN, varname, sizeof(varname));
+	varname[sizeof(EFIVAR_PSTORE_ADDR) - 1] = 0;
+
+	ret = efivar_entry_set_safe(varname, EFI_GLOBAL_VARIABLE_GUID,
+				    attributes, true,
+				    sizeof(unsigned long), addr);
+	if (ret) {
+		pr_err("%s can't set variable %s (%d)\n",
+		       __func__, EFIVAR_PSTORE_ADDR, ret);
+		return;
+	}
+
+	utf8s_to_utf16s(EFIVAR_PSTORE_SIZE, sizeof(EFIVAR_PSTORE_SIZE),
+			UTF16_LITTLE_ENDIAN, varname, sizeof(varname));
+	varname[sizeof(EFIVAR_PSTORE_SIZE) - 1] = 0;
+
+	ret = efivar_entry_set_safe(varname, EFI_GLOBAL_VARIABLE_GUID,
+				    attributes, true,
+				    sizeof(unsigned long), size);
+	if (ret)
+		pr_err("%s can't set variable %s (%d)\n",
+		       __func__, EFIVAR_PSTORE_SIZE, ret);
+}
+
 /**
  * intel_mid_pstore_ram_register() - device_initcall to register ramoops device
  */
@@ -68,6 +106,10 @@ static int __init intel_mid_pstore_ram_register(void)
 		       (unsigned long long)pstore_ram_data.mem_address,
 		       pstore_ram_data.mem_size, ret);
 	}
+
+	if (efi_enabled(EFI_BOOT) && efi_enabled(EFI_RUNTIME_SERVICES))
+		uefi_set_pstore_buffer(&pstore_ram_data.mem_address,
+				       &pstore_ram_data.mem_size);
 
 	return ret;
 }
