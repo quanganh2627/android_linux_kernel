@@ -119,15 +119,20 @@ int sst_download_fw(void)
 	return retval;
 }
 
-void free_stream_context(unsigned int str_id)
+int free_stream_context(unsigned int str_id)
 {
 	struct stream_info *stream;
+	int ret = 0;
+
 	stream = get_stream_info(str_id);
 	if (stream) {
 		/* str_id is valid, so stream is alloacted */
-		if (sst_free_stream(str_id))
+		ret = sst_free_stream(str_id);
+		if (ret)
 			sst_clean_stream(&sst_drv_ctx->streams[str_id]);
+		return ret;
 	}
+	return ret;
 }
 
 /*
@@ -513,7 +518,12 @@ static int sst_cdev_close(unsigned int str_id)
 	retval = sst_free_stream(str_id);
 	stream->compr_cb_param = NULL;
 	stream->compr_cb = NULL;
-	sst_pm_runtime_put(sst_drv_ctx);
+
+	/* If stream free returns error, put already done in open so skip */
+	/* Do put only in valid free stream case */
+	if (!retval)
+		sst_pm_runtime_put(sst_drv_ctx);
+
 	return retval;
 
 }
@@ -717,18 +727,24 @@ void sst_cdev_fragment_elapsed(int str_id)
 static int sst_close_pcm_stream(unsigned int str_id)
 {
 	struct stream_info *stream;
+	int retval = 0;
 
 	pr_debug("stream free called\n");
 	stream = get_stream_info(str_id);
 	if (!stream)
 		return -EINVAL;
-	free_stream_context(str_id);
+	retval = free_stream_context(str_id);
 	stream->pcm_substream = NULL;
 	stream->status = STREAM_UN_INIT;
 	stream->period_elapsed = NULL;
 	sst_drv_ctx->stream_cnt--;
 	pr_debug("will call runtime put now\n");
-	sst_pm_runtime_put(sst_drv_ctx);
+
+	/* If stream free returns error, put already done in open so skip */
+	/* Do put only in valid free stream case */
+	if (!retval)
+		sst_pm_runtime_put(sst_drv_ctx);
+
 	return 0;
 }
 
