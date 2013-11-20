@@ -782,7 +782,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 			   SST_MODULE_ID_GAIN_CELL, path_id, instance, task_id,	\
 			   sst_gain_tlv_common, gain_var)
 
-#define SST_NUM_GAINS 30
+#define SST_NUM_GAINS 33
 static struct sst_gain_value sst_gains[SST_NUM_GAINS];
 
 static const struct snd_kcontrol_new sst_gain_controls[] = {
@@ -821,6 +821,9 @@ static const struct snd_kcontrol_new sst_gain_controls[] = {
 	SST_GAIN("fm_in", SST_PATH_INDEX_FM_IN, SST_TASK_SBA, 0, &sst_gains[27]),
 	SST_GAIN("modem_in", SST_PATH_INDEX_MODEM_IN, SST_TASK_SBA, 0, &sst_gains[28]),
 	SST_GAIN("modem_out", SST_PATH_INDEX_MODEM_OUT, SST_TASK_SBA, 0, &sst_gains[29]),
+	SST_GAIN("media_loop1_out", SST_PATH_INDEX_MEDIA_LOOP1_OUT, SST_TASK_SBA, 0, &sst_gains[30]),
+	SST_GAIN("media_loop2_out", SST_PATH_INDEX_MEDIA_LOOP2_OUT, SST_TASK_SBA, 0, &sst_gains[31]),
+	SST_GAIN("sprot_loop_out", SST_PATH_INDEX_SPROT_LOOP_OUT, SST_TASK_SBA, 0, &sst_gains[32]),
 };
 
 static const struct snd_kcontrol_new sst_algo_controls[] = {
@@ -846,6 +849,11 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 		SST_PATH_INDEX_VAD_OUT, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
 	SST_ALGO_KCONTROL_BYTES("sprot_loop_out", "lpro", 192, SST_MODULE_ID_SPROT,
 		SST_PATH_INDEX_SPROT_LOOP_OUT, 0, SST_TASK_SBA, SBA_VB_LPRO),
+	SST_ALGO_KCONTROL_BYTES("codec_in0", "dcr", 300, SST_MODULE_ID_FILT_DCR,
+		SST_PATH_INDEX_CODEC_IN0, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
+	SST_ALGO_KCONTROL_BYTES("codec_in1", "dcr", 300, SST_MODULE_ID_FILT_DCR,
+		SST_PATH_INDEX_CODEC_IN1, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
+
 };
 
 
