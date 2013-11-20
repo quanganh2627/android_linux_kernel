@@ -1094,6 +1094,11 @@ int dwc3_intel_resume(struct dwc_otg2 *otg)
 
 	set_sus_phy(otg, 0);
 
+	/* Delay 1ms waiting PHY clock debounce.
+	 * Without this debounce, will met fabric error randomly.
+	 **/
+	mdelay(1);
+
 	return 0;
 }
 
