@@ -314,22 +314,6 @@ int sst_get_num_channel(struct snd_sst_params *str_param)
 	}
 }
 
-int sst_get_wdsize(struct snd_sst_params *str_param)
-{
-	switch (str_param->codec) {
-	case SST_CODEC_TYPE_PCM:
-		return str_param->sparams.uc.pcm_params.pcm_wd_sz;
-	case SST_CODEC_TYPE_MP3:
-		return str_param->sparams.uc.mp3_params.pcm_wd_sz;
-	case SST_CODEC_TYPE_AAC:
-		return str_param->sparams.uc.aac_params.pcm_wd_sz;
-	case SST_CODEC_TYPE_WMA9:
-		return str_param->sparams.uc.wma_params.pcm_wd_sz;
-	default:
-		return -EINVAL;
-	}
-}
-
 /*
  * sst_get_stream - this function prepares for stream allocation
  *

@@ -226,57 +226,6 @@ void sst_post_message_mfld(struct work_struct *work)
 	return;
 }
 
-void sst_post_message_mrfld32(struct work_struct *work)
-{
-	struct ipc_post *msg;
-	union ipc_header header;
-	unsigned long irq_flags;
-	u32 *size;
-
-	pr_debug("Enter:%s\n", __func__);
-
-	spin_lock_irqsave(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	/* check list */
-	if (list_empty(&sst_drv_ctx->ipc_dispatch_list)) {
-		/* queue is empty, nothing to send */
-		spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-		pr_debug("Empty msg queue... NO Action\n");
-		return;
-	}
-
-	/* check busy bit */
-	header.full = sst_shim_read(sst_drv_ctx->shim, SST_IPCX);
-	if (header.part.busy) {
-		spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-		pr_debug("Busy not free... Post later\n");
-		return;
-	}
-	/* copy msg from list */
-	msg = list_entry(sst_drv_ctx->ipc_dispatch_list.next,
-			struct ipc_post, node);
-	list_del(&msg->node);
-
-	pr_debug("Post message: header = %x\n", msg->header.full);
-	size = (u32 *)msg->mailbox_data;
-	pr_debug("size: = %x\n", *size);
-
-#ifdef SST_BYTE_DUMP
-	pr_debug("printing %lu bytes", *size+sizeof(u32));
-	print_hex_dump_bytes(__func__, DUMP_PREFIX_OFFSET,
-			(unsigned char *)msg->mailbox_data, *size + sizeof(u32));
-#endif
-	memcpy_toio(sst_drv_ctx->mailbox + SST_MAILBOX_SEND,
-		msg->mailbox_data, *size + 4);
-
-	sst_shim_write(sst_drv_ctx->shim, SST_IPCX, msg->header.full);
-	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	pr_debug("Posted message: header = %x\n", msg->header.full);
-
-	kfree(msg->mailbox_data);
-	kfree(msg);
-	return;
-}
-
 int sst_sync_post_message_mrfld(struct ipc_post *msg)
 {
 	union ipc_header_mrfld header;
@@ -306,44 +255,6 @@ int sst_sync_post_message_mrfld(struct ipc_post *msg)
 		memcpy_toio(sst_drv_ctx->mailbox + SST_MAILBOX_SEND,
 			msg->mailbox_data, msg->mrfld_header.p.header_low_payload);
 	sst_shim_write64(sst_drv_ctx->shim, SST_IPCX, msg->mrfld_header.full);
-
-out:
-	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	kfree(msg->mailbox_data);
-	kfree(msg);
-	return retval;
-}
-
-int sst_sync_post_message_mrfld32(struct ipc_post *msg)
-{
-	union ipc_header header;
-	unsigned int loop_count = 0;
-	int retval = 0;
-	unsigned long irq_flags;
-	u32 size;
-
-	pr_debug("Enter:%s\n", __func__);
-	spin_lock_irqsave(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-
-	/* check busy bit */
-	header.full = sst_shim_read(sst_drv_ctx->shim, SST_IPCX);
-	while (header.part.busy) {
-		if (loop_count > 10) {
-			pr_err("sst: Busy wait failed, cant send this msg\n");
-			retval = -EBUSY;
-			goto out;
-		}
-		udelay(500);
-		loop_count++;
-		header.full = sst_shim_read(sst_drv_ctx->shim, SST_IPCX);
-	}
-	pr_debug("sst: Post message: header = %x\n", msg->header.full);
-	size = (u32) *msg->mailbox_data;
-	pr_debug("sst: size = 0x%x\n", size);
-	if (size)
-		memcpy_toio(sst_drv_ctx->mailbox + SST_MAILBOX_SEND,
-			msg->mailbox_data, size + 4);
-	sst_shim_write(sst_drv_ctx->shim, SST_IPCX, msg->header.full);
 
 out:
 	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);

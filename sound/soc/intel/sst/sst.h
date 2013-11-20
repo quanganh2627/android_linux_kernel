@@ -35,17 +35,14 @@
 #include <asm/platform_sst.h>
 
 #define SST_DRIVER_VERSION "3.0.8"
-#define SST_VERSION_NUM 0x2004
 
 /* driver names */
 #define SST_DRV_NAME "intel_sst_driver"
-#define SST_MRST_PCI_ID	0x080A
 #define SST_CLV_PCI_ID	0x08E7
 #define SST_MRFLD_PCI_ID 0x119A
 #define SST_BYT_PCI_ID  0x0F28
 #define SST_CHT_PCI_ID 0x22A8
 
-#define PCI_ID_LENGTH 4
 #define SST_SUSPEND_DELAY 2000
 #define FW_CONTEXT_MEM (64*1024)
 #define SST_ICCM_BOUNDARY 4
@@ -72,8 +69,6 @@ enum sst_states {
 };
 
 #define SST_BLOCK_TIMEOUT	1000
-#define BLOCK_UNINIT		-1
-#define RX_TIMESLOT_UNINIT	-1
 
 /* SST register map */
 #define SST_CSR			0x00
@@ -97,9 +92,7 @@ enum sst_states {
 #define SST_SHIM_BEGIN		SST_CSR
 #define SST_SHIM_END		SST_CSR2
 #define SST_SHIM_SIZE		0x88
-#define SST_PWMCTRL             0x1000
 
-#define SPI_MODE_ENABLE_BASE_ADDR 0xffae4000
 #define FW_SIGNATURE_SIZE	4
 
 /* stream states */
@@ -115,7 +108,6 @@ enum sst_ram_type {
 	SST_IRAM	= 1,
 	SST_DRAM	= 2,
 };
-
 
 /* SST shim registers to structure mapping  */
 union config_status_reg {
@@ -246,7 +238,6 @@ struct sst_block {
  * @str_type : stream type
  * @src : stream source
  * @device : output device type (medfield only)
- * @pcm_slot : pcm slot value
  */
 struct stream_info {
 	unsigned int		status;
@@ -309,7 +300,6 @@ struct sst_ipc_msg_wq {
 	struct work_struct	wq;
 	union ipc_header header;
 };
-
 
 struct sst_dma {
 	struct dma_chan *ch;
@@ -598,7 +588,6 @@ struct intel_sst_ops {
 };
 
 int sst_alloc_stream(char *params, struct sst_block *block);
-int sst_stalled(void);
 int sst_pause_stream(int id);
 int sst_resume_stream(int id);
 int sst_drop_stream(int id);
@@ -622,20 +611,16 @@ void sst_process_reply_mfld(struct ipc_post *msg);
 int sst_start_mfld(void);
 int intel_sst_reset_dsp_mfld(void);
 void intel_sst_clear_intr_mfld(void);
-void intel_sst_clear_intr_mrfld32(void);
 void intel_sst_set_bypass_mfld(bool set);
 
 int sst_sync_post_message_mrfld(struct ipc_post *msg);
 void sst_post_message_mrfld(struct work_struct *work);
 void sst_process_message_mrfld(struct ipc_post *msg);
-int sst_sync_post_message_mrfld32(struct ipc_post *msg);
-void sst_post_message_mrfld32(struct work_struct *work);
 void sst_process_reply_mrfld(struct ipc_post *msg);
 int sst_start_mrfld(void);
 int intel_sst_reset_dsp_mrfld(void);
 void intel_sst_clear_intr_mrfld(void);
 void sst_process_mad_ops(struct work_struct *work);
-void sst_process_mad_jack_detection(struct work_struct *work);
 
 long intel_sst_ioctl(struct file *file_ptr, unsigned int cmd,
 			unsigned long arg);
@@ -665,10 +650,8 @@ void sst_clean_stream(struct stream_info *stream);
 int intel_sst_register_compress(struct intel_sst_drv *sst);
 int intel_sst_remove_compress(struct intel_sst_drv *sst);
 void sst_cdev_fragment_elapsed(int str_id);
-int vibra_pwm_configure(unsigned int enable);
 int sst_send_sync_msg(int ipc, int str_id);
 int sst_get_num_channel(struct snd_sst_params *str_param);
-int sst_get_wdsize(struct snd_sst_params *str_param);
 int sst_get_sfreq(struct snd_sst_params *str_param);
 int intel_sst_check_device(void);
 int sst_alloc_stream_ctp(char *params, struct sst_block *block);
@@ -682,10 +665,6 @@ int sst_create_block_and_ipc_msg(struct ipc_post **arg, bool large,
 int sst_free_block(struct intel_sst_drv *ctx, struct sst_block *freed);
 int sst_wake_up_block(struct intel_sst_drv *ctx, int result,
 		u32 drv_id, u32 ipc, void *data, u32 size);
-void dump_bytes(const void *data, size_t sz, char *dest,
-		unsigned char word_sz, unsigned char words_in_line);
-void print_bytes(const void *data, size_t sz, unsigned char word_sz,
-		 unsigned char words_in_line);
 int sst_alloc_drv_context(struct device *dev);
 int sst_driver_ops(struct intel_sst_drv *sst);
 struct sst_platform_info *sst_get_acpi_driver_data(const char *hid);
@@ -740,20 +719,6 @@ static inline void sst_fill_header_mrfld(union ipc_header_mrfld *header,
 	header->p.header_high.part.done = 0;
 	header->p.header_high.part.busy = 1;
 	header->p.header_high.part.res_rqd = 1;
-}
-
-static inline void sst_fill_header_mrfld_32(u32 *h, u8 task, u8 msg, u8 drv_id,
-		u8 block, u8 large)
-{
-	union ipc_header_high header;
-	header.part.msg_id = msg;
-	header.part.task_id = task;
-	header.part.drv_id = drv_id;
-	header.part.res_rqd = block;
-	header.part.large = large;
-	header.part.done = 0;
-	header.part.busy = 1;
-	*h = header.full;
 }
 
 static inline void sst_fill_header_dsp(struct ipc_dsp_hdr *dsp, int msg,
@@ -833,9 +798,6 @@ static inline int sst_validate_strid(int str_id)
 
 static inline int sst_shim_write(void __iomem *addr, int offset, int value)
 {
-
-	if (sst_drv_ctx->pci_id == SST_MRST_PCI_ID)
-		writel(value, addr + SST_ISRD);	/*dummy*/
 	writel(value, addr + offset);
 	return 0;
 }
