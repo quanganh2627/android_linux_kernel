@@ -10181,6 +10181,7 @@ static void display_save_restore_hotplug(struct drm_device *drm_dev, int flag)
 	} else if (flag == RESTOREHPD)
 		I915_WRITE(PORT_HOTPLUG_EN, dev_priv->hotplugstat);
 }
+
 ssize_t display_runtime_suspend(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -10191,6 +10192,10 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	dev_priv->audio_suspended = mid_hdmi_audio_suspend(dev);
 	if (!dev_priv->audio_suspended)
 		DRM_ERROR("Audio active, CRTC will not be suspended\n");
+
+	dev_priv->dpst.state = dev_priv->dpst.enabled;
+	if (dev_priv->dpst.state)
+		i915_dpst_disable_hist_interrupt(dev);
 
 	/* Force a re-detection on Hot-pluggable displays */
 	i915_simulate_hpd(dev, false);
@@ -10267,6 +10272,10 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	dev_priv->late_resume = false;
 	dev_priv->is_resuming = false;
 	dev_priv->s0ixstat = false;
+
+	if (dev_priv->dpst.state)
+		i915_dpst_enable_hist_interrupt(dev);
+
 	return 0;
 }
 
