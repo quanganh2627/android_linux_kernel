@@ -88,6 +88,8 @@ out_ops:
 static int sst_platform_compr_free(struct snd_compr_stream *cstream)
 {
 	struct sst_runtime_stream *stream;
+	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
+	struct snd_soc_dai_link *dai_link = rtd->dai_link;
 	int ret_val = 0, str_id;
 
 	stream = cstream->runtime->private_data;
@@ -97,7 +99,8 @@ static int sst_platform_compr_free(struct snd_compr_stream *cstream)
 		ret_val = stream->compr_ops->close(str_id);
 	module_put(sst_dsp->dev->driver->owner);
 	kfree(stream);
-	pr_debug("%s: %d\n", __func__, ret_val);
+	pr_debug("%s called for dai %s: ret = %d\n", __func__,
+				dai_link->cpu_dai_name, ret_val);
 	return 0;
 }
 

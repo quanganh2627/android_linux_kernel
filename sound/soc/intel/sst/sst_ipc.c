@@ -687,7 +687,7 @@ void sst_process_reply_mrfld(struct ipc_post *msg)
 		pipe_id = msg_low >> 16;
 		str_id = get_stream_id_mrfld(pipe_id);
 		if (str_id > 0) {
-			pr_debug("Period elapsed rcvd!!!\n");
+			pr_debug("Period elapsed rcvd!!!pipeid %#x\n", pipe_id);
 			stream = &sst_drv_ctx->streams[str_id];
 			if (stream->period_elapsed)
 				stream->period_elapsed(stream->pcm_substream);

@@ -354,8 +354,8 @@ int sst_wait_timeout(struct intel_sst_drv *sst_drv_ctx, struct sst_block *block)
 	/* NOTE:
 	Observed that FW processes the alloc msg and replies even
 	before the alloc thread has finished execution */
-	pr_debug("sst: waiting for condition %x\n",
-		       block->condition);
+	pr_debug("sst: waiting for condition %x ipc %d drv_id %d\n",
+		       block->condition, block->msg_id, block->drv_id);
 	if (wait_event_timeout(sst_drv_ctx->wait_queue,
 				block->condition,
 				msecs_to_jiffies(SST_BLOCK_TIMEOUT))) {

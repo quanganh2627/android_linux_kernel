@@ -468,7 +468,7 @@ static int sst_open_pcm_stream(struct snd_sst_params *str_param)
 	if (!str_param)
 		return -EINVAL;
 
-	pr_debug("open_pcm, doing rtpm_get\n");
+	pr_debug("%s: doing rtpm_get\n", __func__);
 
 	retval = intel_sst_check_device();
 
@@ -487,6 +487,8 @@ static int sst_cdev_open(struct snd_sst_params *str_params,
 {
 	int str_id, retval;
 	struct stream_info *stream;
+
+	pr_debug("%s: doing rtpm_get\n", __func__);
 
 	retval = intel_sst_check_device();
 	if (retval)
@@ -512,6 +514,8 @@ static int sst_cdev_close(unsigned int str_id)
 {
 	int retval;
 	struct stream_info *stream;
+
+	pr_debug("%s: doing rtpm_put\n", __func__);
 	stream = get_stream_info(str_id);
 	if (!stream)
 		return -EINVAL;
@@ -729,7 +733,7 @@ static int sst_close_pcm_stream(unsigned int str_id)
 	struct stream_info *stream;
 	int retval = 0;
 
-	pr_debug("stream free called\n");
+	pr_debug("%s: doing rtpm_put\n", __func__);
 	stream = get_stream_info(str_id);
 	if (!stream)
 		return -EINVAL;
@@ -738,7 +742,6 @@ static int sst_close_pcm_stream(unsigned int str_id)
 	stream->status = STREAM_UN_INIT;
 	stream->period_elapsed = NULL;
 	sst_drv_ctx->stream_cnt--;
-	pr_debug("will call runtime put now\n");
 
 	/* If stream free returns error, put already done in open so skip */
 	/* Do put only in valid free stream case */
