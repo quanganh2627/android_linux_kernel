@@ -4604,6 +4604,7 @@ static int wm8994_suspend(struct device *dev)
 		dev_dbg(codec->dev, "%s: WM8958_MIC_DETECT_3 0x%x\n", __func__, reg);
 
 		if ((reg & WM8958_MICD_VALID) &&  !(reg & WM8958_MICD_STS)) {
+			snd_soc_write(codec, WM8994_INTERRUPT_CONTROL, 0x01);
 			dev_dbg(codec->dev, "Disable MIC Detection!!!\n");
 			snd_soc_update_bits(codec, WM8958_MIC_DETECT_1,
 						WM8958_MICD_ENA, 0);
@@ -4635,6 +4636,7 @@ static int wm8994_resume(struct device *dev)
 
 		snd_soc_update_bits(codec, WM8958_MIC_DETECT_1,
 					WM8958_MICD_ENA, WM8958_MICD_ENA);
+		snd_soc_write(codec, WM8994_INTERRUPT_CONTROL, 0x00);
 	}
 
 	return 0;
