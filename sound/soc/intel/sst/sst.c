@@ -441,6 +441,7 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 
 	switch (sst->pci_id) {
 	case SST_MRFLD_PCI_ID:
+	case PCI_DEVICE_ID_INTEL_SST_MOOR:
 		sst->tstamp = SST_TIME_STAMP_MRFLD;
 		if (sst->use_32bit_ops == true)
 			sst->ops = &mrfld_32_ops;
@@ -626,7 +627,8 @@ static int intel_sst_probe(struct pci_dev *pci,
 	/* map registers */
 	/* SST Shim */
 
-	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) {
+	if ((sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) ||
+			(sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)) {
 		sst_drv_ctx->ddr_base = pci_resource_start(pci, 0);
 		/*
 		* check that the relocated IMR base matches with FW Binary
@@ -771,7 +773,8 @@ static int intel_sst_probe(struct pci_dev *pci,
 		goto do_free_irq;
 	}
 	/* default intr are unmasked so set this as masked */
-	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID)
+	if ((sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) ||
+			(sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR))
 		sst_shim_write64(sst_drv_ctx->shim, SST_IMRX, 0xFFFF0038);
 
 	if (sst_drv_ctx->use_32bit_ops) {
@@ -810,8 +813,9 @@ static int intel_sst_probe(struct pci_dev *pci,
 		/*set SSP3 disable DMA finsh for SSSP3 */
 		csr2 |= BIT(1)|BIT(2);
 		sst_shim_write(sst_drv_ctx->shim, SST_CSR2, csr2);
-	} else if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID &&
-			sst_drv_ctx->use_32bit_ops == false) {
+	} else if (((sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) ||
+			(sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)) &&
+					sst_drv_ctx->use_32bit_ops == false) {
 		/*allocate mem for fw context save during suspend*/
 		sst_drv_ctx->context.iram =
 			kzalloc(sst_drv_ctx->iram_end - sst_drv_ctx->iram_base, GFP_KERNEL);
@@ -881,7 +885,7 @@ do_unmap_shim:
 	iounmap(sst_drv_ctx->shim);
 
 do_unmap_ddr:
-	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID)
+	if (sst_drv_ctx->ddr)
 		iounmap(sst_drv_ctx->ddr);
 
 do_release_regions:
@@ -1069,7 +1073,9 @@ static int intel_sst_runtime_resume(struct device *dev)
 	}
 
 	sst_set_fw_state_locked(ctx, SST_UN_INIT);
-	if (ctx->pci_id == SST_MRFLD_PCI_ID && ctx->context.saved &&
+	if (((ctx->pci_id == SST_MRFLD_PCI_ID) ||
+		(ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)) &&
+			ctx->context.saved &&
 			(!ctx->use_32bit_ops)) {
 		/* in mrfld we have saved ram snapshot
 		 * so check if snapshot is present if so download that
@@ -1212,6 +1218,7 @@ struct sst_platform_info *sst_get_acpi_driver_data(const char *hid)
 static DEFINE_PCI_DEVICE_TABLE(intel_sst_ids) = {
 	{ PCI_VDEVICE(INTEL, SST_CLV_PCI_ID), 0},
 	{ PCI_VDEVICE(INTEL, SST_MRFLD_PCI_ID), 0},
+	{ PCI_VDEVICE(INTEL, PCI_DEVICE_ID_INTEL_SST_MOOR), 0},
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, intel_sst_ids);

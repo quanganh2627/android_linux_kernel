@@ -210,7 +210,9 @@ void __init *wm8994_platform_data(void *info)
 	int irq = 0;
 
 	if ((INTEL_MID_BOARD(1, PHONE, MRFL)) ||
-		   (INTEL_MID_BOARD(1, TABLET, MRFL))) {
+		   (INTEL_MID_BOARD(1, TABLET, MRFL)) ||
+		   (INTEL_MID_BOARD(1, PHONE, MOFD)) ||
+		   (INTEL_MID_BOARD(1, TABLET, MOFD))) {
 
 		platform_add_devices(wm8958_reg_devices,
 			ARRAY_SIZE(wm8958_reg_devices));

@@ -222,6 +222,7 @@ static struct sst_platform_info *get_sst_platform_data(struct pci_dev *pdev)
 		sst_pinfo = &sst_data;
 		break;
 	case PCI_DEVICE_ID_INTEL_SST_MRFLD:
+	case PCI_DEVICE_ID_INTEL_SST_MOOR:
 		set_mrfld_sst_config(&sst_data);
 		sst_pinfo = &sst_data;
 		break;
@@ -239,4 +240,6 @@ static void sst_pci_early_quirks(struct pci_dev *pci_dev)
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_SST_CLV,
 							sst_pci_early_quirks);
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_SST_MRFLD,
+							sst_pci_early_quirks);
+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_SST_MOOR,
 							sst_pci_early_quirks);

@@ -501,6 +501,9 @@ static int sst_alloc_dma_chan(struct sst_dma *dma)
 	else if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID)
 		dmac = pci_get_device(PCI_VENDOR_ID_INTEL,
 				      PCI_DMAC_MRFLD_ID, NULL);
+	else if (sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)
+		dmac = pci_get_device(PCI_VENDOR_ID_INTEL,
+			      PCI_DEVICE_ID_INTEL_AUDIO_DMAC0_MOOR, NULL);
 	else if (sst_drv_ctx->pci_id == SST_BYT_PCI_ID) {
 		hid = sst_drv_ctx->hid;
 		if (!strncmp(hid, "LPE0F281", 8))
@@ -583,7 +586,8 @@ static int sst_dma_firmware(struct sst_dma *dma, struct sst_sg_list *sg_list)
 	 * FW gets unmaksed dma intr too, so mask it for FW to execute on mrfld
 	 */
 	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID ||
-	    sst_drv_ctx->pci_id == SST_BYT_PCI_ID)
+	    sst_drv_ctx->pci_id == SST_BYT_PCI_ID ||
+	    sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)
 		sst_shim_write(sst_drv_ctx->shim, SST_PIMR, 0xFFFF0034);
 
 	if (sst_drv_ctx->use_lli) {

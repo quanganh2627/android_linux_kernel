@@ -181,7 +181,9 @@ static void  populate_platform_data(void)
 	} else if ((INTEL_MID_BOARD(1, TABLET, BYT))) {
 		set_byt_platform_config();
 	} else if ((INTEL_MID_BOARD(1, PHONE, MRFL)) ||
-		   (INTEL_MID_BOARD(1, TABLET, MRFL))) {
+			(INTEL_MID_BOARD(1, TABLET, MRFL)) ||
+			(INTEL_MID_BOARD(1, PHONE, MOFD)) ||
+			(INTEL_MID_BOARD(1, TABLET, MOFD))) {
 		set_mrfld_platform_config();
 	} else {
 		pr_warn("Board not Supported\n");

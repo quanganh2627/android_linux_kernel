@@ -79,6 +79,7 @@ static ssize_t sst_debug_shim_read(struct file *file, char __user *user_buf,
 			val = sst_shim_read(drv->shim, addr);
 			break;
 		case SST_MRFLD_PCI_ID:
+		case PCI_DEVICE_ID_INTEL_SST_MOOR:
 		case SST_BYT_PCI_ID:
 			val = sst_shim_read64(drv->shim, addr);
 			break;
@@ -157,7 +158,8 @@ static ssize_t sst_debug_shim_write(struct file *file,
 
 	if (drv->pci_id == SST_CLV_PCI_ID)
 		sst_shim_write(drv->shim, reg_addr, (u32) value);
-	else if (drv->pci_id == SST_MRFLD_PCI_ID)
+	else if ((drv->pci_id == SST_MRFLD_PCI_ID) ||
+			(drv->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR))
 		sst_shim_write64(drv->shim, reg_addr, (u64) value);
 
 	/* Userspace has been fiddling around behind the kernel's back */
@@ -438,7 +440,8 @@ static ssize_t sst_debug_lpe_log_enable_write(struct file *file,
 	if (ret_val != 0)
 		goto put_pm_runtime;
 
-	if (sst_drv_ctx->pci_id != SST_MRFLD_PCI_ID) {
+	if ((sst_drv_ctx->pci_id != SST_MRFLD_PCI_ID) &&
+		(sst_drv_ctx->pci_id != PCI_DEVICE_ID_INTEL_SST_MOOR)) {
 		sst_fill_header(&msg->header, IPC_IA_DBG_LOG_ENABLE, 1,
 							str_id);
 		msg->header.part.data = sizeof(u32) + sizeof(params);
@@ -656,6 +659,7 @@ static ssize_t sst_debug_readme_read(struct file *file, char __user *user_buf,
 		buf2 = ctp_buf;
 		break;
 	case SST_MRFLD_PCI_ID:
+	case PCI_DEVICE_ID_INTEL_SST_MOOR:
 		size = strlen(buf) + strlen(mrfld_buf) + 2;
 		buf2 = mrfld_buf;
 		break;
@@ -1196,7 +1200,8 @@ void sst_debugfs_init(struct intel_sst_drv *sst)
 	/* Initial status is enabled */
 	sst->debugfs.runtime_pm_status = 1;
 
-	if (sst->pci_id == SST_MRFLD_PCI_ID) {
+	if ((sst->pci_id == SST_MRFLD_PCI_ID) ||
+			(sst->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)) {
 		debug = mrfld_dbg_entries;
 		size = ARRAY_SIZE(mrfld_dbg_entries);
 	} else if (sst->pci_id == SST_CLV_PCI_ID) {

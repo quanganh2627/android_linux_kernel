@@ -85,6 +85,7 @@ unsigned long long read_shim_data(struct intel_sst_drv *sst, int addr)
 		val = sst_shim_read(sst->shim, addr);
 		break;
 	case SST_MRFLD_PCI_ID:
+	case PCI_DEVICE_ID_INTEL_SST_MOOR:
 	case SST_BYT_PCI_ID:
 		val = sst_shim_read64(sst->shim, addr);
 		break;
@@ -100,6 +101,7 @@ void write_shim_data(struct intel_sst_drv *sst, int addr,
 		sst_shim_write(sst->shim, addr, (u32) data);
 		break;
 	case SST_MRFLD_PCI_ID:
+	case PCI_DEVICE_ID_INTEL_SST_MOOR:
 	case SST_BYT_PCI_ID:
 		sst_shim_write64(sst->shim, addr, (u64) data);
 		break;
@@ -317,7 +319,8 @@ static void sst_do_recovery(struct intel_sst_drv *sst)
 	struct ipc_post *m, *_m;
 	unsigned long irq_flags;
 
-	if (sst->pci_id == SST_MRFLD_PCI_ID) {
+	if ((sst->pci_id == SST_MRFLD_PCI_ID) ||
+		(sst->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)) {
 		dump_stack();
 		return;
 	}

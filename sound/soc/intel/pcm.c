@@ -895,7 +895,9 @@ static int sst_soc_probe(struct snd_soc_platform *platform)
 	    INTEL_MID_BOARD(1, TABLET, BYT))
 		return sst_platform_clv_init(platform);
 	if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
-	    INTEL_MID_BOARD(1, TABLET, MRFL)) {
+			INTEL_MID_BOARD(1, TABLET, MRFL) ||
+			INTEL_MID_BOARD(1, PHONE, MOFD) ||
+			INTEL_MID_BOARD(1, TABLET, MOFD)) {
 #if IS_BUILTIN(CONFIG_SST_MRFLD_DPCM)
 		ret = sst_dsp_init_v2_dpcm(platform);
 #else
