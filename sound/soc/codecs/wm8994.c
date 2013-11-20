@@ -4096,6 +4096,7 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 	struct wm8994 *control = dev_get_drvdata(codec->dev->parent);
 	struct wm8994_priv *wm8994 = snd_soc_codec_get_drvdata(codec);
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	unsigned int dcs_done_irq;
 	unsigned int reg;
 	int ret, i;
 
@@ -4199,6 +4200,9 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 	wm8994_request_irq(wm8994->wm8994, WM8994_IRQ_TEMP_SHUT,
 			   wm8994_temp_shut, "Thermal shutdown", codec);
 
+	dcs_done_irq = regmap_irq_get_virq(wm8994->wm8994->irq_data,
+					   WM8994_IRQ_DCS_DONE);
+	irq_set_status_flags(dcs_done_irq, IRQ_NOAUTOEN);
 	ret = wm8994_request_irq(wm8994->wm8994, WM8994_IRQ_DCS_DONE,
 				 wm_hubs_dcs_done, "DC servo done",
 				 &wm8994->hubs);
@@ -4434,6 +4438,7 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 	}
 
 	wm_hubs_add_analogue_routes(codec, 0, 0);
+	enable_irq(dcs_done_irq);
 	snd_soc_dapm_add_routes(dapm, intercon, ARRAY_SIZE(intercon));
 
 	switch (control->type) {
