@@ -282,13 +282,30 @@ static void sst_do_recovery(struct intel_sst_drv *sst)
 	kobject_uevent_env(&sst->dev->kobj, KOBJ_CHANGE, envp);
 	pr_err("Recovery Uevent Sent!!\n");
 
+	pr_err("reset the pvt id from val %d\n", sst_drv_ctx->pvt_id);
+	spin_lock(&sst_drv_ctx->pvt_id_lock);
+	sst_drv_ctx->pvt_id = 0;
+	spin_unlock(&sst_drv_ctx->pvt_id_lock);
+
 	spin_lock_irqsave(&sst->ipc_spin_lock, irq_flags);
 	if (list_empty(&sst->ipc_dispatch_list))
-		pr_err("List is Empty\n");
+		pr_err("ipc dispatch list is Empty\n");
 	spin_unlock_irqrestore(&sst->ipc_spin_lock, irq_flags);
 
 	list_for_each_entry_safe(m, _m, &sst->ipc_dispatch_list, node) {
-		pr_err("pending msg header %#x\n", m->header.full);
+		pr_err("ipc-dispatch:pending msg header %#x\n", m->header.full);
+		list_del(&m->node);
+		kfree(m->mailbox_data);
+		kfree(m);
+	}
+
+	spin_lock_irqsave(&sst->rx_msg_lock, irq_flags);
+	if (list_empty(&sst->rx_list))
+		pr_err("rx msg list is empty\n");
+	spin_unlock_irqrestore(&sst->rx_msg_lock, irq_flags);
+
+	list_for_each_entry_safe(m, _m, &sst->rx_list, node) {
+		pr_err("rx: pending msg header %#x\n", m->header.full);
 		list_del(&m->node);
 		kfree(m->mailbox_data);
 		kfree(m);
