@@ -2798,9 +2798,39 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 	int lrclk = 0;
 	int rate_val = 0;
 	int id = dai->id - 1;
-	int format_bits = 0;
+	struct snd_pcm_hw_params hw_params;
 
 	int i, cur_val, best_val, bclk_rate, best;
+
+	if (params)
+		memcpy(&hw_params, params, sizeof(*params));
+	else
+		return -EINVAL;
+
+	/* If custom params are there, override to custom params */
+	if (pdata->custom_cfg) {
+
+		dev_dbg(codec->dev, "%s: Overriding to custom params....\n",
+							__func__);
+
+		snd_mask_none(hw_param_mask(&hw_params,
+					SNDRV_PCM_HW_PARAM_FORMAT));
+		snd_mask_set(hw_param_mask(&hw_params,
+					SNDRV_PCM_HW_PARAM_FORMAT),
+					pdata->custom_cfg->format);
+
+		hw_param_interval(&hw_params, SNDRV_PCM_HW_PARAM_RATE)->min =
+						pdata->custom_cfg->rate;
+		hw_param_interval(&hw_params, SNDRV_PCM_HW_PARAM_RATE)->max =
+						pdata->custom_cfg->rate;
+
+		hw_param_interval(&hw_params,
+					SNDRV_PCM_HW_PARAM_CHANNELS)->min =
+						pdata->custom_cfg->channels;
+		hw_param_interval(&hw_params,
+					SNDRV_PCM_HW_PARAM_CHANNELS)->max =
+						pdata->custom_cfg->channels;
+	}
 
 	switch (dai->id) {
 	case 1:
@@ -2833,13 +2863,9 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	bclk_rate = params_rate(params);
-	if (wm8994->format_bits)
-		format_bits = wm8994->format_bits;
-	else
-		format_bits = params_format(params);
+	bclk_rate = params_rate(&hw_params);
 
-	switch (format_bits) {
+	switch (params_format(&hw_params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 		bclk_rate *= 16;
 		break;
@@ -2859,7 +2885,7 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	wm8994->channels[id] = params_channels(params);
+	wm8994->channels[id] = params_channels(&hw_params);
 	if (pdata->max_channels_clocked[id] &&
 	    wm8994->channels[id] > pdata->max_channels_clocked[id]) {
 		dev_dbg(dai->dev, "Constraining channels to %d from %d\n",
@@ -2879,7 +2905,7 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 
 	/* Try to find an appropriate sample rate; look for an exact match. */
 	for (i = 0; i < ARRAY_SIZE(srs); i++)
-		if (srs[i].rate == params_rate(params))
+		if (srs[i].rate == params_rate(&hw_params))
 			break;
 	if (i == ARRAY_SIZE(srs))
 		return -EINVAL;
@@ -2900,10 +2926,10 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 
 	/* AIFCLK/fs ratio; look for a close match in either direction */
 	best = 0;
-	best_val = abs((fs_ratios[0] * params_rate(params))
+	best_val = abs((fs_ratios[0] * params_rate(&hw_params))
 		       - wm8994->aifclk[id]);
 	for (i = 1; i < ARRAY_SIZE(fs_ratios); i++) {
-		cur_val = abs((fs_ratios[i] * params_rate(params))
+		cur_val = abs((fs_ratios[i] * params_rate(&hw_params))
 			      - wm8994->aifclk[id]);
 		if (cur_val >= best_val)
 			continue;
@@ -2931,7 +2957,7 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 		bclk_divs[best], bclk_rate);
 	bclk |= best << WM8994_AIF1_BCLK_DIV_SHIFT;
 
-	lrclk = bclk_rate / params_rate(params);
+	lrclk = bclk_rate / params_rate(&hw_params);
 	if (!lrclk) {
 		dev_err(dai->dev, "Unable to generate LRCLK from %dHz BCLK\n",
 			bclk_rate);
@@ -2951,12 +2977,12 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		switch (dai->id) {
 		case 1:
-			wm8994->dac_rates[0] = params_rate(params);
+			wm8994->dac_rates[0] = params_rate(&hw_params);
 			wm8994_set_retune_mobile(codec, 0);
 			wm8994_set_retune_mobile(codec, 1);
 			break;
 		case 2:
-			wm8994->dac_rates[1] = params_rate(params);
+			wm8994->dac_rates[1] = params_rate(&hw_params);
 			wm8994_set_retune_mobile(codec, 2);
 			break;
 		}
@@ -3079,7 +3105,6 @@ static int wm8994_set_tdm_slots(struct snd_soc_dai *dai,
 	switch (control->type) {
 	case WM8958:
 		wm8994->slots = slots;
-		wm8994->format_bits = slot_width;
 		break;
 	default:
 		pr_err("we dont support tdm for non 8958!");

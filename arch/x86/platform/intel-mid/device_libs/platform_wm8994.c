@@ -152,6 +152,12 @@ static struct platform_device wm8994_ldo2_device = {
 	},
 };
 
+static struct  wm8958_custom_config custom_config = {
+	.format = 6,
+	.rate = 48000,
+	.channels = 2,
+};
+
 static struct wm8994_pdata wm8994_pdata = {
 	/* configure gpio1 function: 0x0001(Logic level input/output) */
 	.gpio_defaults[0] = 0x0003,
@@ -176,6 +182,8 @@ static struct wm8994_pdata wm8994_pdata = {
 	.mic_id_delay = 300, /*300ms delay*/
 	.micdet_delay = 500,
 	.micb_en_delay = 5000, /* Keeps MICBIAS2 high for 5sec during jack insertion/removal */
+
+	.custom_cfg = &custom_config,
 };
 
 static int wm8994_get_irq_data(struct wm8994_pdata *pdata,

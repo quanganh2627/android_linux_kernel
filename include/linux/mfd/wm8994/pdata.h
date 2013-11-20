@@ -130,6 +130,12 @@ struct wm8958_micd_rate {
 	int rate;
 };
 
+struct wm8958_custom_config {
+	int format;
+	int rate;
+	int channels;
+};
+
 struct wm8994_pdata {
 	int gpio_base;
 
@@ -233,6 +239,9 @@ struct wm8994_pdata {
 	 * lines is mastered.
 	 */
 	int max_channels_clocked[WM8994_NUM_AIF];
+
+	/* custom config for overriding the hw params */
+	struct wm8958_custom_config *custom_cfg;
 };
 
 #endif
