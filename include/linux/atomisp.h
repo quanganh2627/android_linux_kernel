@@ -268,6 +268,15 @@ struct atomisp_3a_rgby_output {
 	uint32_t y;
 };
 
+struct atomisp_metadata {
+	void __user *data;
+	uint32_t width;
+	uint32_t height;
+	uint32_t stride; /* in bytes */
+	uint32_t exp_id; /* exposure ID */
+	uint32_t *effective_width; /* mipi packets valid data size */
+};
+
 #ifdef CSS20
 struct atomisp_3a_statistics {
 	struct atomisp_grid_info  grid_info;
@@ -1110,6 +1119,7 @@ struct v4l2_private_int_data {
 #define V4L2_BUF_TYPE_VIDEO_CAPTURE_ION  (V4L2_BUF_TYPE_PRIVATE + 1024)
 
 #define V4L2_EVENT_ATOMISP_3A_STATS_READY   (V4L2_EVENT_PRIVATE_START + 1)
+#define V4L2_EVENT_ATOMISP_METADATA_READY   (V4L2_EVENT_PRIVATE_START + 2)
 
 /* Nonstandard color effects for V4L2_CID_COLORFX */
 enum {

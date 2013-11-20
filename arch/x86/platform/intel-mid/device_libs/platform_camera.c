@@ -217,6 +217,8 @@ int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
 		csi->input_format = format;
 		csi->raw_bayer_order = bayer_order;
 		v4l2_set_subdev_hostdata(sd, (void *)csi);
+		csi->metadata_format = ATOMISP_INPUT_FORMAT_EMBEDDED;
+		csi->metadata_effective_width = NULL;
 		dev_info(&client->dev,
 			 "camera pdata: port: %d lanes: %d order: %8.8x\n",
 			 port, lanes, bayer_order);
