@@ -70,6 +70,48 @@ static int sst_fill_and_send_cmd(struct sst_data *sst,
 	return ret;
 }
 
+static void sst_send_algo_cmd(struct sst_data *sst,
+	 struct sst_algo_control *bc)
+{
+	int len;
+	struct sst_cmd_set_params *cmd;
+
+	len = sizeof(cmd->dst) + sizeof(cmd->command_id) + bc->max;
+
+	cmd = kzalloc(len + bc->max, GFP_KERNEL);
+	if (cmd == NULL) {
+		pr_err("Failed to send cmd, kzalloc failed\n");
+		return;
+	}
+
+	SST_FILL_DESTINATION(2, cmd->dst, bc->pipe_id, bc->module_id);
+	cmd->command_id = bc->cmd_id;
+	memcpy(cmd->params, bc->params, bc->max);
+
+	sst_fill_and_send_cmd(sst, SST_IPC_IA_SET_PARAMS, SST_FLAG_BLOCKED,
+				bc->task_id, 0, cmd, len);
+	kfree(cmd);
+
+}
+
+static void sst_find_and_send_pipe_algo(struct snd_soc_platform *platform,
+	struct snd_soc_dapm_widget *w)
+{
+	struct sst_algo_control *bc;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct sst_ids *ids = w->priv;
+	struct module *algo = NULL;
+
+	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
+
+	list_for_each_entry(algo, &ids->algo_list, node) {
+			bc = (void *)algo->kctl->private_value;
+
+			pr_debug("Found algo control name =%s pipe=%s\n", algo->kctl->id.name,  w->name);
+			sst_send_algo_cmd(sst, bc);
+	}
+}
+
 int sst_algo_bytes_ctl_info(struct snd_kcontrol *kcontrol,
 			    struct snd_ctl_elem_info *uinfo)
 {
@@ -104,6 +146,10 @@ static int sst_algo_control_get(struct snd_kcontrol *kcontrol,
 		ucontrol->value.integer.value[0] = bc->bypass ? 1 : 0;
 		pr_debug("%s: bypass  %d\n", __func__, bc->bypass);
 		break;
+	default:
+		pr_err("Invalid Input- algo type:%d\n", bc->type);
+		return -EINVAL;
+
 	}
 	return 0;
 }
@@ -111,9 +157,11 @@ static int sst_algo_control_get(struct snd_kcontrol *kcontrol,
 static int sst_algo_control_set(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
 	struct sst_algo_control *bc = (void *)kcontrol->private_value;
 
-	pr_debug("in %s\n", __func__);
+	pr_debug("in %s control_name=%s\n", __func__, kcontrol->id.name);
 	switch (bc->type) {
 	case SST_ALGO_PARAMS:
 		if (bc->params)
@@ -123,9 +171,14 @@ static int sst_algo_control_set(struct snd_kcontrol *kcontrol,
 		bc->bypass = !!ucontrol->value.integer.value[0];
 		pr_debug("%s: Mute %d\n", __func__, bc->bypass);
 		break;
+	default:
+		pr_err("Invalid Input- algo type:%ld\n", ucontrol->value.integer.value[0]);
+		return -EINVAL;
 	}
-	/*FIXME * if pipe is enabled, need to send the algo params from here
-	sst_send_algo_cmd() */
+	/*if pipe is enabled, need to send the algo params from here */
+	if (bc->w && bc->w->power)
+		sst_send_algo_cmd(sst, bc);
+
 	return 0;
 }
 
@@ -190,6 +243,9 @@ static int sst_gain_get(struct snd_kcontrol *kcontrol,
 		ucontrol->value.integer.value[0] = gv->ramp_duration;
 		pr_debug("%s: RampDuration %d\n", __func__, gv->ramp_duration);
 		break;
+	default:
+		pr_err("Invalid Input- gain type:%d\n", mc->type);
+		return -EINVAL;
 	};
 	return 0;
 }
@@ -216,10 +272,13 @@ static int sst_gain_put(struct snd_kcontrol *kcontrol,
 		gv->ramp_duration = ucontrol->value.integer.value[0];
 		pr_debug("%s: RampDuration %d\n", __func__, gv->ramp_duration);
 		break;
+	default:
+		pr_err("Invalid Input- gain type:%d\n", mc->type);
+		return -EINVAL;
 	};
 
-	/* TODO: send only when module is instantiated */
-	sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id, 0);
+	if (mc->w && mc->w->power)
+		sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id, 0);
 	return 0;
 }
 
@@ -456,6 +515,9 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 			      SST_TASK_SBA, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
+
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		sst_find_and_send_pipe_algo(w->platform, w);
 	return 0;
 }
 
@@ -486,48 +548,11 @@ static int sst_set_media_path(struct snd_soc_dapm_widget *w,
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 			      ids->task_id, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
+
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		sst_find_and_send_pipe_algo(w->platform, w);
+
 	return 0;
-}
-
-static void sst_send_algo_cmd(struct snd_soc_platform *platform,
-	struct sst_data *sst, struct sst_algo_control *bc)
-{
-	int len;
-	struct sst_cmd_set_params *cmd;
-
-	cmd = kzalloc(sizeof(struct sst_dsp_header) + bc->max, GFP_KERNEL);
-	if (cmd == NULL) {
-		pr_err("Failed to send cmd, kzalloc failed\n");
-		return;
-	}
-
-	SST_FILL_DESTINATION(2, cmd->dst, bc->pipe_id, bc->module_id);
-	cmd->command_id = bc->cmd_id;
-	memcpy(cmd->params, bc->params, bc->max);
-	len = sizeof(cmd->dst) + sizeof(cmd->command_id) + bc->max;
-
-	sst_fill_and_send_cmd(sst, SST_IPC_IA_SET_PARAMS, SST_FLAG_BLOCKED,
-			      bc->task_id, 0, cmd, len);
-	kfree(cmd);
-}
-
-static void sst_get_and_send_pipe_algo(struct snd_soc_platform *platform,
-	struct snd_soc_dapm_widget *w)
-{
-	struct snd_kcontrol *kctl;
-	struct snd_soc_dapm_context *dapm = &platform->dapm;
-	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
-	struct sst_algo_control *bc;
-
-	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
-
-	list_for_each_entry(kctl, &dapm->card->snd_card->controls, list) {
-		if (strstr(kctl->id.name, "Params") && strstr(kctl->id.name, w->name)) {
-			pr_debug("Found algo control name =%s pipe=%s\n", kctl->id.name,  w->name);
-			bc = (void *)kctl->private_value;
-			sst_send_algo_cmd(platform, sst, bc);
-		}
-	}
 }
 
 static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
@@ -558,7 +583,7 @@ static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
 			      SST_TASK_SBA, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
 	if (SND_SOC_DAPM_EVENT_ON(event))
-		sst_get_and_send_pipe_algo(w->platform, w);
+		sst_find_and_send_pipe_algo(w->platform, w);
 	return 0;
 }
 
