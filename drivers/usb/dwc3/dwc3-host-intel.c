@@ -295,6 +295,8 @@ static int dwc3_start_host(struct usb_hcd *hcd)
 		goto dealloc_usb2_hcd;
 	}
 
+	xhci->quirks |= XHCI_PLAT;
+
 	/* Set the xHCI pointer before xhci_pci_setup() (aka hcd_driver.reset)
 	 * is called by usb_add_hcd().
 	 */
