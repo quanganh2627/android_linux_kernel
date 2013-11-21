@@ -338,6 +338,7 @@ static void hsicdev_add(struct usb_device *udev)
 			pm_runtime_set_autosuspend_delay(&udev->dev,
 				hsic.bus_inactivityDuration);
 			usb_disable_autosuspend(udev);
+			hsic.autosuspend_enable = 0;
 		}
 	} else {
 		if (udev->portnum != HSIC_USH_PORT) {
@@ -412,6 +413,7 @@ static void hsicdev_remove(struct usb_device *udev)
 		hsic.modem_dev = NULL;
 		mutex_unlock(&hsic.hsic_mutex);
 		usb_enable_autosuspend(hsic.rh_dev);
+		hsic.autosuspend_enable = 1;
 		s3_wake_unlock();
 	}
 }
@@ -514,6 +516,7 @@ static void ush_hsic_port_disable(void)
 {
 	printk(KERN_ERR "%s---->\n", __func__);
 	hsic_enable = 0;
+	hsic.autosuspend_enable = 0;
 	if (hsic.modem_dev) {
 		dev_dbg(&pci_dev->dev,
 			"Disable auto suspend in port disable\n");
@@ -534,6 +537,7 @@ static void ush_hsic_port_enable(void)
 {
 	printk(KERN_ERR "%s---->\n", __func__);
 	hsic_enable = 1;
+	hsic.autosuspend_enable = 0;
 	if (hsic.modem_dev) {
 		dev_dbg(&pci_dev->dev,
 			"Disable auto suspend in port enable\n");
@@ -792,8 +796,10 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 					HSIC_USH_PORT);
 		else {
 			ush_hsic_port_disable();
-			if (hsic.rh_dev)
+			if (hsic.rh_dev) {
+				hsic.autosuspend_enable = 0;
 				usb_enable_autosuspend(hsic.rh_dev);
+			}
 		}
 	}
 	mutex_unlock(&hsic.hsic_mutex);
