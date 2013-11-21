@@ -1437,13 +1437,14 @@ static void vlv_update_drain_latency(struct drm_device *dev)
 
 static void valleyview_update_wm(struct drm_device *dev)
 {
-	static const int sr_latency_ns = 12000;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int planea_wm, planeb_wm, cursora_wm, cursorb_wm;
-	int plane_sr, cursor_sr;
-	int ignore_plane_sr, ignore_cursor_sr;
 	unsigned int enabled = 0;
-
+#ifdef ENABLE_MAXFIFO
+	int plane_sr, cursor_sr;
+	static const int sr_latency_ns = 12000;
+	int ignore_plane_sr, ignore_cursor_sr;
+#endif
 	vlv_update_drain_latency(dev);
 
 	if (g4x_compute_wm0(dev, PIPE_A,
@@ -1458,6 +1459,7 @@ static void valleyview_update_wm(struct drm_device *dev)
 			    &planeb_wm, &cursorb_wm))
 		enabled |= 1 << PIPE_B;
 
+#ifdef ENABLE_MAXFIFO
 	if (single_plane_enabled(enabled) &&
 	    g4x_compute_srwm(dev, ffs(enabled) - 1,
 			     sr_latency_ns,
@@ -1475,11 +1477,11 @@ static void valleyview_update_wm(struct drm_device *dev)
 			   I915_READ(FW_BLC_SELF_VLV) & ~FW_CSPWRDWNEN);
 		plane_sr = cursor_sr = 0;
 	}
-
 	DRM_DEBUG_KMS("Setting FIFO watermarks - A: plane=%d, cursor=%d, B: plane=%d, cursor=%d, SR: plane=%d, cursor=%d\n",
 		      planea_wm, cursora_wm,
 		      planeb_wm, cursorb_wm,
 		      plane_sr, cursor_sr);
+#endif
 
 	I915_WRITE(DSPFW1,
 		   (DSPFW_SR_VAL << DSPFW_SR_SHIFT) |
