@@ -50,6 +50,9 @@
 #include "../platform_ipc_v2.h"
 #include "sst.h"
 
+#define CREATE_TRACE_POINTS
+#include "sst_trace.h"
+
 MODULE_AUTHOR("Vinod Koul <vinod.koul@intel.com>");
 MODULE_AUTHOR("Harsha Priya <priya.harsha@intel.com>");
 MODULE_AUTHOR("Dharageswari R <dharageswari.r@intel.com>");
@@ -117,6 +120,9 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 		isr.part.done_interrupt = 1;
 		sst_shim_write64(drv->shim, SST_ISRX, isr.full);
 		spin_unlock(&drv->ipc_spin_lock);
+		trace_sst_ipc("ACK   <-", header.p.header_high.full,
+					  header.p.header_low_payload,
+					  header.p.header_high.part.drv_id);
 		queue_work(drv->post_msg_wq, &drv->ipc_post_msg.wq);
 		retval = IRQ_HANDLED;
 	}
@@ -145,6 +151,9 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 		msg->mrfld_header = header;
 		msg->is_process_reply =
 			SST_IS_PROCESS_REPLY(header.p.header_high.part.msg_id);
+		trace_sst_ipc("REPLY <-", msg->mrfld_header.p.header_high.full,
+					  msg->mrfld_header.p.header_low_payload,
+					  msg->mrfld_header.p.header_high.part.drv_id);
 		spin_lock(&drv->rx_msg_lock);
 		list_add_tail(&msg->node, &drv->rx_list);
 		spin_unlock(&drv->rx_msg_lock);

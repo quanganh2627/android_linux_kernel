@@ -36,6 +36,32 @@
 #include "../sst_platform.h"
 #include "../platform_ipc_v2.h"
 #include "sst.h"
+#include "sst_trace.h"
+
+void sst_dump_to_buffer(const void *from, size_t len, char *buf)
+{
+	int i, end;
+	const unsigned char *cmd = from;
+
+	if (len == 0) {
+		buf[0] = '\0';
+		return;
+	}
+
+	for (end = len - 1; end >= 0; end--)
+		if (cmd[end])
+			break;
+	end++;
+
+	buf += snprintf(buf, 3, "%02x", cmd[0]);
+	for (i = 1; i < len; i++) {
+		buf += snprintf(buf, 4, " %02x", cmd[i]);
+		if (i == end && end != len - 1) {
+			sprintf(buf, "...");
+			break;
+		}
+	}
+}
 
 struct sst_block *sst_create_block(struct intel_sst_drv *ctx,
 					u32 msg_id, u32 drv_id)
@@ -165,7 +191,12 @@ void sst_post_message_mrfld(struct work_struct *work)
 	pr_debug("sst: size: = %x\n", msg->mrfld_header.p.header_low_payload);
 	if (msg->mrfld_header.p.header_high.part.large)
 		memcpy_toio(sst_drv_ctx->mailbox + SST_MAILBOX_SEND,
-		msg->mailbox_data, msg->mrfld_header.p.header_low_payload);
+			    msg->mailbox_data, msg->mrfld_header.p.header_low_payload);
+
+	trace_sst_ipc("POST  ->", msg->mrfld_header.p.header_high.full,
+				  msg->mrfld_header.p.header_low_payload,
+				  msg->mrfld_header.p.header_high.part.drv_id);
+	trace_sst_ipc_mailbox(msg->mailbox_data, msg->mrfld_header.p.header_low_payload);
 	sst_shim_write64(sst_drv_ctx->shim, SST_IPCX, msg->mrfld_header.full);
 	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
 	pr_debug("sst: Post message: header = %x\n",
@@ -254,6 +285,11 @@ int sst_sync_post_message_mrfld(struct ipc_post *msg)
 	if (msg->mrfld_header.p.header_high.part.large)
 		memcpy_toio(sst_drv_ctx->mailbox + SST_MAILBOX_SEND,
 			msg->mailbox_data, msg->mrfld_header.p.header_low_payload);
+
+	trace_sst_ipc("POST  ->", msg->mrfld_header.p.header_high.full,
+				  msg->mrfld_header.p.header_low_payload,
+				  msg->mrfld_header.p.header_high.part.drv_id);
+	trace_sst_ipc_mailbox(msg->mailbox_data, msg->mrfld_header.p.header_low_payload);
 	sst_shim_write64(sst_drv_ctx->shim, SST_IPCX, msg->mrfld_header.full);
 
 out:

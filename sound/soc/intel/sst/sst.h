@@ -687,6 +687,8 @@ int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx);
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst);
 void sst_do_recovery(struct intel_sst_drv *sst);
 
+void sst_dump_to_buffer(const void *from, size_t from_len, char *buf);
+
 static inline int sst_pm_runtime_put(struct intel_sst_drv *sst_drv)
 {
 	int ret;
