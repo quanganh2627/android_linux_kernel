@@ -842,7 +842,7 @@ static int select_chrgr_cable(struct device *dev, void *data)
 	struct power_supply *psy = dev_get_drvdata(dev);
 	struct charger_cable *cable, *max_ma_cable = NULL;
 	struct charger_cable *cable_lst = (struct charger_cable *)data;
-	unsigned int max_ma = 0, iterm;
+	int max_ma = -1;
 	int i;
 
 	if (!IS_CHARGER(psy))
@@ -857,7 +857,7 @@ static int select_chrgr_cable(struct device *dev, void *data)
 		    (!IS_SUPPORTED_CABLE(psy, cable->psy_cable_type)))
 			continue;
 
-		if (cable->cable_props.ma > max_ma) {
+		if ((int)cable->cable_props.ma > max_ma) {
 			max_ma_cable = cable;
 			max_ma = cable->cable_props.ma;
 		}
@@ -893,7 +893,8 @@ static int select_chrgr_cable(struct device *dev, void *data)
 	if (CABLE_TYPE(psy) != max_ma_cable->psy_cable_type)
 		switch_cable(psy, max_ma_cable->psy_cable_type);
 
-	if (IS_CHARGER_CAN_BE_ENABLED(psy)) {
+	if (IS_CHARGER_CAN_BE_ENABLED(psy) &&
+			(max_ma_cable->cable_props.ma >= 100)) {
 		struct psy_batt_thresholds bat_thresh;
 		memset(&bat_thresh, 0, sizeof(bat_thresh));
 		enable_charger(psy);
@@ -908,6 +909,7 @@ static int select_chrgr_cable(struct device *dev, void *data)
 		}
 
 	} else {
+		set_inlmt(psy, max_ma_cable->cable_props.ma);
 		disable_charger(psy);
 		update_charger_online(psy);
 	}
