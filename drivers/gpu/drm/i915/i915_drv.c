@@ -1112,7 +1112,7 @@ static void i915_pm_shutdown(struct pci_dev *pdev)
 
 	dev_priv->pm.shutdown_in_progress = true;
 
-	if (!i915_is_device_suspended(drm_dev)) {
+	if (i915_is_device_suspended(drm_dev)) {
 		/* Device already in suspend state */
 		return;
 	}
