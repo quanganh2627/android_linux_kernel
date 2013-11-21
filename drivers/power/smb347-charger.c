@@ -521,18 +521,18 @@ static void smb347_enable_termination(struct smb347_charger *smb,
 		return;
 	}
 
-	ret = smb347_read(smb, CFG_CHRG_CONTROL);
+	ret = smb347_read(smb, CFG_STATUS_IRQ);
 	if (ret < 0) {
 		dev_warn(&smb->client->dev, "i2c error %d", ret);
 		goto err_term;
 	}
 
 	if (enable)
-		ret &= ~(CFG_CHRG_CTRL_HW_TERM);
+		ret |= CFG_STATUS_IRQ_TERMINATION_OR_TAPER;
 	else
-		ret |= (CFG_CHRG_CTRL_HW_TERM);
+		ret &= ~CFG_STATUS_IRQ_TERMINATION_OR_TAPER;
 
-	ret = smb347_write(smb, CFG_CHRG_CONTROL, ret);
+	ret = smb347_write(smb, CFG_STATUS_IRQ, ret);
 
 	if (ret < 0)
 		dev_warn(&smb->client->dev, "i2c error %d", ret);
@@ -1245,20 +1245,23 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 		ret = IRQ_HANDLED;
 	}
 #else
-	if (irqstat_c & IRQSTAT_C_TERMINATION_STAT) {
-		/*
-		 * reduce the termination current value, to avoid
-		 * repeated interrupts.
-		 */
-		smb347_set_iterm(smb, SMB_ITERM_100);
-		smb347_enable_termination(smb, false);
-		/*
-		 * since termination has happened, charging will not be
-		 * re-enabled until, disable and enable charging is done.
-		 */
-		smb347_charging_set(smb, false);
-		smb347_charging_set(smb, true);
-		schedule_delayed_work(&smb->full_worker, 0);
+	if (irqstat_c & (IRQSTAT_C_TAPER_IRQ | IRQSTAT_C_TERMINATION_IRQ)) {
+		if (smb->charging_enabled) {
+			/*
+			 * reduce the termination current value, to avoid
+			 * repeated interrupts.
+			 */
+			smb347_set_iterm(smb, SMB_ITERM_100);
+			smb347_enable_termination(smb, false);
+			/*
+			 * since termination has happened, charging will not be
+			 * re-enabled until, disable and enable charging is
+			 * done.
+			 */
+			smb347_charging_set(smb, false);
+			smb347_charging_set(smb, true);
+			schedule_delayed_work(&smb->full_worker, 0);
+		}
 		ret = IRQ_HANDLED;
 	}
 #endif
