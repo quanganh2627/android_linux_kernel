@@ -849,7 +849,7 @@ int set_enable_s3(const char *val, struct kernel_param *kp)
 	if (unlikely((!pmu_initialized)))
 		return 0;
 
-	if (platform_is(INTEL_ATOM_MRFLD)) {
+	if (platform_is(INTEL_ATOM_MRFLD) || platform_is(INTEL_ATOM_MOORFLD)) {
 		if (!enable_s3)
 			__pm_stay_awake(mid_pmu_cxt->pmu_wake_lock);
 		else
@@ -875,7 +875,7 @@ int set_enable_s0ix(const char *val, struct kernel_param *kp)
 	if (unlikely((!pmu_initialized)))
 		return 0;
 
-	if (platform_is(INTEL_ATOM_MRFLD)) {
+	if (platform_is(INTEL_ATOM_MRFLD) || platform_is(INTEL_ATOM_MOORFLD)) {
 		if (!enable_s0ix) {
 			mid_pmu_cxt->cstate_ignore =
 				~((1 << CPUIDLE_STATE_MAX) - 1);
@@ -1434,7 +1434,8 @@ int __ref pmu_pci_set_power_state(struct pci_dev *pdev, pci_power_t state)
 	cur_pmssc.pmu2_states[sub_sys_index] = new_value;
 
 	/* Check if the state is D3_cold or D3_Hot in TNG platform*/
-	if (platform_is(INTEL_ATOM_MRFLD) && (state == PCI_D3cold))
+	if ((platform_is(INTEL_ATOM_MRFLD) || platform_is(INTEL_ATOM_MOORFLD))
+		&& (state == PCI_D3cold))
 		d3_cold = true;
 
 	/* Issue the pmu command to PMU 2
@@ -2000,7 +2001,7 @@ static int standby_enter(void)
 	mid_pmu_cxt->camera_off = 0;
 	mid_pmu_cxt->display_off = 0;
 
-	if (platform_is(INTEL_ATOM_MRFLD))
+	if (platform_is(INTEL_ATOM_MRFLD) || platform_is(INTEL_ATOM_MOORFLD))
 		up(&mid_pmu_cxt->scu_ready_sem);
 
 	return 0;

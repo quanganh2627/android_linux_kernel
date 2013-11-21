@@ -2294,7 +2294,7 @@ unsigned int pmu_get_new_cstate(unsigned int cstate, int *index)
 	u32 local_cstate_allowed = ~mid_pmu_cxt->cstate_ignore;
 	u32 cstate_mask, cstate_no_s0ix_mask = (u32)((1 << 6) - 1);
 
-	if (platform_is(INTEL_ATOM_MRFLD)) {
+	if (platform_is(INTEL_ATOM_MRFLD) || platform_is(INTEL_ATOM_MOORFLD)) {
 		/* cstate is also 7 for C9 so correct */
 		if ((local_cstate == 7) && (*index == 4))
 			local_cstate = 9;
@@ -2447,7 +2447,7 @@ void pmu_stats_init(void)
 	(void) debugfs_create_file("c_states_stat", S_IFREG | S_IRUGO,
 				NULL, NULL, &c_states_stat_ops);
 #ifdef CONFIG_PM_DEBUG
-	if (platform_is(INTEL_ATOM_MRFLD)) {
+	if (platform_is(INTEL_ATOM_MRFLD) || platform_is(INTEL_ATOM_MOORFLD)) {
 		/* If s0ix is disabled then restrict to C6 */
 		if (!enable_s0ix) {
 			mid_pmu_cxt->cstate_ignore =
