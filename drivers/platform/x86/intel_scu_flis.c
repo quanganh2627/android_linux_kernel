@@ -81,7 +81,8 @@ void set_flis_value(u32 value, u32 offset)
 	 * There is one security region for Merrifield FLIS, which
 	 * are read only to OS side. Use IPC when write access is needed.
 	 */
-	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER
+	if ((intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
+		intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)
 			&& offset >= 0x1d00
 			&& offset <= 0x1d34) {
 		/* IPC call should not be called in atomic context */
