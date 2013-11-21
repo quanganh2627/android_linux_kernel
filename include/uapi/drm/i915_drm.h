@@ -76,6 +76,8 @@
 #define PIPEA		9
 #define PIPEB		10
 
+#define DRM_ASYNC_DPMS 1
+
 struct drm_intel_csc_params {
 	float   m_csccoeff[MAX_CSC_COEFFICIENTS];
 };
