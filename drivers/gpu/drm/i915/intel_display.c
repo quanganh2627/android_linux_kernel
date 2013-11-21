@@ -2205,18 +2205,27 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		break;
 	case DRM_FORMAT_XRGB1555:
 	case DRM_FORMAT_ARGB1555:
-		dspcntr |= DISPPLANE_BGRX555;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_BGRA555;
+		else
+			dspcntr |= DISPPLANE_BGRX555;
 		break;
 	case DRM_FORMAT_RGB565:
 		dspcntr |= DISPPLANE_BGRX565;
 		break;
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_ARGB8888:
-		dspcntr |= DISPPLANE_BGRX888;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_BGRA888;
+		else
+			dspcntr |= DISPPLANE_BGRX888;
 		break;
 	case DRM_FORMAT_XBGR8888:
 	case DRM_FORMAT_ABGR8888:
-		dspcntr |= DISPPLANE_RGBX888;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_RGBA888;
+		else
+			dspcntr |= DISPPLANE_RGBX888;
 		break;
 	case DRM_FORMAT_XRGB2101010:
 	case DRM_FORMAT_ARGB2101010:
@@ -2224,7 +2233,10 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		break;
 	case DRM_FORMAT_XBGR2101010:
 	case DRM_FORMAT_ABGR2101010:
-		dspcntr |= DISPPLANE_RGBX101010;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_RGBA101010;
+		else
+			dspcntr |= DISPPLANE_RGBX101010;
 		break;
 	default:
 		BUG();
@@ -10284,6 +10296,10 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->rotate180 = false;
 
 	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);
+
+	intel_crtc->primary_alpha = false;
+	intel_crtc->sprite0_alpha = true;
+	intel_crtc->sprite1_alpha = true;
 }
 
 int intel_get_pipe_from_crtc_id(struct drm_device *dev, void *data,
@@ -11040,8 +11056,6 @@ static void intel_enable_pipe_a(struct drm_device *dev)
 
 	if (intel_get_load_detect_pipe(crt, NULL, &load_detect_temp))
 		intel_release_load_detect_pipe(crt, &load_detect_temp);
-
-
 }
 
 static bool
