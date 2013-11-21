@@ -925,6 +925,9 @@ static const struct snd_kcontrol_new rt5640_snd_controls[] = {
 	SOC_ENUM("DAC IF1 Data Switch", rt5640_if1_dac_enum),
 	SOC_ENUM("ADC IF2 Data Switch", rt5640_if2_adc_enum),
 	SOC_ENUM("DAC IF2 Data Switch", rt5640_if2_dac_enum),
+
+	SOC_SINGLE("ASRC1 Mode", RT5640_ASRC_1, 15, 1, 0),
+
 #ifdef RT5640_REG_RW
 	{
 	 .iface = SNDRV_CTL_ELEM_IFACE_MIXER,
