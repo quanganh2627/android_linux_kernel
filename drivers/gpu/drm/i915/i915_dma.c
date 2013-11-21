@@ -1645,6 +1645,21 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 		goto out_mtrrfree;
 	}
 
+	/* Creating workqueue for rps work item processing
+	* Putting RPS work on system work queue leads to frame loss
+	* by delaying flips*/
+	dev_priv->rpswq = alloc_workqueue("i915_rps",
+				WQ_UNBOUND | WQ_NON_REENTRANT | WQ_HIGHPRI,
+				1);
+
+	if (dev_priv->rpswq == NULL) {
+		DRM_ERROR("Failed to create rps workqueue.\n");
+		ret = -ENOMEM;
+		destroy_workqueue(dev_priv->flipwq);
+		destroy_workqueue(dev_priv->wq);
+		goto out_mtrrfree;
+	}
+
 	/* This must be called before any calls to HAS_PCH_* */
 	intel_detect_pch(dev);
 
@@ -1738,6 +1753,7 @@ out_gem_unload:
 
 	intel_teardown_gmbus(dev);
 	intel_teardown_mchbar(dev);
+	destroy_workqueue(dev_priv->rpswq);
 	destroy_workqueue(dev_priv->flipwq);
 	destroy_workqueue(dev_priv->wq);
 out_mtrrfree:
@@ -1850,6 +1866,7 @@ int i915_driver_unload(struct drm_device *dev)
 
 	destroy_workqueue(dev_priv->wq);
 	destroy_workqueue(dev_priv->flipwq);
+	destroy_workqueue(dev_priv->rpswq);
 	pm_qos_remove_request(&dev_priv->pm_qos);
 
 	dev_priv->gtt.base.cleanup(&dev_priv->gtt.base);

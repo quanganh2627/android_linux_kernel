@@ -1379,6 +1379,7 @@ typedef struct drm_i915_private {
 
 	struct workqueue_struct *wq;
 	struct workqueue_struct *flipwq;
+	struct workqueue_struct *rpswq;
 
 	/* Display functions */
 	struct drm_i915_display_funcs display;

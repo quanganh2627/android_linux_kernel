@@ -3915,7 +3915,7 @@ static void vlv_rps_timer_work(struct work_struct *work)
 		/* GT is not power gated. Cancel any pending ones
 		* and reschedule again
 		*/
-		mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
+		mod_delayed_work(dev_priv->rpswq, &dev_priv->rps.vlv_work,
 				msecs_to_jiffies(100));
 	} else {
 		/* Mask turbo interrupt so that they will not come in between */

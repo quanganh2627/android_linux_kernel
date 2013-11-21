@@ -287,8 +287,9 @@ static ssize_t gt_max_freq_mhz_store(struct device *kdev,
 			valleyview_set_rps(dev_priv->dev, val);
 			/* If rps frequency is changed above we need to take
 			* care of bringing it down to rpe through rps timer*/
-			mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
-					msecs_to_jiffies(100));
+			mod_delayed_work(dev_priv->rpswq,
+						&dev_priv->rps.vlv_work,
+						msecs_to_jiffies(100));
 		}
 		else
 			gen6_set_rps(dev_priv->dev, val);
@@ -357,8 +358,9 @@ static ssize_t gt_min_freq_mhz_store(struct device *kdev,
 			valleyview_set_rps(dev, val);
 			/* If rps frequency is changed above we need to take
 			* care of bringing it down to rpe through rps timer*/
-			mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
-					msecs_to_jiffies(100));
+			mod_delayed_work(dev_priv->rpswq,
+						&dev_priv->rps.vlv_work,
+						msecs_to_jiffies(100));
 		}
 		else
 			gen6_set_rps(dev_priv->dev, val);

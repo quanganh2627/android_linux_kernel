@@ -1291,7 +1291,7 @@ static void gen6_rps_irq_handler(struct drm_i915_private *dev_priv, u32 pm_iir)
 		spin_unlock(&dev_priv->irq_lock);
 		DRM_DEBUG_DRIVER("\nQueueing RPS Work - Vanilla Turbo");
 
-		queue_work(dev_priv->wq, &dev_priv->rps.work);
+		queue_work(dev_priv->rpswq, &dev_priv->rps.work);
 	}
 
 	if (pm_iir & VLV_PM_DEFERRED_EVENTS) {
@@ -1301,7 +1301,7 @@ static void gen6_rps_irq_handler(struct drm_i915_private *dev_priv, u32 pm_iir)
 		spin_unlock(&dev_priv->irq_lock);
 		DRM_DEBUG_DRIVER("\nQueueing RPS Work - RC6 WA Turbo");
 
-		queue_work(dev_priv->wq, &dev_priv->rps.work);
+		queue_work(dev_priv->rpswq, &dev_priv->rps.work);
 	}
 
 	if (HAS_VEBOX(dev_priv->dev)) {

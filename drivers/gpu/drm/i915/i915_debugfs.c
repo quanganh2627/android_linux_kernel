@@ -2507,8 +2507,9 @@ i915_set_max_freq(struct drm_device *dev, int val)
 			valleyview_set_rps(dev, val);
 			/* if rps frequency is changed above we need to take
 			* care of bringing it down to rpe through rps timer */
-			mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
-				msecs_to_jiffies(100));
+			mod_delayed_work(dev_priv->rpswq,
+						&dev_priv->rps.vlv_work,
+						msecs_to_jiffies(100));
 		} else
 			gen6_set_rps(dev, val / 50);
 	}
@@ -2871,8 +2872,9 @@ i915_set_min_freq(struct drm_device *dev, int val)
 			valleyview_set_rps(dev, val);
 			/* If rps frequency is changed above we need to take
 			* care of bringing it down to rpe through rps timer*/
-			mod_delayed_work(dev_priv->wq, &dev_priv->rps.vlv_work,
-					msecs_to_jiffies(100));
+			mod_delayed_work(dev_priv->rpswq,
+						&dev_priv->rps.vlv_work,
+						msecs_to_jiffies(100));
 		} else
 			gen6_set_rps(dev, val / 50);
 	}
