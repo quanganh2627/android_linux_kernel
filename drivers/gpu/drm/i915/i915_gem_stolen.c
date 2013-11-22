@@ -262,8 +262,8 @@ static void i915_gem_object_put_pages_stolen(struct drm_i915_gem_object *obj)
 {
 	/* Should only be called during free */
 	DRM_DEBUG_DRIVER(
-		"Obj removed from stolen, ptr=0x%x, refcnt=%d, handle_cnt=%d\n",
-			(unsigned int)obj,
+		"Obj removed from stolen, ptr=%p, refcnt=%d, handle_cnt=%d\n",
+			obj,
 			obj->base.refcount.refcount.counter,
 			obj->base.handle_count.counter);
 
@@ -303,8 +303,8 @@ _i915_gem_object_create_stolen(struct drm_device *dev,
 	obj->base.read_domains = I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT;
 	obj->cache_level = HAS_LLC(dev) ? I915_CACHE_LLC : I915_CACHE_NONE;
 
-	DRM_DEBUG_DRIVER("New obj allocated from stolen 0x%x, size = 0x%x\n",
-			(u32)obj, obj->base.size);
+	DRM_DEBUG_DRIVER("New obj allocated from stolen %p, size = 0x%zx\n",
+			 obj, obj->base.size);
 
 	return obj;
 
@@ -451,8 +451,8 @@ static void i915_memset_stolen_obj_sw(struct drm_i915_gem_object *obj)
 		i915_gem_object_unpin(obj);
 
 		DRM_DEBUG_DRIVER(
-			"User FB obj ptr=0x%x cleared using CPU virtual address 0x%x\n",
-				(u32)obj, (u32)base);
+		  "User FB obj ptr=%p cleared using CPU virtual address %p\n",
+		  obj, base);
 	} else
 		BUG_ON(1);
 }
@@ -519,8 +519,8 @@ i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 	obj->has_dma_mapping = true;
 	obj->stolen = stolen;
 
-	DRM_DEBUG_DRIVER("Obj moved to stolen, ptr = 0x%x, size = %x\n",
-			(unsigned int)obj, size);
+	DRM_DEBUG_DRIVER("Obj moved to stolen, ptr = %p, size = %x\n",
+			 obj, size);
 
 	obj->base.read_domains = I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT;
 	obj->cache_level = HAS_LLC(dev) ? I915_CACHE_LLC : I915_CACHE_NONE;
