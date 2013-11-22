@@ -2730,6 +2730,7 @@ CONFIG_EXTERNAL_MISC_DRIVERS=y
 CONFIG_UUID=y
 # CONFIG_EMMC_IPANIC is not set
 # CONFIG_SENSORS_APDS990X_FORK is not set
+CONFIG_KCT_DAEMON=y
 
 #
 # Fork of Texas Instruments shared transport line discipline
