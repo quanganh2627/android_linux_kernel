@@ -812,7 +812,7 @@ static long scu_ipc_ioctl(struct file *fp, unsigned int cmd,
 int intel_scu_ipc_get_oshob_base(void)
 {
 	if (oshob_info == NULL)
-		return NULL;
+		return 0;
 
 	return oshob_info->oshob_base;
 }

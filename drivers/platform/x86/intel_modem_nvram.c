@@ -89,12 +89,12 @@ static ssize_t dump_store(struct kobject *kobj, struct kobj_attribute *attr,
 	if (((platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
 		(platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE)) &&
 		(nvram_addr == 0)) {
-		count = min(nvram_size, count);
+		count = min((size_t)nvram_size, count);
 		memcpy(nvram_ptr, buf, count);
 	} else {
 		nv_base = ioremap_nocache(nvram_addr, nvram_size);
 		if (nv_base != NULL) {
-			count = min(nvram_size, count);
+			count = min((size_t)nvram_size, count);
 			memcpy(nv_base, buf, count);
 
 			if ((platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
@@ -133,7 +133,7 @@ static ssize_t dump_store(struct kobject *kobj, struct kobj_attribute *attr,
 			pr_err("%s : ioremap error\n", __func__);
 	}
 
-	pr_info("%s : %d bytes stored in NVRAM\n", __func__, count);
+	pr_info("%s : %zd bytes stored in NVRAM\n", __func__, count);
 
 	return count;
 }
@@ -333,9 +333,9 @@ static int __init modem_nvram_init(void)
 			retval = -ENOMEM;
 			goto exit;
 		}
-		pr_info("Modem NVRAM: PTR: 0x%8x\n", (u32)nvram_ptr);
+		pr_info("Modem NVRAM: PTR: 0x%p\n", nvram_ptr);
 	} else {
-		pr_info("Modem NVRAM: ADDR: 0x%x\n", nvram_addr);
+		pr_info("Modem NVRAM: ADDR: 0x%u\n", nvram_addr);
 	}
 
 	pr_info("Modem NVRAM: SIZE: 0x%x\n", nvram_size);
