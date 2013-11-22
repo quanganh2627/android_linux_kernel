@@ -619,6 +619,11 @@ static int dwc_hcd_runtime_suspend(struct device *dev)
 static int dwc_hcd_runtime_resume(struct device *dev)
 {
 	int retval;
+	struct platform_device      *pdev = to_platform_device(dev);
+	struct usb_hcd      *hcd = platform_get_drvdata(pdev);
+
+	dwc_xhci_enable_phy_auto_resume(
+			hcd, false);
 
 	retval = dwc_hcd_resume_common(dev);
 	dev_dbg(dev, "hcd_pci_runtime_resume: %d\n", retval);
