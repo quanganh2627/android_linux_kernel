@@ -410,9 +410,9 @@ int calc_offset_and_length(struct fw_ud *fw_ud_ptr, char *scu_req,
 						goto error_case;
 
 					dev_dbg(fui.dev,
-					"\nmisc fw type=%s, len=%d,offset=%d",
+					"\nmisc fw type=%s, len=%u,offset=%p",
 					misc_fw_table[cnt].fw_type, *len,
-					(int)*offset);
+					*offset);
 
 					return 0;
 

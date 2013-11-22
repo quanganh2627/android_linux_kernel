@@ -845,8 +845,8 @@ int intel_scu_ipc_read_oshob(u8 *data, int len, int offset)
 
 	for (i = 0; i < len; i = i+1) {
 		*ptr = readb(oshob_addr + offset + i);
-		pr_debug("addr(remapped)=%8x, offset=%2x, value=%2x\n",
-			(u32)(oshob_addr + i),
+		pr_debug("addr(remapped)=%p, offset=%2x, value=%2x\n",
+			(oshob_addr + i),
 			offset + i, *ptr);
 		ptr++;
 	}
@@ -887,8 +887,8 @@ int intel_scu_ipc_read_osnib(u8 *data, int len, int offset)
 		goto exit;
 	}
 
-	pr_debug("OSNIB read addr (remapped) is %x\n",
-						(unsigned int)osnibr_addr);
+	pr_debug("OSNIB read addr (remapped) is %p\n",
+						osnibr_addr);
 
 	/* Make a chksum verification for osnib */
 	for (i = 0; i < oshob_info->osnib_size; i++)
@@ -914,8 +914,8 @@ int intel_scu_ipc_read_osnib(u8 *data, int len, int offset)
 	ptr = data;
 	for (i = 0; i < len; i++) {
 		*ptr = readb(osnibr_addr + offset + i);
-		pr_debug("addr(remapped)=%8x, offset=%2x, value=%2x\n",
-			(u32)(osnibr_addr+offset+i), offset+i, *ptr);
+		pr_debug("addr(remapped)=%p offset=%2x, value=%2x\n",
+			(osnibr_addr+offset+i), offset+i, *ptr);
 		ptr++;
 	}
 
@@ -952,8 +952,8 @@ int intel_scu_ipc_write_osnib(u8 *data, int len, int offset)
 			    oshob_info->offs_add;
 	osnibr_addr = oshob_addr + struct_offs;
 
-	pr_debug("OSNIB read addr (remapped) in OSHOB at %x\n",
-						(unsigned int)osnibr_addr);
+	pr_debug("OSNIB read addr (remapped) in OSHOB at %p\n",
+						osnibr_addr);
 
 	for (i = 0; i < oshob_info->osnib_size; i++) {
 		osnib_data[i] = readb(osnibr_addr + i);
@@ -1070,8 +1070,8 @@ int intel_scu_ipc_read_osnib_extend(u8 *data, int len, int offset)
 	pr_debug("ipc_read_osnib_extend: OSNIB content:\n");
 	for (i = 0; i < len; i++) {
 		*ptr = readb(osnibr_addr + offset + i);
-		pr_debug("addr(remapped)=%8x, offset=%2x, value=%2x\n",
-			(u32)(osnibr_addr+offset+i), offset+i, *ptr);
+		pr_debug("addr(remapped)=%p, offset=%2x, value=%2x\n",
+			(osnibr_addr+offset+i), offset+i, *ptr);
 		ptr++;
 	}
 
@@ -1788,8 +1788,8 @@ static int intel_scu_ipc_read_oemnib(u8 *oemnib, int len, int offset)
 	pr_debug("ipc_read_oemnib: OEMNIB content:\n");
 	for (i = 0; i < len; i++) {
 		*ptr = readb(oemnibr_addr + offset + i);
-		pr_debug("addr(remapped)=%8x, offset=%2x, value=%2x\n",
-			(u32)(oemnibr_addr+offset+i), offset+i, *ptr);
+		pr_debug("addr(remapped)=%p, offset=%2x, value=%2x\n",
+			(oemnibr_addr+offset+i), offset+i, *ptr);
 		ptr++;
 	}
 
@@ -2155,12 +2155,12 @@ static int intel_scu_ipc_oemnib_stat(struct seq_file *m, void *unused)
 	return 0;
 }
 
-static ssize_t intel_scu_ipc_oshob_open(struct inode *inode, struct file *file)
+static int intel_scu_ipc_oshob_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, intel_scu_ipc_oshob_stat, NULL);
 }
 
-static ssize_t intel_scu_ipc_oemnib_open(struct inode *inode, struct file *file)
+static int intel_scu_ipc_oemnib_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, intel_scu_ipc_oemnib_stat, NULL);
 }
@@ -2186,7 +2186,7 @@ static ssize_t intel_scu_ipc_oemnib_write(struct file *file,
 		return -EFAULT;
 	}
 
-	pr_info("Write OEMNIB: number bytes = %d\n", count);
+	pr_info("Write OEMNIB: number bytes = %zd\n", count);
 
 	/* Note: when the string is passed through debugfs interface, the  */
 	/* real count value includes the end of line \n. So we must take   */
@@ -2254,7 +2254,7 @@ static ssize_t intel_scu_ipc_oemnib_write(struct file *file,
 	kfree(posnib_data);
 	kfree(temp);
 
-	pr_info("Write OEMNIB: OEMNIB updated: count=%d bytes\n", count);
+	pr_info("Write OEMNIB: OEMNIB updated: count=%zd bytes\n", count);
 
 	return count;
 }
@@ -2372,7 +2372,7 @@ static ssize_t intel_scu_ipc_trigger_write(struct file *file,
 
 static int intel_scu_ipc_rwbuf_show(struct seq_file *m, void *unused)
 {
-	int i, tmp, ret = 0;
+	int i, ret = 0;
 	u8 *buf = (u8 *)m->private;
 
 	for (i = 0; i < IPC_CMD_RXTX_BUF_SIZE; i++) {
@@ -2386,12 +2386,12 @@ static int intel_scu_ipc_rwbuf_show(struct seq_file *m, void *unused)
 	return ret;
 }
 
-static ssize_t intel_scu_ipc_rbuf_open(struct inode *inode, struct file *file)
+static int intel_scu_ipc_rbuf_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, intel_scu_ipc_rwbuf_show, &ipc_cmd.rbuf);
 }
 
-static ssize_t intel_scu_ipc_wbuf_open(struct inode *inode, struct file *file)
+static int intel_scu_ipc_wbuf_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, intel_scu_ipc_rwbuf_show, &ipc_cmd.wbuf);
 }
@@ -2400,7 +2400,8 @@ static ssize_t intel_scu_ipc_wbuf_write(struct file *file,
 					  const char __user *buf,
 					    size_t count, loff_t *ppos)
 {
-	int ret, idx, val;
+	int ret;
+	unsigned long idx, val;
 	char tmp[IPC_CMD_INPUT_ENTRY_SIZE] = {0}; /* "01:0xff" */
 
 	if (!count || count > sizeof(tmp))
@@ -2727,7 +2728,7 @@ static int oshob_init(void)
 		goto exit;
 	}
 
-	pr_debug("PMIT addr 0x%8x remapped to 0x%8x\n", pmit, (u32)ptr);
+	pr_debug("PMIT addr 0x%8x remapped to 0x%p\n", pmit, ptr);
 
 	reset_ev1 = readb(ptr);
 	reset_ev2 = readb(ptr+1);
