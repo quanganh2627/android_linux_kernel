@@ -32,7 +32,7 @@
 #include "intel_drv.h"
 #include "intel_sync.h"
 
-#ifdef CONFIG_I915_HW_SYNC
+#ifdef CONFIG_DRM_I915_SYNC
 
 
 static int i915_sync_pt_has_signaled(struct sync_pt *sync_pt)

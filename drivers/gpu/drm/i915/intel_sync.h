@@ -30,9 +30,7 @@
 
 struct drm_i915_private;
 
-#define CONFIG_I915_HW_SYNC 1
-
-#ifdef CONFIG_I915_HW_SYNC
+#ifdef CONFIG_DRM_I915_SYNC
 #define I915_SYNC_USER_INTERRUPTS (GT_RENDER_USER_INTERRUPT | \
 				   GT_BSD_USER_INTERRUPT | \
 				   GT_BLT_USER_INTERRUPT)
@@ -59,7 +57,7 @@ struct i915_sync_pt {
 	} pvt;
 };
 
-#ifdef CONFIG_I915_HW_SYNC
+#ifdef CONFIG_DRM_I915_SYNC
 
 int i915_sync_timeline_create(struct drm_device *dev,
 				const char *name,
@@ -105,7 +103,7 @@ static inline
 void *i915_sync_prepare_request(struct drm_i915_gem_execbuffer2 *args,
 				struct intel_ring_buffer *ring, u32 seqno)
 {
-
+	return NULL;
 }
 
 static inline
@@ -113,7 +111,7 @@ int i915_sync_finish_request(void *handle,
 				struct drm_i915_gem_execbuffer2 *args,
 				struct intel_ring_buffer *ring)
 {
-
+	return 0;
 }
 
 static inline
@@ -136,6 +134,6 @@ void i915_sync_hung_ring(struct intel_ring_buffer *ring)
 
 }
 
-#endif /* CONFIG_I915_HW_SYNC */
+#endif /* CONFIG_DRM_I915_SYNC */
 
 #endif /* _INTEL_SYNC_H_ */

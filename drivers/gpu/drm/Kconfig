@@ -186,6 +186,15 @@ config DRM_I915_PRELIMINARY_HW_SUPPORT
 
 	  If in doubt, say "N".
 
+config DRM_I915_SYNC
+	bool "Enable native sync support"
+	depends on SYNC
+	default y
+	help
+	  Choose this option if you require native sync support within the i915
+	  driver. This requires userspace support to actually make use of this
+	  functionality.
+
 config DRM_MGA
 	tristate "Matrox g200/g400"
 	depends on DRM && PCI

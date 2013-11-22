@@ -193,7 +193,7 @@ struct  intel_ring_buffer {
 
 	uint32_t last_irq_seqno;
 
-#ifdef CONFIG_I915_HW_SYNC
+#ifdef CONFIG_DRM_I915_SYNC
 	struct i915_sync_timeline *timeline;
 	u32 tdr_seqno; /* Contains the failing seqno when signal called */
 #endif
