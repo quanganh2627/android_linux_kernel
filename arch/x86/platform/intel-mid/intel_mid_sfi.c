@@ -422,6 +422,18 @@ static void __init sfi_handle_i2c_dev(struct sfi_device_table_entry *pentry,
 		i2c_register_board_info(pentry->host_num, &i2c_info, 1);
 }
 
+static void sfi_handle_hsu_dev(struct sfi_device_table_entry *pentry,
+					struct devs_id *dev)
+{
+	void *pdata = NULL;
+
+	pr_info("HSU bus = %d, name = %16.16s port = %d\n",
+		pentry->host_num,
+		pentry->name,
+		pentry->addr);
+	dev->get_platform_data((unsigned int)pentry->host_num);
+}
+
 static void sfi_handle_hsi_dev(struct sfi_device_table_entry *pentry,
 					struct devs_id *dev)
 {
@@ -569,6 +581,8 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 				sfi_handle_hsi_dev(pentry, dev);
 				break;
 			case SFI_DEV_TYPE_UART:
+				sfi_handle_hsu_dev(pentry, dev);
+				break;
 			default:
 				break;
 			}
