@@ -403,6 +403,7 @@ enum sst_cmd {
 	SBA_VB_SET_FIR          = 128,
 	SBA_VB_SET_IIR          = 129,
 	SBA_SET_SSP_SLOT_MAP	= 130,
+	AWARE_ENV_CLASS_PARAMS	= 130,
 };
 
 enum sst_ssp_port {
