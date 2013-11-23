@@ -263,7 +263,7 @@ int sst_send_byte_stream_mrfld(void *sbytes)
 	int pvt_id, ret = 0;
 	struct sst_block *block = NULL;
 
-	pr_debug("%s:\ntype:%d\nipc_msg:%x\nblock:%d\ntask_id:%x\npipe: %d\nlength:%d\n",
+	pr_debug("%s: type:%u ipc_msg:%u block:%u task_id:%u pipe: %#x length:%#x\n",
 		__func__, bytes->type, bytes->ipc_msg,
 		bytes->block, bytes->task_id,
 		bytes->pipe_id, bytes->len);

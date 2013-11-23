@@ -87,6 +87,10 @@ int sst_fill_stream_params(void *substream, const struct sst_data *ctx,
 			   struct snd_sst_params *str_params, bool is_compress);
 int sst_dpcm_probe_send(struct snd_soc_platform *platform, u16 probe_pipe,
 			int substream, int direction, bool on);
+int sst_byte_control_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol);
+int sst_byte_control_set(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol);
 
 struct sst_algo_int_control_v2 {
 	struct soc_mixer_control mc;

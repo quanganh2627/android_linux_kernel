@@ -1169,6 +1169,10 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 
 };
 
+static const struct snd_kcontrol_new sst_debug_controls[] = {
+	SND_SOC_BYTES_EXT("sst debug byte control", SST_MAX_BIN_BYTES,
+		       sst_byte_control_get, sst_byte_control_set),
+};
 
 static inline bool is_sst_dapm_widget(struct snd_soc_dapm_widget *w)
 {
@@ -1344,6 +1348,8 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 			ARRAY_SIZE(sst_algo_controls));
 	snd_soc_add_platform_controls(platform, sst_slot_controls,
 			ARRAY_SIZE(sst_slot_controls));
+	snd_soc_add_platform_controls(platform, sst_debug_controls,
+			ARRAY_SIZE(sst_debug_controls));
 
 	/* initialize the names of the probe points */
 	for (i = 0; i < SST_NUM_PROBE_CONNECTION_PTS; i++)

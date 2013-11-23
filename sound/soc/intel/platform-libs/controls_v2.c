@@ -1493,18 +1493,16 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{ "VAD OUT", NULL, "Out VAD Switch"},
 };
 
-static int sst_byte_control_get(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
+int sst_byte_control_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
 
 	pr_debug("in %s\n", __func__);
 	memcpy(ucontrol->value.bytes.data, sst->byte_stream, SST_MAX_BIN_BYTES);
-#ifdef DEBUG_HEX_DUMP_BYTES
 	print_hex_dump_bytes(__func__, DUMP_PREFIX_OFFSET,
-	  (const void *)sst->byte_stream, 32);
-#endif
+			     (const void *)sst->byte_stream, 32);
 	return 0;
 }
 
@@ -1532,22 +1530,22 @@ static int sst_check_binary_input(char *stream)
 	return 0;
 }
 
-static int sst_byte_control_set(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
+int sst_byte_control_set(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
 	int ret = 0;
 
 	pr_debug("in %s\n", __func__);
-	memcpy(sst->byte_stream, ucontrol->value.bytes.data, SST_MAX_BIN_BYTES);
-	if (0 != sst_check_binary_input(sst->byte_stream))
-		return -EINVAL;
-#ifdef DEBUG_HEX_DUMP_BYTES
-	print_hex_dump_bytes(__func__, DUMP_PREFIX_OFFSET,
-	  (const void *)sst->byte_stream, 32);
-#endif
 	mutex_lock(&sst->lock);
+	memcpy(sst->byte_stream, ucontrol->value.bytes.data, SST_MAX_BIN_BYTES);
+	if (0 != sst_check_binary_input(sst->byte_stream)) {
+		mutex_unlock(&sst->lock);
+		return -EINVAL;
+	}
+	print_hex_dump_bytes(__func__, DUMP_PREFIX_OFFSET,
+			     (const void *)sst->byte_stream, 32);
 	ret = sst_dsp->ops->set_generic_params(SST_SET_BYTE_STREAM, sst->byte_stream);
 	mutex_unlock(&sst->lock);
 
