@@ -111,6 +111,15 @@ struct sst_lowlatency_deepbuff {
 	unsigned long	period_time;
 };
 
+struct sst_pcm_format {
+	unsigned int sample_bits;
+	unsigned int rate_min;
+	unsigned int rate_max;
+	unsigned int channels_min;
+	unsigned int channels_max;
+};
+
+
 struct sst_data {
 	struct platform_device *pdev;
 	struct sst_platform_data *pdata;

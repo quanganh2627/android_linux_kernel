@@ -1048,6 +1048,61 @@ int sst_dpcm_probe_send(struct snd_soc_platform *platform, u16 probe_pipe_id,
 	return sst_send_probe_cmd(sst, probe_pipe_id, mode, switch_state, probe_cfg);
 }
 
+static int sst_alloc_hostless_stream(const struct sst_pcm_format *pcm_params,
+				     int str_id, uint pipe_id, uint task_id)
+{
+	struct snd_sst_stream_params param;
+	struct snd_sst_params str_params = {0};
+	struct snd_sst_alloc_params_ext alloc_params = {0};
+	int ret_val = 0;
+
+	memset(&param.uc.pcm_params, 0, sizeof(param.uc.pcm_params));
+	param.uc.pcm_params.num_chan = pcm_params->channels_max;
+	param.uc.pcm_params.pcm_wd_sz = pcm_params->sample_bits;
+	param.uc.pcm_params.sfreq = pcm_params->rate_min;
+	pr_debug("sfreq= %d, wd_sz = %d\n",
+		 param.uc.pcm_params.sfreq, param.uc.pcm_params.pcm_wd_sz);
+
+	str_params.sparams = param;
+	str_params.aparams = alloc_params;
+	str_params.codec = SST_CODEC_TYPE_PCM;
+
+	/* fill the pipe_id and stream id to pass to SST driver */
+	str_params.stream_type = SST_STREAM_TYPE_MUSIC;
+	str_params.stream_id = str_id;
+	str_params.device_type = pipe_id;
+	str_params.task = task_id;
+	str_params.ops = STREAM_OPS_CAPTURE;
+
+	ret_val = sst_dsp->ops->open(&str_params);
+	pr_debug("platform prepare: stream open ret_val = 0x%x\n", ret_val);
+	if (ret_val <= 0)
+		return ret_val;
+
+	return ret_val;
+}
+
+static int sst_aware_event(struct snd_soc_dapm_widget *w,
+			   struct snd_kcontrol *k, int event)
+{
+	struct sst_ids *ids = w->priv;
+#define MERR_DPCM_AWARE_STRID 25
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		/* ALLOC */
+		/* FIXME: HACK - FW shouldn't require alloc for aware */
+		return sst_alloc_hostless_stream(ids->pcm_fmt,
+						 MERR_DPCM_AWARE_STRID,
+						 ids->location_id >> SST_PATH_ID_SHIFT,
+						 ids->task_id);
+	else
+		/* FREE */
+		return sst_dsp->ops->close(MERR_DPCM_AWARE_STRID);
+}
+
+static const struct snd_kcontrol_new sst_mix_sw_aware =
+	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 0, 1, 0,
+		sst_mix_get, sst_mix_put);
+
 static const struct snd_kcontrol_new sst_mix_sw_tone_gen =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 1, 1, 0,
 		sst_mix_get, sst_mix_put);
@@ -1174,9 +1229,15 @@ sst_ssp_configs[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
 				    .mux_shift = &sst_ssp_mux_shift[wssp_no],		\
 				    .domain_shift = &sst_ssp_domain_shift[wssp_no], }
 
+static const struct sst_pcm_format aware_stream_fmt = {
+	.sample_bits = 24,
+	.rate_min = 8000,
+	.channels_max = 1,
+};
+
 static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("tone"),
-	SND_SOC_DAPM_OUTPUT("aware"),
+	SST_DAPM_OUTPUT("aware", SST_PATH_INDEX_AWARE_OUT, SST_TASK_AWARE, &aware_stream_fmt, sst_aware_event),
 	SND_SOC_DAPM_OUTPUT("vad"),
 	SST_SSP_INPUT("modem_in",  sst_ssp_event, SST_SSP_CFG(SST_SSP0)),
 	SST_SSP_AIF_IN("codec_in0", sst_ssp_event, SST_SSP_CFG(SST_SSP2)),
@@ -1287,6 +1348,7 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 		      sst_mix_modem_controls, sst_swm_mixer_event),
 
 	SND_SOC_DAPM_MUX("ssp1_out mux 0", SND_SOC_NOPM, 0, 0, &sst_bt_fm_mux),
+	SND_SOC_DAPM_SWITCH("aware_out aware 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_aware),
 	SND_SOC_DAPM_SWITCH("tone_in tone_generator 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_tone_gen),
 
 	SND_SOC_DAPM_SUPPLY("VBTimer", SND_SOC_NOPM, 0, 0,
@@ -1339,7 +1401,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	SST_SBA_MIXER_GRAPH_MAP("voip_out mix 0"),
 
 	{"aware", NULL, "aware_out"},
-	{"aware_out", NULL, "aware_out mix 0"},
+	{"aware_out", NULL, "aware_out aware 0"},
+	{"aware_out aware 0", "switch", "aware_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("aware_out mix 0"),
 	{"vad", NULL, "vad_out"},
 	{"vad_out", NULL, "vad_out mix 0"},
@@ -1587,6 +1650,8 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 		SST_PATH_INDEX_AWARE_OUT, 0, SST_TASK_SBA, SBA_VB_SET_FIR),
 	SST_ALGO_KCONTROL_BYTES("aware_out", "iir", 300, SST_MODULE_ID_IIR_24,
 		SST_PATH_INDEX_AWARE_OUT, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
+	SST_ALGO_KCONTROL_BYTES("aware_out", "aware", 48, SST_MODULE_ID_CONTEXT_ALGO_AWARE,
+		SST_PATH_INDEX_AWARE_OUT, 0, SST_TASK_AWARE, AWARE_ENV_CLASS_PARAMS),
 	SST_ALGO_KCONTROL_BYTES("vad_out", "fir", 272, SST_MODULE_ID_FIR_24,
 		SST_PATH_INDEX_VAD_OUT, 0, SST_TASK_SBA, SBA_VB_SET_FIR),
 	SST_ALGO_KCONTROL_BYTES("vad_out", "iir", 300, SST_MODULE_ID_IIR_24,

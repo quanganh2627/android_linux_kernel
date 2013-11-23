@@ -84,6 +84,7 @@ static struct sst_dev_stream_map mrfld_strm_map[] = {
 	{MERR_DPCM_PROBE, 5, SNDRV_PCM_STREAM_CAPTURE, PIPE_PROBE6_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
 	{MERR_DPCM_PROBE, 6, SNDRV_PCM_STREAM_CAPTURE, PIPE_PROBE7_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
 	{MERR_DPCM_PROBE, 7, SNDRV_PCM_STREAM_CAPTURE, PIPE_PROBE8_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
+	/* stream ID 25 used by Aware, but no device exposed to userspace */
 };
 #else
 static struct sst_dev_stream_map mrfld_strm_map[] = {
