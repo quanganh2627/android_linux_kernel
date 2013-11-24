@@ -185,7 +185,12 @@ void mei_reset(struct mei_device *dev, int interrupts_enabled)
 
 	dev->dev_state = MEI_DEV_INIT_CLIENTS;
 
-	mei_hbm_start_req(dev);
+	ret = mei_hbm_start_req(dev);
+	if (ret) {
+		dev_err(&dev->pdev->dev, "hbm_start failed disabling the device\n");
+		dev->dev_state = MEI_DEV_DISABLED;
+		return;
+	}
 }
 EXPORT_SYMBOL_GPL(mei_reset);
 

@@ -159,6 +159,7 @@ int mei_hbm_start_req(struct mei_device *dev)
 	struct mei_msg_hdr *mei_hdr = &dev->wr_msg.hdr;
 	struct hbm_host_version_request *start_req;
 	const size_t len = sizeof(struct hbm_host_version_request);
+	int ret;
 
 	mei_hbm_hdr(mei_hdr, len);
 
@@ -170,12 +171,13 @@ int mei_hbm_start_req(struct mei_device *dev)
 	start_req->host_version.minor_version = HBM_MINOR_VERSION;
 
 	dev->hbm_state = MEI_HBM_IDLE;
-	if (mei_write_message(dev, mei_hdr, dev->wr_msg.data)) {
-		dev_err(&dev->pdev->dev, "version message write failed\n");
-		dev->dev_state = MEI_DEV_RESETTING;
-		mei_reset(dev, 1);
-		return -EIO;
+	ret = mei_write_message(dev, mei_hdr, dev->wr_msg.data);
+	if (ret) {
+		dev_err(&dev->pdev->dev, "version message write failed ret = %d\n",
+			ret);
+		return ret;
 	}
+
 	dev->hbm_state = MEI_HBM_START;
 	dev->init_clients_timer = MEI_CLIENTS_INIT_TIMEOUT;
 	return 0;
