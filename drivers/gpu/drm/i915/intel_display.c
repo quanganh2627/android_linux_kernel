@@ -2211,6 +2211,8 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	intel_fb = to_intel_framebuffer(fb);
 	obj = intel_fb->obj;
 
+	intel_update_watermarks(dev);
+
 	reg = DSPCNTR(plane);
 	dspcntr = I915_READ(reg);
 	/* Mask out pixel format bits in case we change it */
