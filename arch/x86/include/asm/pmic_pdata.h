@@ -13,6 +13,7 @@ struct temp_lookup {
 struct pmic_platform_data {
 	void (*cc_to_reg)(int, u8*);
 	void (*cv_to_reg)(int, u8*);
+	void (*inlmt_to_reg)(int, u8*);
 	int max_tbl_row_cnt;
 	struct temp_lookup *adc_tbl;
 };

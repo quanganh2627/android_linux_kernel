@@ -98,6 +98,7 @@ void __init *mrfl_pmic_ccsm_platform_data(void *info)
 #ifdef CONFIG_BQ24261_CHARGER
 	pmic_pdata.cc_to_reg = bq24261_cc_to_reg;
 	pmic_pdata.cv_to_reg = bq24261_cv_to_reg;
+	pmic_pdata.inlmt_to_reg = bq24261_inlmt_to_reg;
 #endif
 	register_rpmsg_service("rpmsg_pmic_ccsm", RPROC_SCU,
 				RP_PMIC_CCSM);
