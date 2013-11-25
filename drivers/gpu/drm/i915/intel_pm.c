@@ -3499,9 +3499,12 @@ bool vlv_update_rps_cur_delay(struct drm_i915_private *dev_priv)
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 
-	if (wait_for(((pval = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS)) & GENFREQSTATUS) == 0, 10))
+	if (wait_for_atomic((
+		(vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS))
+		& GENFREQSTATUS) == 0, 10))
 		DRM_DEBUG_DRIVER("timed out waiting for Punit\n");
 
+	pval = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
 	pval >>= 8;
 
 	if (pval != dev_priv->rps.cur_delay)
@@ -3926,7 +3929,7 @@ static void vlv_rps_timer_work(struct work_struct *work)
 		I915_READ(VLV_GTLC_SURVIVABILITY_REG) |
 				VLV_GFX_CLK_FORCE_ON_BIT);
 
-		if (wait_for(((VLV_GFX_CLK_STATUS_BIT &
+		if (wait_for_atomic(((VLV_GFX_CLK_STATUS_BIT &
 			I915_READ(VLV_GTLC_SURVIVABILITY_REG)) != 0), 500)) {
 				DRM_ERROR("GFX_CLK_ON request timed out\n");
 				mutex_unlock(&dev_priv->rps.hw_lock);
@@ -3938,8 +3941,8 @@ static void vlv_rps_timer_work(struct work_struct *work)
 						dev_priv->rps.rpe_delay);
 
 			/* Make sure Rpe is set by P-Unit*/
-			if (wait_for((vlv_update_rps_cur_delay(dev_priv) &&
-				(dev_priv->rps.cur_delay ==
+			if (wait_for_atomic((vlv_update_rps_cur_delay(dev_priv)
+				&& (dev_priv->rps.cur_delay ==
 					dev_priv->rps.rpe_delay)), 100))
 				DRM_DEBUG_DRIVER("Not able to set Rpe\n");
 		}
