@@ -88,7 +88,7 @@ static struct rt5670_init_reg init_list[] = {
 #ifdef JD1_FUNC
 	{ RT5670_GPIO_CTRL2	, 0x0004 },
 	{ RT5670_GPIO_CTRL1	, 0x8000 },
-	{ RT5670_IRQ_CTRL2	, 0x0280 },
+	{ RT5670_IRQ_CTRL2      , 0x0200 },
 	{ RT5670_JD_CTRL3	, 0x0088 },
 #endif
 };
@@ -535,7 +535,6 @@ int rt5670_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 		snd_soc_update_bits(codec, RT5670_PWR_DIG1,
 			RT5670_PWR_DAC_L1 | RT5670_PWR_DAC_R1,
 			RT5670_PWR_DAC_L1 | RT5670_PWR_DAC_R1);
-		snd_soc_update_bits(codec, RT5670_IRQ_CTRL2, 0x80, 0x80);
 		if (SND_SOC_BIAS_OFF == codec->dapm.bias_level) {
 			reg80 = snd_soc_read(codec, RT5670_GLB_CLK);
 			snd_soc_update_bits(codec, RT5670_GLB_CLK,
@@ -613,9 +612,6 @@ int rt5670_check_interrupt_event(struct snd_soc_codec *codec, int *data)
 		/* jack insert */
 		if (rt5670->jack_type == 0) {
 			rt5670->jack_type = rt5670_headset_detect(codec, 1);
-			/* change jd polarity */
-			snd_soc_update_bits(codec, RT5670_IRQ_CTRL2,
-					0x1 << 7, 0);
 			*data = rt5670->jack_type;
 			return RT5670_J_IN_EVENT;
 		}
@@ -632,22 +628,10 @@ int rt5670_check_interrupt_event(struct snd_soc_codec *codec, int *data)
 			event_type = RT5670_BR_EVENT;
 			*data = 0;
 		}
-		if (*data & 0x2480)
-			snd_soc_update_bits(codec, RT5670_INT_IRQ_ST, 0x1, 0x1);
-		else
-			snd_soc_update_bits(codec, RT5670_INT_IRQ_ST, 0x1, 0x0);
 
-		/* change jd polarity */
-		snd_soc_update_bits(codec, RT5670_IRQ_CTRL2,
-				0x1 << 7, 0);
 		return (event_type == 0 ? RT5670_UN_EVENT : event_type);
 	case 0x70:
 	case 0x10:
-		snd_soc_update_bits(codec, RT5670_INT_IRQ_ST, 0x1, 0x0);
-		/* change jd polarity */
-		snd_soc_update_bits(codec, RT5670_IRQ_CTRL2,
-			    0x1 << 7, 0x1 << 7);
-
 		rt5670->jack_type = rt5670_headset_detect(codec, 0);
 		/* snd_soc_jack_report(rt5670->pdata.combo_jack,
 			rt5670->pdata.report, 0); */
