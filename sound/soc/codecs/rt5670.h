@@ -1925,6 +1925,8 @@ enum {
 
 int rt5670_headset_detect(struct snd_soc_codec *codec, int jack_insert);
 int rt5670_check_interrupt_event(struct snd_soc_codec *codec, int *data);
+int rt5670_check_jd_status(struct snd_soc_codec *codec);
+int rt5670_check_bp_status(struct snd_soc_codec *codec);
 
 /* System Clock Source */
 enum {

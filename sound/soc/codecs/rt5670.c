@@ -659,6 +659,23 @@ int rt5670_check_interrupt_event(struct snd_soc_codec *codec, int *data)
 }
 EXPORT_SYMBOL(rt5670_check_interrupt_event);
 
+int rt5670_check_jd_status(struct snd_soc_codec *codec)
+{
+	return snd_soc_read(codec, RT5670_A_JD_CTRL1) & 0x0020;
+}
+EXPORT_SYMBOL(rt5670_check_jd_status);
+
+int rt5670_check_bp_status(struct snd_soc_codec *codec)
+{
+	int val = 0;
+
+	val = rt5670_button_detect(codec);
+	usleep_range(2000, 3000);
+	val = snd_soc_read(codec, RT5670_IL_CMD) & 0xff80;
+	return val;
+}
+EXPORT_SYMBOL(rt5670_check_bp_status);
+
 static const DECLARE_TLV_DB_SCALE(out_vol_tlv, -4650, 150, 0);
 static const DECLARE_TLV_DB_SCALE(dac_vol_tlv, -65625, 375, 0);
 static const DECLARE_TLV_DB_SCALE(in_vol_tlv, -3450, 150, 0);
