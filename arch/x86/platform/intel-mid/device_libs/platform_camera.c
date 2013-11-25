@@ -22,6 +22,7 @@
 #include "platform_imx134.h"
 #include "platform_ov2722.h"
 #include "platform_lm3554.h"
+#include "platform_ap1302.h"
 #ifdef CONFIG_CRYSTAL_COVE
 #include <linux/mfd/intel_mid_pmic.h>
 #endif
@@ -43,18 +44,19 @@ const struct intel_v4l2_subdev_id v4l2_ids[] = {
 	{"mt9m114", SOC_CAMERA, ATOMISP_CAMERA_PORT_SECONDARY},
 	{"mt9v113", SOC_CAMERA, ATOMISP_CAMERA_PORT_SECONDARY},
 	{"s5k8aay", SOC_CAMERA, ATOMISP_CAMERA_PORT_SECONDARY},
+	{"ap1302", SOC_CAMERA, ATOMISP_CAMERA_PORT_SECONDARY},
 	{"lm3554", LED_FLASH, -1},
 	{"lm3559", LED_FLASH, -1},
 	{},
 };
 
-struct byt_device_table {
+struct camera_device_table {
 	struct sfi_device_table_entry entry;
 	struct devs_id dev;
 };
 
 /* Baytrail camera devs table */
-static struct byt_device_table byt_ffrd10_cam_table[] = {
+static struct camera_device_table byt_ffrd10_cam_table[] = {
 	{
 		{SFI_DEV_TYPE_I2C, 4, 0x10, 0x0, 0x0, "imx175"},
 		{"imx175", SFI_DEV_TYPE_I2C, 0, &imx175_platform_data,
@@ -70,7 +72,7 @@ static struct byt_device_table byt_ffrd10_cam_table[] = {
 	}
 };
 
-static struct byt_device_table byt_ffrd8_cam_table[] = {
+static struct camera_device_table byt_ffrd8_cam_table[] = {
 	{
 		{SFI_DEV_TYPE_I2C, 4, 0x10, 0x0, 0x0, "imx134"},
 		{"imx134", SFI_DEV_TYPE_I2C, 0, &imx134_platform_data,
@@ -86,6 +88,40 @@ static struct byt_device_table byt_ffrd8_cam_table[] = {
 	}
 };
 static struct atomisp_camera_caps default_camera_caps;
+
+#ifdef CHT_RVP_USE_BYT_CAM_AOB
+static struct camera_device_table cht_rvp_cam_table[] = {
+	{
+		{SFI_DEV_TYPE_I2C, 4, 0x10, 0x0, 0x0, "imx175"},
+		{"imx175", SFI_DEV_TYPE_I2C, 0, &imx175_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 4, 0x36, 0x0, 0x0, "ov2722"},
+		{"ov2722", SFI_DEV_TYPE_I2C, 0, &ov2722_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 4, 0x53, 0x0, 0x0, "lm3554"},
+		{"lm3554", SFI_DEV_TYPE_I2C, 0, &lm3554_platform_data_func,
+			&intel_register_i2c_camera_device}
+	}
+};
+#else
+static struct camera_device_table cht_rvp_cam_table[] = {
+	{
+		{SFI_DEV_TYPE_I2C, 2, 0x10, 0x0, 0x0, "imx175"},
+		{"imx175", SFI_DEV_TYPE_I2C, 0, &imx175_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 4, 0x3C, 0x0, 0x0, "ap1302"},
+		{"ov2722", SFI_DEV_TYPE_I2C, 0, &ap1302_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 1, 0x53, 0x0, 0x0, "lm3554"},
+		{"lm3554", SFI_DEV_TYPE_I2C, 0, &lm3554_platform_data_func,
+			&intel_register_i2c_camera_device}
+	}
+};
+#endif
 
 /*
  * One-time gpio initialization.
@@ -452,12 +488,12 @@ EXPORT_SYMBOL_GPL(camera_set_pmic_power);
 #endif
 
 #ifdef CONFIG_ACPI
-void __init camera_byt_init_device(void)
+void __init camera_init_device(void)
 {
+	struct camera_device_table *table = NULL;
+	int entry_num = 0;
+	int i;
 	if (INTEL_MID_BOARD(1, TABLET, BYT)) {
-		struct byt_device_table *table = NULL;
-		int entry_num = 0;
-		int i;
 		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
 		    spid.hardware_id == BYT_TABLET_BLK_8PR1) {
 			table = byt_ffrd8_cam_table;
@@ -466,12 +502,18 @@ void __init camera_byt_init_device(void)
 			table = byt_ffrd10_cam_table;
 			entry_num = ARRAY_SIZE(byt_ffrd10_cam_table);
 		}
-		for (i = 0; i < entry_num; i++, table++) {
-			if (table->dev.device_handler)
-				table->dev.device_handler(&table->entry,
-					&table->dev);
-		}
+	}
+	/* For CHT, INTEL_MID_BOARD is not ready at the moment. */
+	/* Need to call INTEL_MID_BOARD to indentify CHT. */
+#ifdef BOARD_CHT
+	table = cht_rvp_cam_table;
+	entry_num = ARRAY_SIZE(cht_rvp_cam_table);
+#endif
+	for (i = 0; i < entry_num; i++, table++) {
+		if (table->dev.device_handler)
+			table->dev.device_handler(&table->entry,
+				&table->dev);
 	}
 }
-device_initcall(camera_byt_init_device);
+device_initcall(camera_init_device);
 #endif

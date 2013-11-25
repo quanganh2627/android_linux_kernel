@@ -98,6 +98,7 @@ obj-$(subst m,y,$(CONFIG_VIDEO_OV9724))					+= platform_ov9724.o
 obj-$(subst m,y,$(CONFIG_VIDEO_OV2722))					+= platform_ov2722.o
 obj-$(subst m,y,$(CONFIG_VIDEO_LM3554))					+= platform_lm3554.o
 obj-$(subst m,y,$(CONFIG_VIDEO_LM3559))					+= platform_lm3559.o
+obj-$(subst m,y,$(CONFIG_VIDEO_AP1302))					+= platform_ap1302.o
 endif
 
 ifdef CONFIG_BATTERY_MAX17042

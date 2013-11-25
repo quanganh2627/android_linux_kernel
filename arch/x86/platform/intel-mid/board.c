@@ -110,6 +110,7 @@
 #include "device_libs/platform_lm3559.h"
 #include "device_libs/platform_ov8830.h"
 #include "device_libs/platform_wm5102.h"
+#include "device_libs/platform_ap1302.h"
 
 /*
  * SPI devices
@@ -269,6 +270,8 @@ struct devs_id __initconst device_ids[] = {
 	{"ov2722", SFI_DEV_TYPE_I2C, 0, &ov2722_platform_data,
 					&intel_register_i2c_camera_device},
 	{"lm3559", SFI_DEV_TYPE_I2C, 0, &lm3559_platform_data_func,
+					&intel_register_i2c_camera_device},
+	{"ap1302", SFI_DEV_TYPE_I2C, 0, &ap1302_platform_data,
 					&intel_register_i2c_camera_device},
 	{"audience_es305", SFI_DEV_TYPE_I2C, 0, &audience_platform_data,
 						NULL},
