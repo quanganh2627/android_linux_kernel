@@ -6406,12 +6406,11 @@ static int ironlake_crtc_mode_set(struct drm_crtc *crtc,
 
 	if (intel_crtc->config.has_pch_encoder) {
 		pll = intel_crtc_to_shared_dpll(intel_crtc);
-
-	}
-	if (pll == NULL) {
-		DRM_DEBUG_DRIVER("failed to find PLL for pipe %c\n",
-				pipe_name(pipe));
-		return -EINVAL;
+		if (pll == NULL) {
+			DRM_DEBUG_DRIVER("failed to find PLL for pipe %c\n",
+					pipe_name(pipe));
+			return -EINVAL;
+		}
 	}
 
 	intel_set_pipe_timings(intel_crtc);
