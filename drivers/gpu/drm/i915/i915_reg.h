@@ -3329,6 +3329,7 @@ EDP_PSR_SW_TIMER
 #define   DSPFW7_VLV		0x040F040F
 
 /* drain latency register values*/
+#define	VLV_DDL(pipe)			_PIPE(pipe, VLV_DDL1, VLV_DDL2)
 #define DRAIN_LATENCY_PRECISION_64	64
 #define DRAIN_LATENCY_PRECISION_32	32
 #define VLV_DDL1			(VLV_DISPLAY_BASE + 0x70050)
