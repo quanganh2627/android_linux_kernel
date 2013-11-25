@@ -31,3 +31,7 @@ endif
 # Baytrail board
 snd-byt-bl-rt5642-objs := byt_bl_rt5642.o
 obj-$(CONFIG_SND_BYT_MACHINE) += snd-byt-bl-rt5642.o
+
+# Cherrytrail board
+snd-cht-bl-rt5672-objs := cht_bl_rt5672.o
+obj-$(CONFIG_SND_CHT_MACHINE) += snd-cht-bl-rt5672.o
