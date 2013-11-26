@@ -113,7 +113,7 @@ static int intelfb_create(struct drm_fb_helper *helper,
 
 	ret = intel_framebuffer_init(dev, &ifbdev->ifb, &mode_cmd, obj);
 	if (ret)
-		goto out_unpin;
+		goto out_fbrelease;
 
 	fb = &ifbdev->ifb.base;
 
@@ -128,13 +128,13 @@ static int intelfb_create(struct drm_fb_helper *helper,
 	ret = fb_alloc_cmap(&info->cmap, 256, 0);
 	if (ret) {
 		ret = -ENOMEM;
-		goto out_unpin;
+		goto out_fbdestroy;
 	}
 	/* setup aperture base/size for vesafb takeover */
 	info->apertures = alloc_apertures(1);
 	if (!info->apertures) {
 		ret = -ENOMEM;
-		goto out_unpin;
+		goto out_decmap;
 	}
 	info->apertures->ranges[0].base = dev->mode_config.fb_base;
 	info->apertures->ranges[0].size = dev_priv->gtt.mappable_end;
@@ -147,7 +147,7 @@ static int intelfb_create(struct drm_fb_helper *helper,
 			   size);
 	if (!info->screen_base) {
 		ret = -ENOSPC;
-		goto out_unpin;
+		goto out_freeap;
 	}
 	info->screen_size = size;
 
@@ -175,6 +175,14 @@ static int intelfb_create(struct drm_fb_helper *helper,
 	vga_switcheroo_client_fb_set(dev->pdev, info);
 	return 0;
 
+out_freeap:
+	kfree(info->apertures);
+out_decmap:
+	fb_dealloc_cmap(&info->cmap);
+out_fbdestroy:
+	fb->funcs->destroy(fb);
+out_fbrelease:
+	kfree(info);
 out_unpin:
 	i915_gem_object_unpin(obj);
 out_unref:
