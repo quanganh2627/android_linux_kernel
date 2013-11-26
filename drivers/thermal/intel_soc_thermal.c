@@ -22,22 +22,19 @@
  * Author: Shravan B M <shravan.k.b.m@intel.com>
  *
  * This driver registers to Thermal framework as SoC zone. It exposes
- * two SoC DTS temperature with aux trip points. Only aux0, aux1 are
- * writable.
- *
+ * two SoC DTS temperature with two writeable trip points.
  */
 
 #define pr_fmt(fmt)  "intel_soc_thermal: " fmt
 
-#include <linux/thermal.h>
-#include <linux/platform_device.h>
-#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
-#include <linux/err.h>
+#include <linux/module.h>
 #include <linux/debugfs.h>
+#include <linux/thermal.h>
 #include <linux/seq_file.h>
 #include <linux/interrupt.h>
+#include <linux/platform_device.h>
 
 #include <asm/intel-mid.h>
 #include <asm/intel_mid_thermal.h>
@@ -46,27 +43,27 @@
 
 /* SOC DTS Registers */
 #define SOC_THERMAL_SENSORS	2
-#define PUNIT_PORT		0x04
+#define SOC_THERMAL_TRIPS	2
+#define SOC_MAX_STATES		4
 #define DTS_ENABLE_REG		0xB0
+#define DTS_ENABLE		0x03
+#define DTS_TRIP_RW		0x03
+
+#define PUNIT_PORT		0x04
 #define PUNIT_TEMP_REG		0xB1
 #define PUNIT_AUX_REG		0xB2
-#define MSR_THERM_CFG1		0x673
-#define DTS_ENABLE		0x02
-/* There are 4 Aux trips. Only Aux0, Aux1 are writeable */
-#define DTS_TRIP_RW		0x03
-#define SOC_THERMAL_TRIPS	4
-#define SOC_MAX_STATES		4
 
 #define TJMAX_TEMP		90
 #define TJMAX_CODE		0x7F
 
 /* Default hysteresis values in C */
-#define DEFAULT_C2H_HYST	3
 #define DEFAULT_H2C_HYST	3
+#define MAX_HYST		7
 
 /* Power Limit registers */
 #define PKG_TURBO_POWER_LIMIT	0x610
 #define PKG_TURBO_CFG		0x670
+#define MSR_THERM_CFG1		0x673
 #define CPU_PWR_BUDGET_CTL	0x02
 
 /* PKG_TURBO_PL1 holds PL1 in terms of 32mW */
@@ -81,9 +78,6 @@
 #define TRIP_STATUS_RW		0xB4
 /* TE stands for THERMAL_EVENT */
 #define TE_AUX0			0xB5
-#define TE_AUX1			0xB6
-#define TE_AUX2			0xB7
-#define TE_AUX3			0xB8
 #define ENABLE_AUX_INTRPT	0x0F
 #define ENABLE_CPU0		(1 << 16)
 #define RTE_ENABLE		(1 << 9)
@@ -158,9 +152,9 @@ struct dts_regs {
 	{"TMD",		0xC1},
 };
 
-/* /sys/kernel/debug/tng_soc_dts */
+/* /sys/kernel/debug/soc_thermal/soc_dts */
 static struct dentry *soc_dts_dent;
-static struct dentry *tng_thermal_dir;
+static struct dentry *soc_thermal_dir;
 
 static int soc_dts_debugfs_show(struct seq_file *s, void *unused)
 {
@@ -192,28 +186,28 @@ static void create_soc_dts_debugfs(void)
 {
 	int err;
 
-	/* /sys/kernel/debug/tng_thermal/ */
-	tng_thermal_dir = debugfs_create_dir("tng_thermal", NULL);
-	if (IS_ERR(tng_thermal_dir)) {
-		err = PTR_ERR(tng_thermal_dir);
+	/* /sys/kernel/debug/soc_thermal/ */
+	soc_thermal_dir = debugfs_create_dir("soc_thermal", NULL);
+	if (IS_ERR(soc_thermal_dir)) {
+		err = PTR_ERR(soc_thermal_dir);
 		pr_err("debugfs_create_dir failed:%d\n", err);
 		return;
 	}
 
-	/* /sys/kernel/debug/tng_thermal/soc_dts */
+	/* /sys/kernel/debug/soc_thermal/soc_dts */
 	soc_dts_dent = debugfs_create_file("soc_dts", S_IFREG | S_IRUGO,
-					tng_thermal_dir, NULL,
+					soc_thermal_dir, NULL,
 					&soc_dts_debugfs_fops);
 	if (IS_ERR(soc_dts_dent)) {
 		err = PTR_ERR(soc_dts_dent);
-		debugfs_remove_recursive(tng_thermal_dir);
+		debugfs_remove_recursive(soc_thermal_dir);
 		pr_err("debugfs_create_file failed:%d\n", err);
 	}
 }
 
 static void remove_soc_dts_debugfs(void)
 {
-	debugfs_remove_recursive(tng_thermal_dir);
+	debugfs_remove_recursive(soc_thermal_dir);
 }
 #else
 static inline void create_soc_dts_debugfs(void) { }
@@ -253,9 +247,6 @@ static void enable_soc_dts(void)
 
 	rdmsr_on_cpu(0, MSR_THERM_CFG1, &eax, &edx);
 
-	/* B[11:13] C2H Hyst */
-	eax = (eax & ~(0x7 << 11)) | (DEFAULT_C2H_HYST << 11);
-
 	/* B[8:10] H2C Hyst */
 	eax = (eax & ~(0x7 << 8)) | (DEFAULT_H2C_HYST << 8);
 
@@ -281,23 +272,43 @@ static ssize_t show_trip_hyst(struct thermal_zone_device *tzd,
 	u32 eax, edx;
 	struct thermal_device_info *td_info = tzd->devdata;
 
-	/* Hysteresis is only supported for trip point 0 and 1. */
-	if (trip != 0 && trip != 1)
+	/* Hysteresis is only supported for trip point 0 */
+	if (trip != 0) {
+		*hyst = 0;
+		return 0;
+	}
+
+	mutex_lock(&td_info->lock_aux);
+
+	rdmsr_on_cpu(0, MSR_THERM_CFG1, &eax, &edx);
+
+	/* B[8:10] H2C Hyst, for trip 0. Report hysteresis in mC */
+	*hyst = ((eax >> 8) & 0x7) * 1000;
+
+	mutex_unlock(&td_info->lock_aux);
+	return 0;
+}
+
+static ssize_t store_trip_hyst(struct thermal_zone_device *tzd,
+				int trip, long hyst)
+{
+	u32 eax, edx;
+	struct thermal_device_info *td_info = tzd->devdata;
+
+	/* Convert from mC to C */
+	hyst /= 1000;
+
+	if (trip != 0 || hyst < 0 || hyst > MAX_HYST)
 		return -EINVAL;
 
 	mutex_lock(&td_info->lock_aux);
 
 	rdmsr_on_cpu(0, MSR_THERM_CFG1, &eax, &edx);
 
-	/*
-	 * B[11:13] C2H Hyst, for trip 0
-	 * B[8:10] H2C Hyst, for trip 1
-	 * Report hysteresis in mC
-	 */
-	if (trip == 0)
-		*hyst = ((eax >> 11) & 0x7) * 1000;
-	else
-		*hyst = ((eax >> 8) & 0x7) * 1000;
+	/* B[8:10] H2C Hyst */
+	eax = (eax & ~(0x7 << 8)) | (hyst << 8);
+
+	wrmsr_on_cpu(0, MSR_THERM_CFG1, eax, edx);
 
 	mutex_unlock(&td_info->lock_aux);
 	return 0;
@@ -378,14 +389,6 @@ static ssize_t store_trip_temp(struct thermal_zone_device *tzd,
 	case 1:
 		/* aux1 bits 8:15 */
 		aux = (aux & 0xFFFF00FF) | (aux_trip << (8 * trip));
-		break;
-	case 2:
-		/* aux2 bits 16:23 */
-		aux = (aux & 0xFF00FFFF) | (aux_trip << (8 * trip));
-		break;
-	case 3:
-		/* aux3 bits 24:31 */
-		aux = (aux & 0x00FFFFFF) | (aux_trip << (8 * trip));
 		break;
 	}
 	write_soc_reg(PUNIT_AUX_REG, aux);
@@ -670,6 +673,7 @@ static struct thermal_zone_device_ops tzd_ops = {
 	.get_trip_temp = show_trip_temp,
 	.set_trip_temp = store_trip_temp,
 	.get_trip_hyst = show_trip_hyst,
+	.set_trip_hyst = store_trip_hyst,
 };
 
 static struct thermal_cooling_device_ops soc_cooling_ops = {
@@ -704,7 +708,8 @@ static int soc_thermal_probe(struct platform_device *pdev)
 	/* Register each sensor with the generic thermal framework */
 	for (i = 0; i < SOC_THERMAL_SENSORS; i++) {
 		pdata->tzd[i] = thermal_zone_device_register(name[i],
-					4, DTS_TRIP_RW, initialize_sensor(i),
+					SOC_THERMAL_TRIPS, DTS_TRIP_RW,
+					initialize_sensor(i),
 					&tzd_ops, NULL, 0, 0);
 		if (IS_ERR(pdata->tzd[i])) {
 			ret = PTR_ERR(pdata->tzd[i]);
