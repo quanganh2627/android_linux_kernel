@@ -180,9 +180,9 @@ static void set_batt_chrg_prof(struct ps_pse_mod_prof *batt_prof,
 	batt_prof->capacity = pentry->capacity;
 	batt_prof->voltage_max = pentry->voltage_max;
 	if ((pentry->batt_id[0] == 'I') && (pentry->batt_id[1] == '2'))
-		batt_prof->chrg_term_mA = MRFL_I2_TERM_MA;
+		batt_prof->chrg_term_ma = MRFL_I2_TERM_MA;
 	else
-		batt_prof->chrg_term_mA = pentry->chrg_term_mA;
+		batt_prof->chrg_term_ma = pentry->chrg_term_ma;
 
 	batt_prof->low_batt_mV = pentry->low_batt_mV;
 	batt_prof->disch_tmp_ul = pentry->disch_tmp_ul;

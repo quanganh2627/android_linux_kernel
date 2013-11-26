@@ -199,7 +199,7 @@ static void *platform_get_batt_charge_profile(void)
 	batt_chg_profile.battery_type = 0x2;
 	batt_chg_profile.capacity = 0x2C52;
 	batt_chg_profile.voltage_max = 4350;
-	batt_chg_profile.chrg_term_mA = 300;
+	batt_chg_profile.chrg_term_ma = 300;
 	batt_chg_profile.low_batt_mV = 3400;
 	batt_chg_profile.disch_tmp_ul = 55;
 	batt_chg_profile.disch_tmp_ll = 0;

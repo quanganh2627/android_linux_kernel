@@ -116,7 +116,7 @@ static void dump_batt_chrg_profile(struct ps_pse_mod_prof *bcprof,
 	pr_info("ChrgProf: battery_type:%u\n", bcprof->battery_type);
 	pr_info("ChrgProf: capacity:%u\n", bcprof->capacity);
 	pr_info("ChrgProf: voltage_max:%u\n", bcprof->voltage_max);
-	pr_info("ChrgProf: chrg_term_mA:%u\n", bcprof->chrg_term_mA);
+	pr_info("ChrgProf: chrg_term_mA:%u\n", bcprof->chrg_term_ma);
 	pr_info("ChrgProf: low_batt_mV:%u\n", bcprof->low_batt_mV);
 	pr_info("ChrgProf: disch_tmp_ul:%d\n", bcprof->disch_tmp_ul);
 	pr_info("ChrgProf: disch_tmp_ll:%d\n", bcprof->disch_tmp_ll);
@@ -202,7 +202,7 @@ static void platform_get_sfi_batt_table(void *table, bool fpo_override_bit)
 
 	ps_pse_mod_prof->battery_type = *bprof_ptr;
 	ps_pse_mod_prof->temp_mon_ranges = *++bprof_ptr;
-	ps_pse_mod_prof->chrg_term_mA = 128;
+	ps_pse_mod_prof->chrg_term_ma = 128;
 	ps_pse_mod_prof->low_batt_mV = 3400;
 	ps_pse_mod_prof->disch_tmp_ul = 60;
 	ps_pse_mod_prof->disch_tmp_ll = 0;

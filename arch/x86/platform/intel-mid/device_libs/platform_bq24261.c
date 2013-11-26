@@ -64,7 +64,7 @@ void __init *bq24261_platform_data(void *info)
 	bq24261_pdata.enable_charger = NULL;
 #ifdef CONFIG_PMIC_CCSM
 	bq24261_pdata.enable_charging = pmic_enable_charging;
-	bq24261_pdata.set_inlmt = pmic_set_ilimmA;
+	bq24261_pdata.set_inlmt = pmic_set_ilimma;
 	bq24261_pdata.set_cc = pmic_set_cc;
 	bq24261_pdata.set_cv = pmic_set_cv;
 	bq24261_pdata.dump_master_regs = dump_pmic_regs;
@@ -76,7 +76,7 @@ void __init *bq24261_platform_data(void *info)
 	}
 #endif
 	bq24261_pdata.set_iterm = NULL;
-	bq24261_pdata.boost_mode_mA = BOOST_CUR_LIM;
+	bq24261_pdata.boost_mode_ma = BOOST_CUR_LIM;
 
 	return &bq24261_pdata;
 }

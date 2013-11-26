@@ -21,7 +21,7 @@ extern int pmic_get_status(void);
 extern int pmic_enable_charging(bool);
 extern int pmic_set_cc(int);
 extern int pmic_set_cv(int);
-extern int pmic_set_ilimmA(int);
+extern int pmic_set_ilimma(int);
 extern int pmic_enable_vbus(bool enable);
 /* WA for ShadyCove VBUS removal detect issue */
 extern int pmic_handle_low_supply(void);
