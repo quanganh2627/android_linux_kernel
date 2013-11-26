@@ -191,7 +191,7 @@ enum extcon_chrgr_cbl_stat {
 
 struct extcon_chrgr_cbl_props {
 	enum extcon_chrgr_cbl_stat cable_stat;
-	unsigned long mA;
+	unsigned long ma;
 };
 
 /* extcon device register notify events */

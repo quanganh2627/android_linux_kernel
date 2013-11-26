@@ -284,7 +284,7 @@ static int fsa9285_detect_dev(struct fsa9285_chip *chip)
 					POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 			cable_props.chrg_type =
 					POWER_SUPPLY_CHARGER_TYPE_USB_ACA;
-			cable_props.mA = FSA_CHARGE_CUR_ACA;
+			cable_props.ma = FSA_CHARGE_CUR_ACA;
 			if (!wake_lock_active(&chip->wakelock))
 				wake_lock(&chip->wakelock);
 		} else {
@@ -310,7 +310,7 @@ static int fsa9285_detect_dev(struct fsa9285_chip *chip)
 		cable = FSA9285_EXTCON_CDP;
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_CDP;
-		cable_props.mA = FSA_CHARGE_CUR_CDP;
+		cable_props.ma = FSA_CHARGE_CUR_CDP;
 	} else if (devtype & DEVTYPE_DCP) {
 		dev_info(&chip->client->dev,
 				"DCP cable connecetd\n");
@@ -318,7 +318,7 @@ static int fsa9285_detect_dev(struct fsa9285_chip *chip)
 		cable = FSA9285_EXTCON_DCP;
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_DCP;
-		cable_props.mA = FSA_CHARGE_CUR_DCP;
+		cable_props.ma = FSA_CHARGE_CUR_DCP;
 		if (!wake_lock_active(&chip->wakelock))
 			wake_lock(&chip->wakelock);
 	} else if (devtype & DEVTYPE_DOCK) {
@@ -328,7 +328,7 @@ static int fsa9285_detect_dev(struct fsa9285_chip *chip)
 		cable = FSA9285_EXTCON_DOCK;
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK;
-		cable_props.mA = FSA_CHARGE_CUR_ACA;
+		cable_props.ma = FSA_CHARGE_CUR_ACA;
 		if (!wake_lock_active(&chip->wakelock))
 			wake_lock(&chip->wakelock);
 	} else {
@@ -346,7 +346,7 @@ static int fsa9285_detect_dev(struct fsa9285_chip *chip)
 		discon_evt = true;
 		/* usb switch off per nothing attached */
 		usb_switch = 0;
-		cable_props.mA = 0;
+		cable_props.ma = 0;
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
 	}
 
