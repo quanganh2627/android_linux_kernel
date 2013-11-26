@@ -51,7 +51,6 @@ module_param(hp_amp_time, int, 0644);
  *  #define NVIDIA_DALMORE
  */
 #define JD1_FUNC
-
 #define VERSION "0.0.6 alsa 1.0.25"
 
 struct snd_soc_codec *rt5670_codec;
@@ -674,6 +673,48 @@ static const SOC_ENUM_SINGLE_DECL(rt5670_if2_adc_enum, RT5670_DIG_INF1_DATA,
 				RT5670_IF2_ADC_SEL_SFT, rt5670_data_select);
 
 
+static const char const *rt5670_tdm_slot_select[] = {
+		"2ch", "4ch", "6ch", "8ch"
+};
+
+static const SOC_ENUM_SINGLE_DECL(rt5670_tdm_slot_enum, RT5670_TDM_CTRL_1,
+					12, rt5670_tdm_slot_select);
+
+static const char const *rt5670_tdm_len_select[] = {
+		"16 bits", "20 bits", "24 bits", "32 bits"
+};
+
+static const SOC_ENUM_SINGLE_DECL(rt5670_tdm_len_enum, RT5670_TDM_CTRL_1,
+				10, rt5670_tdm_len_select);
+
+static const char const *rt5670_tdm_adc_location_select[] = {
+		"1L/1R/2L/2R/3L/3R/4L/4R", "2L/2R/1L/1R/4L/4R/3L/3R"
+};
+
+static const SOC_ENUM_SINGLE_DECL(rt5670_tdm_adc_location_enum,
+					RT5670_TDM_CTRL_1, 9,
+					rt5670_tdm_adc_location_select);
+
+static const char const *rt5670_tdm_data_swap_select[] = {
+		"L/R", "R/L", "L/L", "R/R"
+};
+
+static const SOC_ENUM_SINGLE_DECL(rt5670_tdm_adc_slot0_1_enum,
+				RT5670_TDM_CTRL_1, 6,
+				rt5670_tdm_data_swap_select);
+
+static const SOC_ENUM_SINGLE_DECL(rt5670_tdm_adc_slot2_3_enum,
+				RT5670_TDM_CTRL_1, 4,
+				rt5670_tdm_data_swap_select);
+
+static const SOC_ENUM_SINGLE_DECL(rt5670_tdm_adc_slot4_5_enum,
+				RT5670_TDM_CTRL_1, 2,
+				rt5670_tdm_data_swap_select);
+
+static const SOC_ENUM_SINGLE_DECL(rt5670_tdm_adc_slot6_7_enum,
+				RT5670_TDM_CTRL_1, 0,
+				rt5670_tdm_data_swap_select);
+
 static int rt5670_vol_rescale_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
@@ -758,6 +799,19 @@ static const struct snd_kcontrol_new rt5670_snd_controls[] = {
 	SOC_DOUBLE_TLV("STO2 ADC Boost Gain", RT5670_ADC_BST_VOL1,
 			RT5670_STO2_ADC_L_BST_SFT, RT5670_STO2_ADC_R_BST_SFT,
 			3, 0, adc_bst_tlv),
+	/* TDM */
+	SOC_SINGLE("TDM Func", RT5670_TDM_CTRL_1, 14, 1, 0),
+	SOC_ENUM("TDM Slot Sel", rt5670_tdm_slot_enum),
+	SOC_ENUM("TDM Length Sel", rt5670_tdm_len_enum),
+	SOC_ENUM("TDM Adc Location", rt5670_tdm_adc_location_enum),
+	SOC_ENUM("TDM Adc Slot0 1 Data", rt5670_tdm_adc_slot0_1_enum),
+	SOC_ENUM("TDM Adc Slot2 3 Data", rt5670_tdm_adc_slot2_3_enum),
+	SOC_ENUM("TDM Adc Slot4 5 Data", rt5670_tdm_adc_slot4_5_enum),
+	SOC_ENUM("TDM Adc Slot6 7 Data", rt5670_tdm_adc_slot6_7_enum),
+	SOC_SINGLE("TDM IF1_DAC1_L Sel", RT5670_TDM_CTRL_3, 12, 7, 0),
+	SOC_SINGLE("TDM IF1_DAC1_R Sel", RT5670_TDM_CTRL_3, 8, 7, 0),
+	SOC_SINGLE("TDM IF1_DAC2_L Sel", RT5670_TDM_CTRL_3, 4, 7, 0),
+	SOC_SINGLE("TDM IF1_DAC2_R Sel", RT5670_TDM_CTRL_3, 0, 7, 0),
 };
 
 /**
@@ -2562,7 +2616,6 @@ static const struct snd_soc_dapm_route rt5670_dapm_routes[] = {
 	{ "IF1 ADC", NULL, "IF1_ADC2" },
 	{ "IF1 ADC", NULL, "IF_ADC3" },
 	{ "IF1 ADC", NULL, "TxDP_ADC" },
-
 	{ "IF2 ADC Mux", "IF_ADC1", "IF_ADC1" },
 	{ "IF2 ADC Mux", "IF_ADC2", "IF_ADC2" },
 	{ "IF2 ADC Mux", "IF_ADC3", "IF_ADC3" },
@@ -3113,6 +3166,52 @@ static int rt5670_set_dai_pll(struct snd_soc_dai *dai, int pll_id, int source,
 	return 0;
 }
 
+static int rt5670_set_dai_tdm_slot(struct snd_soc_dai *dai, unsigned int tx_mask,
+					unsigned int rx_mask, int slots, int slot_width)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	unsigned int val = 0;
+
+	pr_debug("rt5670_set_dai_tdm_slot # of slots = %d, slot width = %d, Previous status =%x\n", slots, slot_width,
+			snd_soc_read(codec, RT5670_TDM_CTRL_1));
+
+	if (rx_mask || tx_mask)
+		val |= (1 << 14);
+
+	switch (slots) {
+	case 4:
+		val |= (1 << 12);
+		break;
+	case 6:
+		val |= (2 << 12);
+		break;
+	case 8:
+		val |= (3 << 12);
+		break;
+	case 2:
+	default:
+		break;
+	}
+
+	switch (slot_width) {
+	case 20:
+		val |= (1 << 10);
+		break;
+	case 24:
+		val |= (2 << 10);
+		break;
+	case 32:
+		val |= (3 << 10);
+		break;
+	case 16:
+	default:
+		break;
+	}
+
+	snd_soc_update_bits(codec, RT5670_TDM_CTRL_1, 0x7c00, val);
+	return 0;
+}
+
 /**
  * rt5670_index_show - Dump private registers.
  * @dev: codec device.
@@ -3453,6 +3552,7 @@ struct snd_soc_dai_ops rt5670_aif_dai_ops = {
 	.prepare = rt5670_prepare,
 	.set_fmt = rt5670_set_dai_fmt,
 	.set_sysclk = rt5670_set_dai_sysclk,
+	.set_tdm_slot = rt5670_set_dai_tdm_slot,
 	.set_pll = rt5670_set_dai_pll,
 	.shutdown = rt5670_shutdown,
 };
