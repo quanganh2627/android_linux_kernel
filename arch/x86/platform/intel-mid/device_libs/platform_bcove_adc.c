@@ -181,7 +181,9 @@ void __init *bcove_adc_platform_data(void *info)
 		bcove_adc_pdata.gpadc_regs = &basincove_gpadc_regs;
 		bcove_adc_pdata.gpadc_channels = basincove_adc_channels;
 	} else if (INTEL_MID_BOARD(1, PHONE, MOOR) ||
-		INTEL_MID_BOARD(1, TABLET, MOOR)) {
+		INTEL_MID_BOARD(1, TABLET, MOOR) ||
+		INTEL_MID_BOARD(1, PHONE, MRFLPLUS) ||
+		INTEL_MID_BOARD(1, TABLET, MRFLPLUS)) {
 		bcove_adc_pdata.channel_num = SCOVE_GPADC_CH_NUM;
 		bcove_adc_pdata.intr = GPADC_SRAM_INTR_ADDR;
 		bcove_adc_pdata.intr_mask = MUSBID | MPEAK | MBATTEMP
