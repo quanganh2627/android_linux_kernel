@@ -347,7 +347,7 @@ static int dwc_otg_get_chrg_status(struct usb_phy *x, void *data)
 	spin_lock_irqsave(&otg->lock, flags);
 	cap->chrg_type = otg->charging_cap.chrg_type;
 	cap->chrg_evt = otg->charging_cap.chrg_evt;
-	cap->mA = otg->charging_cap.mA;
+	cap->ma = otg->charging_cap.ma;
 	spin_unlock_irqrestore(&otg->lock, flags);
 
 	return 0;
@@ -521,7 +521,7 @@ static enum dwc_otg_state do_charger_detection(struct dwc_otg2 *otg)
 
 	spin_lock_irqsave(&otg->lock, flags);
 	otg->charging_cap.chrg_type = charger;
-	otg->charging_cap.mA = ma;
+	otg->charging_cap.ma = ma;
 	spin_unlock_irqrestore(&otg->lock, flags);
 
 	switch (charger) {
@@ -552,7 +552,7 @@ static enum dwc_otg_state do_connector_id_status(struct dwc_otg2 *otg)
 	otg_dbg(otg, "\n");
 	spin_lock_irqsave(&otg->lock, flags);
 	otg->charging_cap.chrg_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
-	otg->charging_cap.mA = 0;
+	otg->charging_cap.ma = 0;
 	otg->charging_cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
 	spin_unlock_irqrestore(&otg->lock, flags);
 

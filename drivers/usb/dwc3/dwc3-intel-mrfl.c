@@ -572,7 +572,7 @@ static int dwc3_intel_set_power(struct usb_phy *_otg,
 	if (ma == OTG_DEVICE_SUSPEND) {
 		spin_lock_irqsave(&otg->lock, flags);
 		cap.chrg_type = otg->charging_cap.chrg_type;
-		cap.mA = otg->charging_cap.mA;
+		cap.ma = otg->charging_cap.ma;
 		cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_SUSPEND;
 		spin_unlock_irqrestore(&otg->lock, flags);
 
@@ -580,9 +580,9 @@ static int dwc3_intel_set_power(struct usb_phy *_otg,
 		 * If SMIP set, then notify 500mA.
 		 * Otherwise, notify 0mA.
 		*/
-		if (!cap.mA) {
+		if (!cap.ma) {
 			if (data->charging_compliance) {
-				cap.mA = 500;
+				cap.ma = 500;
 				cap.chrg_evt =
 					POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 			}
@@ -593,7 +593,7 @@ static int dwc3_intel_set_power(struct usb_phy *_otg,
 		 * Should send 0mA with SUSPEND event
 		 */
 		else
-			cap.mA = 0;
+			cap.ma = 0;
 
 		atomic_notifier_call_chain(&otg->usb2_phy.notifier,
 				USB_EVENT_CHARGER, &cap);
@@ -637,7 +637,7 @@ static int dwc3_intel_set_power(struct usb_phy *_otg,
 	}
 
 	spin_lock_irqsave(&otg->lock, flags);
-	otg->charging_cap.mA = ma;
+	otg->charging_cap.ma = ma;
 	spin_unlock_irqrestore(&otg->lock, flags);
 
 	dwc3_intel_notify_charger_type(otg,
@@ -674,17 +674,17 @@ static int dwc3_intel_notify_charger_type(struct dwc_otg2 *otg,
 
 	if ((otg->charging_cap.chrg_type ==
 			POWER_SUPPLY_CHARGER_TYPE_USB_SDP) &&
-			((otg->charging_cap.mA != 100) &&
-			 (otg->charging_cap.mA != 150) &&
-			 (otg->charging_cap.mA != 500) &&
-			 (otg->charging_cap.mA != 900))) {
+			((otg->charging_cap.ma != 100) &&
+			 (otg->charging_cap.ma != 150) &&
+			 (otg->charging_cap.ma != 500) &&
+			 (otg->charging_cap.ma != 900))) {
 		otg_err(otg, "%s: invalid SDP current!\n", __func__);
 		return -EINVAL;
 	}
 
 	spin_lock_irqsave(&otg->lock, flags);
 	cap.chrg_type = otg->charging_cap.chrg_type;
-	cap.mA = otg->charging_cap.mA;
+	cap.ma = otg->charging_cap.ma;
 	cap.chrg_evt = event;
 	spin_unlock_irqrestore(&otg->lock, flags);
 
@@ -994,7 +994,7 @@ static int dwc3_intel_handle_notification(struct notifier_block *nb,
 			otg->otg_events &= ~OEVT_A_DEV_SESS_END_DET_EVNT;
 
 			cap_record.chrg_type = cap->chrg_type;
-			cap_record.mA = cap->mA;
+			cap_record.ma = cap->ma;
 			cap_record.chrg_evt = cap->chrg_evt;
 		} else if (cap->chrg_evt ==
 				POWER_SUPPLY_CHARGER_EVENT_DISCONNECT) {
@@ -1002,7 +1002,7 @@ static int dwc3_intel_handle_notification(struct notifier_block *nb,
 			otg->otg_events &= ~OEVT_B_DEV_SES_VLD_DET_EVNT;
 
 			cap_record.chrg_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
-			cap_record.mA = 0;
+			cap_record.ma = 0;
 			cap_record.chrg_evt =
 				POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
 		}
