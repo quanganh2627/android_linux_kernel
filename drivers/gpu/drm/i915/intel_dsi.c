@@ -182,9 +182,8 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 		I915_WRITE(MIPI_MAX_RETURN_PKT_SIZE(pipe), 8 * 4);
 	}
 	else {
-		msleep(20); /* XXX */
 		dpi_send_cmd(intel_dsi, TURN_ON);
-		msleep(100);
+		usleep_range(20000, 21000);
 
 		temp = I915_READ(MIPI_PORT_CTRL(pipe));
 		temp = temp | intel_dsi->port_bits;

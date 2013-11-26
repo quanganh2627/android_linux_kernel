@@ -1835,7 +1835,14 @@ static void intel_enable_pipe(struct drm_i915_private *dev_priv, enum pipe pipe,
 		return;
 
 	I915_WRITE(reg, val | PIPECONF_ENABLE);
-	intel_wait_for_vblank(dev_priv->dev, pipe);
+	/* No need to wait in case of mipi.
+	 * Since data will flow only when port is enabled.
+	 * wait for vblank will time out for mipi
+	 */
+	if (!dsi)
+		intel_wait_for_vblank(dev_priv->dev, pipe);
+	else
+		POSTING_READ(reg);
 }
 
 /**
@@ -1904,6 +1911,7 @@ static void intel_enable_plane(struct drm_i915_private *dev_priv,
 {
 	int reg;
 	u32 val;
+	struct drm_crtc *crtc = dev_priv->pipe_to_crtc_mapping[pipe];
 
 	/* If the pipe isn't enabled, we can't pump pixels and may hang */
 	assert_pipe_enabled(dev_priv, pipe);
@@ -1915,7 +1923,14 @@ static void intel_enable_plane(struct drm_i915_private *dev_priv,
 
 	I915_WRITE(reg, val | DISPLAY_PLANE_ENABLE);
 	intel_flush_display_plane(dev_priv, plane);
-	intel_wait_for_vblank(dev_priv->dev, pipe);
+	/* No need to wait in case of mipi.
+	 * Since data will flow only when port is enabled.
+	 * wait for vblank will time out for mipi
+	 */
+	if (!intel_pipe_has_type(crtc, INTEL_OUTPUT_DSI))
+		intel_wait_for_vblank(dev_priv->dev, pipe);
+	else
+		POSTING_READ(reg);
 }
 
 /**

@@ -135,7 +135,7 @@ static int vvx09f006a00_mode_valid(struct intel_dsi_device *dsi,
 void vvx09f006a00_panel_reset(struct intel_dsi_device *dsi)
 {
 	intel_mid_pmic_writeb(0x52, 0x01);
-	msleep(120);
+	usleep_range(85000, 90000);
 }
 
 void  vvx09f006a00_disable_panel_power(struct intel_dsi_device *dsi)
