@@ -1208,9 +1208,10 @@
 #define   GMBUS_HW_RDY_EN	(1<<0)
 #define GMBUS5			0x5120 /* byte index */
 #define   GMBUS_2BYTE_INDEX_EN	(1<<31)
-#define GMBUSFREQ		0x6510
-#define CD_CZ_CLOCK_FREQ_REG	0x6508	/* CZ Clock, CD Clock Frequency
-					 * Ratio register */
+#define GMBUSFREQ		(VLV_DISPLAY_BASE + 0x6510)
+
+/* CZ Clock, CD Clock Frequency ratio register */
+#define CD_CZ_CLOCK_FREQ_REG	(VLV_DISPLAY_BASE + 0x6508)
 
 /*
  * Clock control & power management
@@ -3352,7 +3353,7 @@ EDP_PSR_SW_TIMER
 #define I915_FIFO_LINE_SIZE	64
 #define I830_FIFO_LINE_SIZE	32
 
-#define VALLEYVIEW_FIFO_SIZE	255
+#define VALLEYVIEW_FIFO_SIZE	511
 #define G4X_FIFO_SIZE		127
 #define I965_FIFO_SIZE		512
 #define I945_FIFO_SIZE		127

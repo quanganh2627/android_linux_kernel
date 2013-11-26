@@ -609,6 +609,9 @@ extern void intel_panel_enable_backlight(struct drm_device *dev,
 extern void intel_panel_disable_backlight(struct drm_device *dev);
 extern void intel_panel_destroy_backlight(struct drm_device *dev);
 extern enum drm_connector_status intel_panel_detect(struct drm_device *dev);
+extern void intel_get_cd_cz_clk(struct drm_i915_private *dev_priv, int *cd_clk,
+				int *cz_clk);
+
 
 struct intel_set_config {
 	struct drm_encoder **save_connector_encoders;

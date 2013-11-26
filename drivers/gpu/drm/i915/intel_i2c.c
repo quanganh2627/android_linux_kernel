@@ -592,10 +592,11 @@ err:
 	return ret;
 }
 
-void intel_set_gmbus_frequency(struct drm_i915_private *dev_priv)
+void intel_get_cd_cz_clk(struct drm_i915_private *dev_priv, int *cd_clk,
+				int *cz_clk)
 {
-	u32 cck_fuse, cd_clk_index, cd_clk = 0;
-	int gmbus_clock;
+	u32 cck_fuse, clk_index, cd_clk_index, cz_clk_index;
+
 	u16  m_cd_clk_vco_800_tbl[] = {0, 800, 533, 400, 320, 267, 0, 200, 178,
 				160, 0, 133, 0, 0, 107, 100, 0, 89, 0,
 				80, 0, 0, 0, 67, 0, 0, 0, 0, 0, 53, 0, 50};
@@ -610,18 +611,38 @@ void intel_set_gmbus_frequency(struct drm_i915_private *dev_priv)
 	cck_fuse = vlv_cck_read(dev_priv, 0x08);
 	cck_fuse = cck_fuse & 0x03;
 
-	/* Get the CD Clock Index */
-	cd_clk_index = I915_READ(CD_CZ_CLOCK_FREQ_REG);
-	cd_clk_index = (cd_clk_index & 0x1F0) >> 4;
-	if (cck_fuse == 0)
-		cd_clk = m_cd_clk_vco_800_tbl[cd_clk_index];
-	else if (cck_fuse == 1)
-		cd_clk = m_cd_clk_vco_1600_tbl[cd_clk_index];
-	else if (cck_fuse == 2)
-		cd_clk = m_cd_clk_vco_2000_tbl[cd_clk_index];
+	clk_index = I915_READ(CD_CZ_CLOCK_FREQ_REG);
 
-	gmbus_clock = cd_clk * 100 / 102;
-	I915_WRITE(GMBUSFREQ, gmbus_clock);
+	/* Get the CD Clock Index */
+	cd_clk_index = (clk_index & 0x1F0) >> 4;
+	/* Get the CZ Clock Index */
+	cz_clk_index = (clk_index & 0xF);
+
+	switch (cck_fuse) {
+	case 0:
+		*cd_clk = m_cd_clk_vco_800_tbl[cd_clk_index];
+		*cz_clk = m_cd_clk_vco_800_tbl[cz_clk_index];
+		break;
+	case 1:
+		*cd_clk = m_cd_clk_vco_1600_tbl[cd_clk_index];
+		*cz_clk = m_cd_clk_vco_1600_tbl[cz_clk_index];
+		break;
+	case 2:
+		*cd_clk = m_cd_clk_vco_2000_tbl[cd_clk_index];
+		*cz_clk = m_cd_clk_vco_2000_tbl[cz_clk_index];
+		break;
+	default:
+		break;
+	}
+}
+
+void intel_set_gmbus_frequency(struct drm_i915_private *dev_priv)
+{
+	int cd_clk, cz_clk;
+
+	intel_get_cd_cz_clk(dev_priv, &cd_clk, &cz_clk);
+
+	I915_WRITE(GMBUSFREQ, cd_clk);
 }
 
 struct i2c_adapter *intel_gmbus_get_adapter(struct drm_i915_private *dev_priv,
