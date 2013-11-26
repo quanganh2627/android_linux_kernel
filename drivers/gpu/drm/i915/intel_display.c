@@ -2439,15 +2439,20 @@ void intel_display_handle_reset(struct drm_device *dev)
 
 		intel_prepare_page_flip(dev, plane);
 		intel_finish_page_flip_plane(dev, plane);
+
+		intel_prepare_sprite_page_flip(dev, intel_crtc->pipe);
+		intel_finish_sprite_page_flip(dev, intel_crtc->pipe);
 	}
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 
 		mutex_lock(&crtc->mutex);
-		if (intel_crtc->active)
-			dev_priv->display.update_plane(crtc, crtc->fb,
+		if (intel_crtc->active) {
+			if (!intel_crtc->primary_disabled)
+				dev_priv->display.update_plane(crtc, crtc->fb,
 						       crtc->x, crtc->y);
+		}
 		mutex_unlock(&crtc->mutex);
 	}
 }
@@ -3128,7 +3133,8 @@ static bool intel_crtc_has_pending_flip(struct drm_crtc *crtc)
 	bool pending;
 
 	spin_lock_irqsave(&dev->event_lock, flags);
-	pending = to_intel_crtc(crtc)->unpin_work != NULL;
+	pending = ((to_intel_crtc(crtc)->unpin_work != NULL) ||
+			(to_intel_crtc(crtc)->sprite_unpin_work != NULL));
 	spin_unlock_irqrestore(&dev->event_lock, flags);
 
 	return pending;
@@ -3148,6 +3154,8 @@ static void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 		   !intel_crtc_has_pending_flip(crtc));
 
 	mutex_lock(&dev->struct_mutex);
+	if (to_intel_crtc(crtc)->sprite_unpin_work)
+		intel_finish_sprite_page_flip(dev, to_intel_crtc(crtc)->pipe);
 	intel_finish_fb(crtc->fb);
 	mutex_unlock(&dev->struct_mutex);
 }
@@ -8136,19 +8144,24 @@ static void intel_crtc_destroy(struct drm_crtc *crtc)
 {
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
-	struct intel_unpin_work *work;
+	struct intel_unpin_work *work, *sprite_work;
 	unsigned long flags;
 
 	spin_lock_irqsave(&dev->event_lock, flags);
 	work = intel_crtc->unpin_work;
+	sprite_work = intel_crtc->sprite_unpin_work;
 	intel_crtc->unpin_work = NULL;
+	intel_crtc->sprite_unpin_work = NULL;
 	spin_unlock_irqrestore(&dev->event_lock, flags);
 
 	if (work) {
 		cancel_work_sync(&work->work);
 		kfree(work);
 	}
-
+	if (sprite_work) {
+		cancel_work_sync(&sprite_work->work);
+		kfree(sprite_work);
+	}
 	intel_crtc_cursor_set(crtc, NULL, 0, 0, 0);
 
 	drm_crtc_cleanup(crtc);
@@ -8677,7 +8690,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 		kfree(work);
 		drm_vblank_put(dev, intel_crtc->pipe);
-
+		intel_crtc->unpin_work = NULL;
 		DRM_DEBUG_DRIVER("flip queue: crtc already busy\n");
 		return -EBUSY;
 	}
@@ -10316,6 +10329,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->rotate180 = false;
 
 	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);
+	intel_crtc->sprite_unpin_work = NULL;
 
 	intel_crtc->primary_alpha = false;
 	intel_crtc->sprite0_alpha = true;

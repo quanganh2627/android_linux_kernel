@@ -311,7 +311,7 @@ struct intel_crtc {
 	bool lowfreq_avail;
 	struct intel_overlay *overlay;
 	struct intel_unpin_work *unpin_work;
-
+	struct intel_unpin_work *sprite_unpin_work;
 	atomic_t unpin_work_count;
 
 	/* Display surface base address adjustement for pageflips. Note that on
@@ -375,7 +375,8 @@ struct intel_plane {
 			     int crtc_x, int crtc_y,
 			     unsigned int crtc_w, unsigned int crtc_h,
 			     uint32_t x, uint32_t y,
-			     uint32_t src_w, uint32_t src_h);
+			     uint32_t src_w, uint32_t src_h,
+			     struct drm_pending_vblank_event *event);
 	void (*disable_plane)(struct drm_plane *plane,
 			      struct drm_crtc *crtc);
 	int (*update_colorkey)(struct drm_plane *plane,
@@ -714,6 +715,8 @@ extern void intel_fbdev_set_suspend(struct drm_device *dev, int state);
 extern void intel_prepare_page_flip(struct drm_device *dev, int plane);
 extern void intel_finish_page_flip(struct drm_device *dev, int pipe);
 extern void intel_finish_page_flip_plane(struct drm_device *dev, int plane);
+extern void intel_prepare_sprite_page_flip(struct drm_device *dev, int plane);
+extern void intel_finish_sprite_page_flip(struct drm_device *dev, int plane);
 
 extern void intel_setup_overlay(struct drm_device *dev);
 extern void intel_cleanup_overlay(struct drm_device *dev);

@@ -263,7 +263,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		 struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
 		 unsigned int crtc_w, unsigned int crtc_h,
 		 uint32_t x, uint32_t y,
-		 uint32_t src_w, uint32_t src_h)
+		 uint32_t src_w, uint32_t src_h,
+		 struct drm_pending_vblank_event *event)
 {
 	struct drm_device *dev = dplane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -407,7 +408,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	I915_WRITE(SPCNTR(pipe, plane), sprctl);
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), i915_gem_obj_ggtt_offset(obj) +
 			     sprsurf_offset);
-	POSTING_READ(SPSURF(pipe, plane));
+	if (event == NULL)
+		POSTING_READ(SPSURF(pipe, plane));
 }
 
 static void
@@ -434,6 +436,83 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	POSTING_READ(SPSURF(pipe, plane));
 
 	intel_update_sprite_watermarks(dplane, crtc, 0, 0, false, false);
+}
+
+void intel_prepare_sprite_page_flip(struct drm_device *dev, int plane)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc =
+		to_intel_crtc(dev_priv->plane_to_crtc_mapping[plane]);
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+
+	if (intel_crtc->sprite_unpin_work) {
+		atomic_inc(&intel_crtc->sprite_unpin_work->pending);
+		if (atomic_read(&intel_crtc->sprite_unpin_work->pending) > 1)
+			DRM_ERROR("Prepared flip multiple times\n");
+	}
+
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+
+}
+
+void intel_finish_sprite_page_flip(struct drm_device *dev, int pipe)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct drm_crtc *crtc = dev_priv->pipe_to_crtc_mapping[pipe];
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_unpin_work *work;
+	struct drm_i915_gem_object *obj;
+	unsigned long flags;
+
+	/* Ignore early vblank irqs */
+	if (intel_crtc == NULL)
+		return;
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+	work = intel_crtc->sprite_unpin_work;
+
+	if (work == NULL || !atomic_read(&work->pending)) {
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+		return;
+	}
+
+	intel_crtc->sprite_unpin_work = NULL;
+	if (work->event)
+		drm_send_vblank_event(dev, intel_crtc->pipe, work->event);
+
+	drm_vblank_put(dev, intel_crtc->pipe);
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+
+	if (work->old_fb_obj != NULL) {
+		obj = work->old_fb_obj;
+
+		atomic_clear_mask(1 << intel_crtc->plane,
+			&obj->pending_flip.counter);
+
+		if (atomic_read(&obj->pending_flip) == 0)
+			wake_up_all(&dev_priv->pending_flip_queue);
+	} else
+		wake_up_all(&dev_priv->pending_flip_queue);
+
+	queue_work(dev_priv->wq, &work->work);
+	trace_i915_flip_complete(intel_crtc->plane, work->pending_flip_obj);
+}
+
+void intel_unpin_sprite_work_fn(struct work_struct *__work)
+{
+	struct intel_unpin_work *work =
+			container_of(__work, struct intel_unpin_work, work);
+	struct drm_device *dev = work->crtc->dev;
+	mutex_lock(&dev->struct_mutex);
+	if (work->old_fb_obj != NULL) {
+		intel_unpin_fb_obj(work->old_fb_obj);
+		drm_gem_object_unreference(&work->old_fb_obj->base);
+	}
+	mutex_unlock(&dev->struct_mutex);
+
+	kfree(work);
 }
 
 static int
@@ -493,7 +572,8 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		 struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
 		 unsigned int crtc_w, unsigned int crtc_h,
 		 uint32_t x, uint32_t y,
-		 uint32_t src_w, uint32_t src_h)
+		 uint32_t src_w, uint32_t src_h,
+		 struct drm_pending_vblank_event *e)
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -687,7 +767,8 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		 struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
 		 unsigned int crtc_w, unsigned int crtc_h,
 		 uint32_t x, uint32_t y,
-		 uint32_t src_w, uint32_t src_h)
+		 uint32_t src_w, uint32_t src_h,
+		 struct drm_pending_vblank_event *e)
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -811,12 +892,14 @@ intel_disable_primary(struct drm_crtc *crtc)
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	int reg = DSPCNTR(intel_crtc->plane);
+	int plane = intel_crtc->plane;
+	int reg = DSPCNTR(plane);
 
 	if (intel_crtc->primary_disabled)
 		return;
 
 	I915_WRITE(reg, I915_READ(reg) & ~DISPLAY_PLANE_ENABLE);
+	I915_WRITE(DSPSURF(plane), I915_READ(DSPSURF(plane)));
 
 	intel_crtc->primary_disabled = true;
 	intel_update_fbc(dev);
@@ -895,7 +978,8 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		   struct drm_framebuffer *fb, int crtc_x, int crtc_y,
 		   unsigned int crtc_w, unsigned int crtc_h,
 		   uint32_t src_x, uint32_t src_y,
-		   uint32_t src_w, uint32_t src_h)
+		   uint32_t src_w, uint32_t src_h,
+		   struct drm_pending_vblank_event *event)
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -903,6 +987,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	struct intel_framebuffer *intel_fb;
 	struct drm_i915_gem_object *obj, *old_obj;
+	unsigned long flags;
 	int pipe = intel_plane->pipe;
 	enum transcoder cpu_transcoder = intel_pipe_to_cpu_transcoder(dev_priv,
 								      pipe);
@@ -930,7 +1015,11 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		.x2 = crtc->mode.hdisplay,
 		.y2 = crtc->mode.vdisplay,
 	};
-
+	struct intel_unpin_work *work = NULL;
+	if (event == NULL)
+		intel_enable_primary(crtc);
+	else
+		intel_disable_primary(crtc);
 	intel_fb = to_intel_framebuffer(fb);
 	obj = intel_fb->obj;
 
@@ -1088,14 +1177,52 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		disable_primary = drm_rect_equals(&dst, &clip);
 		WARN_ON(disable_primary && !visible);
 	}
+	if (event) {
+		work = kzalloc(sizeof(*work), GFP_KERNEL);
+		if (work == NULL)
+			return -ENOMEM;
+		work->event = event;
+		work->crtc = crtc;
+		work->old_fb_obj = old_obj;
+		INIT_WORK(&work->work, intel_unpin_sprite_work_fn);
 
-	mutex_lock(&dev->struct_mutex);
-	drm_gem_object_reference(&obj->base);
+		ret = drm_vblank_get(dev, intel_crtc->pipe);
+		if (ret)
+			goto free_work;
+
+		/* We borrow the event spin lock for protecting unpin_work */
+		spin_lock_irqsave(&dev->event_lock, flags);
+		if (intel_crtc->sprite_unpin_work) {
+			spin_unlock_irqrestore(&dev->event_lock, flags);
+			kfree(work);
+			drm_vblank_put(dev, intel_crtc->pipe);
+			intel_crtc->sprite_unpin_work = NULL;
+			DRM_ERROR("flip queue: crtc already busy\n");
+			return -EBUSY;
+		}
+
+		intel_crtc->sprite_unpin_work = work;
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+
+		ret = i915_mutex_lock_interruptible(dev);
+		if (ret)
+			goto cleanup;
+
+		work->pending_flip_obj = obj;
+		/* Block clients from rendering to the new back buffer until
+		* the flip occurs and the object is no longer visible.
+		*/
+		if (work->old_fb_obj != NULL)
+			atomic_add(1 << intel_crtc->plane,
+				&work->old_fb_obj->pending_flip);
+	} else
+		mutex_lock(&dev->struct_mutex);
 	/* Note that this will apply the VT-d workaround for scanouts,
 	 * which is more restrictive than required for sprites. (The
 	 * primary plane requires 256KiB alignment with 64 PTE padding,
 	 * the sprite planes only require 128KiB alignment and 32 PTE padding.
 	 */
+	drm_gem_object_reference(&obj->base);
 	ret = intel_pin_and_fence_fb_obj(dev, obj, NULL);
 	if (ret) {
 		drm_gem_object_unreference(&obj->base);
@@ -1113,11 +1240,11 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 			intel_enable_primary(crtc);
 	}
 
-	if (visible)
+	if (visible) {
 		intel_plane->update_plane(plane, crtc, fb, obj,
 					  crtc_x, crtc_y, crtc_w, crtc_h,
-					  src_x, src_y, src_w, src_h);
-	else
+					  src_x, src_y, src_w, src_h, event);
+	} else
 		intel_plane->disable_plane(plane, crtc);
 
 	if (!IS_VALLEYVIEW(dev)) {
@@ -1126,7 +1253,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	}
 
 	/* Unpin old obj after new one is active to avoid ugliness */
-	if (old_obj) {
+	if (old_obj && (event == NULL)) {
 		if (!IS_VALLEYVIEW(dev)) {
 			/*
 			 * It's fairly common to simply update the position of
@@ -1143,10 +1270,23 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		}
 		intel_unpin_fb_obj(old_obj);
 		drm_gem_object_unreference(&old_obj->base);
+		if (intel_plane->plane == 0)
+			intel_crtc->sprite_unpin_work = NULL;
 	}
 
 out_unlock:
 	mutex_unlock(&dev->struct_mutex);
+	if (event)
+		trace_i915_flip_request(intel_crtc->plane, obj);
+	return ret;
+cleanup:
+	spin_lock_irqsave(&dev->event_lock, flags);
+	intel_crtc->sprite_unpin_work = NULL;
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+	drm_vblank_put(dev, intel_crtc->pipe);
+free_work:
+	kfree(work);
+
 	return ret;
 }
 
@@ -1266,7 +1406,7 @@ void intel_plane_restore(struct drm_plane *plane)
 			   intel_plane->crtc_x, intel_plane->crtc_y,
 			   intel_plane->crtc_w, intel_plane->crtc_h,
 			   intel_plane->src_x, intel_plane->src_y,
-			   intel_plane->src_w, intel_plane->src_h);
+			   intel_plane->src_w, intel_plane->src_h, NULL);
 }
 
 void intel_plane_disable(struct drm_plane *plane)

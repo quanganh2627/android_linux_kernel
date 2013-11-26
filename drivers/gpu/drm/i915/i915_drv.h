@@ -1750,6 +1750,13 @@ struct drm_i915_gem_object {
 
 	/** Object datatype */
 	uint32_t datatype;
+
+	/**
+	* Number of crtcs where this object is currently the fb, but
+	* will be page flipped away on the next vblank.  When it
+	* reaches 0, dev_priv->pending_flip_queue will be woken up.
+	*/
+	atomic_t pending_flip;
 };
 
 struct i915_gem_userptr_object {

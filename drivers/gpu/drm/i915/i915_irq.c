@@ -1425,6 +1425,10 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 				intel_prepare_page_flip(dev, pipe);
 				intel_finish_page_flip(dev, pipe);
 			}
+			if (pipe_stats[pipe] & SPRITE_FLIPDONE_INT_STATUS_VLV) {
+				intel_prepare_sprite_page_flip(dev, pipe);
+				intel_finish_sprite_page_flip(dev, pipe);
+			}
 			if (pipe_stats[pipe] & PIPE_DPST_EVENT_STATUS) {
 
 #ifdef CONFIG_DEBUG_FS
