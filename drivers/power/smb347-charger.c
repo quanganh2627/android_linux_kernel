@@ -920,7 +920,7 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 			POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type =
 			POWER_SUPPLY_CHARGER_TYPE_USB_ACA;
-		cable_props.mA = SMB_CHRG_CUR_ACA;
+		cable_props.ma = SMB_CHRG_CUR_ACA;
 		notify_chrg = 1;
 		vbus_present = 1;
 		if (!wake_lock_active(&smb->wakelock))
@@ -930,7 +930,7 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 	case SMB_CHRG_TYPE_CDP:
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_CDP;
-		cable_props.mA = SMB_CHRG_CUR_CDP;
+		cable_props.ma = SMB_CHRG_CUR_CDP;
 		notify_chrg = 1;
 		notify_usb = 1;
 		vbus_present = 1;
@@ -939,7 +939,7 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 	case SMB_CHRG_TYPE_SDP:
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
-		cable_props.mA = SMB_CHRG_CUR_SDP;
+		cable_props.ma = SMB_CHRG_CUR_SDP;
 		notify_usb = 1;
 		notify_chrg = 1;
 		vbus_present = 1;
@@ -948,7 +948,7 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 	case SMB_CHRG_TYPE_DCP:
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_DCP;
-		cable_props.mA = SMB_CHRG_CUR_DCP;
+		cable_props.ma = SMB_CHRG_CUR_DCP;
 		notify_chrg = 1;
 		vbus_present = 1;
 		if (!wake_lock_active(&smb->wakelock))
@@ -957,7 +957,7 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 
 	default:
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
-		cable_props.mA = 0;
+		cable_props.ma = 0;
 		vbus_present = 0;
 		if (wake_lock_active(&smb->wakelock))
 			wake_unlock(&smb->wakelock);
