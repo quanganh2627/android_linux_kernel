@@ -18,6 +18,8 @@
  */
 #include "intel_soc_pci_acpi_quirk.h"
 
+#define PCI_IUNIT_CSI_CONTROL_CHT	0xe8
+
 bool acpi_pci_quirk_power_manageable(struct pci_dev *dev)
 {
 	/*
@@ -44,9 +46,16 @@ pci_power_t acpi_pci_quirk_choose_state(struct pci_dev *pdev)
 }
 EXPORT_SYMBOL(acpi_pci_quirk_choose_state);
 
+static bool is_cht_iunit(struct pci_dev *dev)
+{
+	return (dev->vendor == PCI_VENDOR_ID_INTEL &&
+		dev->device == PCI_DEVICE_ID_IUNIT_CHT);
+
+}
+
 int acpi_pci_quirk_set_state(struct pci_dev *dev, pci_power_t state)
 {
-	int error = -EINVAL;
+	int data, error = -EINVAL;
 
 	if (!acpi_pci_quirk_power_manageable(dev))
 		return PCI_POWER_ERROR;
@@ -56,6 +65,21 @@ int acpi_pci_quirk_set_state(struct pci_dev *dev, pci_power_t state)
 	case PCI_D0:
 		error = pmc_nc_set_power_state(ISP_PWR_ISLAND,
 				OSPM_ISLAND_UP, 0x39);
+		/*
+		 * Workaround for CHT HSD 4797062
+		 * after IUNIT powers up, do following immediately:
+		 * 1. driver should issue a PCI read cycle to IUNIT pci
+		 * config space.
+		 * 2. driver should enable camera ports
+		 * (clear [2:0] of port 0x1c, offset 0xe8)
+		 */
+		if (is_cht_iunit(dev) && !error) {
+			pci_read_config_dword(dev, PCI_IUNIT_CSI_CONTROL_CHT,
+					      &data);
+			data &= ~(0x7);
+			pci_write_config_dword(dev, PCI_IUNIT_CSI_CONTROL_CHT,
+					       data);
+		}
 		break;
 
 	case PCI_D1:
@@ -68,6 +92,17 @@ int acpi_pci_quirk_set_state(struct pci_dev *dev, pci_power_t state)
 		}
 
 	case PCI_D3hot:
+		/*
+		 * Workaround for CHT HSD 4797062
+		 * before IUNIT powers down, do following immediately
+		 * driver should disable camera ports
+		 * (set [2:0] of port 0x1c, offset 0xe8).
+		 */
+		if (is_cht_iunit(dev)) {
+			pci_read_config_dword(dev, PCI_IUNIT_CSI_CONTROL_CHT, &data);
+			data |= 0x7;
+			pci_write_config_dword(dev, PCI_IUNIT_CSI_CONTROL_CHT, data);
+		}
 		error = pmc_nc_set_power_state(ISP_PWR_ISLAND,
 				OSPM_ISLAND_DOWN, 0x39);
 		break;
