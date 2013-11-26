@@ -481,9 +481,17 @@ static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 
 	pr_debug("Enter:%s", __func__);
-	/* I2S Slave Mode`*/
-	fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
-	      SND_SOC_DAIFMT_CBS_CFS;
+
+	/* TDM 4 slot 24 bit */
+	ret = snd_soc_dai_set_tdm_slot(codec_dai, 0, 0, 4, SNDRV_PCM_FORMAT_GSM);
+	if (ret < 0) {
+		pr_err("can't set codec TDM slot %d\n", ret);
+		return ret;
+	}
+
+	/* TDM slave Mode */
+	fmt =   SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF
+		| SND_SOC_DAIFMT_CBS_CFS;
 
 	/* Set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai, fmt);
