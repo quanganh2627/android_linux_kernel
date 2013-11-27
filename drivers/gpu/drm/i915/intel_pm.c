@@ -4235,6 +4235,13 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 	vlv_punit_write(dev_priv, PUNIT_REG_GPU_FREQ_REQ,
 					dev_priv->rps.rpe_delay);
 
+	/* If Rpe=Rp0, disable turbo to avoid interrupt processing overhead.
+	This fuse setting is present in BYT-CR */
+	if (dev_priv->rps.rpe_delay == dev_priv->rps.hw_max) {
+		vlv_turbo_disable(dev);
+		return 1;
+	}
+
 	/* Clear out any stale interrupts first */
 	spin_lock_irqsave(&dev_priv->irq_lock, flags);
 	WARN_ON(dev_priv->rps.pm_iir != 0);
