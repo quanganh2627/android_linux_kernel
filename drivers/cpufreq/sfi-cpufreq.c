@@ -56,6 +56,7 @@ DEFINE_PER_CPU(struct sfi_processor *, sfi_processors);
 static DEFINE_MUTEX(performance_mutex);
 static int sfi_cpufreq_num;
 static u32 sfi_cpu_num;
+static bool battlow;
 
 #define SFI_FREQ_MAX		32
 #define INTEL_MSR_RANGE		0xffff
@@ -335,6 +336,8 @@ static int __init sfi_cpufreq_early_init(void)
 static int sfi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 {
 	unsigned int i;
+	unsigned int freq;
+	unsigned int cpufreqidx = 0;
 	unsigned int valid_states = 0;
 	unsigned int cpu = policy->cpu;
 	struct sfi_cpufreq_data *data;
@@ -400,6 +403,7 @@ static int sfi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 		    perf->states[i].core_frequency * 1000;
 		valid_states++;
 	}
+	cpufreqidx = valid_states - 1;
 	data->freq_table[valid_states].frequency = CPUFREQ_TABLE_END;
 	perf->state = 0;
 
@@ -435,6 +439,22 @@ static int sfi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	 * writing something to the appropriate registers.
 	 */
 	data->resume = 1;
+
+	/**
+	 * Capping the cpu frequency to LFM during boot, if battery is detected
+	 * as critically low.
+	 */
+	if (battlow) {
+		freq = data->freq_table[cpufreqidx].frequency;
+		if (freq != CPUFREQ_ENTRY_INVALID) {
+			pr_info("CPU%u freq is capping to %uKHz\n", cpu, freq);
+			policy->max = freq;
+		} else {
+			pr_err("CPU%u table entry %u is invalid.\n",
+					cpu, cpufreqidx);
+			goto err_freqfree;
+		}
+	}
 
 	return result;
 
@@ -494,6 +514,18 @@ static struct cpufreq_driver sfi_cpufreq_driver = {
 	.owner = THIS_MODULE,
 	.attr = sfi_cpufreq_attr,
 };
+
+/**
+ * set_battlow_status - enables "battlow" to cap the max scaling cpu frequency.
+ */
+static int __init set_battlow_status(char *unused)
+{
+	pr_notice("Low Battery detected! Frequency shall be capped.\n");
+	battlow = true;
+	return 0;
+}
+/* Checking "battlow" param on boot, whether battery is critically low or not */
+early_param("battlow", set_battlow_status);
 
 static int __init parse_cpus(struct sfi_table_header *table)
 {
