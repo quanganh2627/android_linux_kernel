@@ -3426,6 +3426,7 @@ static struct snd_soc_codec_driver soc_codec_dev_rt5640 = {
 static const struct i2c_device_id rt5640_i2c_id[] = {
 	{"rt5640", 0},
 	{"10EC5640:00", 0},
+	{"10EC5640", 0},
 	{}
 };
 
