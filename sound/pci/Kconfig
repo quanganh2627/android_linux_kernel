@@ -892,6 +892,19 @@ config SND_INTEL_MID_I2S
 	   will be called intel_mid_i2s.ko
 	 If unsure, say N here.
 
+config SND_INTEL_MID_I2S_ENABLE_LLI
+	bool "DMA LLI chained mode"
+	depends on SND_INTEL_MID_I2S
+	default n
+	help
+	  DMA LLI chained mode is a feature that allows the Intel mid
+	  i2s driver to transfer data to/from the DMA by using linked
+	  lists instead of having to transfer data sequentially and
+	  re-program the DMA between each data transfer.
+
+	  Say Y here to enable DMA LLI chained mode for Intel mid I2S
+	  hardware driver.
+
 config SND_INTEL_ALSA_SSP
 	tristate "ALSA SSP SND Card Driver"
 	depends on SND_INTEL_MID_I2S
