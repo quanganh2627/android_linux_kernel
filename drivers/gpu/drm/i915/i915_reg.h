@@ -190,6 +190,7 @@
  * Memory interface instructions used by the kernel
  */
 #define MI_INSTR(opcode, flags) (((opcode) << 23) | (flags))
+#define  MI_GLOBAL_GTT    (1<<22)
 
 #define MI_NOOP			MI_INSTR(0, 0)
 #define MI_USER_INTERRUPT	MI_INSTR(0x02, 0)
@@ -250,6 +251,8 @@
 #define   MI_FLUSH_DW_STORE_INDEX	(1<<21)
 #define   MI_INVALIDATE_TLB		(1<<18)
 #define   MI_FLUSH_DW_OP_STOREDW	(1<<14)
+#define   MI_FLUSH_DW_OP_MASK		(3<<14)
+#define   MI_FLUSH_DW_NOTIFY		(1<<8)
 #define   MI_INVALIDATE_BSD		(1<<7)
 #define   MI_FLUSH_DW_USE_GTT		(1<<2)
 #define   MI_FLUSH_DW_USE_PPGTT		(0<<2)
@@ -322,9 +325,11 @@
 #define   DISPLAY_PLANE_B           (1<<20)
 #define GFX_OP_PIPE_CONTROL(len)	((0x3<<29)|(0x3<<27)|(0x2<<24)|(len-2))
 #define   PIPE_CONTROL_GLOBAL_GTT_IVB			(1<<24) /* gen7+ */
+#define   PIPE_CONTROL_MMIO_WRITE			(1<<23)
 #define   PIPE_CONTROL_CS_STALL				(1<<20)
 #define   PIPE_CONTROL_TLB_INVALIDATE			(1<<18)
 #define   PIPE_CONTROL_QW_WRITE				(1<<14)
+#define   PIPE_CONTROL_POST_SYNC_OP_MASK                (3<<14)
 #define   PIPE_CONTROL_DEPTH_STALL			(1<<13)
 #define   PIPE_CONTROL_WRITE_FLUSH			(1<<12)
 #define   PIPE_CONTROL_RENDER_TARGET_CACHE_FLUSH	(1<<12) /* gen6+ */
@@ -339,9 +344,47 @@
 #define   PIPE_CONTROL_DEPTH_CACHE_FLUSH		(1<<0)
 #define   PIPE_CONTROL_GLOBAL_GTT (1<<2) /* in addr dword */
 
+/*
+ * Commands used only by the command parser
+ */
+#define MI_SET_PREDICATE        MI_INSTR(0x01, 0)
+#define MI_ARB_CHECK            MI_INSTR(0x05, 0)
+#define MI_RS_CONTROL           MI_INSTR(0x06, 0)
+#define MI_URB_ATOMIC_ALLOC     MI_INSTR(0x09, 0)
+#define MI_PREDICATE            MI_INSTR(0x0C, 0)
+#define MI_RS_CONTEXT           MI_INSTR(0x0F, 0)
+#define MI_TOPOLOGY_FILTER      MI_INSTR(0x0D, 0)
+#define MI_LOAD_SCAN_LINES_EXCL MI_INSTR(0x13, 0)
+#define MI_MATH                 MI_INSTR(0x1A, 0)
+#define MI_UPDATE_GTT           MI_INSTR(0x23, 0)
+#define MI_STORE_REGISTER_MEM   MI_INSTR(0x24, 0)
+#define MI_CLFLUSH              MI_INSTR(0x27, 0)
+#define MI_LOAD_REGISTER_MEM    MI_INSTR(0x29, 0)
+#define MI_LOAD_REGISTER_REG    MI_INSTR(0x2A, 0)
+#define MI_LOAD_URB_MEM         MI_INSTR(0x2C, 0)
+#define MI_STORE_URB_MEM        MI_INSTR(0x2D, 0)
+#define MI_CONDITIONAL_BATCH_BUFFER_END MI_INSTR(0x36, 0)
+
+#define PIPELINE_SELECT                ((0x3<<29)|(0x1<<27)|(0x1<<24)|(0x4<<16))
+#define GFX_OP_3DSTATE_VF_STATISTICS   ((0x3<<29)|(0x1<<27)|(0x0<<24)|(0xB<<16))
+#define MEDIA_VFE_STATE                ((0x3<<29)|(0x2<<27)|(0x0<<24)|(0x0<<16))
+#define  MEDIA_VFE_STATE_MMIO_ACCESS_MASK (0x18)
+#define GPGPU_OBJECT                   ((0x3<<29)|(0x2<<27)|(0x1<<24)|(0x4<<16))
+#define GPGPU_WALKER                   ((0x3<<29)|(0x2<<27)|(0x1<<24)|(0x5<<16))
+#define GFX_OP_3DSTATE_DX9_CONSTANTF_VS \
+	((0x3<<29)|(0x3<<27)|(0x0<<24)|(0x39<<16))
+#define GFX_OP_3DSTATE_DX9_CONSTANTF_PS \
+	((0x3<<29)|(0x3<<27)|(0x0<<24)|(0x3A<<16))
+#define GFX_OP_3DSTATE_SO_DECL_LIST \
+	((0x3<<29)|(0x3<<27)|(0x1<<24)|(0x17<<16))
 #define GFX_OP_3DPRIMITIVE()              \
 	((0x3<<29)|(0x3<<27)|(0x3<<24)|       \
 	 (0x0<<16)|(0x0<<10)|(0x0<<8)|(7-2))
+
+#define MFX_WAIT  ((0x3<<29)|(0x1<<27)|(0x0<<16))
+
+#define COLOR_BLT     ((0x2<<29)|(0x40<<22))
+#define SRC_COPY_BLT  ((0x2<<29)|(0x43<<22))
 
 /*
  * Reset registers

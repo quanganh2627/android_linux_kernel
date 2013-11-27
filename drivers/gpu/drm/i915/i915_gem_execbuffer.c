@@ -49,6 +49,7 @@ i915_do_secure_ops(
 	size_t krn_batch_size = 1024*512;
 	int i;
 	int copy_ret = 0;
+	int parse_ret = 0;
 	void *addr = NULL, *user_addr = NULL;
 	struct drm_i915_gem_object *obj = NULL;
 	struct list_head *iter;
@@ -135,16 +136,34 @@ i915_do_secure_ops(
 
 finish:
 
+	/* Parse batch cmds for security violations. Use kernel copy if
+	 * available, otherwise parse the user's batch
+	 */
+	if (i915_enable_cmd_parser > 0) {
+		if ((copy_ret == 0) && obj && addr)
+			parse_ret = i915_parse_cmds(ring,
+				args->batch_start_offset, (u32 *)addr,
+				obj->base.size);
+		else {
+			if (!user_addr)
+				user_addr = i915_gem_object_vmap(user_obj);
+
+			parse_ret = i915_parse_cmds(ring,
+				args->batch_start_offset, (u32 *)user_addr,
+				user_obj->base.size);
+		}
+	}
+
 	if (addr)
 		vunmap(addr);
 	if (user_addr)
 		vunmap(user_addr);
 
 	/* Update batch exec_start if kernel copy succeeded */
-	if (krn_batch_obj && (copy_ret == 0))
+	if (krn_batch_obj && obj && (copy_ret == 0) && (parse_ret == 0))
 		*krn_batch_obj = obj;
 
-	return ((copy_ret == 0) ? 0 : -EINVAL);
+	return ((copy_ret == 0) && (parse_ret == 0) ? 0 : -EINVAL);
 }
 
 struct eb_objects {
@@ -1277,6 +1296,13 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	exec_start = args->batch_start_offset +
 		(krn_batch_obj ? i915_gem_obj_offset(krn_batch_obj, vm) :
 		 i915_gem_obj_offset(batch_obj, vm));
+
+	/* Set the DISPATCH_SECURE bit to remove the NON_SECURE bit
+	 * from MI_BATCH_BUFFER_START commands issued in the
+	 * dispatch_execbuffer implementations. We specifically don't
+	 * want that set when the command parser is enabled. */
+	if (i915_enable_cmd_parser > 0)
+		flags |= I915_DISPATCH_SECURE;
 
 	ret = i915_switch_context(ring, file, ctx_id);
 	if (ret)

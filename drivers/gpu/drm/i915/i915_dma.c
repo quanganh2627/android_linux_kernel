@@ -1015,6 +1015,9 @@ static int i915_getparam(struct drm_device *dev, void *data,
 	case I915_PARAM_HAS_DPST:
 		value = 1;
 		break;
+	case I915_PARAM_HAS_CMD_PARSER:
+		value = 1;
+		break;
 	default:
 		DRM_DEBUG("Unknown parameter %d\n", param->param);
 		return -EINVAL;
@@ -1925,6 +1928,8 @@ int i915_driver_unload(struct drm_device *dev)
 	if (dev_priv->slab)
 		kmem_cache_destroy(dev_priv->slab);
 
+	i915_cmd_parser_cleanup(dev_priv);
+
 	pci_dev_put(dev_priv->bridge_dev);
 	kfree(dev->dev_private);
 
@@ -2085,6 +2090,8 @@ struct drm_ioctl_desc i915_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(I915_GET_RESET_STATS, i915_get_reset_stats_ioctl,
 					DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(I915_PERFMON, i915_perfmon_ioctl, DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(I915_CMD_PARSER_APPEND, i915_cmd_parser_append_ioctl,
+			  DRM_UNLOCKED|DRM_ROOT_ONLY),
 };
 
 int i915_max_ioctl = DRM_ARRAY_SIZE(i915_ioctls);

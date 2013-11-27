@@ -199,6 +199,31 @@ struct  intel_ring_buffer {
 #endif
 
 	void *private;
+
+	/**
+	 * Tables of commands the command parser needs to know about
+	 * for this ring.
+	 */
+	const struct drm_i915_cmd_table *cmd_tables;
+	int cmd_table_count;
+
+	/**
+	 * Table of registers allowed in commands that read/write registers.
+	 */
+	const unsigned int *reg_table;
+	int reg_count;
+
+	/**
+	 * Returns the bitmask for the length field of the specified command.
+	 * Return 0 for an unrecognized/invalid command.
+	 *
+	 * If the command parser finds an entry for a command in the ring's
+	 * cmd_tables, it gets the command's length based on the table entry.
+	 * If not, it calls this function to determine the per-ring length field
+	 * encoding for the command (i.e. certain opcode ranges use certain bits
+	 * to encode the command length in the header).
+	 */
+	unsigned int (*get_cmd_length_mask)(unsigned int cmd_header);
 };
 
 static inline bool

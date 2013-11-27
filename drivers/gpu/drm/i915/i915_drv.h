@@ -1528,6 +1528,13 @@ typedef struct drm_i915_private {
 		struct list_head active_list;
 	} batch_pool[I915_NUM_RINGS];
 
+	/* Command parser */
+	struct drm_i915_cmd_table *append_cmd_table[I915_NUM_RINGS];
+	struct {
+		unsigned int *table;
+		int count;
+	} append_reg[I915_NUM_RINGS];
+
 	struct i915_package_c8 pc8;
 
 	/* Old dri1 support infrastructure, beware the dragons ya fools entering
@@ -1863,6 +1870,19 @@ struct drm_i915_file_private {
 	} perfmon_override_counter;
 };
 
+struct drm_i915_cmd_descriptor;
+
+/**
+ * A table of commands requiring special handling by the command parser.
+ *
+ * Each ring has an array of tables. Each table consists of an array of command
+ * descriptors, which must be sorted with command opcodes in ascending order.
+ */
+struct drm_i915_cmd_table {
+	const struct drm_i915_cmd_descriptor *table;
+	int count;
+};
+
 #define INTEL_INFO(dev)	(to_i915(dev)->info)
 
 #define IS_I830(dev)		((dev)->pci_device == 0x3577)
@@ -2026,6 +2046,7 @@ extern int i915_enable_pc8 __read_mostly;
 extern int i915_pc8_timeout __read_mostly;
 extern bool i915_prefault_disable __read_mostly;
 extern int i915_enable_kernel_batch_copy __read_mostly;
+extern int i915_enable_cmd_parser __read_mostly;
 
 extern int i915_suspend(struct drm_device *dev, pm_message_t state);
 extern int i915_resume(struct drm_device *dev);
@@ -2482,6 +2503,15 @@ int i915_verify_lists(struct drm_device *dev);
 #else
 #define i915_verify_lists(dev) 0
 #endif
+
+/* i915_cmd_parser.c */
+int i915_parse_cmds(struct intel_ring_buffer *ring,
+		    u32 batch_start_offset,
+		    u32 *batch_base,
+		    u32 batch_obj_size);
+int i915_cmd_parser_append_ioctl(struct drm_device *dev, void *data,
+				 struct drm_file *file_priv);
+void i915_cmd_parser_cleanup(drm_i915_private_t *dev_priv);
 
 /* i915_debugfs.c */
 int i915_debugfs_init(struct drm_minor *minor);
