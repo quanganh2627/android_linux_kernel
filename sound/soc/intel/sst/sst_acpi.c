@@ -203,7 +203,7 @@ int sst_destroy_workqueue(struct intel_sst_drv *ctx)
 }
 
 #if IS_ENABLED(CONFIG_ACPI)
-static int sst_platform_get_resources(struct intel_sst_drv *ctx,
+static int sst_platform_get_resources_fdk(struct intel_sst_drv *ctx,
 				      struct platform_device *pdev)
 {
 	struct resource *rsrc;
@@ -306,6 +306,119 @@ static int sst_platform_get_resources(struct intel_sst_drv *ctx,
 	return 0;
 }
 
+#define LPE_IRAM_OFFSET 0x0C0000
+#define LPE_IRAM_SIZE 0x040000
+#define LPE_DRAM_OFFSET 0x100000
+#define LPE_DRAM_SIZE 0x040000
+#define LPE_SHIM_OFFSET 0x140000
+#define LPE_SHIM_SIZE 0x004000
+#define LPE_MBOX_OFFSET 0x144000
+#define LPE_MBOX_SIZE 0x004000
+
+static int sst_platform_get_resources_edk(struct intel_sst_drv *ctx,
+				      struct platform_device *pdev)
+{
+	struct resource *rsrc;
+	int irq, ret;
+
+	pr_debug("%s", __func__);
+
+	/* All ACPI resource request here */
+	/* Get DDR addr from platform resource table */
+	rsrc = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	if (!rsrc) {
+		pr_err("Invalid DDR base from IFWI");
+		return -EIO;
+	}
+	ctx->ddr_base = rsrc->start;
+	ctx->ddr_end = rsrc->end;
+	pr_debug("DDR base: %#x", ctx->ddr_base);
+	ctx->ddr = devm_ioremap_nocache(ctx->dev, ctx->ddr_base,
+					resource_size(rsrc));
+	if (!ctx->ddr) {
+		pr_err("unable to map DDR");
+		return -EIO;
+	}
+
+	/* Get Shim addr */
+	rsrc = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!rsrc) {
+		pr_err("Invalid SHIM base from IFWI");
+		return -EIO;
+	}
+	pr_debug("LPE base: %#x size:%#x", (unsigned int) rsrc->start,
+					(unsigned int)resource_size(rsrc));
+
+	ctx->shim_phy_add = rsrc->start + LPE_SHIM_OFFSET;
+	pr_debug("SHIM base: %#x", ctx->shim_phy_add);
+	ctx->shim = devm_ioremap_nocache(ctx->dev, ctx->shim_phy_add,
+							LPE_SHIM_SIZE);
+	if (!ctx->shim) {
+		pr_err("unable to map SHIM");
+		return -EIO;
+	}
+	/* reassign physical address to LPE viewpoint address */
+	ctx->shim_phy_add = SST_BYT_SHIM_PHY_ADDR;
+
+	/* Get mailbox addr */
+	ctx->mailbox_add = rsrc->start + LPE_MBOX_OFFSET;
+	pr_debug("Mailbox base: %#x", ctx->mailbox_add);
+	ctx->mailbox = devm_ioremap_nocache(ctx->dev, ctx->mailbox_add,
+					    LPE_MBOX_SIZE);
+	if (!ctx->mailbox) {
+		pr_err("unable to map mailbox");
+		return -EIO;
+	}
+	/* reassign physical address to LPE viewpoint address */
+	ctx->mailbox_add = SST_BYT_MBOX_PHY_ADDR;
+
+	/* Get iram/iccm addr */
+	ctx->iram_base = rsrc->start + LPE_IRAM_OFFSET;
+	ctx->iram_end =  ctx->iram_base + LPE_IRAM_SIZE;
+	pr_debug("IRAM base: %#x", ctx->iram_base);
+	ctx->iram = devm_ioremap_nocache(ctx->dev, ctx->iram_base,
+					 LPE_IRAM_SIZE);
+	if (!ctx->iram) {
+		pr_err("unable to map IRAM");
+		return -EIO;
+	}
+
+	/* Get dram/dccm addr from platform resource table */
+	ctx->dram_base = rsrc->start + LPE_DRAM_OFFSET;
+	ctx->dram_end = rsrc->start + LPE_DRAM_SIZE;
+	pr_debug("DRAM base: %#x", ctx->dram_base);
+	ctx->dram = devm_ioremap_nocache(ctx->dev, ctx->dram_base,
+					 LPE_DRAM_SIZE);
+	if (!ctx->dram) {
+		pr_err("unable to map DRAM");
+		return -EIO;
+	}
+
+	/* Register the ISR */
+	irq = platform_get_irq(pdev, 0);
+	pr_debug("irq from pdev is:%d", irq);
+	ret = devm_request_threaded_irq(ctx->dev, irq, ctx->ops->interrupt,
+					ctx->ops->irq_thread, 0, SST_DRV_NAME,
+					ctx);
+	if (ret)
+		return ret;
+	pr_debug("Registered IRQ %#x\n", irq);
+	return 0;
+}
+
+static int sst_platform_get_resources(const char *hid,
+		struct intel_sst_drv *ctx, struct platform_device *pdev)
+{
+	if (!strncmp(hid, "LPE0F281", 8))
+		return sst_platform_get_resources_fdk(ctx, pdev);
+	if (!strncmp(hid, "80860F28", 8))
+		return sst_platform_get_resources_edk(ctx, pdev);
+	else if (!strncmp(hid, "LPE0F28", 7))
+		return sst_platform_get_resources_fdk(ctx, pdev);
+	else
+		return -EINVAL;
+}
+
 int sst_acpi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -333,6 +446,7 @@ int sst_acpi_probe(struct platform_device *pdev)
 		return ret;
 	ctx = sst_drv_ctx;
 	ctx->dev = dev;
+	ctx->hid = hid;
 	ctx->pci_id = SST_BYT_PCI_ID;
 
 	/* need to save shim registers in BYT */
@@ -374,7 +488,7 @@ int sst_acpi_probe(struct platform_device *pdev)
 		mutex_init(&stream->lock);
 	}
 
-	ret = sst_platform_get_resources(ctx, pdev);
+	ret = sst_platform_get_resources(hid, ctx, pdev);
 	if (ret)
 		goto do_free_wq;
 

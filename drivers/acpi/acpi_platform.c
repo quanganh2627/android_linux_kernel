@@ -43,6 +43,7 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 	/* Baytrail Audio devices */
 	{ "HAD0F28", 0 },
 	{ "LPE0F28", 0 },
+	{ "80860F28", 0 },
 	{ "LPE0F281", 0 },
 	{ "AMCR0F28", 0 },
 	{ "DMA0F28", 0 },

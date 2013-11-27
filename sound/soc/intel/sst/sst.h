@@ -552,6 +552,12 @@ struct intel_sst_drv {
 	struct sst_mem_mgr      lib_mem_mgr;
 	/* Contains the cached vtsv files*/
 	struct sst_vtsv_cache	vcache;
+	/* Pointer to device ID, now for same PCI_ID, HID will be
+	 * will be different for FDK and EDK2. This will be used
+	 * for devices where PCI or ACPI id is same but HID is
+	 * different
+	 */
+	const char *hid;
 };
 
 extern struct intel_sst_drv *sst_drv_ctx;

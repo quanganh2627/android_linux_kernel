@@ -488,6 +488,7 @@ static int sst_alloc_dma_chan(struct sst_dma *dma)
 	struct intel_mid_dma_slave *slave = &dma->slave;
 	int retval;
 	struct pci_dev *dmac = NULL;
+	const char *hid;
 
 	pr_debug("%s\n", __func__);
 	dma->dev = NULL;
@@ -500,9 +501,15 @@ static int sst_alloc_dma_chan(struct sst_dma *dma)
 	else if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID)
 		dmac = pci_get_device(PCI_VENDOR_ID_INTEL,
 				      PCI_DMAC_MRFLD_ID, NULL);
-	else if (sst_drv_ctx->pci_id == SST_BYT_PCI_ID)
-		dma->dev = intel_mid_get_acpi_dma();
-
+	else if (sst_drv_ctx->pci_id == SST_BYT_PCI_ID) {
+		hid = sst_drv_ctx->hid;
+		if (!strncmp(hid, "LPE0F281", 8))
+			dma->dev = intel_mid_get_acpi_dma("DMA0F28");
+		if (!strncmp(hid, "80860F28", 8))
+			dma->dev = intel_mid_get_acpi_dma("ADMA0F28");
+		else if (!strncmp(hid, "LPE0F28", 7))
+			dma->dev = intel_mid_get_acpi_dma("DMA0F28");
+	}
 	if (!dmac && !dma->dev) {
 		pr_err("Can't find DMAC\n");
 		return -ENODEV;
