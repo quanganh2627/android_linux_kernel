@@ -237,6 +237,13 @@ module_param_named(i915_enable_turbo, i915_enable_turbo, int, 0600);
 MODULE_PARM_DESC(i915_enable_turbo,
 		"Enable VLV Turbo (default: true)");
 
+int i915_enable_kernel_batch_copy __read_mostly = -1;
+module_param_named(i915_enable_kernel_batch_copy,
+		i915_enable_kernel_batch_copy, int, 0600);
+MODULE_PARM_DESC(i915_enable_kernel_batch_copy,
+		"i915 submits a kernel managed copy of the user passed batch buffer. "
+		"(default: -1 disabled)");
+
 static struct drm_driver driver;
 extern int intel_agp_enabled;
 

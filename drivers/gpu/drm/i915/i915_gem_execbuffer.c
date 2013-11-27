@@ -35,6 +35,118 @@
 #include <linux/dma_remapping.h>
 #include "intel_ringbuffer.h"
 
+static int
+i915_do_secure_ops(
+		struct drm_device *dev,
+		struct drm_file *file,
+		struct intel_ring_buffer *ring,
+		struct drm_i915_gem_execbuffer2 *args,
+		struct drm_i915_gem_exec_object2 *exec,
+		struct drm_i915_gem_object *user_obj,
+		struct drm_i915_gem_object **krn_batch_obj)
+{
+	bool found_match = false;
+	size_t krn_batch_size = 1024*512;
+	int i;
+	int copy_ret = 0;
+	void *addr = NULL, *user_addr = NULL;
+	struct drm_i915_gem_object *obj = NULL;
+	struct list_head *iter;
+	struct list_head *inactive_list;
+	struct list_head *active_list;
+	struct drm_i915_private *dev_priv;
+
+	if (i915_enable_kernel_batch_copy < 1)
+		goto finish;
+
+	dev_priv = dev->dev_private;
+	inactive_list = &dev_priv->batch_pool[ring->id].inactive_list;
+	active_list = &dev_priv->batch_pool[ring->id].active_list;
+
+	/* Find a free buffer in the inactive list of sufficient size. Buffers
+	 * are put back on the inactive_list when a request is completed, see
+	 * i915_gem_free_request().
+	 */
+	if (!list_empty(inactive_list)) {
+		list_for_each(iter, inactive_list) {
+			obj = list_entry(inactive_list->next,
+					struct drm_i915_gem_object,
+					ring_batch_pool_list);
+
+			if (obj->base.size >= user_obj->base.size) {
+				found_match = true;
+				break;
+			}
+		}
+	}
+
+	/* Allocate another buffer if needed */
+	if (found_match == false) {
+		krn_batch_size = max_t(size_t,
+			krn_batch_size, user_obj->base.size);
+
+		obj = i915_gem_alloc_object(dev, krn_batch_size);
+		if (obj == NULL) {
+			copy_ret = -ENOMEM;
+			DRM_ERROR("Failed to allocate gem object\n");
+			goto finish;
+		}
+
+		i915_gem_object_set_cache_level(obj, I915_CACHE_NONE);
+
+		list_add_tail(&obj->ring_batch_pool_list, inactive_list);
+
+		i = 0;
+		list_for_each(iter, inactive_list)
+			i++;
+		list_for_each(iter, active_list)
+			i++;
+		DRM_ERROR("%s has %d buffers in the dma pool\n",
+				ring->name, i);
+	}
+
+	copy_ret = i915_gem_obj_ggtt_pin(obj, 4096, true, false);
+	if (copy_ret != 0) {
+		copy_ret = -ENOMEM;
+		DRM_ERROR("Failed to pin batch gem object\n");
+		goto finish;
+	}
+
+	addr = i915_gem_object_vmap(obj);
+	if (addr == NULL) {
+		copy_ret = -ENOMEM;
+		i915_gem_object_unpin(obj);
+		DRM_ERROR("Failed to vmap batch pages\n");
+		goto finish;
+	}
+
+	user_addr = i915_gem_object_vmap(user_obj);
+	if (user_addr == NULL) {
+		copy_ret = -ENOMEM;
+		i915_gem_object_unpin(obj);
+		DRM_ERROR("Failed to vmap user batch pages\n");
+		goto finish;
+	}
+
+	memcpy(addr, user_addr, user_obj->base.size);
+
+	list_move_tail(&obj->ring_batch_pool_list,
+				   active_list);
+
+finish:
+
+	if (addr)
+		vunmap(addr);
+	if (user_addr)
+		vunmap(user_addr);
+
+	/* Update batch exec_start if kernel copy succeeded */
+	if (krn_batch_obj && (copy_ret == 0))
+		*krn_batch_obj = obj;
+
+	return ((copy_ret == 0) ? 0 : -EINVAL);
+}
+
 struct eb_objects {
 	struct list_head objects;
 	int and;
@@ -933,8 +1045,10 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct eb_objects *eb;
 	struct drm_i915_gem_object *batch_obj;
+	struct drm_i915_gem_object *krn_batch_obj = NULL;
 	struct drm_clip_rect *cliprects = NULL;
 	struct intel_ring_buffer *ring;
+	struct drm_i915_gem_request *request;
 	void *priv_data = NULL;
 	u32 priv_length = 0;
 	u32 ctx_id = i915_execbuffer2_get_context_id(*args);
@@ -1152,6 +1266,18 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	if (ret)
 		goto err;
 
+	/* Do security things like copy the batch into a pool copy and scan
+	 * cmds for violations. */
+	ret = i915_do_secure_ops(dev, file, ring,
+				args, exec, batch_obj, &krn_batch_obj);
+	if (ret)
+		goto err;
+
+	exec_len = args->batch_len;
+	exec_start = args->batch_start_offset +
+		(krn_batch_obj ? i915_gem_obj_offset(krn_batch_obj, vm) :
+		 i915_gem_obj_offset(batch_obj, vm));
+
 	ret = i915_switch_context(ring, file, ctx_id);
 	if (ret)
 		goto err;
@@ -1199,10 +1325,6 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 			goto err;
 	}
 
-	exec_start = i915_gem_obj_offset(batch_obj, vm) +
-		args->batch_start_offset;
-
-	exec_len = args->batch_len;
 	if (cliprects) {
 		/* Non-NULL cliprects only possible for Gen <= 4 */
 		for (i = 0; i < args->num_cliprects; i++) {
@@ -1257,7 +1379,13 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		mod_delayed_work(dev_priv->wq,
 				&dev_priv->rps.vlv_media_timeout_work,
 				msecs_to_jiffies(1000));
+	}
 
+	if (i915_enable_kernel_batch_copy > 0) {
+		/* Attach krn_batch_obj to newest request at the tail */
+		request = list_entry(ring->request_list.prev,
+				struct drm_i915_gem_request, list);
+		request->krn_batch_obj = krn_batch_obj;
 	}
 
 err:

@@ -1820,8 +1820,9 @@ hsw_ring_dispatch_execbuffer(struct intel_ring_buffer *ring,
 		return ret;
 
 	intel_ring_emit(ring,
-			MI_BATCH_BUFFER_START | MI_BATCH_PPGTT_HSW |
-			(flags & I915_DISPATCH_SECURE ? 0 : MI_BATCH_NON_SECURE_HSW));
+		MI_BATCH_BUFFER_START |
+		(i915_enable_kernel_batch_copy > 0 ? 0 : MI_BATCH_PPGTT_HSW) |
+		(flags & I915_DISPATCH_SECURE ? 0 : MI_BATCH_NON_SECURE_HSW));
 	/* bit0-7 is the length on GEN6+ */
 	intel_ring_emit(ring, offset);
 	intel_ring_advance(ring);
@@ -1914,8 +1915,9 @@ gen6_ring_dispatch_execbuffer(struct intel_ring_buffer *ring,
 		return ret;
 
 	intel_ring_emit(ring,
-			MI_BATCH_BUFFER_START |
-			(flags & I915_DISPATCH_SECURE ? 0 : MI_BATCH_NON_SECURE_I965));
+		MI_BATCH_BUFFER_START |
+		(i915_enable_kernel_batch_copy > 0 ? 0 : MI_BATCH_NON_SECURE_I965) |
+		(flags & I915_DISPATCH_SECURE ? 0 : MI_BATCH_NON_SECURE_I965));
 	/* bit0-7 is the length on GEN6+ */
 	intel_ring_emit(ring, offset);
 	intel_ring_advance(ring);

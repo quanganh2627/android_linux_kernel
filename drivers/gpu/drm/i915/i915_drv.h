@@ -1522,6 +1522,12 @@ typedef struct drm_i915_private {
 		uint16_t cur_latency[5];
 	} wm;
 
+	/* Kernel managed batch buffer objects */
+	struct {
+		struct list_head inactive_list;
+		struct list_head active_list;
+	} batch_pool[I915_NUM_RINGS];
+
 	struct i915_package_c8 pc8;
 
 	/* Old dri1 support infrastructure, beware the dragons ya fools entering
@@ -1614,6 +1620,9 @@ struct drm_i915_gem_object {
 	/** Stolen memory for this object, instead of being backed by shmem. */
 	struct drm_mm_node *stolen;
 	struct list_head global_list;
+
+	/** This object's place in the ring batch pool */
+	struct list_head ring_batch_pool_list;
 
 	struct list_head ring_list;
 	/** Used in execbuf to temporarily hold a ref */
@@ -1818,8 +1827,11 @@ struct drm_i915_gem_request {
 	/** Context related to this request */
 	struct i915_hw_context *ctx;
 
-	/** Batch buffer related to this request if any */
+	/** Batch buffer (user copy) related to this request if any */
 	struct drm_i915_gem_object *batch_obj;
+
+	/** Batch buffer (kernel copy) related to this request if any */
+	struct drm_i915_gem_object *krn_batch_obj;
 
 	/** Time at which this request was emitted, in jiffies. */
 	unsigned long emitted_jiffies;
@@ -2013,6 +2025,7 @@ extern bool i915_fastboot __read_mostly;
 extern int i915_enable_pc8 __read_mostly;
 extern int i915_pc8_timeout __read_mostly;
 extern bool i915_prefault_disable __read_mostly;
+extern int i915_enable_kernel_batch_copy __read_mostly;
 
 extern int i915_suspend(struct drm_device *dev, pm_message_t state);
 extern int i915_resume(struct drm_device *dev);
@@ -2129,6 +2142,7 @@ void i915_gem_object_init(struct drm_i915_gem_object *obj,
 			 const struct drm_i915_gem_object_ops *ops);
 struct drm_i915_gem_object *i915_gem_alloc_object(struct drm_device *dev,
 						  size_t size);
+void *i915_gem_object_vmap(struct drm_i915_gem_object *obj);
 void i915_gem_free_object(struct drm_gem_object *obj);
 struct i915_vma *i915_gem_vma_create(struct drm_i915_gem_object *obj,
 				     struct i915_address_space *vm);

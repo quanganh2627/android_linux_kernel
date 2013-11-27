@@ -148,6 +148,38 @@ int i915_mutex_lock_interruptible(struct drm_device *dev)
 	return 0;
 }
 
+void*
+i915_gem_object_vmap(struct drm_i915_gem_object *obj)
+{
+	int i;
+	void *addr = NULL;
+	struct sg_page_iter sg_iter;
+	struct page **pages;
+
+	pages = drm_malloc_ab(obj->base.size >> PAGE_SHIFT, sizeof(*pages));
+	if (pages == NULL) {
+		DRM_ERROR("Failed to get space for pages\n");
+		goto finish;
+	}
+
+	i = 0;
+	for_each_sg_page(obj->pages->sgl, &sg_iter, obj->pages->nents, 0) {
+		pages[i] = sg_page_iter_page(&sg_iter);
+		i++;
+	}
+
+	addr = vmap(pages, i, VM_MAP, pgprot_writecombine(PAGE_KERNEL));
+	if (addr == NULL) {
+		DRM_ERROR("Failed to vmap pages\n");
+		goto finish;
+	}
+
+finish:
+	if (pages)
+		drm_free_large(pages);
+	return addr;
+}
+
 static inline bool
 i915_gem_object_is_inactive(struct drm_i915_gem_object *obj)
 {
@@ -2177,6 +2209,7 @@ int __i915_add_request(struct intel_ring_buffer *ring,
 	request->tail = request_ring_position;
 	request->ctx = ring->last_context;
 	request->batch_obj = obj;
+	request->krn_batch_obj = NULL;
 
 	/* Whilst this request exists, batch_obj will be on the
 	 * active_list, and so will hold the active reference. Only when this
@@ -2351,11 +2384,21 @@ void i915_set_reset_status(struct intel_ring_buffer *ring,
 
 static void i915_gem_free_request(struct drm_i915_gem_request *request)
 {
+	struct drm_i915_private *dev_priv;
+
+	dev_priv = request->ring->dev->dev_private;
+
 	list_del(&request->list);
 	i915_gem_request_remove_from_client(request);
 
 	if (request->ctx)
 		i915_gem_context_unreference(request->ctx);
+
+	if (request->krn_batch_obj) {
+		list_move_tail(&request->krn_batch_obj->ring_batch_pool_list,
+			&dev_priv->batch_pool[request->ring->id].inactive_list);
+		i915_gem_object_unpin(request->krn_batch_obj);
+	}
 
 	kfree(request);
 }
@@ -4118,6 +4161,7 @@ void i915_gem_object_init(struct drm_i915_gem_object *obj,
 	INIT_LIST_HEAD(&obj->exec_list);
 	INIT_LIST_HEAD(&obj->obj_exec_link);
 	INIT_LIST_HEAD(&obj->vma_list);
+	INIT_LIST_HEAD(&obj->ring_batch_pool_list);
 
 	obj->ops = ops;
 
