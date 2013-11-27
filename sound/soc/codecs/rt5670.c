@@ -3512,6 +3512,9 @@ static struct snd_soc_codec_driver soc_codec_dev_rt5670 = {
 
 static const struct i2c_device_id rt5670_i2c_id[] = {
 	{ "rt5670", 0 },
+	/* TODO: Replace this with the new ID for 5670 */
+	{ "10EC5640:00", 0},
+	{ "10EC5640", 0},
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, rt5670_i2c_id);
