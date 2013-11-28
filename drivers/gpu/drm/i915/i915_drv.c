@@ -1130,6 +1130,7 @@ static void i915_pm_shutdown(struct pci_dev *pdev)
 	struct device *dev = &pdev->dev;
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
 	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+	struct drm_crtc *crtc;
 
 	dev_priv->pm.shutdown_in_progress = true;
 
@@ -1137,6 +1138,23 @@ static void i915_pm_shutdown(struct pci_dev *pdev)
 		/* Device already in suspend state */
 		return;
 	}
+
+	/* display might still be active, which might cause issue
+	 * as we power gate display power island during suspend
+	 */
+	mutex_lock(&drm_dev->mode_config.mutex);
+
+	/* If KMS is active, we do the leavevt stuff here */
+	if (drm_core_check_feature(drm_dev, DRIVER_MODESET)) {
+		dev_priv->enable_hotplug_processing = false;
+		/* Disable CRTCs */
+		list_for_each_entry(crtc, &drm_dev->mode_config.crtc_list, head)
+			dev_priv->display.crtc_disable(crtc);
+	}
+
+	mutex_unlock(&drm_dev->mode_config.mutex);
+
+	/* device suspend work */
 	i915_suspend_common(dev);
 }
 
