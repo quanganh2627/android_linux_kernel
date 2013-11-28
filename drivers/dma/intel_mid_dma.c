@@ -681,26 +681,33 @@ static inline void dma_wait_for_suspend(struct dma_chan *chan, unsigned int mask
 	struct middma_device	*mid = to_middma_device(chan->device);
 	struct intel_mid_dma_chan	*midc = to_intel_mid_dma_chan(chan);
 	int i;
+	const int max_loops = 100;
 
 	/* Suspend channel */
 	cfg_lo.cfg_lo = ioread32(midc->ch_regs + CFG_LOW);
 	cfg_lo.cfg_lo |= mask;
 	iowrite32(cfg_lo.cfg_lo, midc->ch_regs + CFG_LOW);
 	/* wait till FIFO gets empty */
-	/* FIFO should be cleared in couple of milli secs */
-	for (i = 0; i < 40; i++) {
+	/* FIFO should be cleared in a couple of milli secs,
+	   but most of the time after a 'cpu_relax' */
+	for (i = 0; i < max_loops; i++) {
 		cfg_lo.cfg_lo = ioread32(midc->ch_regs + CFG_LOW);
 		if (cfg_lo.cfgx.fifo_empty)
 			break;
-		/* use delay since this might called from atomic context */
-		udelay(100);
+		/* use udelay since this might called from atomic context,
+		   and use incremental backoff time */
+		if (i)
+			udelay(i);
+		else
+			cpu_relax();
 	}
 
-	if (i == 40)
-		pr_info("Waited 4ms for chan[%d] FIFO to get empty\n",
+	if (i == max_loops)
+		pr_info("Waited 5 ms for chan[%d] FIFO to get empty\n",
 			chan->chan_id);
 	else
-		pr_debug("waited for %d us for FIFO to get empty", i*100);
+		pr_debug("waited for %d loops for chan[%d] FIFO to get empty",
+			i, chan->chan_id);
 
 	iowrite32(DISABLE_CHANNEL(midc->ch_id), mid->dma_base + DMA_CHAN_EN);
 
@@ -1712,7 +1719,7 @@ static struct intel_mid_dma_ops v1_dma_ops = {
 	.dma_chan_suspend		= intel_mid_dma_chan_suspend_v1,
 };
 
-/* v2 ops will be used in Merrifield and beyond plantforms */
+/* v2 ops will be used in Merrifield and beyond platforms */
 static struct intel_mid_dma_ops v2_dma_ops = {
 	.device_alloc_chan_resources    = intel_mid_dma_alloc_chan_resources,
 	.device_free_chan_resources     = intel_mid_dma_free_chan_resources,
