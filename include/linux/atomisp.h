@@ -348,11 +348,21 @@ struct atomisp_dp_config {
 	 * defects if the value is set too large. u8_8
 	 */
 	unsigned int gain;
+#ifdef CSS21
+	unsigned int gr;
+	unsigned int r;
+	unsigned int b;
+	unsigned int gb;
+#endif
 };
 
 /* XNR threshold */
 struct atomisp_xnr_config {
+#ifdef CSS21
+	__u16 threshold;
+#else
 	unsigned int threshold;
+#endif
 };
 
 struct atomisp_parm {
