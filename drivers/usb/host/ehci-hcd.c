@@ -49,6 +49,11 @@
 #include <asm/firmware.h>
 #endif
 
+#ifdef CONFIG_USB_HCD_HSIC
+#include <linux/usb/ehci-tangier-hsic-pci.h>
+#endif
+
+
 /*-------------------------------------------------------------------------*/
 
 /*
@@ -699,6 +704,9 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 	struct ehci_hcd		*ehci = hcd_to_ehci (hcd);
 	u32			status, masked_status, pcd_status = 0, cmd;
 	int			bh;
+#ifdef CONFIG_USB_HCD_HSIC
+	struct pci_dev	*pdev = to_pci_dev(hcd->self.controller);
+#endif
 
 	spin_lock (&ehci->lock);
 
@@ -811,6 +819,11 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 			ehci_dbg (ehci, "port %d remote wakeup\n", i + 1);
 			usb_hcd_start_port_resume(&hcd->self, i);
 			mod_timer(&hcd->rh_timer, ehci->reset_done[i]);
+
+#ifdef CONFIG_USB_HCD_HSIC
+			if (pdev->device == 0x119d || pdev->device == 0x0f35)
+				count_ipc_stats(0, REMOTE_WAKEUP);
+#endif
 		}
 	}
 

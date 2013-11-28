@@ -45,6 +45,34 @@ enum s3_state {
 	SUSPENDING
 };
 
+/* Failure counter we used for IPC */
+#define PM_FAILURE_COUNT	4
+#define STATS_DISABLE		0
+#define STATS_ENABLE		1
+
+enum ipc_stats_type {
+	REMOTE_WAKEUP,
+	REMOTE_WAKEUP_OOB,
+	BUS_SUSPEND,
+	BUS_RESUME,
+	D0I3_ENTRY,
+	D0I3_EXIT,
+	D3_ENTRY,
+	D3_EXIT
+};
+
+struct ipc_failure {
+	const char	*name;
+	unsigned long	fail_cnt;
+};
+
+struct ipc_stats {
+	const char		*name;
+	unsigned long		success_cnt;
+	struct ipc_failure	ipc_failure[PM_FAILURE_COUNT];
+};
+void count_ipc_stats(int retval, enum ipc_stats_type type);
+
 struct hsic_tangier_priv {
 	struct delayed_work  hsic_aux;
 	wait_queue_head_t    aux_wq;
