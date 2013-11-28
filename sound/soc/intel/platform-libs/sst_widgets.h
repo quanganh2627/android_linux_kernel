@@ -30,6 +30,9 @@
 #define SST_MODULE_GAIN 1
 #define SST_MODULE_ALGO 2
 
+#define SST_FMT_MONO 0
+#define SST_FMT_STEREO 3
+
 struct module {
 	struct snd_kcontrol *kctl;
 	struct list_head node;
@@ -40,6 +43,7 @@ struct sst_ids {
 	u16 module_id;
 	u8  task_id;
 	u8  ssp_id;
+	u8  format;
 	struct list_head algo_list;
 	struct list_head gain_list;
 };
@@ -79,12 +83,24 @@ struct sst_ids {
 	.priv = (void *)&(struct sst_ids) { .task_id = wtask, .location_id = wloc_id, }	\
 }
 
+#define SST_PATH_MEDIA_LOOP(wname, wtask, wloc_id, wformat, wevent, wflags)             \
+{	.id = snd_soc_dapm_pga, .name = wname, .reg = SND_SOC_NOPM, .shift = 0,         \
+	.invert = 0, .kcontrol_news = NULL, .num_kcontrols = 0,                         \
+	.event = wevent, .event_flags = wflags,                                         \
+	.priv = (void *)&(struct sst_ids) { .task_id = wtask, .location_id = wloc_id,	\
+	.format = wformat,}								\
+}
+
 /* output is triggered before input */
 #define SST_PATH_INPUT(name, task_id, loc_id, event) \
 	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_POST_PMU)
 
 #define SST_PATH_OUTPUT(name, task_id, loc_id, event) \
 	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_PRE_PMU)
+
+#define SST_PATH_MEDIA_LOOP_OUTPUT(name, task_id, loc_id, format, event) \
+	SST_PATH_MEDIA_LOOP(name, task_id, loc_id, format, event, SND_SOC_DAPM_PRE_PMU)
+
 
 #define SST_SWM_MIXER(wname, wreg, wtask, wloc_id, wcontrols, wevent)			\
 {	.id = snd_soc_dapm_mixer, .name = wname, .reg = wreg, .shift = 0,		\

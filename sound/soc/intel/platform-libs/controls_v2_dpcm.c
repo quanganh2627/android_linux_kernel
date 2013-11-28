@@ -722,7 +722,8 @@ static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
 	cmd.header.length = sizeof(struct sst_cmd_sba_set_media_loop_map)
 				 - sizeof(struct sst_dsp_header);
 	cmd.param.part.rate = 2; /* 48khz */
-	cmd.param.part.format = 3; /* stereo */
+
+	cmd.param.part.format = ids->format; /* stereo/Mono */
 	cmd.param.part.sample_length = 1; /* 24bit left justified*/
 	cmd.map = 0; /* Algo sequence: Gain - DRP - FIR - IIR  */
 
@@ -845,9 +846,9 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_PATH_INPUT("sprot_loop_in", SST_TASK_SBA, SST_SWM_IN_SPROT_LOOP, NULL),
 	SST_PATH_INPUT("media_loop1_in", SST_TASK_SBA, SST_SWM_IN_MEDIA_LOOP1, NULL),
 	SST_PATH_INPUT("media_loop2_in", SST_TASK_SBA, SST_SWM_IN_MEDIA_LOOP2, NULL),
-	SST_PATH_OUTPUT("sprot_loop_out", SST_TASK_SBA, SST_SWM_OUT_SPROT_LOOP, sst_set_media_loop),
-	SST_PATH_OUTPUT("media_loop1_out", SST_TASK_SBA, SST_SWM_OUT_MEDIA_LOOP1, sst_set_media_loop),
-	SST_PATH_OUTPUT("media_loop2_out", SST_TASK_SBA, SST_SWM_OUT_MEDIA_LOOP2, sst_set_media_loop),
+	SST_PATH_MEDIA_LOOP_OUTPUT("sprot_loop_out", SST_TASK_SBA, SST_SWM_OUT_SPROT_LOOP, SST_FMT_MONO, sst_set_media_loop),
+	SST_PATH_MEDIA_LOOP_OUTPUT("media_loop1_out", SST_TASK_SBA, SST_SWM_OUT_MEDIA_LOOP1, SST_FMT_MONO, sst_set_media_loop),
+	SST_PATH_MEDIA_LOOP_OUTPUT("media_loop2_out", SST_TASK_SBA, SST_SWM_OUT_MEDIA_LOOP2, SST_FMT_STEREO, sst_set_media_loop),
 
 	/* TODO: need to send command */
 	SST_PATH_INPUT("sidetone_in", SST_TASK_SBA, SST_SWM_IN_SIDETONE, NULL),
