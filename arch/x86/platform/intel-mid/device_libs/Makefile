@@ -103,6 +103,7 @@ obj-$(subst m,y,$(CONFIG_VIDEO_LM3559))					+= platform_lm3559.o
 obj-$(subst m,y,$(CONFIG_VIDEO_AP1302))					+= platform_ap1302.o
 endif
 
+obj-$(subst m,y,$(CONFIG_EXTCON_USB))					+= platform_extcon_usb.o
 ifdef CONFIG_BATTERY_MAX17042
 obj-$(subst m,y,$(CONFIG_BATTERY_MAX17042)) += platform_max17042.o
 else
