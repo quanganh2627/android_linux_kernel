@@ -134,6 +134,9 @@
 /* L2I Debug msgs */
 #define IPC_IA_PRINT_STRING 0xF0
 
+/* Buffer under-run */
+#define IPC_IA_BUF_UNDER_RUN_MRFLD 0x0B
+
 /* Mrfld specific defines:
  * For asynchronous messages(INIT_CMPLT, PERIOD_ELAPSED, ASYNC_ERROR)
  * received from FW, the format is:
@@ -142,8 +145,6 @@
  *  - pipe_id is in higher 16-bits of IPC low payload for period_elapsed.
  *  - error id is in higher 16-bits of IPC low payload for async errors.
  */
-#define SST_ASYNC_ERROR_MASK 0xFFFF0000
-#define SST_ASYNC_MSG_MASK 0x0000FFFF
 #define SST_ASYNC_DRV_ID 0
 
 /* Command Response or Acknowledge message to any IPC message will have

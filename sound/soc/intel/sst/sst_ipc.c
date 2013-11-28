@@ -452,43 +452,40 @@ void intel_sst_clear_intr_mrfld(void)
 }
 
 
-
 /*
  * process_fw_init - process the FW init msg
  *
- * @msg: IPC message from FW
+ * @msg: IPC message mailbox data from FW
  *
  * This function processes the FW init msg from FW
  * marks FW state and prints debug info of loaded FW
  */
-static int process_fw_init(struct ipc_post *msg)
+static void process_fw_init(void *msg)
 {
 	struct ipc_header_fw_init *init =
-		(struct ipc_header_fw_init *)msg->mailbox_data;
+		(struct ipc_header_fw_init *)msg;
 	int retval = 0;
 
 	pr_debug("*** FW Init msg came***\n");
-	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID) {
-		if (init->result) {
-			sst_drv_ctx->sst_state =  SST_ERROR;
-			pr_debug("FW Init failed, Error %x\n", init->result);
-			pr_err("FW Init failed, Error %x\n", init->result);
-			retval = init->result;
-			goto ret;
-		}
-		pr_debug("FW Version %02x.%02x.%02x\n", init->fw_version.major,
-				init->fw_version.minor, init->fw_version.build);
-		pr_debug("Build Type %x\n", init->fw_version.type);
-		pr_debug("Build date %s Time %s\n",
-				init->build_info.date, init->build_info.time);
+	if (init->result) {
+		sst_drv_ctx->sst_state =  SST_ERROR;
+		pr_debug("FW Init failed, Error %x\n", init->result);
+		pr_err("FW Init failed, Error %x\n", init->result);
+		retval = init->result;
+		goto ret;
 	}
+	pr_debug("FW Version %02x.%02x.%02x.%02x\n",
+		init->fw_version.type, init->fw_version.major,
+		init->fw_version.minor, init->fw_version.build);
+	pr_debug("Build date %s Time %s\n",
+			init->build_info.date, init->build_info.time);
+
 	/* If there any runtime parameter to set, send it */
 	if (sst_drv_ctx->runtime_param.param.addr)
 		sst_send_runtime_param(&(sst_drv_ctx->runtime_param.param));
 
 ret:
 	sst_wake_up_block(sst_drv_ctx, retval, FW_DWNL_ID, 0 , NULL, 0);
-	return retval;
 }
 /**
 * sst_process_message_mfld - Processes message from SST
@@ -540,7 +537,7 @@ void sst_process_message_mfld(struct ipc_post *msg)
 
 	case IPC_IA_FW_INIT_CMPLT: {
 		/* send next data to FW */
-		process_fw_init(msg);
+		process_fw_init(msg->mailbox_data);
 		break;
 	}
 
@@ -639,51 +636,85 @@ static int send_vtsv_result_event(void *data, int size)
 	return ret;
 }
 
-static void process_fw_async_large_msg(void *data, u32 msg_size)
+static void process_fw_async_msg(struct ipc_post *msg)
 {
 	u32 msg_id;
+	int str_id;
 	int res_size, ret;
-	struct snd_sst_async_err_msg err_msg = {0};
+	u32 data_size, i;
+	void *data_offset;
+	struct stream_info *stream;
+	union ipc_header_high msg_high;
+	u32 msg_low, pipe_id;
 
-	msg_id = ((struct snd_sst_async_msg *)data)->msg_id;
-	if (msg_id == IPC_IA_FW_ASYNC_ERR_MRFLD) {
-		memcpy(&err_msg, (data + sizeof(msg_id)),
-						sizeof(err_msg));
-		pr_err("FW sent async error msg: %x\n", msg_id);
-		pr_err("FW error: 0x%x, Lib error: 0x%x\n",
-			err_msg.fw_resp, err_msg.lib_resp);
-	} else if (msg_id == IPC_IA_VTSV_DETECTED) {
-		res_size = msg_size - (sizeof(msg_id));
-		ret = send_vtsv_result_event(
-				(data + sizeof(msg_id)), res_size);
+	msg_high = msg->mrfld_header.p.header_high;
+	msg_low = msg->mrfld_header.p.header_low_payload;
+	msg_id = ((struct ipc_dsp_hdr *)msg->mailbox_data)->cmd_id;
+	data_offset = (msg->mailbox_data + sizeof(struct ipc_dsp_hdr));
+	data_size =  msg_low - (sizeof(struct ipc_dsp_hdr));
+
+	switch (msg_id) {
+	case IPC_SST_PERIOD_ELAPSED_MRFLD:
+		pipe_id = ((struct ipc_dsp_hdr *)msg->mailbox_data)->pipe_id;
+		str_id = get_stream_id_mrfld(pipe_id);
+		if (str_id > 0) {
+			pr_debug("Period elapsed rcvd for pipe id 0x%x\n", pipe_id);
+			stream = &sst_drv_ctx->streams[str_id];
+			if (stream->period_elapsed)
+				stream->period_elapsed(stream->pcm_substream);
+			if (stream->compr_cb)
+				stream->compr_cb(stream->compr_cb_param);
+		}
+		break;
+
+	case IPC_IA_DRAIN_STREAM_MRFLD:
+		pipe_id = ((struct ipc_dsp_hdr *)msg->mailbox_data)->pipe_id;
+		str_id = get_stream_id_mrfld(pipe_id);
+		if (str_id > 0) {
+			stream = &sst_drv_ctx->streams[str_id];
+			if (stream->drain_notify)
+				stream->drain_notify(stream->drain_cb_param);
+		}
+		break;
+
+	case IPC_IA_FW_ASYNC_ERR_MRFLD:
+		pr_err("FW sent async error msg:\n");
+		for (i = 0; i < (data_size/4); i++)
+			pr_err("0x%x\n", (*((unsigned int *)data_offset + i)));
+		break;
+
+	case IPC_IA_VTSV_DETECTED:
+		res_size = data_size;
+		ret = send_vtsv_result_event(data_offset, res_size);
 		if (ret)
 			pr_err("VTSV uevent send failed: %d\n", ret);
 		else
 			pr_debug("VTSV uevent sent\n");
-	} else
-		pr_err("Invalid async msg from FW\n");
-}
+		break;
 
-void process_drain_notify(int str_id)
-{
-	struct stream_info *stream;
+	case IPC_IA_FW_INIT_CMPLT_MRFLD:
+		process_fw_init(data_offset);
+		break;
 
-	pr_debug("in process_drain_notify\n");
-	if (str_id > 0) {
-		stream = &sst_drv_ctx->streams[str_id];
-		if (stream->drain_notify)
-			stream->drain_notify(stream->drain_cb_param);
+	case IPC_IA_BUF_UNDER_RUN_MRFLD:
+		pipe_id = ((struct ipc_dsp_hdr *)msg->mailbox_data)->pipe_id;
+		str_id = get_stream_id_mrfld(pipe_id);
+		if (str_id > 0)
+			pr_err("Buffer under-run for pipe:%#x str_id:%d\n",
+					pipe_id, str_id);
+		break;
+
+	default:
+		pr_err("Unrecognized async msg from FW msg_id %#x\n", msg_id);
 	}
 }
 
 void sst_process_reply_mrfld(struct ipc_post *msg)
 {
-	int str_id;
 	unsigned int drv_id;
-	void *data = NULL;
+	void *data;
 	union ipc_header_high msg_high;
-	struct stream_info *stream;
-	u32 msg_low, msg_id = 0, pipe_id;
+	u32 msg_low;
 
 	msg_high = msg->mrfld_header.p.header_high;
 	msg_low = msg->mrfld_header.p.header_low_payload;
@@ -694,35 +725,14 @@ void sst_process_reply_mrfld(struct ipc_post *msg)
 
 	drv_id = msg_high.part.drv_id;
 
-	if (!msg_high.part.large)
-		msg_id = msg_low & SST_ASYNC_MSG_MASK;
-
-	if ((msg_id == IPC_SST_PERIOD_ELAPSED_MRFLD) &&
-		(msg_high.part.msg_id == IPC_CMD)) {
-		pipe_id = msg_low >> 16;
-		str_id = get_stream_id_mrfld(pipe_id);
-		if (str_id > 0) {
-			pr_debug("Period elapsed rcvd!!!pipeid %#x\n", pipe_id);
-			stream = &sst_drv_ctx->streams[str_id];
-			if (stream->period_elapsed)
-				stream->period_elapsed(stream->pcm_substream);
-			if (stream->compr_cb)
-				stream->compr_cb(stream->compr_cb_param);
-		}
+	/* Check for async messages */
+	if (drv_id == SST_ASYNC_DRV_ID) {
+		/* FW sent async large message */
+		process_fw_async_msg(msg);
 		goto end;
 	}
 
-	/* check if we got a drain complete */
-	if ((msg_id == IPC_IA_DRAIN_STREAM_MRFLD) &&
-			(msg_high.part.msg_id == IPC_CMD)) {
-		pipe_id = msg_low >> 16;
-		str_id = get_stream_id_mrfld(pipe_id);
-		if (str_id > 0)
-			process_drain_notify(str_id);
-		goto end;
-	}
-
-	/* First process error responses */
+	/* FW sent short error response for an IPC */
 	if (msg_high.part.result && drv_id && !msg_high.part.large) {
 		/* 32-bit FW error code in msg_low */
 		pr_err("FW sent error response 0x%x", msg_low);
@@ -732,23 +742,6 @@ void sst_process_reply_mrfld(struct ipc_post *msg)
 		goto end;
 	}
 
-	/* Check for async messages */
-	if (drv_id == SST_ASYNC_DRV_ID) {
-		if (!msg_high.part.large) {
-			msg_id = msg_low & SST_ASYNC_MSG_MASK;
-			if (msg_id == IPC_IA_FW_INIT_CMPLT_MRFLD)
-				process_fw_init(msg);
-		} else {
-			/* FW sent async large message */
-			data = kzalloc(msg_low, GFP_KERNEL);
-			if (!data)
-				goto end;
-			memcpy(data, (void *) msg->mailbox_data, msg_low);
-			process_fw_async_large_msg(data, msg_low);
-			kfree(data);
-		}
-		goto end;
-	}
 	/* Process all valid responses */
 	/* if it is a large message, the payload contains the size to
 	 * copy from mailbox */
@@ -766,6 +759,7 @@ void sst_process_reply_mrfld(struct ipc_post *msg)
 				msg_high.part.drv_id,
 				msg_high.part.msg_id, NULL, 0);
 	}
+
 end:
 	return;
 }
@@ -783,6 +777,8 @@ void sst_process_reply_mfld(struct ipc_post *msg)
 {
 	void *data;
 	int str_id;
+	struct stream_info *stream;
+
 
 	str_id = msg->header.part.str_id;
 
@@ -791,7 +787,11 @@ void sst_process_reply_mfld(struct ipc_post *msg)
 	/* handle drain notify first */
 	if (msg->header.part.msg_id == IPC_IA_DRAIN_STREAM) {
 		pr_debug("drain message notify\n");
-		process_drain_notify(str_id);
+		if (str_id > 0) {
+			stream = &sst_drv_ctx->streams[str_id];
+			if (stream->drain_notify)
+				stream->drain_notify(stream->drain_cb_param);
+		}
 		return;
 	}
 
