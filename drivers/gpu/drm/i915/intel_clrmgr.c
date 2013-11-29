@@ -402,7 +402,7 @@ int intel_enable_pipe_gamma(struct drm_crtc *crtc)
 	/* Enable gamma on Sprite plane B*/
 	status = I915_READ(GAMMA_SPB_CNTRL);
 	status |= GAMMA_ENABLE_SPR;
-	I915_WRITE(GAMMA_SPA_CNTRL, status);
+	I915_WRITE(GAMMA_SPB_CNTRL, status);
 
 	DRM_DEBUG("Gamma enabled on Pipe A\n");
 	return 0;
