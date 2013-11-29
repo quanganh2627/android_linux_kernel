@@ -1488,6 +1488,9 @@ typedef struct drm_i915_private {
 	/* list of fbdev register on this device */
 	struct intel_fbdev *fbdev;
 
+#ifdef CONFIG_DEBUG_FS
+	atomic_t wfifo_count;
+#endif
 	/*
 	 * The console may be contended at resume, but we don't
 	 * want it to block on it.

@@ -3514,6 +3514,10 @@ i915_read_rc6_status(struct file *filp,
 		(I915_READ(VLV_POWER_WELL_STATUS_REG) &
 			VLV_MEDIA_WELL_STATUS_MASK) ? "UP" : "DOWN");
 
+	len += scnprintf(&buf[len], (sizeof(buf) - len),
+		"Wait fifo count: %d\n",
+		atomic_read(&dev_priv->wfifo_count));
+
 	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
 }
 
