@@ -1155,7 +1155,7 @@ static const struct snd_kcontrol_new sst_gain_controls[] = {
 };
 
 static const struct snd_kcontrol_new sst_algo_controls[] = {
-	SST_ALGO_KCONTROL_BYTES("media_loop1_out", "fir", 272, SST_MODULE_ID_FIR_24,
+	SST_ALGO_KCONTROL_BYTES("media_loop1_out", "fir", 138, SST_MODULE_ID_FIR_24,
 		 SST_PATH_INDEX_MEDIA_LOOP1_OUT, 0, SST_TASK_SBA, SBA_VB_SET_FIR),
 	SST_ALGO_KCONTROL_BYTES("media_loop1_out", "iir", 300, SST_MODULE_ID_IIR_24,
 		SST_PATH_INDEX_MEDIA_LOOP1_OUT, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
