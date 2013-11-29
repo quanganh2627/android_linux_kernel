@@ -3729,10 +3729,10 @@ EDP_PSR_SW_TIMER
 #define _VLV_DSPBADDR		(dev_priv->info->display_mmio_offset + 0x7117C)
 
 /* Sprite Contrast and Brightness Registers */
-#define SPRITEA_CB_REG		0x721d0
-#define SPRITEB_CB_REG		0x722d0
-#define SPRITEC_CB_REG		0x723d0
-#define SPRITED_CB_REG		0x724d0
+#define SPRITEA_CB_REG		(dev_priv->info->display_mmio_offset + 0x721d0)
+#define SPRITEB_CB_REG		(dev_priv->info->display_mmio_offset + 0x722d0)
+#define SPRITEC_CB_REG		(dev_priv->info->display_mmio_offset + 0x723d0)
+#define SPRITED_CB_REG		(dev_priv->info->display_mmio_offset + 0x724d0)
 
 /* Sprite Hue and Saturation Registers */
 #define SPRITEA_HS_REG         0x721d4
