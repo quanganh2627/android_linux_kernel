@@ -2201,6 +2201,7 @@ struct intel_mid_dma_probe_info *mid_get_acpi_driver_data(const char *hid)
 }
 static const struct acpi_device_id dma_acpi_ids[] = {
 	{ "DMA0F28", (kernel_ulong_t)&dma_byt_info },
+	{ "ADMA0F28", (kernel_ulong_t)&dma_byt_info },
 	{ "INTL9C60", (kernel_ulong_t)&dma_byt1_info },
 	{ "80862286", (kernel_ulong_t)&dma_cht1_info },
 	{ "808622C0", (kernel_ulong_t)&dma_cht2_info },
