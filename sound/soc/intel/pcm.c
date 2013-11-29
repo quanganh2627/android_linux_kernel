@@ -580,6 +580,11 @@ static struct snd_soc_dai_ops sst_loopback_dai_ops = {
 	.shutdown = sst_media_close,
 	.prepare = sst_media_prepare,
 };
+
+static struct snd_soc_dai_ops sst_compr_dai_ops = {
+	.mute_stream = sst_media_digital_mute,
+};
+
 static struct snd_soc_dai_driver sst_platform_dai[] = {
 {
 	.name = SST_HEADSET_DAI,
@@ -652,6 +657,7 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 {
 	.name = SST_COMPRESS_DAI,
 	.compress_dai = 1,
+	.ops = &sst_compr_dai_ops,
 	.playback = {
 		.stream_name = "Compress Playback",
 		.channels_min = SST_STEREO,
