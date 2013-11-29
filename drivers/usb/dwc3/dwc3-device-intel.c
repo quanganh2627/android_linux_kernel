@@ -162,16 +162,6 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 	pm_runtime_get_sync(dwc->dev);
 
 	mutex_lock(&_dev_data->mutex);
-
-	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
-	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
-			IRQF_SHARED, "dwc3", dwc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
-				irq, ret);
-		return ret;
-	}
-
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	if (dwc->gadget_driver && dwc->soft_connected) {
@@ -185,7 +175,7 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 		dwc3_event_buffers_setup(dwc);
 		ret = dwc3_init_for_enumeration(dwc);
 		if (ret)
-			goto err0;
+			goto err1;
 
 		dwc3_gadget_run_stop(dwc, 1);
 		if (dwc->hiber_enabled)
@@ -195,15 +185,22 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 	dwc->pm_state = PM_ACTIVE;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
+	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
+			IRQF_SHARED, "dwc3", dwc);
+	if (ret) {
+		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
+				irq, ret);
+		goto err0;
+	}
 	mutex_unlock(&_dev_data->mutex);
 
 	return 0;
 
-err0:
+err1:
 	spin_unlock_irqrestore(&dwc->lock, flags);
-
-	free_irq(irq, dwc);
-
+err0:
 	mutex_unlock(&_dev_data->mutex);
 
 	return ret;
