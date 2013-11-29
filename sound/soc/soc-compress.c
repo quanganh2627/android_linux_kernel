@@ -225,7 +225,6 @@ static int soc_compr_free(struct snd_compr_stream *cstream)
 	if (!codec_dai->active)
 		codec_dai->rate = 0;
 
-
 	if (rtd->dai_link->compr_ops && rtd->dai_link->compr_ops->shutdown)
 		rtd->dai_link->compr_ops->shutdown(cstream);
 
@@ -281,6 +280,8 @@ static int soc_compr_free_fe(struct snd_compr_stream *cstream)
 	cpu_dai->active--;
 	codec_dai->active--;
 	fe->codec->active--;
+
+	snd_soc_dai_digital_mute(cpu_dai, 1, stream);
 
 	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
 
@@ -419,7 +420,6 @@ static int soc_compr_set_params(struct snd_compr_stream *cstream,
 					SND_SOC_DAPM_STREAM_START);
 
 	snd_soc_dai_digital_mute(rtd->codec_dai, 0, cstream->direction);
-
 err:
 	mutex_unlock(&rtd->pcm_mutex);
 	return ret;
@@ -431,6 +431,9 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 	struct snd_soc_pcm_runtime *fe = cstream->private_data;
 	struct snd_pcm_substream *fe_substream = fe->pcm->streams[0].substream;
 	struct snd_soc_platform *platform = fe->platform;
+	struct snd_soc_dai *cpu_dai = fe->cpu_dai;
+	struct snd_soc_dai *codec_dai =  fe->codec_dai;
+
 	struct snd_pcm_hw_params *hw_params;
 	int ret = 0, stream;
 
@@ -482,6 +485,8 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 		dpcm_dapm_stream_event(fe, stream, SND_SOC_DAPM_STREAM_START);
 
 	fe->dpcm[stream].state = SND_SOC_DPCM_STATE_PREPARE;
+
+	snd_soc_dai_digital_mute(cpu_dai, 0, stream);
 
 out:
 	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_NO;
