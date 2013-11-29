@@ -826,7 +826,8 @@ static int valleyview_freeze(struct drm_device *dev)
 
 	/* Disable crct if audio driver prevented that earlier */
 	if (!dev_priv->audio_suspended) {
-		mutex_lock(&dev->mode_config.mutex);
+		drm_modeset_lock_all(dev);
+
 		/* audio was not suspended earlier; now we should
 		 * disable the crtc */
 		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
@@ -837,7 +838,7 @@ static int valleyview_freeze(struct drm_device *dev)
 				break;
 			}
 		}
-		mutex_unlock(&dev->mode_config.mutex);
+		drm_modeset_unlock_all(dev);
 	}
 
 	/* Save Hue/Saturation/Brightness/Contrast status */

@@ -3165,6 +3165,9 @@ static void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 
 	WARN_ON(waitqueue_active(&dev_priv->pending_flip_queue));
 
+	/* flush pending flip to avoid wait_pending_flips stuck later */
+	flush_workqueue(dev_priv->flipwq);
+
 	wait_event(dev_priv->pending_flip_queue,
 		   !intel_crtc_has_pending_flip(crtc));
 
@@ -8659,7 +8662,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	intel_new_fb = to_intel_framebuffer(fb);
 
 	/* Avoid flip operation if shutdown is in progress */
-	if (dev_priv->pm.shutdown_in_progress)
+	if (dev_priv->pm.shutdown_in_progress || !intel_crtc->active)
 		return -EINVAL;
 
 	/* Can't change pixel format via MI display flips. */
@@ -10236,7 +10239,7 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	drm_kms_helper_poll_disable(dev);
 	display_save_restore_hotplug(dev, SAVEHPD);
 	display_disable_wq(dev);
-	mutex_lock(&dev->mode_config.mutex);
+	drm_modeset_lock_all(dev);
 	dev_priv->s0ixstat = true;
 
 	/* If KMS is active, we do the leavevt stuff here */
@@ -10256,7 +10259,7 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	}
 
 	dev_priv->s0ixstat = false;
-	mutex_unlock(&dev->mode_config.mutex);
+	drm_modeset_unlock_all(dev);
 	i915_rpm_put_disp(dev);
 	return 0;
 }
