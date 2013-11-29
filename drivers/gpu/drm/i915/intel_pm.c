@@ -3535,18 +3535,11 @@ static void gen6_disable_rps(struct drm_device *dev)
 
 void valleyview_disable_rps(struct drm_device *dev)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
 	/* 1. Clear RC6 */
 	vlv_rs_setstate(dev, false);
 
 	/* Disable Turbo */
 	vlv_turbo_disable(dev);
-
-	if (dev_priv->vlv_pctx) {
-		drm_gem_object_unreference(&dev_priv->vlv_pctx->base);
-		dev_priv->vlv_pctx = NULL;
-	}
 }
 
 int intel_enable_rc6(const struct drm_device *dev)
@@ -3925,6 +3918,10 @@ static void valleyview_setup_pctx(struct drm_device *dev)
 	unsigned long pctx_paddr;
 	u32 pcbr;
 	int pctx_size = 24*1024;
+
+	/* If PC Context is already there, then bail out*/
+	if (dev_priv->vlv_pctx)
+		return;
 
 	pcbr = I915_READ(VLV_PCBR);
 	/* PCBR Format: Bits 31:12 - Base address of Process Context
