@@ -2965,6 +2965,7 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 	int		port1 = udev->portnum;
 	int		status;
 	bool		really_suspend = true;
+	bool		wakeup_mutex_locked = false;
 
 	/* enable remote wakeup when appropriate; this lets the device
 	 * wake up the upstream hub (including maybe the root hub).
@@ -3024,8 +3025,10 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 	 * Hold port wakeup mutex before set port suspend if device may
 	 * generate remote wakeup to avoid race condition.
 	 */
-	if (udev->do_remote_wakeup)
+	if (udev->do_remote_wakeup) {
 		mutex_lock(&port_dev->wakeup_mutex);
+		wakeup_mutex_locked = true;
+	}
 
 	/* see 7.1.7.6 */
 	if (hub_is_superspeed(hub->hdev))
@@ -3094,7 +3097,7 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 		usb_set_device_state(udev, USB_STATE_SUSPENDED);
 	}
 
-	if (udev->do_remote_wakeup)
+	if (wakeup_mutex_locked)
 		mutex_unlock(&port_dev->wakeup_mutex);
 
 	if (status == 0 && !udev->do_remote_wakeup && udev->persist_enabled) {
