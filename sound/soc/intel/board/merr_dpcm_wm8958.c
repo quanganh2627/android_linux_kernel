@@ -188,6 +188,7 @@ static int mrfld_wm8958_set_clk_fmt(struct snd_soc_dai *codec_dai)
 	/* Enable the osc clock at start so that it gets settling time */
 	set_soc_osc_clk0(ctx->osc_clk0_reg, true);
 
+	pr_err("setting snd_soc_dai_set_tdm_slot\n");
 	ret = snd_soc_dai_set_tdm_slot(codec_dai, 0, 0, 4, SNDRV_PCM_FORMAT_S24_LE);
 	if (ret < 0) {
 		pr_err("can't set codec pcm format %d\n", ret);
@@ -223,10 +224,7 @@ static int mrfld_8958_hw_params(struct snd_pcm_substream *substream,
 
 static int mrfld_wm8958_compr_set_params(struct snd_compr_stream *cstream)
 {
-	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-
-	return mrfld_wm8958_set_clk_fmt(codec_dai);
+	return 0;
 }
 
 static const struct snd_soc_pcm_stream mrfld_wm8958_dai_params = {
@@ -585,7 +583,6 @@ static struct snd_pcm_hw_constraint_list constraints_8000_16000 = {
 	.count = ARRAY_SIZE(rates_8000_16000),
 	.list  = rates_8000_16000,
 };
-
 static unsigned int rates_48000[] = {
 	48000,
 };
@@ -594,7 +591,6 @@ static struct snd_pcm_hw_constraint_list constraints_48000 = {
 	.count = ARRAY_SIZE(rates_48000),
 	.list  = rates_48000,
 };
-
 static int mrfld_8958_startup(struct snd_pcm_substream *substream)
 {
 	return snd_pcm_hw_constraint_list(substream->runtime, 0,
@@ -604,9 +600,7 @@ static int mrfld_8958_startup(struct snd_pcm_substream *substream)
 
 static struct snd_soc_ops mrfld_8958_ops = {
 	.startup = mrfld_8958_startup,
-	.hw_params = mrfld_8958_hw_params,
 };
-
 static int mrfld_8958_8k_16k_startup(struct snd_pcm_substream *substream)
 {
 	return snd_pcm_hw_constraint_list(substream->runtime, 0,
@@ -619,6 +613,9 @@ static struct snd_soc_ops mrfld_8958_8k_16k_ops = {
 	.hw_params = mrfld_8958_hw_params,
 };
 
+static struct snd_soc_ops mrfld_8958_be_ssp2_ops = {
+	.hw_params = mrfld_8958_hw_params,
+};
 static struct snd_soc_compr_ops mrfld_compr_ops = {
 	.set_params = mrfld_wm8958_compr_set_params,
 };
@@ -634,6 +631,7 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 		.init = mrfld_8958_init,
 		.ignore_suspend = 1,
 		.dynamic = 1,
+		.ops = &mrfld_8958_ops,
 	},
 	[MERR_DPCM_DB] = {
 		.name = "Merrifield DB Audio Port",
@@ -645,6 +643,7 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 		.init = mrfld_8958_init,
 		.ignore_suspend = 1,
 		.dynamic = 1,
+		.ops = &mrfld_8958_ops,
 	},
 	[MERR_DPCM_LL] = {
 		.name = "Merrifield LL Audio Port",
@@ -656,6 +655,7 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 		.init = mrfld_8958_init,
 		.ignore_suspend = 1,
 		.dynamic = 1,
+		.ops = &mrfld_8958_ops,
 	},
 	[MERR_DPCM_COMPR] = {
 		.name = "Merrifield Compress Port",
@@ -664,8 +664,9 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 		.cpu_dai_name = "Compress-cpu-dai",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
-		.compr_ops = &mrfld_compr_ops,
 		.dynamic = 1,
+		.init = mrfld_8958_init,
+		.compr_ops = &mrfld_compr_ops,
 	},
 	[MERR_DPCM_VOIP] = {
 		.name = "Merrifield VOIP Port",
@@ -712,7 +713,7 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 		.codec_name = "wm8994-codec",
 		.be_hw_params_fixup = merr_codec_fixup,
 		.ignore_suspend = 1,
-		.ops = &mrfld_8958_ops,
+		.ops = &mrfld_8958_be_ssp2_ops,
 	},
 	{
 		.name = "SSP1-BTFM",

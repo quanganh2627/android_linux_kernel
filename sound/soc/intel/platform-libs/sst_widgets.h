@@ -168,16 +168,16 @@ struct sst_gain_value {
  *	- pcm0_in gain 0 rampduration
  *	- pcm0_in gain 0 mute
  */
-#define SST_GAIN_KCONTROLS(xpname, xmin_gain, xmax_gain, xmin_tc, xmax_tc, \
+#define SST_GAIN_KCONTROLS(xpname, xmname, xmin_gain, xmax_gain, xmin_tc, xmax_tc, \
 			   xhandler_get, xhandler_put, \
 			   xmod, xpipe, xinstance, xtask, tlv_array, xgain_val) \
-	{ SST_GAIN_KCONTROL_INT(SST_CONTROL_NAME(xpname, "gain", xinstance, "rampduration"), \
+	{ SST_GAIN_KCONTROL_INT(SST_CONTROL_NAME(xpname, xmname, xinstance, "rampduration"), \
 		xhandler_get, xhandler_put, xmod, xpipe, xinstance, xtask, SST_GAIN_RAMP_DURATION, \
 		xgain_val, xmin_tc, xmax_tc, xpname) }, \
-	{ SST_GAIN_KCONTROL_BOOL(SST_CONTROL_NAME(xpname, "gain", xinstance, "mute"), \
+	{ SST_GAIN_KCONTROL_BOOL(SST_CONTROL_NAME(xpname, xmname, xinstance, "mute"), \
 		xhandler_get, xhandler_put, xmod, xpipe, xinstance, xtask, \
 		xgain_val, xpname) } ,\
-	{ SST_GAIN_KCONTROL_TLV(SST_CONTROL_NAME(xpname, "gain", xinstance, "volume"), \
+	{ SST_GAIN_KCONTROL_TLV(SST_CONTROL_NAME(xpname, xmname, xinstance, "volume"), \
 		xhandler_get, xhandler_put, xmod, xpipe, xinstance, xtask, tlv_array, \
 		xgain_val, xmin_gain, xmax_gain, xpname) }
 

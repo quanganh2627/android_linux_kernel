@@ -1095,14 +1095,21 @@ static const struct snd_kcontrol_new sst_probe_controls[] = {
 };
 
 /* Gain helper with min/max set */
-#define SST_GAIN(name, path_id, task_id, instance, gain_var)			\
-	SST_GAIN_KCONTROLS(name, SST_GAIN_MIN_VALUE, SST_GAIN_MAX_VALUE,	\
-			   SST_GAIN_TC_MIN, SST_GAIN_TC_MAX,			\
-			   sst_gain_get, sst_gain_put,				\
-			   SST_MODULE_ID_GAIN_CELL, path_id, instance, task_id,	\
-			   sst_gain_tlv_common, gain_var)
+#define SST_GAIN(name, path_id, task_id, instance, gain_var)				\
+	SST_GAIN_KCONTROLS(name, "gain", SST_GAIN_MIN_VALUE, SST_GAIN_MAX_VALUE,	\
+		SST_GAIN_TC_MIN, SST_GAIN_TC_MAX,					\
+		sst_gain_get, sst_gain_put,						\
+		SST_MODULE_ID_GAIN_CELL, path_id, instance, task_id,			\
+		sst_gain_tlv_common, gain_var)
 
-#define SST_NUM_GAINS 33
+#define SST_VOLUME(name, path_id, task_id, instance, gain_var)				\
+	SST_GAIN_KCONTROLS(name, "volume", SST_GAIN_MIN_VALUE, SST_GAIN_MAX_VALUE,	\
+		SST_GAIN_TC_MIN, SST_GAIN_TC_MAX,					\
+		sst_gain_get, sst_gain_put,						\
+		SST_MODULE_ID_VOLUME, path_id, instance, task_id,			\
+		sst_gain_tlv_common, gain_var)
+
+#define SST_NUM_GAINS 34
 static struct sst_gain_value sst_gains[SST_NUM_GAINS];
 
 static const struct snd_kcontrol_new sst_gain_controls[] = {
@@ -1144,6 +1151,7 @@ static const struct snd_kcontrol_new sst_gain_controls[] = {
 	SST_GAIN("media_loop1_out", SST_PATH_INDEX_MEDIA_LOOP1_OUT, SST_TASK_SBA, 0, &sst_gains[30]),
 	SST_GAIN("media_loop2_out", SST_PATH_INDEX_MEDIA_LOOP2_OUT, SST_TASK_SBA, 0, &sst_gains[31]),
 	SST_GAIN("sprot_loop_out", SST_PATH_INDEX_SPROT_LOOP_OUT, SST_TASK_SBA, 0, &sst_gains[32]),
+	SST_VOLUME("media0_in", SST_PATH_INDEX_MEDIA0_IN, SST_TASK_MMX, 0, &sst_gains[33]),
 };
 
 static const struct snd_kcontrol_new sst_algo_controls[] = {

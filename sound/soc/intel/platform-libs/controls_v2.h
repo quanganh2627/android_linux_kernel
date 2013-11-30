@@ -379,6 +379,7 @@ enum sst_module_id {
 
 	SST_MODULE_ID_CNI_TX		  = 0x0090,
 	SST_MODULE_ID_REF_LINE		  = 0x0091,
+	SST_MODULE_ID_VOLUME		  = 0x0092,
 
 	SST_MODULE_ID_TASK		  = 0xFFFF
 };
