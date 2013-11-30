@@ -32,6 +32,7 @@
 #include <sound/pcm.h>
 
 struct snd_compr_ops;
+struct snd_pcm_substream;
 
 /**
  * struct snd_compr_runtime: runtime stream description
@@ -63,6 +64,7 @@ struct snd_compr_runtime {
 	wait_queue_head_t sleep;
 	wait_queue_head_t wait;
 	unsigned int drain_wake;
+	struct snd_pcm_substream *fe_substream;
 	void *private_data;
 };
 
