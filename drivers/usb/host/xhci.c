@@ -543,7 +543,11 @@ static void xhci_event_ring_work(unsigned long arg)
 	int temp;
 	u64 temp_64;
 	struct xhci_hcd *xhci = (struct xhci_hcd *) arg;
+	struct usb_hcd		*hcd = xhci_to_hcd(xhci);
 	int i, j;
+
+	if (!HCD_HW_ACCESSIBLE(hcd))
+		return;
 
 	xhci_dbg(xhci, "Poll event ring: %lu\n", jiffies);
 
