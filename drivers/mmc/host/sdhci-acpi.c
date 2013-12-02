@@ -237,7 +237,7 @@ static int sdhci_acpi_emmc_probe_slot(struct platform_device *pdev)
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
 	.quirks2 = SDHCI_QUIRK2_CARD_CD_DELAY | SDHCI_QUIRK2_WAIT_FOR_IDLE |
-		SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+		SDHCI_QUIRK2_PRESET_VALUE_BROKEN | SDHCI_QUIRK2_TUNING_POLL,
 	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE | MMC_CAP_HW_RESET
 		| MMC_CAP_1_8V_DDR,
 	.caps2   = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_POLL_R1B_BUSY |
@@ -277,8 +277,12 @@ static int sdhci_acpi_sd_probe_slot(struct platform_device *pdev)
 
 	c->cd_gpio = acpi_get_gpio_by_index(&pdev->dev, 0, NULL);
 
+	if (INTEL_MID_BOARDV1(PHONE, BYT) ||
+			 INTEL_MID_BOARDV1(TABLET, BYT))
+		host->quirks2 |= SDHCI_QUIRK2_POWER_PIN_GPIO_MODE;
+
 	/* change the GPIO pin to GPIO mode */
-	if (c->slot->quirks2 & SDHCI_QUIRK2_POWER_PIN_GPIO_MODE) {
+	if (host->quirks2 & SDHCI_QUIRK2_POWER_PIN_GPIO_MODE) {
 		/* change to GPIO mode */
 		lnw_gpio_set_alt(BYT_SD_PWR_EN, 0);
 		err = gpio_request(BYT_SD_PWR_EN, "sd_pwr_en");
