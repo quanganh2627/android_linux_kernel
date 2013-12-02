@@ -41,10 +41,8 @@ static struct platform_device wifi_device = {
 	.resource = wifi_res,
 };
 
-static const unsigned int sdhci_quirk = SDHCI_QUIRK2_ADVERTISE_2V0_FORCE_1V8
-		| SDHCI_QUIRK2_ENABLE_MMC_PM_IGNORE_PM_NOTIFY
-		| SDHCI_QUIRK2_ADVERTISE_3V0_FORCE_1V8
-		| SDHCI_QUIRK2_NON_STD_CIS;
+static const unsigned int sdhci_quirk = SDHCI_QUIRK2_NON_STD_CIS |
+		SDHCI_QUIRK2_ENABLE_MMC_PM_IGNORE_PM_NOTIFY;
 
 static void __init wifi_platform_data_init_sfi_fastirq(struct sfi_device_table_entry *pentry,
 						       bool should_register)
