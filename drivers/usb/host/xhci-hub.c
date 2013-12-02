@@ -1264,6 +1264,26 @@ int xhci_bus_resume(struct usb_hcd *hcd)
 
 	(void) xhci_readl(xhci, &xhci->op_regs->command);
 
+	/* This is for wakeup IRQ case. For USB3 remote wakeup for S3 case,
+	 * the wakeup IRQ get immediately which before HCD set accessiable.
+	 * So the IRQ be disabled in usb_hcd_irq. For S3 case, after bus
+	 * resume done, the kernel will call their children directly. This
+	 * will cause children driver resume called before hcd_resume_work.
+	 *
+	 * The USB device corresponding port only be resume to U0/Enabled
+	 * state during xhci driver handle port change event. So this gap
+	 * will cause port haven't resumed when matched usb driver resume
+	 * callback be called. It will cause usb core try to disconnect the
+	 * usb device and cause some unexpected behavior.
+	 *
+	 * So we need to enable IRQ immediately at the end of bus_resume to
+	 * prevent above gap.
+	 **/
+	if (HCD_IRQ_DISABLED(hcd) && hcd->has_wakeup_irq) {
+		clear_bit(HCD_FLAG_IRQ_DISABLED, &hcd->flags);
+		enable_irq(hcd->irq);
+	}
+
 	bus_state->next_statechange = jiffies + msecs_to_jiffies(5);
 	/* re-enable irqs */
 	temp = xhci_readl(xhci, &xhci->op_regs->command);
