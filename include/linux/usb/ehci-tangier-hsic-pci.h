@@ -98,7 +98,7 @@ struct hsic_tangier_priv {
 	struct usb_device           *rh_dev;
 	struct usb_device           *modem_dev;
 	struct workqueue_struct     *work_queue;
-	struct work_struct          wakeup_work;
+	struct delayed_work         wakeup_work;
 	struct notifier_block       hsic_pm_nb;
 	struct notifier_block       hsic_s3_entry_nb;
 	struct wake_lock            resume_wake_lock;

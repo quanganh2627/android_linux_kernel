@@ -417,7 +417,7 @@ static irqreturn_t hsic_wakeup_gpio_irq(int irq, void *data)
 	USB framework will prevent to go in low power if there is traffic */
 	wake_lock_timeout(&hsic.resume_wake_lock, msecs_to_jiffies(25));
 
-	queue_work(hsic.work_queue, &hsic.wakeup_work);
+	queue_delayed_work(hsic.work_queue, &hsic.wakeup_work, 0);
 	dev_dbg(dev,
 		"%s<----\n", __func__);
 	count_ipc_stats(0, REMOTE_WAKEUP_OOB);
@@ -714,7 +714,13 @@ static void wakeup_work(struct work_struct *work)
 {
 	dev_dbg(&pci_dev->dev,
 		"%s---->\n", __func__);
-	mutex_lock(&hsic.hsic_mutex);
+
+	if (!mutex_trylock(&hsic.hsic_mutex)) {
+		queue_delayed_work(hsic.work_queue, &hsic.wakeup_work,
+				   msecs_to_jiffies(10));
+		return;
+	}
+
 	if (hsic.modem_dev == NULL) {
 		mutex_unlock(&hsic.hsic_mutex);
 		dev_dbg(&pci_dev->dev,
@@ -740,7 +746,7 @@ static ssize_t hsic_host_resume_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	dev_dbg(dev, "wakeup hsic\n");
-	queue_work(hsic.work_queue, &hsic.wakeup_work);
+	queue_delayed_work(hsic.work_queue, &hsic.wakeup_work, 0);
 
 	return -EINVAL;
 }
@@ -1222,7 +1228,7 @@ static int ehci_hsic_probe(struct pci_dev *pdev,
 	}
 
 	hsic.work_queue = create_singlethread_workqueue("hsic");
-	INIT_WORK(&hsic.wakeup_work, wakeup_work);
+	INIT_DELAYED_WORK(&hsic.wakeup_work, wakeup_work);
 	INIT_DELAYED_WORK(&(hsic.hsic_aux), hsic_aux_work);
 
 	hcd->hsic_notify = hsic_notify;
@@ -1324,6 +1330,8 @@ static void ehci_hsic_remove(struct pci_dev *pdev)
 	gpio_free(hsic.aux_gpio);
 	gpio_free(hsic.wakeup_gpio);
 	pci_disable_device(pdev);
+
+	cancel_delayed_work_sync(&hsic.wakeup_work);
 
 	destroy_workqueue(hsic.work_queue);
 	wake_lock_destroy(&(hsic.resume_wake_lock));
