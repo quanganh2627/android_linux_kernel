@@ -169,23 +169,34 @@ static struct attribute_group spid_attr_group = {
 static ssize_t iafw_version_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%04X.%04X\n", pidv.iafwrevvalues[iarevmajor],
-		pidv.iafwrevvalues[iarevminor]);
+	return sprintf(buf, "%04X.%04X\n", pidv.iafwrevvalues[revmajor],
+		pidv.iafwrevvalues[revminor]);
 }
 pidv_attr(iafw_version);
 
 static ssize_t secfw_version_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%02d.%02d\n",
-		(pidv.secrevvalues[secrev] / 100),
-		(pidv.secrevvalues[secrev] % 100));
+	return sprintf(buf, "%01d.%01d.%02d.%04d\n",
+		(pidv.secrevvalues[0]),
+		(pidv.secrevvalues[1]),
+		(pidv.secrevvalues[2]),
+		(pidv.secrevvalues[3]));
 }
 pidv_attr(secfw_version);
+
+static ssize_t pdr_version_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%04d.%04d\n", pidv.pdrrevvalues[revmajor],
+		pidv.pdrrevvalues[revminor]);
+}
+pidv_attr(pdr_version);
 
 static struct attribute *pidv_attrs[] = {
 	&iafw_version_attr.attr,
 	&secfw_version_attr.attr,
+	&pdr_version_attr.attr,
 	NULL,
 };
 

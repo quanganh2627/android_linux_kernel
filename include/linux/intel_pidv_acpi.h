@@ -24,9 +24,8 @@
 #include <linux/acpi.h>
 #ifdef CONFIG_ACPI
 #define ACPI_SIG_PIDV           "PIDV"
-#define iarevmajor		0
-#define iarevminor		1
-#define secrev			3
+#define revmajor		0
+#define revminor		1
 
 #define pidv_attr(_name) \
 static struct kobj_attribute _name##_attr = {	\
