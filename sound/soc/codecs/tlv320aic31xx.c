@@ -63,6 +63,12 @@ struct regmap_config aicxxx_i2c_regmap = {
 	.num_ranges = ARRAY_SIZE(aic31xx_ranges),
 	.max_register =  13 * 128,
 };
+struct aic31xx_driver_data aic31xx_acpi_data = {
+	.acpi_device = 1,
+};
+struct aic31xx_driver_data aic31xx_i2c_data = {
+	.acpi_device = 0,
+};
 
 /* Custom micbias widget since mic bias has two bits */
 #define SND_SOC_DAPM_MICBIASCUSTOM(wname, wreg, wshift, winvert, wevent, wflags) \
@@ -1420,7 +1426,76 @@ static struct snd_soc_dai_driver aic31xx_dai_driver[] = {
 }
 };
 
+#ifdef CONFIG_ACPI
+static int aic31xx_get_acpi_data(struct aic31xx_priv *aic31xx)
+{
+	acpi_status status;
+	acpi_handle handle;
+	struct acpi_buffer pdata_buffer = { ACPI_ALLOCATE_BUFFER, NULL };
+	union acpi_object *pdata_buf_ptr;
+	union acpi_object *element;
+	struct aic31xx_pdata *pdata;
+	int ret = 0;
 
+	dev_dbg(aic31xx->dev, "acpi get data\n");
+	pdata = &aic31xx->pdata;
+	handle = DEVICE_ACPI_HANDLE(aic31xx->dev);
+
+	status = acpi_evaluate_object(handle, "OBJ1", NULL, &pdata_buffer);
+	if (ACPI_FAILURE(status)) {
+		dev_err(aic31xx->dev, "Error evaluating OBJ1\n");
+		ret = -ENODEV;
+		goto end;
+	}
+
+	pdata_buf_ptr = pdata_buffer.pointer;
+	if (!pdata_buf_ptr || pdata_buf_ptr->type != ACPI_TYPE_PACKAGE) {
+		dev_err(aic31xx->dev, "Invalid OBJ1 package data\n");
+		ret = -EFAULT;
+		goto end;
+	}
+	element = &(pdata_buf_ptr->package.elements[0]);
+	pdata->codec_type = element->integer.value;
+	dev_dbg(aic31xx->dev, "element 0 %llx\n", element->integer.value);
+
+	element = &(pdata_buf_ptr->package.elements[1]);
+	pdata->audio_mclk1 = element->integer.value;
+	dev_dbg(aic31xx->dev, "element 1 %llx\n", element->integer.value);
+
+	element = &(pdata_buf_ptr->package.elements[3]);
+	pdata->gpio_reset = element->integer.value;
+	dev_dbg(aic31xx->dev, "element 3 %llx\n", element->integer.value);
+
+	element = &(pdata_buf_ptr->package.elements[4]);
+	pdata->num_gpios = element->integer.value;
+	dev_dbg(aic31xx->dev, "element 4 %llx\n", element->integer.value);
+
+	pdata->gpio_defaults = devm_kzalloc(aic31xx->dev,
+				 sizeof(struct aic31xx_gpio_setup),
+				 GFP_KERNEL);
+	if (pdata->gpio_defaults == NULL)
+		return -ENOMEM;
+
+	element = &(pdata_buf_ptr->package.elements[8]);
+	pdata->gpio_defaults[0].value = element->integer.value;
+	dev_dbg(aic31xx->dev, "element 8 %llx\n", element->integer.value);
+
+	element = &(pdata_buf_ptr->package.elements[9]);
+	pdata->gpio_defaults[0].reg = element->integer.value;
+	dev_dbg(aic31xx->dev, "element 9 %llx\n", element->integer.value);
+
+end:
+	return ret;
+
+}
+#else
+static int aic31xx_get_acpi_data(struct aic31xx_priv *aic31xx)
+{
+	dev_dbg("CONFIG_ACPI not defined\n");
+	return 0;
+}
+
+#endif
 
 static int aic31xx_i2c_probe(struct i2c_client *i2c,
 					const struct i2c_device_id *id)
@@ -1428,6 +1503,8 @@ static int aic31xx_i2c_probe(struct i2c_client *i2c,
 	struct aic31xx_priv *aic31xx;
 	int ret;
 	const struct regmap_config *regmap_config;
+	struct aic31xx_driver_data *driver_data =
+		 (struct aic31xx_driver_data *)id->driver_data;
 
 	regmap_config = &aicxxx_i2c_regmap;
 
@@ -1445,7 +1522,13 @@ static int aic31xx_i2c_probe(struct i2c_client *i2c,
 	}
 	aic31xx->dev = &i2c->dev;
 	aic31xx->irq = i2c->irq;
-
+	if (driver_data && driver_data->acpi_device) {
+		ret = aic31xx_get_acpi_data(aic31xx);
+		if (ret) {
+			dev_err(&i2c->dev, "Failed to get ACPI data: %d\n", ret);
+			return ret;
+		}
+	}
 	aic31xx_device_init(aic31xx);
 
 	ret = snd_soc_register_codec(&i2c->dev, &soc_codec_driver_aic31xx,
@@ -1465,7 +1548,9 @@ static int aic31xx_i2c_remove(struct i2c_client *i2c)
 }
 
 static const struct i2c_device_id aic31xx_i2c_id[] = {
-	{ "tlv320aic31xx-codec", AIC310X },
+	{ "tlv320aic31xx-codec", (kernel_ulong_t) &aic31xx_i2c_data},
+	{"10TI3100:00", (kernel_ulong_t) &aic31xx_acpi_data},
+	{"10TI3100", (kernel_ulong_t) &aic31xx_acpi_data},
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, aic31xx_i2c_id);

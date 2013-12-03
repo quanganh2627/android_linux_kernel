@@ -163,6 +163,13 @@ struct aic31xx_priv {
 	unsigned int irq;
 };
 
+/* Driver data to differentiate between apci and i2c device
+ * platform data extraction is different for ACPI and i2c device
+ */
+struct aic31xx_driver_data {
+	u32 acpi_device;
+};
+
 /*
  *----------------------------------------------------------------------------
 int aic31xx_write(struct snd_soc_codec *codec, unsigned int reg,
