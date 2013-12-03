@@ -527,8 +527,7 @@ int sst_drop_stream(int str_id)
 
 	if (str_info->status != STREAM_UN_INIT) {
 
-		if ((sst_drv_ctx->pci_id != SST_MRFLD_PCI_ID) ||
-				(sst_drv_ctx->use_32bit_ops == true)) {
+		if (sst_drv_ctx->use_32bit_ops == true) {
 			str_info->prev = STREAM_UN_INIT;
 			str_info->status = STREAM_INIT;
 			str_info->cumm_bytes = 0;

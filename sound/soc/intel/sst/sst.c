@@ -443,10 +443,7 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 	case SST_MRFLD_PCI_ID:
 	case PCI_DEVICE_ID_INTEL_SST_MOOR:
 		sst->tstamp = SST_TIME_STAMP_MRFLD;
-		if (sst->use_32bit_ops == true)
-			sst->ops = &mrfld_32_ops;
-		else
-			sst->ops = &mrfld_ops;
+		sst->ops = &mrfld_ops;
 		return 0;
 	case SST_BYT_PCI_ID:
 		sst->tstamp = SST_TIME_STAMP_MRFLD;
@@ -814,8 +811,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 		csr2 |= BIT(1)|BIT(2);
 		sst_shim_write(sst_drv_ctx->shim, SST_CSR2, csr2);
 	} else if (((sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) ||
-			(sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)) &&
-					sst_drv_ctx->use_32bit_ops == false) {
+			(sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR))) {
 		/*allocate mem for fw context save during suspend*/
 		sst_drv_ctx->context.iram =
 			kzalloc(sst_drv_ctx->iram_end - sst_drv_ctx->iram_base, GFP_KERNEL);
@@ -1075,8 +1071,7 @@ static int intel_sst_runtime_resume(struct device *dev)
 	sst_set_fw_state_locked(ctx, SST_UN_INIT);
 	if (((ctx->pci_id == SST_MRFLD_PCI_ID) ||
 		(ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)) &&
-			ctx->context.saved &&
-			(!ctx->use_32bit_ops)) {
+			ctx->context.saved) {
 		/* in mrfld we have saved ram snapshot
 		 * so check if snapshot is present if so download that
 		 */
