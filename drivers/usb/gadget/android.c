@@ -178,8 +178,6 @@ static void android_work(struct work_struct *data)
 		uevent_envp = configured;
 	else if (dev->connected != dev->sw_connected)
 		uevent_envp = dev->connected ? connected : disconnected;
-	else if (!cdev->config && dev->connected)
-		uevent_envp = connected;
 	dev->sw_connected = dev->connected;
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
@@ -1516,8 +1514,6 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 				f->disable(f);
 		}
 		dev->enabled = false;
-		/* notify uplevel to correct status */
-		schedule_work(&dev->work);
 	} else if (!enabled && !dev->enabled) {
 		usb_gadget_disconnect(cdev->gadget);
 		dev->enabled = false;
