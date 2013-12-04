@@ -892,7 +892,13 @@ int xhci_suspend(struct xhci_hcd *xhci)
 	struct usb_hcd		*hcd = xhci_to_hcd(xhci);
 	u32			command;
 
-	if (hcd->state != HC_STATE_SUSPENDED ||
+	/* need to check if xhci->shared_hcd is null to fix one possible
+	 * kernel panic when boot up and xhci not allocate xhci->shared_hcd
+	 * yet, due to autosuspend_delay set to 0 in kernel3.10,after usb1
+	 * finish the probe,xhci runtime suspend will trigger immediately,
+	 * but xhci->shared_hcd may not initialized yet.
+	 */
+	if (hcd->state != HC_STATE_SUSPENDED || !xhci->shared_hcd ||
 			xhci->shared_hcd->state != HC_STATE_SUSPENDED)
 		return -EINVAL;
 
