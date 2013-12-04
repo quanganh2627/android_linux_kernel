@@ -4613,7 +4613,7 @@ loop:
 		/* If the hcd was already quiesce,
 		 * we needn't to continue retry. */
 		if (hcd->state == HC_STATE_QUIESCING)
-			return -ESHUTDOWN;
+			return;
 		usb_ep0_reinit(udev);
 		release_devnum(udev);
 		hub_free_dev(udev);
