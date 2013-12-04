@@ -349,31 +349,109 @@ static void intel_write_infoframe(struct drm_encoder *encoder,
 	intel_hdmi->write_infoframe(encoder, frame->any.type, buffer, len);
 }
 
+void intel_dip_infoframe_csum(struct dip_infoframe *frame)
+
+{
+
+	uint8_t *data = (uint8_t *)frame;
+	uint8_t sum = 0;
+	unsigned i;
+
+	frame->checksum = 0;
+	frame->ecc = 0;
+
+	for (i = 0; i < frame->len + DIP_HEADER_SIZE; i++)
+		sum += data[i];
+
+	frame->checksum = 0x100 - sum;
+
+}
+
+static void intel_set_infoframe(struct drm_encoder *encoder,
+					struct dip_infoframe *frame) {
+
+	unsigned len = (DIP_HEADER_SIZE + frame->len);
+	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
+	intel_dip_infoframe_csum(frame);
+	intel_hdmi->write_infoframe(encoder, frame->type, (const uint8_t *) frame, len);
+
+}
+
 static void intel_hdmi_set_avi_infoframe(struct drm_encoder *encoder,
 					 struct drm_display_mode *adjusted_mode)
 {
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
-	union hdmi_infoframe frame;
-	int ret;
 
-	ret = drm_hdmi_avi_infoframe_from_display_mode(&frame.avi,
-						       adjusted_mode);
-	if (ret < 0) {
-		DRM_ERROR("couldn't fill AVI infoframe\n");
-		return;
-	}
+	enum hdmi_picture_aspect PAR;
+
+	struct dip_infoframe avi_if = {
+		.type = DIP_TYPE_AVI,
+		.body.avi.right_bar_start = 0,
+	};
+
+	/* Bar information */
+	avi_if.body.avi.Y_A_B_S |= DIP_AVI_BAR_BOTH;
+
+	avi_if.body.avi.VIC = drm_match_cea_mode(adjusted_mode);
+
+	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLCLK)
+		avi_if.body.avi.YQ_CN_PR |= DIP_AVI_PR_2;
 
 	if (intel_hdmi->rgb_quant_range_selectable) {
 		if (intel_crtc->config.limited_color_range)
-			frame.avi.quantization_range =
-				HDMI_QUANTIZATION_RANGE_LIMITED;
+			avi_if.body.avi.ITC_EC_Q_SC |= DIP_AVI_RGB_QUANT_RANGE_LIMITED;
 		else
-			frame.avi.quantization_range =
-				HDMI_QUANTIZATION_RANGE_FULL;
+			avi_if.body.avi.ITC_EC_Q_SC |= DIP_AVI_RGB_QUANT_RANGE_FULL;
+	} else {
+		/* Set full range quantization for non-CEA modes
+		and 640x480 */
+		if ((avi_if.body.avi.VIC == 0) || (avi_if.body.avi.VIC == 1))
+			avi_if.body.avi.ITC_EC_Q_SC |=
+				DIP_AVI_RGB_QUANT_RANGE_FULL;
+		else
+			avi_if.body.avi.ITC_EC_Q_SC |=
+				DIP_AVI_RGB_QUANT_RANGE_LIMITED;
 	}
 
-	intel_write_infoframe(encoder, &frame);
+	/*If picture aspect ratio (PAR) is set to custom value, then use that,
+	else if VIC > 1, then get PAR from CEA mode list, else, calculate
+	PAR based on resolution */
+	if (adjusted_mode->picture_aspect_ratio == HDMI_PICTURE_ASPECT_4_3 ||
+	adjusted_mode->picture_aspect_ratio == HDMI_PICTURE_ASPECT_16_9) {
+		avi_if.body.avi.C_M_R |=
+			adjusted_mode->picture_aspect_ratio << 4;
+		/*PAR is bit 5:4 of data byte 2 of AVI infoframe */
+	} else if (avi_if.body.avi.VIC) {
+		PAR = drm_get_cea_aspect_ratio(avi_if.body.avi.VIC);
+		avi_if.body.avi.C_M_R |= PAR << 4;
+	} else {
+		if (!(adjusted_mode->vdisplay % 3) &&
+			((adjusted_mode->vdisplay * 4 / 3) ==
+			adjusted_mode->hdisplay))
+			avi_if.body.avi.C_M_R |= HDMI_PICTURE_ASPECT_4_3 << 4;
+		else if (!(adjusted_mode->vdisplay % 9) &&
+			((adjusted_mode->vdisplay * 16 / 9) ==
+			adjusted_mode->hdisplay))
+			avi_if.body.avi.C_M_R |= HDMI_PICTURE_ASPECT_16_9 << 4;
+	}
+
+	if (avi_if.body.avi.VIC) {
+		/* colorimetry: Sections 5.1 and 5.2 of CEA 861-D spec */
+		if ((adjusted_mode->vdisplay == 480) ||
+			(adjusted_mode->vdisplay == 576) ||
+			(adjusted_mode->vdisplay == 240) ||
+			(adjusted_mode->vdisplay == 288)) {
+			avi_if.body.avi.C_M_R |= DIP_AVI_COLOR_ITU601;
+		} else if ((adjusted_mode->vdisplay == 720) ||
+			(adjusted_mode->vdisplay == 1080)) {
+			avi_if.body.avi.C_M_R |= DIP_AVI_COLOR_ITU709;
+		}
+	}
+
+	avi_if.body.avi.ITC_EC_Q_SC |= DIP_AVI_IT_CONTENT;
+	intel_set_infoframe(encoder, &avi_if);
+
 }
 
 static void intel_hdmi_set_spd_infoframe(struct drm_encoder *encoder)

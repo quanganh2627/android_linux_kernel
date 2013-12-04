@@ -104,10 +104,85 @@
 #define INTEL_DSI_COMMAND_MODE	0
 #define INTEL_DSI_VIDEO_MODE	1
 
+#define DIP_HEADER_SIZE 5
+
+#define DIP_TYPE_AVI    0x82
+#define DIP_VERSION_AVI 0x2
+#define DIP_LEN_AVI     13
+#define DIP_AVI_PR_1    0
+#define DIP_AVI_PR_2    1
+#define DIP_AVI_RGB_QUANT_RANGE_DEFAULT (0 << 2)
+#define DIP_AVI_RGB_QUANT_RANGE_LIMITED (1 << 2)
+#define DIP_AVI_RGB_QUANT_RANGE_FULL    (2 << 2)
+#define DIP_AVI_IT_CONTENT      (1 << 7)
+#define DIP_AVI_BAR_BOTH        (3 << 2)
+#define DIP_AVI_COLOR_ITU601    (1 << 6)
+#define DIP_AVI_COLOR_ITU709    (2 << 6)
+
+#define DIP_TYPE_SPD    0x83
+#define DIP_VERSION_SPD 0x1
+#define DIP_LEN_SPD     25
+#define DIP_SPD_UNKNOWN 0
+#define DIP_SPD_DSTB    0x1
+#define DIP_SPD_DVDP    0x2
+#define DIP_SPD_DVHS    0x3
+#define DIP_SPD_HDDVR   0x4
+#define DIP_SPD_DVC     0x5
+#define DIP_SPD_DSC     0x6
+#define DIP_SPD_VCD     0x7
+#define DIP_SPD_GAME    0x8
+#define DIP_SPD_PC      0x9
+#define DIP_SPD_BD      0xa
+#define DIP_SPD_SCD     0xb
+
+
 struct intel_framebuffer {
 	struct drm_framebuffer base;
 	struct drm_i915_gem_object *obj;
 };
+
+struct dip_infoframe {
+
+
+uint8_t type;		/* HB0 */
+uint8_t ver;            /* HB1 */
+uint8_t len;            /* HB2 - body len, not including checksum */
+uint8_t ecc;            /* Header ECC */
+uint8_t checksum;       /* PB0 */
+
+	union {
+		struct {
+			/* PB1 - Y 6:5, A 4:4, B 3:2, S 1:0 */
+			uint8_t Y_A_B_S;
+			/* PB2 - C 7:6, M 5:4, R 3:0 */
+			uint8_t C_M_R;
+			/* PB3 - ITC 7:7, EC 6:4, Q 3:2, SC 1:0 */
+			uint8_t ITC_EC_Q_SC;
+			/* PB4 - VIC 6:0 */
+			uint8_t VIC;
+			/* PB5 - YQ 7:6, CN 5:4, PR 3:0 */
+			uint8_t YQ_CN_PR;
+			/* PB6 to PB13 */
+			uint16_t top_bar_end;
+			uint16_t bottom_bar_start;
+			uint16_t left_bar_end;
+			uint16_t right_bar_start;
+		} __attribute__ ((packed)) avi;
+
+		struct {
+
+			uint8_t vn[8];
+			uint8_t pd[16];
+			uint8_t sdi;
+
+		} __attribute__ ((packed)) spd;
+
+	uint8_t payload[27];
+
+	} __attribute__ ((packed)) body;
+
+} __attribute__((packed));
+
 
 struct intel_fbdev {
 	struct drm_fb_helper helper;
