@@ -238,6 +238,17 @@
 #define CFG_PIN_DEFAULT_CFG		0x7E
 #define SMB34X_FULL_WORK_JIFFIES		(30*HZ)
 
+#define SMB34X_EXTCON_SDP		"CHARGER_USB_SDP"
+#define SMB34X_EXTCON_DCP		"CHARGER_USB_DCP"
+#define SMB34X_EXTCON_CDP		"CHARGER_USB_CDP"
+
+static const char *smb34x_extcon_cable[] = {
+	SMB34X_EXTCON_SDP,
+	SMB34X_EXTCON_DCP,
+	SMB34X_EXTCON_CDP,
+	NULL,
+};
+
 struct smb347_otg_event {
 	struct list_head	node;
 	bool			param;
@@ -286,6 +297,7 @@ struct smb347_charger {
 	bool			otg_battery_uv;
 	bool			is_disabled;
 	const struct smb347_charger_platform_data	*pdata;
+	struct extcon_dev	*edev;
 	/* power supply properties */
 	enum power_supply_charger_cable_type cable_type;
 	int			inlmt;
@@ -2191,6 +2203,7 @@ static int smb347_probe(struct i2c_client *client,
 		return ret;
 
 	wake_lock_init(&smb->wakelock, WAKE_LOCK_SUSPEND, "smb_wakelock");
+
 	/*
 	 * Interrupt pin is optional. If it is connected, we setup the
 	 * interrupt support here.
@@ -2215,7 +2228,7 @@ static int smb347_probe(struct i2c_client *client,
 		smb->mains.num_supplicants = pdata->num_supplicants;
 		ret = power_supply_register(dev, &smb->mains);
 		if (ret < 0)
-			return ret;
+			goto psy_reg1_failed;
 	}
 
 	if (smb->pdata->use_usb) {
@@ -2233,11 +2246,8 @@ static int smb347_probe(struct i2c_client *client,
 		smb->max_cc = 2000;
 		smb->max_cv = 4350;
 		ret = power_supply_register(dev, &smb->usb);
-		if (ret < 0) {
-			if (smb->pdata->use_mains)
-				power_supply_unregister(&smb->mains);
-			return ret;
-		}
+		if (ret < 0)
+			goto psy_reg2_failed;
 	}
 
 	if (smb->pdata->show_battery) {
@@ -2248,13 +2258,23 @@ static int smb347_probe(struct i2c_client *client,
 		smb->battery.num_properties =
 				ARRAY_SIZE(smb347_battery_properties);
 		ret = power_supply_register(dev, &smb->battery);
-		if (ret < 0) {
-			if (smb->pdata->use_usb)
-				power_supply_unregister(&smb->usb);
-			if (smb->pdata->use_mains)
-				power_supply_unregister(&smb->mains);
-			return ret;
-		}
+		if (ret < 0)
+			goto psy_reg3_failed;
+	}
+
+	/* register with extcon */
+	smb->edev = devm_kzalloc(dev, sizeof(struct extcon_dev), GFP_KERNEL);
+	if (!smb->edev) {
+		dev_err(&client->dev, "mem alloc failed\n");
+		ret = -ENOMEM;
+		goto psy_reg4_failed;
+	}
+	smb->edev->name = "smb34x";
+	smb->edev->supported_cable = smb34x_extcon_cable;
+	ret = extcon_dev_register(smb->edev, &client->dev);
+	if (ret) {
+		dev_err(&client->dev, "extcon registration failed!!\n");
+		goto psy_reg4_failed;
 	}
 
 	if (smb->pdata->detect_chg)
@@ -2265,8 +2285,21 @@ static int smb347_probe(struct i2c_client *client,
 	smb->running = true;
 	smb->dentry = debugfs_create_file("smb347-regs", S_IRUSR, NULL, smb,
 					  &smb347_debugfs_fops);
-
 	return 0;
+
+psy_reg4_failed:
+	if (smb->pdata->show_battery)
+		power_supply_unregister(&smb->battery);
+psy_reg3_failed:
+	if (smb->pdata->use_usb)
+		power_supply_unregister(&smb->usb);
+psy_reg2_failed:
+	if (smb->pdata->use_mains)
+		power_supply_unregister(&smb->mains);
+psy_reg1_failed:
+	if (client->irq > 0)
+		free_irq(client->irq, smb);
+	return ret;
 }
 
 static int smb347_remove(struct i2c_client *client)
@@ -2298,6 +2331,7 @@ static int smb347_remove(struct i2c_client *client)
 			kfree(evt);
 		}
 	}
+	extcon_dev_unregister(smb->edev);
 	if (smb->pdata->show_battery)
 		power_supply_unregister(&smb->battery);
 	if (smb->pdata->use_usb)
