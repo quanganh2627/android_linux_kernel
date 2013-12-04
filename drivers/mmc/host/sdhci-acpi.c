@@ -250,7 +250,8 @@ static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sdio = {
 	.quirks2 = SDHCI_QUIRK2_HOST_OFF_CARD_ON |
 		SDHCI_QUIRK2_CAN_VDD_300 | SDHCI_QUIRK2_CAN_VDD_330 |
-		SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+		SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
+		SDHCI_QUIRK2_ADVERTISE_2V0_FORCE_1V8,
 	.caps    = MMC_CAP_NONREMOVABLE | MMC_CAP_POWER_OFF_CARD,
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
 	.pm_caps = MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ |
