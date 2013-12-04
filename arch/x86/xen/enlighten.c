@@ -45,7 +45,9 @@
 #include <xen/page.h>
 #include <xen/hvm.h>
 #include <xen/hvc-console.h>
+#ifdef CONFIG_ACPI
 #include <xen/acpi.h>
+#endif
 
 #include <asm/paravirt.h>
 #include <asm/apic.h>
@@ -1597,7 +1599,9 @@ asmlinkage void __init xen_start_kernel(void)
 		/* Make sure ACS will be enabled */
 		pci_request_acs();
 
+#ifdef CONFIG_ACPI
 		xen_acpi_sleep_register();
+#endif
 
 		/* Avoid searching for BIOS MP tables */
 		x86_init.mpparse.find_smp_config = x86_init_noop;
