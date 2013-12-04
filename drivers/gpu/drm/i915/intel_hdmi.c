@@ -1376,10 +1376,6 @@ static void intel_hdmi_pre_pll_enable(struct intel_encoder *encoder)
 	vlv_dpio_write(dev_priv, DPIO_TX_CTL(port), 0x00001500);
 	vlv_dpio_write(dev_priv, DPIO_TX_LANE(port), 0x40400000);
 
-	vlv_dpio_write(dev_priv, DPIO_PCS_CTL_OVER1(port),
-			 0x00002000);
-	vlv_dpio_write(dev_priv, DPIO_TX_OCALINIT(port),
-			 DPIO_TX_OCALINIT_EN);
 	mutex_unlock(&dev_priv->dpio_lock);
 }
 

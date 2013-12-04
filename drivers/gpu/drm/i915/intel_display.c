@@ -1482,17 +1482,6 @@ static void vlv_enable_pll(struct intel_crtc *crtc)
 
 	I915_WRITE(DPLL_MD(crtc->pipe), crtc->config.dpll_hw_state.dpll_md);
 	POSTING_READ(DPLL_MD(crtc->pipe));
-
-	/* We do this three times for luck */
-	I915_WRITE(reg, dpll);
-	POSTING_READ(reg);
-	udelay(150); /* wait for warmup */
-	I915_WRITE(reg, dpll);
-	POSTING_READ(reg);
-	udelay(150); /* wait for warmup */
-	I915_WRITE(reg, dpll);
-	POSTING_READ(reg);
-	udelay(150); /* wait for warmup */
 }
 
 static void i9xx_enable_pll(struct intel_crtc *crtc)
@@ -4862,32 +4851,19 @@ static void vlv_update_pll(struct intel_crtc *crtc)
 	/* Disable fast lock */
 	vlv_dpio_write(dev_priv, DPIO_FASTCLK_DISABLE, 0x610);
 
-	/* Set idtafcrecal before PLL is enabled */
-	mdiv = ((bestm1 << DPIO_M1DIV_SHIFT) | (bestm2 & DPIO_M2DIV_MASK));
-	mdiv |= ((bestp1 << DPIO_P1_SHIFT) | (bestp2 << DPIO_P2_SHIFT));
-	mdiv |= ((bestn << DPIO_N_SHIFT));
-	mdiv |= (1 << DPIO_K_SHIFT);
-
-	/*
-	 * Post divider depends on pixel clock rate, DAC vs digital (and LVDS,
-	 * but we don't support that).
-	 * Note: don't use the DAC post divider as it seems unstable.
-	 */
-	mdiv |= (DPIO_POST_DIV_HDMIDP << DPIO_POST_DIV_SHIFT);
-	vlv_dpio_write(dev_priv, DPIO_DIV(pipe), mdiv);
-
-	mdiv |= DPIO_ENABLE_CALIBRATION;
-	vlv_dpio_write(dev_priv, DPIO_DIV(pipe), mdiv);
-
-	/* Set HBR and RBR LPF coefficients */
-	if (crtc->config.port_clock == 162000 ||
-	    intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_ANALOG) ||
-	    intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_HDMI))
-		vlv_dpio_write(dev_priv, DPIO_LPF_COEFF(pipe),
-				 0x009f0003);
-	else
-		vlv_dpio_write(dev_priv, DPIO_LPF_COEFF(pipe),
-				 0x00d0000f);
+	if (intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_EDP) ||
+	    intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_DISPLAYPORT)) {
+		/* Set HBR and RBR LPF coefficients */
+		if (crtc->config.port_clock == 162000 ||
+		intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_ANALOG) ||
+		intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_HDMI))
+			vlv_dpio_write(dev_priv, DPIO_LPF_COEFF(pipe),
+					0x009f0003);
+		else
+			vlv_dpio_write(dev_priv, DPIO_LPF_COEFF(pipe),
+					0x00d0000f);
+	} else /* HDMI */
+		vlv_dpio_write(dev_priv, DPIO_LPF_COEFF(pipe), 0x005f0021);
 
 	if (intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_EDP) ||
 	    intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_DISPLAYPORT)) {
@@ -4908,11 +4884,24 @@ static void vlv_update_pll(struct intel_crtc *crtc)
 					 0x0df40000);
 	}
 
+	/* Set idtafcrecal before PLL is enabled */
+	mdiv = ((bestm1 << DPIO_M1DIV_SHIFT) | (bestm2 & DPIO_M2DIV_MASK));
+	mdiv |= ((bestp1 << DPIO_P1_SHIFT) | (bestp2 << DPIO_P2_SHIFT));
+	mdiv |= ((bestn << DPIO_N_SHIFT));
+	mdiv |= (1 << DPIO_K_SHIFT);
+
+	/*
+	 * Post divider depends on pixel clock rate, DAC vs digital (and LVDS,
+	 * but we don't support that).
+	 * Note: don't use the DAC post divider as it seems unstable.
+	 */
+	mdiv |= (DPIO_POST_DIV_HDMIDP << DPIO_POST_DIV_SHIFT);
+	vlv_dpio_write(dev_priv, DPIO_DIV(pipe), mdiv);
+	mdiv |= DPIO_ENABLE_CALIBRATION;
+	vlv_dpio_write(dev_priv, DPIO_DIV(pipe), mdiv);
+
 	coreclk = vlv_dpio_read(dev_priv, DPIO_CORE_CLK(pipe));
 	coreclk = (coreclk & 0x0000ff00) | 0x01c00000;
-	if (intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_DISPLAYPORT) ||
-	    intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_EDP))
-		coreclk |= 0x01000000;
 	vlv_dpio_write(dev_priv, DPIO_CORE_CLK(pipe), coreclk);
 
 	vlv_dpio_write(dev_priv, DPIO_PLL_CML(pipe), 0x87871000);
