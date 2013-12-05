@@ -996,7 +996,7 @@ static int aic31xx_set_dai_pll(struct snd_soc_dai *dai,
 	snd_soc_write(codec, AIC31XX_AOSR, aic31xx_divs[i].aosr);
 	/* BCLK N divider */
 	snd_soc_update_bits(codec, AIC31XX_BCLKN, AIC31XX_PLL_MASK,
-			aic31xx_divs[i].bclk_N);
+			aic31xx_divs[i].bclk_n);
 
 
 	dev_dbg(codec->dev, "%s: DAI ID %d PLL_ID %d InFreq %d OutFreq %d\n",
@@ -1070,6 +1070,21 @@ static int aic31xx_resume(struct snd_soc_codec *codec)
 
 	return 0;
 }
+
+void aic31xx_btn_press_intr_enable(struct snd_soc_codec *codec,
+		int enable)
+{
+	if (enable)
+		snd_soc_update_bits(codec, AIC31XX_INT1CTRL,
+				AIC31XX_BUTTONPRESSDET_MASK,
+				AIC31XX_BUTTONPRESSDET_MASK);
+	else
+		snd_soc_update_bits(codec, AIC31XX_INT1CTRL,
+				AIC31XX_BUTTONPRESSDET_MASK,
+				0x0);
+}
+EXPORT_SYMBOL_GPL(aic31xx_btn_press_intr_enable);
+
 /**
 * aic31xx_hs_jack_report: Report jack notification to upper layer
 * @codec: pointer variable to codec having information related to codec
@@ -1083,7 +1098,11 @@ static void aic31xx_hs_jack_report(struct snd_soc_codec *codec,
 {
 	struct aic31xx_priv *aic31xx = snd_soc_codec_get_drvdata(codec);
 	int status, state = 0, switch_state = 0;
+	u8 val;
+
 	mutex_lock(&aic31xx->mutex);
+
+	val = snd_soc_read(codec, AIC31XX_INTRDACFLAG);
 	status = snd_soc_update_bits(codec, AIC31XX_HSDETECT,
 				AIC31XX_HSPLUGDET_MASK, 0);
 	/* Sleep for 10 ms minumum */
@@ -1118,58 +1137,58 @@ static void aic31xx_hs_jack_report(struct snd_soc_codec *codec,
 		status, state, switch_state);
 
 }
+EXPORT_SYMBOL_GPL(aic31xx_hs_jack_report);
+
+void aic31xx_enable_mic_bias(struct snd_soc_codec *codec, int enable)
+{
+	if (enable)
+		snd_soc_update_bits(codec, AIC31XX_MICBIAS, 0x03, (0x03));
+	else
+		snd_soc_update_bits(codec, AIC31XX_MICBIAS, 0x03, (0x0));
+}
+EXPORT_SYMBOL_GPL(aic31xx_enable_mic_bias);
 
 /**
-* aic31xx_hs_jack_detect: Detect headphone jack during boot time
+* aic31xx_hs_jack_report: Report jack notification to upper layer
 * @codec: pointer variable to codec having information related to codec
 * @jack: Pointer variable to snd_soc_jack having information of codec
 * and pin number$
 * @report: Provides informaton of whether it is headphone or microphone
 *
 */
-void aic31xx_hs_jack_detect(struct snd_soc_codec *codec,
-				struct snd_soc_jack *jack, int report)
+int aic31xx_query_jack_status(struct snd_soc_codec *codec)
 {
-	struct aic31xx_priv *aic31xx = snd_soc_codec_get_drvdata(codec);
-	struct aic31xx_jack_data *hs_jack = &aic31xx->hs_jack;
-	hs_jack->jack = jack;
-	hs_jack->report = report;
-	aic31xx_hs_jack_report(codec, hs_jack->jack, hs_jack->report);
-}
-EXPORT_SYMBOL_GPL(aic31xx_hs_jack_detect);
+	int status, state = 0;
 
-/**
-* aic31xx_accessory_work: Finished bottom half work from headphone jack
-* insertion interrupt
-* @work: pointer variable to work_struct which is maintaining work queqe
-*
-*/
-static void aic31xx_accessory_work(struct work_struct *work)
+	status = snd_soc_read(codec, AIC31XX_HSDETECT);
+
+	switch (status & AIC31XX_HS_MASK) {
+	case  AIC31XX_HS_MASK:
+		state |= SND_JACK_HEADSET;
+		break;
+	case AIC31XX_HP_MASK:
+		state |= SND_JACK_HEADPHONE;
+		break;
+	default:
+		break;
+	}
+	dev_dbg(codec->dev, "Jack Status returned is %x\n", state);
+	return state;
+}
+EXPORT_SYMBOL_GPL(aic31xx_query_jack_status);
+
+int aic31xx_query_btn_press(struct snd_soc_codec *codec)
 {
+	int state = 0, status;
 
-	struct aic31xx_priv *aic31xx = container_of(work, struct aic31xx_priv,
-							 delayed_work.work);
-	struct snd_soc_codec *codec = aic31xx->codec;
-	struct aic31xx_jack_data *hs_jack = &aic31xx->hs_jack;
-	aic31xx_hs_jack_report(codec, hs_jack->jack, hs_jack->report);
-}
-/**
-* aic31xx_audio_handler: audio interrupt handler called
-* when interrupt is generated
-* @irq: provides interrupt number which is assigned by aic31xx_request_irq,
-* @data having information of data passed by aic31xx_request_irq last arg,
-*
-* return IRQ_HANDLED(means interupt handled successfully)
-*/
-static irqreturn_t aic31xx_audio_handler(int irq, void *data)
-{
-	struct snd_soc_codec *codec = data;
-	struct aic31xx_priv *aic31xx = snd_soc_codec_get_drvdata(codec);
-	queue_delayed_work(aic31xx->workqueue, &aic31xx->delayed_work,
-	msecs_to_jiffies(200));
-	return IRQ_HANDLED;
-}
+	status = snd_soc_read(codec, AIC31XX_INTRFLAG);
+	if (status & AIC31XX_BTNPRESS_STATUS_MASK)
+		return state | SND_JACK_BTN_0;
+	dev_dbg(codec->dev, "BTN Status returned is %x\n", state);
+	return state;
 
+}
+EXPORT_SYMBOL_GPL(aic31xx_query_btn_press);
 
 /**
  * Instantiate the generic non-control parts of the device.
@@ -1177,7 +1196,7 @@ static irqreturn_t aic31xx_audio_handler(int irq, void *data)
 int aic31xx_device_init(struct aic31xx_priv *aic31xx)
 {
 	int ret, i;
-	u8 resetVal = 1;
+	u8 resetval = 1;
 	unsigned int val;
 
 	dev_info(aic31xx->dev, "aic31xx_device_init beginning\n");
@@ -1199,7 +1218,7 @@ int aic31xx_device_init(struct aic31xx_priv *aic31xx)
 	}
 
 	/* run the codec through software reset */
-	ret = regmap_write(aic31xx->regmap, AIC31XX_RESET, resetVal);
+	ret = regmap_write(aic31xx->regmap, AIC31XX_RESET, resetval);
 	if (ret < 0) {
 		dev_err(aic31xx->dev, "Could not write to AIC31xx register\n");
 		goto err;
@@ -1213,16 +1232,6 @@ int aic31xx_device_init(struct aic31xx_priv *aic31xx)
 		dev_err(aic31xx->dev, "Failed to read ID register\n");
 		goto err;
 	}
-
-	/*If naudint is gpio convert it to irq number */
-	if (aic31xx->pdata.gpio_irq == 1) {
-		aic31xx->irq = gpio_to_irq(aic31xx->pdata.naudint_irq);
-		gpio_request(aic31xx->pdata.naudint_irq, "aic31xx-gpio-irq");
-		gpio_direction_input(aic31xx->pdata.naudint_irq);
-	} else {
-		aic31xx->irq = aic31xx->pdata.naudint_irq;
-	}
-
 	/* Init the gpio registers */
 	for (i = 0; i < aic31xx->pdata.num_gpios; i++) {
 		regmap_write(aic31xx->regmap,
@@ -1269,45 +1278,18 @@ static int aic31xx_codec_probe(struct snd_soc_codec *codec)
 		return ret;
 	}
 
-	aic31xx->workqueue = create_singlethread_workqueue("aic31xx-codec");
-	if (!aic31xx->workqueue) {
-		ret = -ENOMEM;
-		goto work_err;
-	}
-
-	INIT_DELAYED_WORK(&aic31xx->delayed_work, aic31xx_accessory_work);
-
 	mutex_init(&aic31xx->mutex);
-	/* use switch-class based headset reporting if platform requires it */
 
-	if (aic31xx->irq) {
-		ret = request_irq(aic31xx->irq,
-					aic31xx_audio_handler,
-					IRQF_TRIGGER_RISING,
-					"aic31xx_irq", codec);
-		if (ret < 0) {
-			dev_err(codec->dev,
-			"AIC31xx irq request failed : %d\n", ret);
-			goto irq_err;
-		} else {
-			if (aic31xx->pdata.headset_detect) {
-				/* Dynamic Headset detection enabled */
-				snd_soc_update_bits(codec, AIC31XX_HSDETECT,
-						AIC31XX_HSPLUGDET_MASK,
-						AIC31XX_HSPLUGDET_MASK);
-				snd_soc_update_bits(codec, AIC31XX_INT1CTRL,
-						AIC31XX_HSPLUGDET_MASK,
-						AIC31XX_HSPLUGDET_MASK);
-
-			}
-			if (aic31xx->pdata.button_press_detect) {
-				snd_soc_update_bits(codec, AIC31XX_INT1CTRL,
-						AIC31XX_BUTTONPRESSDET_MASK,
-						AIC31XX_BUTTONPRESSDET_MASK);
-
-			}
-		}
-	}
+	/* Dynamic Headset detection enabled */
+	snd_soc_update_bits(codec, AIC31XX_HSDETECT,
+			AIC31XX_HSPLUGDET_MASK,
+			AIC31XX_HSPLUGDET_MASK);
+	snd_soc_update_bits(codec, AIC31XX_INT1CTRL,
+			AIC31XX_HSPLUGDET_MASK,
+			AIC31XX_HSPLUGDET_MASK);
+	snd_soc_update_bits(codec, AIC31XX_INT1CTRL,
+			AIC31XX_BUTTONPRESSDET_MASK,
+			AIC31XX_BUTTONPRESSDET_MASK);
 
 	/*Reconfiguring CM to band gap mode*/
 	snd_soc_update_bits(codec, AIC31XX_HPPOP, 0xff, 0xAE);
@@ -1328,14 +1310,6 @@ static int aic31xx_codec_probe(struct snd_soc_codec *codec)
 	aic31xx_add_controls(codec);
 	aic31xx_add_widgets(codec);
 	dev_dbg(codec->dev, "%d, %s, Firmware test\n", __LINE__, __func__);
-
-	return 0;
-
-irq_err:
-	destroy_workqueue(aic31xx->workqueue);
-
-work_err:
-	kfree(aic31xx);
 
 	return ret;
 }

@@ -127,7 +127,7 @@ struct aic31xx_rate_divs {
 	u8 aosr;
 	u8 nadc;
 	u8 madc;
-	u8 bclk_N;
+	u8 bclk_n;
 };
 
 
@@ -181,12 +181,16 @@ int aic31xx_write(struct snd_soc_codec *codec, unsigned int reg,
  *
  */
 extern struct snd_soc_codec_device soc_codec_dev_aic31xx;
-void aic31xx_hs_jack_detect(struct snd_soc_codec *codec,
-				struct snd_soc_jack *jack, int report);
+
 
 /* Device I/O API */
 int aic31xx_device_init(struct aic31xx_priv *aic31xx);
 void aic31xx_device_exit(struct aic31xx_priv *aic31xx);
+void aic31xx_enable_mic_bias(struct snd_soc_codec *codec, int enable);
+int aic31xx_query_jack_status(struct snd_soc_codec *codec);
+int aic31xx_query_btn_press(struct snd_soc_codec *codec);
+void aic31xx_btn_press_intr_enable(struct snd_soc_codec *codec,
+		int enable);
 
 
 /* ****************** Book 0 Registers **************************************/
@@ -275,6 +279,9 @@ void aic31xx_device_exit(struct aic31xx_priv *aic31xx);
 #define AIC31XX_DACSINT_MASK				0x02
 #define AIC31XX_DACAINT_MASK				0x01
 
+/* Interrupt flags register */
+#define AIC31XX_INTRFLAG				0xAE
+#define AIC31XX_BTNPRESS_STATUS_MASK			0x20
 
 /* INT1 interrupt control */
 #define AIC31XX_INT1CTRL				0xB0
@@ -284,6 +291,7 @@ void aic31xx_device_exit(struct aic31xx_priv *aic31xx);
 #define AIC31XX_AGCNOISE_MASK				0x10
 #define AIC31XX_OC_MASK					0x08
 #define AIC31XX_ENGINE_MASK				0x04
+#define AIC31XX_MULTIPLE_PULSES				0x01
 
 /* INT2 interrupt control */
 #define AIC31XX_INT2CTRL				0xB1
