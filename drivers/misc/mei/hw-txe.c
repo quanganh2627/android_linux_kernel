@@ -890,8 +890,9 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 		} else {
 			dev->recvd_hw_ready = false;
 			if (dev->dev_state != MEI_DEV_RESETTING &&
-			    dev->dev_state != MEI_DEV_POWER_DOWN &&
-			    dev->dev_state != MEI_DEV_INITIALIZING) {
+			    dev->dev_state != MEI_DEV_INITIALIZING &&
+			    dev->dev_state != MEI_DEV_POWER_UP &&
+			    dev->dev_state != MEI_DEV_POWER_DOWN) {
 				dev_dbg(&dev->pdev->dev, "FW not ready.\n");
 
 				schedule_work(&dev->reset_work);
