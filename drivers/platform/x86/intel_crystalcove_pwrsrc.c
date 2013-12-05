@@ -296,7 +296,8 @@ static int pwrsrc_extcon_registration(struct pwrsrc_info *info)
 
 		/* OTG notification */
 		info->otg = usb_get_phy(USB_PHY_TYPE_USB2);
-		if (!info->otg) {
+		if (IS_ERR_OR_NULL(info->otg)) {
+			info->otg = NULL;
 			dev_warn(&info->pdev->dev, "Failed to get otg transceiver!!\n");
 			extcon_dev_unregister(info->edev);
 			kfree(info->edev);
