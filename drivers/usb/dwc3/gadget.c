@@ -635,6 +635,9 @@ static int __dwc3_gadget_ep_enable(struct dwc3_ep *dep,
 		reg |= DWC3_DALEPENA_EP(dep->number);
 		dwc3_writel(dwc->regs, DWC3_DALEPENA, reg);
 
+		if (dep->ebc)
+			dwc->is_ebc = 1;
+
 		if (!usb_endpoint_xfer_isoc(desc))
 			return 0;
 
@@ -691,8 +694,12 @@ static int __dwc3_gadget_ep_disable(struct dwc3_ep *dep)
 	struct ebc_io		*ebc = dep->ebc;
 	u32			reg;
 
-	if (ebc && ebc->is_ondemand && ebc->xfer_stop)
-		ebc->xfer_stop();
+	if (ebc) {
+		dwc->is_ebc = 0;
+
+		if (ebc->is_ondemand && ebc->xfer_stop)
+			ebc->xfer_stop();
+	}
 
 	dwc3_remove_requests(dwc, dep);
 
@@ -1315,7 +1322,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		}
 
 		if (dep->flags & DWC3_EP_BUSY) {
-			dwc3_stop_active_transfer(dwc, dep->number);
+			dwc3_stop_active_transfer(dwc, dep->number, 1);
 			dep->flags = DWC3_EP_ENABLED;
 		}
 
@@ -1848,6 +1855,7 @@ static int dwc3_init_for_enumeration(struct dwc3 *dwc)
 		reg |= dwc->maximum_speed;
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
 
+	dwc->is_ebc = 0;
 	dwc->start_config_issued = false;
 
 	/* Start with SuperSpeed Default */
