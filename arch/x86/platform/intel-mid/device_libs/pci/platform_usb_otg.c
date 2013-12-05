@@ -39,7 +39,7 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 {
 	switch (pdev->device) {
 	case PCI_DEVICE_ID_INTEL_MRFL_DWC3_OTG:
-		if (INTEL_MID_BOARD(1, PHONE, MOOR)) {
+		if (INTEL_MID_BOARD(1, PHONE, MOFD)) {
 			dwc_otg_pdata.pmic_type = SHADY_COVE;
 			dwc_otg_pdata.charger_detect_enable = 0;
 

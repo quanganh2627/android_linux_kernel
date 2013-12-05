@@ -87,10 +87,8 @@ void __init *mrfl_pmic_ccsm_platform_data(void *info)
 			INTEL_MID_BOARD(1, TABLET, MRFL)) {
 		pmic_pdata.max_tbl_row_cnt = ARRAY_SIZE(basincove_adc_tbl);
 		pmic_pdata.adc_tbl = basincove_adc_tbl;
-	} else if (INTEL_MID_BOARD(1, PHONE, MOOR) ||
-			INTEL_MID_BOARD(1, TABLET, MOOR) ||
-			INTEL_MID_BOARD(1, PHONE, MRFLPLUS) ||
-			INTEL_MID_BOARD(1, TABLET, MRFLPLUS)) {
+	} else if (INTEL_MID_BOARD(1, PHONE, MOFD) ||
+			INTEL_MID_BOARD(1, TABLET, MOFD)) {
 		pmic_pdata.max_tbl_row_cnt = ARRAY_SIZE(shadycove_adc_tbl);
 		pmic_pdata.adc_tbl = shadycove_adc_tbl;
 	}

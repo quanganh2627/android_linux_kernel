@@ -373,8 +373,8 @@ int mcd_get_pmic_ver(void)
 	case INTEL_BYT_PHONE:
 	case INTEL_BYT_TABLET:
 		return PMIC_BYT;
-	case INTEL_MOOR_PHONE:
-	case INTEL_MOOR_TABLET:
+	case INTEL_MOFD_PHONE:
+	case INTEL_MOFD_TABLET:
 		return PMIC_MOOR;
 	default:
 		return PMIC_UNSUP;

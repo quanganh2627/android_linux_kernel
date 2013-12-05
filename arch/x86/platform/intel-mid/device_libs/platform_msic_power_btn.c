@@ -52,7 +52,7 @@ void __init *msic_power_btn_platform_data(void *info)
 		return NULL;
 	}
 
-	if (INTEL_MID_BOARD(1, PHONE, MOOR)) {
+	if (INTEL_MID_BOARD(1, PHONE, MOFD)) {
 		msic_power_btn_pdata.pbstat = 0xfffff61a;
 		msic_power_btn_pdata.pb_level = (1 << 4);
 		msic_power_btn_pdata.irq_lvl1_mask = 0x100c;
