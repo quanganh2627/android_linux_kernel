@@ -84,6 +84,7 @@ struct max17042_platform_data {
 	bool is_lowbatt_shutdown;
 	bool file_sys_storage_enabled;
 	bool soc_intr_mode_enabled;
+	bool en_temp_alert;
 	bool reset_chip;
 	int technology;
 	int fg_algo_model; /* maxim chip algorithm model */
