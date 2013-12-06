@@ -775,6 +775,13 @@ int i915_reset(struct drm_device *dev)
 	if (!i915_try_reset)
 		return 0;
 
+	/* Wake up wells for handling reset if rc6 is enabled*/
+	if (IS_VALLEYVIEW(dev) && dev_priv->rc6.enabled)
+		vlv_force_wake_get(dev_priv, FORCEWAKE_ALL);
+
+	dev_priv->rps.state = dev_priv->rps.enabled;
+	dev_priv->rc6.state = dev_priv->rc6.enabled;
+
 	drm_halt(dev);
 
 	/* Wait for DRM to go idle.
