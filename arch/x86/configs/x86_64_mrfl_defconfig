@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/x86_64 3.10.16 Kernel Configuration
+# Linux/x86_64 3.10.20 Kernel Configuration
 #
 CONFIG_64BIT=y
 CONFIG_X86_64=y
@@ -1937,7 +1937,6 @@ CONFIG_POWER_SUPPLY_BATTID=y
 # CONFIG_BATTERY_BQ27x00 is not set
 # CONFIG_BATTERY_MAX17040 is not set
 CONFIG_BATTERY_MAX17042=y
-# CONFIG_BATTERY_ANDROID is not set
 # CONFIG_BATTERY_INTEL_MID is not set
 # CONFIG_CHARGER_ISP1704 is not set
 # CONFIG_CHARGER_MAX8903 is not set
@@ -2414,6 +2413,7 @@ CONFIG_BACKLIGHT_GENERIC=y
 # CONFIG_BACKLIGHT_LM3630 is not set
 # CONFIG_BACKLIGHT_LM3639 is not set
 # CONFIG_BACKLIGHT_LP855X is not set
+# CONFIG_ADF is not set
 
 #
 # Console display driver support
