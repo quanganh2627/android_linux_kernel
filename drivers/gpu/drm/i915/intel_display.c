@@ -54,6 +54,7 @@
 struct i915_flip_data {
 	struct drm_crtc *crtc;
 	u32 seqno;
+	u32 ring_id;
 };
 struct i915_flip_work {
 	struct i915_flip_data flipdata;
@@ -8479,7 +8480,8 @@ static void intel_gen7_queue_mmio_flip_work(struct work_struct *__work)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
+	struct intel_ring_buffer *ring =
+			&dev_priv->ring[flipwork->flipdata.ring_id];
 
 	if (dev_priv->ums.mm_suspended || (ring->obj == NULL)) {
 		DRM_ERROR("flip attempted while the ring is not ready\n");
@@ -8496,8 +8498,9 @@ static void intel_gen7_queue_mmio_flip_work(struct work_struct *__work)
 		ret = __wait_seqno(ring, flipwork->flipdata.seqno,
 						reset_counter, true, NULL);
 		if (ret)
-			DRM_ERROR("wait_seqno failed on seqno 0x%x\n",
-				flipwork->flipdata.seqno);
+			DRM_ERROR("wait_seqno failed on seqno 0x%x(%d)\n",
+				flipwork->flipdata.seqno,
+				flipwork->flipdata.ring_id);
 	}
 
 	intel_mark_page_flip_active(intel_crtc);
@@ -8516,11 +8519,10 @@ static int intel_gen7_queue_mmio_flip(struct drm_device *dev,
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
 	struct i915_flip_work *work = &flip_works[intel_crtc->plane];
 	int ret;
 
-	ret = intel_pin_and_fence_fb_obj(dev, obj, ring);
+	ret = intel_pin_and_fence_fb_obj(dev, obj, obj->ring);
 	if (ret)
 		goto err;
 
@@ -8536,7 +8538,25 @@ static int intel_gen7_queue_mmio_flip(struct drm_device *dev,
 	}
 
 	work->flipdata.crtc  = crtc;
-	work->flipdata.seqno = obj->last_read_seqno;
+	work->flipdata.seqno = obj->last_write_seqno;
+	work->flipdata.ring_id = RCS;
+
+	if (obj->last_write_seqno > 0) {
+		if (obj->ring) {
+			work->flipdata.ring_id = obj->ring->id;
+			/* Check if there is a need to add the request
+			 * in the ring to emit the seqno for this fb obj */
+			ret = i915_gem_check_olr(obj->ring,
+						obj->last_write_seqno);
+			if (ret)
+				goto err_unpin;
+		} else {
+			DRM_ERROR("NULL ring for active obj with seqno %x\n",
+				obj->last_write_seqno);
+			ret = -EINVAL;
+			goto err_unpin;
+		}
+	}
 
 	INIT_WORK(&work->work, intel_gen7_queue_mmio_flip_work);
 

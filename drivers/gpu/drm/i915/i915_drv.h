@@ -2191,6 +2191,7 @@ int __must_check i915_gem_object_put_fence(struct drm_i915_gem_object *obj);
 
 int __must_check i915_gem_next_request_seqno(struct intel_ring_buffer *ring,
 					     u32 *seqno);
+int i915_gem_check_olr(struct intel_ring_buffer *ring, u32 seqno);
 
 static inline bool
 i915_gem_object_pin_fence(struct drm_i915_gem_object *obj)
