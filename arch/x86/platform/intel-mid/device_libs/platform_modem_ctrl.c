@@ -307,7 +307,19 @@ int mcd_register_mdm_info(struct mcd_base_info *info,
 int mcd_get_modem_ver(char *mdm_name)
 {
 	int modem = 0;
-	strncpy(modem_name, mdm_name, SFI_NAME_LEN);
+
+	if (strstr(mdm_name, "CONF")) {
+		while (cfg_assoc_tbl[modem].cfg_name) {
+			if (strstr(mdm_name, cfg_assoc_tbl[modem].cfg_name)) {
+				strncpy(modem_name, cfg_assoc_tbl[modem].mdm_name, SFI_NAME_LEN);
+				break;
+			}
+			modem++;
+		}
+	} else
+		strncpy(modem_name, mdm_name, SFI_NAME_LEN);
+
+	modem = 0;
 	/* Retrieve modem ID from modem name */
 	while (mdm_assoc_table[modem].modem_name[0]) {
 		/* Search for mdm_name in table.
@@ -324,12 +336,16 @@ void mcd_get_config_ver(char *mdm_name, int mid_cpu)
 {
 	ssize_t i = 0;
 
-	for (i = 0; i < ARRAY_SIZE(cfg_assoc_tbl); i++) {
-		if (!strncmp(cfg_assoc_tbl[i].mdm_name, mdm_name, SFI_NAME_LEN)
-				&& (cfg_assoc_tbl[i].cpu_type == mid_cpu)) {
-			strncpy(config_name, cfg_assoc_tbl[i].cfg_name,
-					SFI_NAME_LEN);
-			break;
+	if (strstr(mdm_name, "CONF"))
+		strncpy(config_name, mdm_name, SFI_NAME_LEN);
+	else {
+		for (i = 0; i < ARRAY_SIZE(cfg_assoc_tbl); i++) {
+			if (!strncmp(cfg_assoc_tbl[i].mdm_name, mdm_name, SFI_NAME_LEN)
+					&& (cfg_assoc_tbl[i].cpu_type == mid_cpu)) {
+				strncpy(config_name, cfg_assoc_tbl[i].cfg_name,
+						SFI_NAME_LEN);
+				break;
+			}
 		}
 	}
 }
@@ -500,7 +516,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	mcd_reg_info = kzalloc(sizeof(struct mcd_base_info), GFP_ATOMIC);
 	if (!mcd_reg_info) {
 		pr_err("%s: can't allocate mcd_reg_tmp_info memory", __func__);
-		goto Free_mdm_info;
+		goto free_mdm_info;
 	}
 
 	pr_info("%s: Getting platform data...\n", __func__);
@@ -509,7 +525,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	status = get_acpi_param(handle, ACPI_TYPE_STRING, "CPU", &out_obj);
 	if (ACPI_FAILURE(status)) {
 		pr_err("%s: ERROR evaluating CPU Name\n", __func__);
-		goto Free_mdm_info;
+		goto free_mdm_info;
 	}
 
 	/* CPU Id */
@@ -524,21 +540,21 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	} else {
 		pr_err("%s: ERROR CPU name %s Not supported!\n", __func__,
 		       cpu_name);
-		goto Free_mdm_info;
+		goto free_mdm_info;
 	}
 
 	/* Retrieve Modem name from ACPI */
 	status = get_acpi_param(handle, ACPI_TYPE_STRING, "MDMN", &out_obj);
 	if (ACPI_FAILURE(status)) {
 		pr_err("%s: ERROR evaluating Modem Name\n", __func__);
-		goto Free_mdm_info;
+		goto free_mdm_info;
 	}
 
 	mcd_reg_info->mdm_ver = mcd_get_modem_ver(out_obj->string.pointer);
 	if (mcd_reg_info->mdm_ver == MODEM_UNSUP) {
 		pr_err("%s: ERROR Modem %s Not supported!\n", __func__,
 		       modem_name);
-		goto Free_mdm_info;
+		goto free_mdm_info;
 	}
 	mcd_reg_info->modem_data = modem_data[mcd_reg_info->mdm_ver];
 
@@ -551,7 +567,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	status = get_acpi_param(handle, ACPI_TYPE_PACKAGE, "PMIC", &out_obj);
 	if (ACPI_FAILURE(status)) {
 		pr_err("%s: ERROR evaluating PMIC info\n", __func__);
-		goto Free_mdm_info;
+		goto free_mdm_info;
 	}
 
 	/* mrfl is closest to BYT */
@@ -587,7 +603,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	status = get_acpi_param(handle, ACPI_TYPE_PACKAGE, "EPWR", &out_obj);
 	if (ACPI_FAILURE(status)) {
 		pr_err("%s: ERROR evaluating Early PWR info\n", __func__);
-		goto Free_mdm_info;
+		goto free_mdm_info;
 	}
 
 	item = &(out_obj->package.elements[0]);
@@ -597,7 +613,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 
 	return mcd_reg_info;
 
- Free_mdm_info:
+ free_mdm_info:
 	pr_err("%s: ERROR retrieving data from ACPI!!!\n", __func__);
 	kfree(mcd_reg_info);
 #endif

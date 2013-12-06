@@ -26,10 +26,15 @@ static struct hsi_platform_data hsi_platform_info;
 static struct sfi_to_mdm sfi_to_mdm_assoc_table[] = {
 	/* IMC products */
 	{"XMM_6260", MODEM_6260},
+	{"XMM6260", MODEM_6260},
 	{"XMM_6268", MODEM_6268},
+	{"XMM6268", MODEM_6268},
 	{"XMM_6360", MODEM_6360},
+	{"XMM6360", MODEM_6360},
 	{"XMM_7160", MODEM_7160},
+	{"XMM7160", MODEM_7160},
 	{"XMM_7260", MODEM_7260},
+	{"XMM7260", MODEM_7260},
 	/* Any other IMC products: set to 7160 by default */
 	{"XMM", MODEM_7160},
 	/* RMC products, not supported */
