@@ -216,6 +216,26 @@ struct devs_id __initconst device_ids[] = {
 		&panel_handler},
 	{"PANEL_JDI_VID", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
+	{"PANEL_JDI_CMD", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+	/*  above 3 items will be removed
+	* after firmware changing
+	*/
+	{"PNC_CMI_7x12", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+	{"PNV_JDI_7x12", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+	{"PNC_JDI_7x12", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+	{"PNC_SHARP_10x19", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+	{"PNV_SHARP_25x16", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+	{"PNC_SHARP_25x16", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+	{"JDI_25x16_VID", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+
 	{"ctp_lt_wm8994", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
 						&ipc_device_handler},
 
@@ -253,8 +273,6 @@ struct devs_id __initconst device_ids[] = {
 	{"audience_es305", SFI_DEV_TYPE_I2C, 0, &audience_platform_data,
 						NULL},
 	{"wm8994", SFI_DEV_TYPE_I2C, 0, &wm8994_platform_data, NULL},
-	{"PANEL_JDI_CMD", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
-		&panel_handler},
 
 	/* IPC devices */
 	{"pmic_charger", SFI_DEV_TYPE_IPC, 1, &no_platform_data, NULL},
