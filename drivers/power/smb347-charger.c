@@ -264,6 +264,11 @@ static const char *smb34x_extcon_cable[] = {
 bool __otg_connect;
 EXPORT_SYMBOL(__otg_connect);
 
+static const short smb349_inlim[] = { /* mA */
+	500, 900, 1000, 1100, 1200, 1300, 1500, 1600,
+	1700, 1800, 2000, 2200, 2400, 2500, 3000, 3500
+};
+
 struct smb347_otg_event {
 	struct list_head	node;
 	bool			param;
@@ -1775,15 +1780,9 @@ static int smb347_set_inlmt(struct smb347_charger *smb, int inlmt)
 	if (ret < 0)
 		goto err_inlmt;
 
-	if (inlmt >= ILIM_1800)
-		smb_inlmt = SMB_INLMT_1800;
-	else if (inlmt >= ILIM_1500)
-		smb_inlmt = SMB_INLMT_1500;
-	else if (inlmt >= ILIM_1000)
-		smb_inlmt = SMB_INLMT_1000;
-	else
-		smb_inlmt = SMB_INLMT_500;
-
+	for (smb_inlmt = 0; smb_inlmt < ARRAY_SIZE(smb349_inlim); smb_inlmt++)
+		if (inlmt <= smb349_inlim[smb_inlmt])
+			break;
 
 	ret = smb347_read(smb, CFG_CHARGE_CURRENT);
 	if (ret < 0)
