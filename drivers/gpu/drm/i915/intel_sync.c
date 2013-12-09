@@ -169,8 +169,10 @@ int i915_sync_timeline_create(struct drm_device *dev,
 
 void i915_sync_timeline_destroy(struct intel_ring_buffer *ring)
 {
-	if (ring->timeline)
+	if (ring->timeline) {
 		sync_timeline_destroy(&ring->timeline->obj);
+		ring->timeline = NULL;
+	}
 }
 
 void i915_sync_timeline_signal(struct i915_sync_timeline *obj, u32 value,

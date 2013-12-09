@@ -1498,6 +1498,12 @@ void intel_cleanup_ring_buffer(struct intel_ring_buffer *ring)
 
 	I915_WRITE_CTL(ring, 0);
 
+	/* When destroying the ring timeline, we need to set
+	 * the ring->timeline to NULL and sync the irq handler,
+	 * otherwise we will hit the issue that the notify_ring()
+	 * is still be called even after destroyed the ring timeline.
+	 */
+	synchronize_irq(drm_dev_to_irq(ring->dev));
 	i915_sync_timeline_destroy(ring);
 
 	iounmap(ring->virtual_start);
