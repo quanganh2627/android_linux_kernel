@@ -39,6 +39,7 @@ struct intel_dwc_otg_pdata {
 	int charging_compliance;
 	struct delayed_work suspend_discon_work;
 	u8 ti_phy_vs1;
+	int sdp_charging;
 };
 
 /* timeout for disconnect from a suspended host */

@@ -80,6 +80,7 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 			dwc_otg_pdata.gpio_reset = 144;
 			dwc_otg_pdata.ti_phy_vs1 = 0x7f;
 			dwc_otg_pdata.gpio_id = 156;
+			dwc_otg_pdata.sdp_charging = 1;
 		}
 		return &dwc_otg_pdata;
 	default:

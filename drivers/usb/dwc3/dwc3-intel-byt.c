@@ -37,6 +37,18 @@ static int charger_detect_enable(struct dwc_otg2 *otg)
 	return data->charger_detect_enable;
 }
 
+static int sdp_charging(struct dwc_otg2 *otg)
+{
+	struct intel_dwc_otg_pdata *data;
+
+	if (!otg || !otg->otg_data)
+		return 0;
+
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+
+	return data->sdp_charging;
+}
+
 static void usb2phy_eye_optimization(struct dwc_otg2 *otg)
 {
 	struct intel_dwc_otg_pdata *data;
@@ -505,7 +517,7 @@ static int dwc3_intel_byt_set_power(struct usb_phy *_otg,
 	}
 
 	/* Needn't notify charger capability if charger_detection disable */
-	if (!charger_detect_enable(otg))
+	if (!charger_detect_enable(otg) && !sdp_charging(otg))
 		return 0;
 
 	if (ma == OTG_DEVICE_SUSPEND) {
@@ -532,10 +544,14 @@ static int dwc3_intel_byt_set_power(struct usb_phy *_otg,
 		 * Should send 0ma with SUSPEND event
 		 */
 		else
-			cap.ma = 0;
+			cap.ma = 2;
 
-		atomic_notifier_call_chain(&otg->usb2_phy.notifier,
-				USB_EVENT_CHARGER, &cap);
+		if (sdp_charging(otg))
+			atomic_notifier_call_chain(&otg->usb2_phy.notifier,
+					USB_EVENT_ENUMERATED, &cap.ma);
+		else
+			atomic_notifier_call_chain(&otg->usb2_phy.notifier,
+					USB_EVENT_CHARGER, &cap);
 		otg_dbg(otg, "Notify EM	CHARGER_EVENT_SUSPEND\n");
 
 		return 0;
@@ -596,7 +612,7 @@ static int dwc3_intel_byt_notify_charger_type(struct dwc_otg2 *otg,
 	unsigned long flags;
 
 	/* Just return if charger detection is not enabled */
-	if (!charger_detect_enable(otg))
+	if (!charger_detect_enable(otg) && !sdp_charging(otg))
 		return 0;
 
 	if (event > POWER_SUPPLY_CHARGER_EVENT_DISCONNECT) {
@@ -621,8 +637,12 @@ static int dwc3_intel_byt_notify_charger_type(struct dwc_otg2 *otg,
 	cap.chrg_evt = event;
 	spin_unlock_irqrestore(&otg->lock, flags);
 
-	atomic_notifier_call_chain(&otg->usb2_phy.notifier, USB_EVENT_CHARGER,
-			&cap);
+	if (sdp_charging(otg))
+		atomic_notifier_call_chain(&otg->usb2_phy.notifier,
+				USB_EVENT_ENUMERATED, &cap.ma);
+	else
+		atomic_notifier_call_chain(&otg->usb2_phy.notifier,
+				USB_EVENT_CHARGER, &cap);
 
 	return 0;
 }
