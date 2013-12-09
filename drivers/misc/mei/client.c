@@ -381,6 +381,23 @@ void mei_host_client_init(struct work_struct *work)
 	pm_runtime_autosuspend(&dev->pdev->dev);
 }
 
+bool mei_hbuf_acquire(struct mei_device *dev)
+{
+	if (mei_pg_state(dev) == MEI_PG_ON ||
+	    dev->pg_event == MEI_PG_EVENT_WAIT) {
+		dev_dbg(&dev->pdev->dev, "device is in pg\n");
+		return false;
+	}
+
+	if (!dev->hbuf_is_ready) {
+		dev_dbg(&dev->pdev->dev, "hbuf is not ready\n");
+		return false;
+	}
+
+	dev->hbuf_is_ready = false;
+
+	return true;
+}
 
 /**
  * mei_cl_disconnect - disconnect host clinet form the me one
@@ -420,8 +437,7 @@ int mei_cl_disconnect(struct mei_cl *cl)
 		return rets;
 	}
 
-	if (pm_runtime_active(&dev->pdev->dev) && dev->hbuf_is_ready) {
-		dev->hbuf_is_ready = false;
+	if (mei_hbuf_acquire(dev)) {
 		if (mei_hbm_cl_disconnect_req(dev, cl)) {
 			rets = -ENODEV;
 			cl_err(dev, cl, "failed to disconnect.\n");
@@ -533,10 +549,7 @@ int mei_cl_connect(struct mei_cl *cl, struct file *file)
 		return rets;
 	}
 
-	if (pm_runtime_active(&dev->pdev->dev) &&
-	    dev->hbuf_is_ready && !mei_cl_is_other_connecting(cl)) {
-		dev->hbuf_is_ready = false;
-
+	if (!mei_cl_is_other_connecting(cl) && mei_hbuf_acquire(dev)) {
 		if (mei_hbm_cl_connect_req(dev, cl)) {
 			rets = -ENODEV;
 			goto out;
@@ -715,8 +728,8 @@ int mei_cl_read_start(struct mei_cl *cl, size_t length)
 	cb->fop_type = MEI_FOP_READ;
 	cl->read_cb = cb;
 
-	if (pm_runtime_active(&dev->pdev->dev) && dev->hbuf_is_ready) {
-		dev->hbuf_is_ready = false;
+
+	if (mei_hbuf_acquire(dev)) {
 		if (mei_hbm_cl_flow_control_req(dev, cl)) {
 			rets = -ENODEV;
 			goto out;
@@ -772,12 +785,12 @@ int mei_cl_irq_write_complete(struct mei_cl *cl, struct mei_cl_cb *cb,
 		return rets;
 
 	if (rets == 0) {
-		cl_dbg(dev, cl,	"No flow control credentials: not sending.\n");
+		cl_dbg(dev, cl, "No flow control credentials: not sending.\n");
 		return 0;
 	}
 
-	if (!dev->hbuf_is_ready) {
-		cl_dbg(dev, cl, "host buffer is notready: not sending.\n");
+	if (!mei_hbuf_acquire(dev)) {
+		cl_dbg(dev, cl, "Cannot aquire the host buffer: not sending.\n");
 		return 0;
 	}
 
@@ -879,12 +892,6 @@ int mei_cl_write(struct mei_cl *cl, struct mei_cl_cb *cb, bool blocking)
 	mei_hdr.reserved = 0;
 	mei_hdr.msg_complete = 0;
 
-	if (!pm_runtime_active(&dev->pdev->dev)) {
-		cl_dbg(dev, cl, "device not active queue for later\n");
-		rets = buf->size;
-		goto out;
-	}
-
 	rets = mei_cl_flow_ctrl_creds(cl);
 	if (rets < 0)
 		goto err;
@@ -894,14 +901,13 @@ int mei_cl_write(struct mei_cl *cl, struct mei_cl_cb *cb, bool blocking)
 		rets = buf->size;
 		goto out;
 	}
-	/* Host buffer is not ready, we queue the request */
-	if (!dev->hbuf_is_ready) {
-		cl_dbg(dev, cl,	"Host buffer not ready: not sending.\n");
+
+	if (!mei_hbuf_acquire(dev)) {
+		cl_dbg(dev, cl, "Cannot aquire the host buffer: not sending.\n");
 		rets = buf->size;
 		goto out;
 	}
 
-	dev->hbuf_is_ready = false;
 
 	/* Check for a maximum length */
 	if (buf->size > mei_hbuf_max_len(dev)) {

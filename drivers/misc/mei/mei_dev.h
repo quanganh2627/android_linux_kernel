@@ -687,6 +687,8 @@ static inline enum mei_pg_state mei_pg_state(struct mei_device *dev)
 	return dev->ops->pg_state(dev);
 }
 
+bool mei_hbuf_acquire(struct mei_device *dev);
+
 bool mei_write_is_idle(struct mei_device *dev);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
