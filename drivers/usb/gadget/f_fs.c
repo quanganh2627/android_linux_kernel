@@ -1566,7 +1566,7 @@ static int ffs_func_eps_enable(struct ffs_function *func)
 	do {
 		struct usb_endpoint_descriptor *ds;
 		int desc_idx = ffs->gadget->speed == USB_SPEED_SUPER ? 2 :
-							USB_SPEED_HIGH ? 1 : 0;
+				ffs->gadget->speed == USB_SPEED_HIGH ? 1 : 0;
 		ds = ep->descs[desc_idx];
 		if (!ds) {
 			ret = -EINVAL;
