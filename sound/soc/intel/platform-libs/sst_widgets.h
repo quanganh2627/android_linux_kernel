@@ -178,6 +178,9 @@ struct sst_gain_value {
 #define SST_CONTROL_NAME(xpname, xmname, xinstance, xtype) \
 	xpname " " xmname " " #xinstance " " xtype
 
+#define SST_COMBO_CONTROL_NAME(xpname, xmname, xinstance, xtype, xsubmodule) \
+	xpname " " xmname " " #xinstance " " xtype " " xsubmodule
+
 /*
  * 3 Controls for each Gain module
  * e.g.	- pcm0_in gain 0 volume
@@ -244,6 +247,17 @@ struct sst_algo_control {
 				xinstance, xtask, xcmd)  \
 	SST_ALGO_KCONTROL_BOOL(xpname, xmname, xmod, xpipe, xinstance, xtask), \
 	SST_ALGO_KCONTROL_BYTES(xpname, xmname, xcount, xmod, xpipe, xinstance, xtask, xcmd)
+
+#define SST_COMBO_ALGO_KCONTROL_BYTES(xpname, xmname, xsubmod, xcount, xmod, \
+				      xpipe, xinstance, xtask, xcmd) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,\
+	.name = SST_COMBO_CONTROL_NAME(xpname, xmname, xinstance, "params", xsubmod), \
+	.info = sst_algo_bytes_ctl_info, \
+	.get = sst_algo_control_get, .put = sst_algo_control_set, \
+	.private_value = (unsigned long)&(struct sst_algo_control) \
+	{.max = xcount, .type = SST_ALGO_PARAMS, .module_id = xmod, .pname = xpname, \
+	.pipe_id = xpipe, .instance_id = xinstance, .task_id = xtask, .cmd_id = xcmd} }
+
 
 /* only 4 slots/channels supported atm */
 #define SST_SSP_SLOT_ENUM(s_ch_no, is_tx, xtexts) \

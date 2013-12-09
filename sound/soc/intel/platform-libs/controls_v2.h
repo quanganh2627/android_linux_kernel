@@ -386,13 +386,34 @@ enum sst_module_id {
 
 enum sst_cmd {
 	SBA_IDLE		= 14,
+	SBA_VB_SET_SPEECH_PATH	= 26,
 	MMX_SET_GAIN		= 33,
 	SBA_VB_SET_GAIN		= 33,
+	FBA_VB_RX_CNI		= 35,
 	MMX_SET_GAIN_TIMECONST	= 36,
 	SBA_VB_SET_TIMECONST	= 36,
+	FBA_VB_ANA		= 37,
+	FBA_VB_SET_FIR		= 38,
+	FBA_VB_SET_IIR		= 39,
+	FBA_VB_AEC		= 47,
+	FBA_VB_NR_UL		= 48,
+	FBA_VB_AGC		= 49,
+	FBA_VB_NR_DL		= 55,
 	SBA_PROBE		= 66,
 	MMX_PROBE		= 66,
+	FBA_VB_SET_BIQUAD_D_C	= 69,
+	FBA_VB_DUAL_BAND_COMP	= 70,
+	FBA_VB_SNS		= 72,
+	FBA_VB_SER		= 78,
+	FBA_VB_TX_CNI		= 80,
 	SBA_VB_START		= 85,
+	FBA_VB_SET_REF_LINE	= 94,
+	FBA_VB_SET_DELAY_LINE	= 95,
+	FBA_VB_BWX		= 104,
+	FBA_VB_GMM		= 105,
+	FBA_VB_GLC		= 107,
+	FBA_VB_BMF		= 111,
+	FBA_VB_DNR		= 113,
 	MMX_SET_SWM		= 114,
 	SBA_SET_SWM		= 114,
 	SBA_SET_MDRP            = 116,
@@ -503,6 +524,17 @@ struct sst_cmd_set_swm {
 struct sst_cmd_set_media_path {
 	struct sst_dsp_header header;
 	u16    switch_state;
+} __packed;
+
+struct sst_cmd_set_speech_path {
+	struct sst_dsp_header header;
+	u16    switch_state;
+	struct {
+		u16 rsvd:8;
+		u16 sample_length:2;
+		u16 rate:3;
+		u16 format:3;
+	} config;
 } __packed;
 
 struct gain_cell {

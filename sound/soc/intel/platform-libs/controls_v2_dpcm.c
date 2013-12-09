@@ -594,9 +594,15 @@ static int sst_vb_trigger_event(struct snd_soc_dapm_widget *w,
 	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
 	cmd.header.length = 0;
 
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		sst_dsp->ops->power(true);
+
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 			      SST_TASK_SBA, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
+
+	if (!SND_SOC_DAPM_EVENT_ON(event))
+		sst_dsp->ops->power(false);
 	return 0;
 }
 
@@ -666,6 +672,39 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 		sst_send_slot_map(sst);
 	}
 	return 0;
+}
+
+static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
+			       struct snd_kcontrol *k, int event)
+{
+	struct sst_cmd_set_speech_path cmd;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+
+	pr_debug("%s: widget=%s\n", __func__, w->name);
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		cmd.switch_state = SST_SWITCH_ON;
+	else
+		cmd.switch_state = SST_SWITCH_OFF;
+
+	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
+
+	/* MMX_SET_MEDIA_PATH == SBA_SET_MEDIA_PATH */
+	cmd.header.command_id = SBA_VB_SET_SPEECH_PATH;
+	cmd.header.length = sizeof(struct sst_cmd_set_speech_path)
+				- sizeof(struct sst_dsp_header);
+	cmd.config.sample_length = 0;
+	/* TODO: allow to be modified for WB */
+	cmd.config.rate = 0;
+	cmd.config.format = 0;
+
+	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
+			      SST_TASK_SBA, 0, &cmd,
+			      sizeof(cmd.header) + cmd.header.length);
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		sst_find_and_send_pipe_algo(w->platform, w);
+
+	return 0;
+
 }
 
 static int sst_set_media_path(struct snd_soc_dapm_widget *w,
@@ -863,7 +902,7 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_PATH_INPUT("txspeech_in", SST_TASK_SBA, SST_SWM_IN_TXSPEECH, NULL),
 	SST_PATH_OUTPUT("hf_sns_out", SST_TASK_SBA, SST_SWM_OUT_HF_SNS, NULL),
 	SST_PATH_OUTPUT("hf_out", SST_TASK_SBA, SST_SWM_OUT_HF, NULL),
-	SST_PATH_OUTPUT("speech_out", SST_TASK_SBA, SST_SWM_OUT_SPEECH, NULL),
+	SST_PATH_OUTPUT("speech_out", SST_TASK_SBA, SST_SWM_OUT_SPEECH, sst_set_speech_path),
 	SST_PATH_OUTPUT("rxspeech_out", SST_TASK_SBA, SST_SWM_OUT_RXSPEECH, NULL),
 
 	/* Media Mixers */
@@ -983,9 +1022,24 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"modem_out", NULL, "modem_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("modem_out mix 0"),
 
+	/* Uplink processing */
+	{"txspeech_in", NULL, "hf_sns_out"},
+	{"txspeech_in", NULL, "hf_out"},
+	{"txspeech_in", NULL, "speech_out"},
+
+	{"hf_sns_out", NULL, "hf_sns_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("hf_sns_out mix 0"),
+	{"hf_out", NULL, "hf_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("hf_out mix 0"),
+	{"speech_out", NULL, "speech_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("speech_out mix 0"),
+
+	/* Downlink processing */
+	{"speech_in", NULL, "rxspeech_out"},
+	{"rxspeech_out", NULL, "rxspeech_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("rxspeech_out mix 0"),
+
 	/* TODO: add BT and FM inputs and outputs */
-	/* TODO: add Voice inputs and outputs */
-	/* TODO: add Probe inputs and outputs */
 	/* TODO: add Tone inputs */
 	/* TODO: add Low Latency stream support */
 
@@ -994,6 +1048,9 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"Deepbuffer Playback", NULL, "VBTimer"},
 	{"Compress Playback", NULL, "VBTimer"},
 	{"VOIP Playback", NULL, "VBTimer"},
+	{"aware", NULL, "VBTimer"},
+	{"modem_in", NULL, "VBTimer"},
+	{"modem_out", NULL, "VBTimer"},
 };
 
 static const char * const slot_names[] = {
@@ -1184,7 +1241,60 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 		SST_PATH_INDEX_CODEC_IN0, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
 	SST_ALGO_KCONTROL_BYTES("codec_in1", "dcr", 300, SST_MODULE_ID_FILT_DCR,
 		SST_PATH_INDEX_CODEC_IN1, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
-
+	/* Uplink */
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "fir_speech", 136, SST_MODULE_ID_FIR_16,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_FIR),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "fir_hf_sns", 136, SST_MODULE_ID_FIR_16,
+		SST_PATH_INDEX_HF_SNS_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_FIR),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "iir_speech", 48, SST_MODULE_ID_IIR_16,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_IIR),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "iir_hf_sns", 48, SST_MODULE_ID_IIR_16,
+		SST_PATH_INDEX_HF_SNS_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_IIR),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "aec", 640, SST_MODULE_ID_AEC,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_AEC),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "nr", 38, SST_MODULE_ID_NR,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_NR_UL),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "agc", 58, SST_MODULE_ID_AGC,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_AGC),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "biquad", 22, SST_MODULE_ID_DRP,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_BIQUAD_D_C),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "compr", 36, SST_MODULE_ID_DRP,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_DUAL_BAND_COMP),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "sns", 324, SST_MODULE_ID_NR_SNS,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SNS),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "ser", 42, SST_MODULE_ID_SER,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SER),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "cni", 48, SST_MODULE_ID_CNI_TX,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_TX_CNI),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "ref", 24, SST_MODULE_ID_REF_LINE,
+		SST_PATH_INDEX_HF_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_REF_LINE),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "delay", 6, SST_MODULE_ID_EDL,
+		SST_PATH_INDEX_HF_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_DELAY_LINE),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "bmf", 264, SST_MODULE_ID_BMF,
+		SST_PATH_INDEX_HF_SNS_OUT, 0, SST_TASK_FBA_UL, FBA_VB_BMF),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "dnr", 18, SST_MODULE_ID_DNR,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_DNR),
+	/* Downlink */
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "ana", 52, SST_MODULE_ID_ANA,
+		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_ANA),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "fir", 136, SST_MODULE_ID_FIR_16,
+		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_SET_FIR),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "iir", 48, SST_MODULE_ID_IIR_16,
+		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_SET_IIR),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "nr", 38, SST_MODULE_ID_NR,
+		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_NR_DL),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "biquad", 22, SST_MODULE_ID_DRP,
+		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_SET_BIQUAD_D_C),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "compr", 36, SST_MODULE_ID_DRP,
+		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_DUAL_BAND_COMP),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "cni", 48, SST_MODULE_ID_CNI,
+		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_RX_CNI),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "bwx", 54, SST_MODULE_ID_BWX,
+		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_BWX),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "gmm", 586, SST_MODULE_ID_BWX,
+		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_GMM),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "glc", 18, SST_MODULE_ID_GLC,
+		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_GLC),
 };
 
 static const struct snd_kcontrol_new sst_debug_controls[] = {
