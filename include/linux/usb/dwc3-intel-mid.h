@@ -34,6 +34,8 @@ struct intel_dwc_otg_pdata {
 	int charger_detect_enable;
 	int gpio_cs;
 	int gpio_reset;
+	int gpio_id;
+	int id;
 	int charging_compliance;
 	struct delayed_work suspend_discon_work;
 	u8 ti_phy_vs1;

@@ -212,6 +212,76 @@ static void set_sus_phy(struct dwc_otg2 *otg, int bit)
 	otg_write(otg, GUSB3PIPECTL0, data);
 }
 
+static int dwc3_check_gpio_id(struct dwc_otg2 *otg2)
+{
+	struct dwc_otg2 *otg = dwc3_get_otg();
+	struct intel_dwc_otg_pdata *data;
+	int id = 0;
+	int next = 0;
+	int count = 0;
+	unsigned long timeout;
+
+	otg_dbg(otg, "start check gpio id\n");
+
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+
+	/* Polling ID GPIO PIN value for SW debounce as HW debouce chip
+	 * is not connected on BYT CR board */
+	if (data && data->gpio_id) {
+		id = gpio_get_value(data->gpio_id);
+
+		/* If get 20 of the same value in a row by GPIO read,
+		 * then end SW debouce and return the ID value.
+		 * the total length of debouce time is 80ms~100ms for
+		 * 20 times GPIO read on BYT CR, which is longer than
+		 * normal debounce time done by HW chip.
+		 * Also set 200ms timeout value to avoid impact from
+		 * pin unstable cases */
+		timeout = jiffies + msecs_to_jiffies(200);
+		while ((count < 20) && (!time_after(jiffies, timeout))) {
+			next = gpio_get_value(data->gpio_id);
+			otg_dbg(otg, "id value pin %d = %d\n",
+				data->gpio_id, next);
+			if (next < 0)
+				return -EINVAL;
+			else if (id == next)
+				count++;
+			else {
+				id = next;
+				count = 0;
+			}
+		}
+		if (count >= 20) {
+			otg_dbg(otg, "id debounce done = %d\n", id);
+			return id;
+		}
+	}
+
+	return -ENODEV;
+}
+
+static irqreturn_t dwc3_gpio_id_irq(int irq, void *dev)
+{
+	struct dwc_otg2 *otg = dwc3_get_otg();
+	struct intel_dwc_otg_pdata *data;
+	int id;
+
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+
+	id = dwc3_check_gpio_id(otg);
+	if (id == 0 || id == 1) {
+		if (data->id != id) {
+			data->id = id;
+			dev_info(otg->dev, "ID notification (id = %d)\n",
+					data->id);
+			atomic_notifier_call_chain(&otg->usb2_phy.notifier,
+				USB_EVENT_ID, &id);
+		}
+	}
+
+	return IRQ_HANDLED;
+}
+
 static void dwc_otg_suspend_discon_work(struct work_struct *work)
 {
 	struct dwc_otg2 *otg = dwc3_get_otg();
@@ -230,6 +300,7 @@ int dwc3_intel_byt_platform_init(struct dwc_otg2 *otg)
 {
 	struct intel_dwc_otg_pdata *data;
 	u32 gctl;
+	int id_value;
 	int retval;
 
 	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
@@ -252,6 +323,51 @@ int dwc3_intel_byt_platform_init(struct dwc_otg2 *otg)
 					data->gpio_reset);
 			return retval;
 		}
+	}
+
+	if (data && data->gpio_id) {
+		dev_info(otg->dev,  "USB ID detection - Enabled - GPIO\n");
+
+		/* Set ID default value to 1 Floating */
+		data->id = 1;
+
+		retval = gpio_request(data->gpio_id, "gpio_id");
+		if (retval < 0) {
+			otg_err(otg, "failed to request ID pin %d\n",
+					data->gpio_id);
+			return retval;
+		}
+
+		retval = gpio_direction_input(data->gpio_id);
+		if (retval < 0) {
+			otg_err(otg, "failed to request ID pin %d\n",
+					data->gpio_id);
+			return retval;
+		}
+
+		retval = request_threaded_irq(gpio_to_irq(data->gpio_id),
+				NULL, dwc3_gpio_id_irq,
+				IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING |
+				IRQF_ONESHOT, "dwc-gpio-id", otg->dev);
+
+		if (retval < 0) {
+			otg_err(otg, "failed to request interrupt gpio ID\n");
+			return retval;
+		}
+
+		otg_dbg(otg, "GPIO ID request/Interrupt reuqest Done\n");
+
+		id_value = dwc3_check_gpio_id(otg);
+		if ((id_value == 0 || id_value == 1) &&
+					(data->id != id_value)) {
+			data->id = id_value;
+			dev_info(otg->dev, "ID notification (id = %d)\n",
+						data->id);
+
+			atomic_notifier_call_chain(&otg->usb2_phy.notifier,
+					USB_EVENT_ID, &id_value);
+		} else
+			otg_dbg(otg, "Get incorrect ID value %d\n", id_value);
 	}
 
 	/* Don't let phy go to suspend mode, which
