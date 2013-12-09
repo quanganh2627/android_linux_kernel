@@ -3182,6 +3182,7 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	dwc->gadget.max_speed		= USB_SPEED_SUPER;
 	dwc->gadget.speed		= USB_SPEED_UNKNOWN;
 	dwc->gadget.sg_supported	= true;
+	dwc->gadget.quirk_ep_out_aligned_size = true;
 	dwc->gadget.name		= "dwc3-gadget";
 
 	INIT_DELAYED_WORK(&dwc->link_work, link_state_change_work);
