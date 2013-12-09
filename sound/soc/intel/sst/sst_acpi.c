@@ -524,6 +524,11 @@ int sst_acpi_probe(struct platform_device *pdev)
 		struct stream_info *stream = &ctx->streams[i];
 		mutex_init(&stream->lock);
 	}
+	ret = sst_request_firmware_async(ctx);
+	if (ret) {
+		pr_err("Firmware download failed:%d\n", ret);
+		goto do_free_wq;
+	}
 
 	ret = devm_request_threaded_irq(ctx->dev, ctx->irq_num, ctx->ops->interrupt,
 					ctx->ops->irq_thread, 0, SST_DRV_NAME,

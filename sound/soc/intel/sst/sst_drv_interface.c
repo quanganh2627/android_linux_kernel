@@ -383,8 +383,12 @@ int intel_sst_check_device(void)
 	pm_runtime_get_sync(sst_drv_ctx->dev);
 	atomic_inc(&sst_drv_ctx->pm_usage_count);
 	mutex_lock(&sst_drv_ctx->sst_lock);
-	if (sst_drv_ctx->sst_state == SST_UN_INIT) {
+	if (sst_drv_ctx->sst_state == SST_UN_INIT)
 		sst_drv_ctx->sst_state = SST_START_INIT;
+
+	if (sst_drv_ctx->sst_state == SST_START_INIT ||
+		sst_drv_ctx->sst_state == SST_FW_LIB_LOAD) {
+
 		/* FW is not downloaded */
 		pr_debug("DSP Downloading FW now...\n");
 		retval = sst_download_fw();

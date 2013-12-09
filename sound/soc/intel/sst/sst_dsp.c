@@ -1158,6 +1158,71 @@ void sst_memcpy_free_resources(void)
 	sst_memcpy_free_lib_resources();
 }
 
+void sst_firmware_load_cb(const struct firmware *fw, void *context)
+{
+	struct intel_sst_drv *ctx = context;
+	int ret = 0;
+
+	pr_debug("In %s\n", __func__);
+
+	if (fw == NULL) {
+		pr_err("request fw failed\n");
+		goto out;
+	}
+
+	if (sst_drv_ctx->sst_state != SST_UN_INIT ||
+			ctx->fw_in_mem != NULL)
+		goto exit;
+
+	pr_debug("Request Fw completed\n");
+
+	if (ctx->info.use_elf == true)
+		ret = sst_validate_elf(fw, false);
+
+	if (ret != 0) {
+		pr_err("FW image invalid...\n");
+		goto out;
+	}
+
+	ctx->fw_in_mem = kzalloc(fw->size, GFP_KERNEL);
+	if (!ctx->fw_in_mem) {
+		pr_err("%s unable to allocate memory\n", __func__);
+		goto out;
+	}
+
+	pr_debug("copied fw to %p", ctx->fw_in_mem);
+	pr_debug("phys: %lx", (unsigned long)virt_to_phys(ctx->fw_in_mem));
+	memcpy(ctx->fw_in_mem, fw->data, fw->size);
+
+	if (ctx->use_dma) {
+		if (ctx->info.use_elf == true)
+			ret = sst_parse_elf_fw_dma(ctx, ctx->fw_in_mem,
+							&ctx->fw_sg_list);
+		else
+			ret = sst_parse_fw_dma(ctx->fw_in_mem, fw->size,
+							&ctx->fw_sg_list);
+	} else {
+		if (ctx->info.use_elf == true)
+			ret = sst_parse_elf_fw_memcpy(ctx, ctx->fw_in_mem,
+							&ctx->memcpy_list);
+		else
+			ret = sst_parse_fw_memcpy(ctx->fw_in_mem, fw->size,
+							&ctx->memcpy_list);
+	}
+	if (ret) {
+		kfree(ctx->fw_in_mem);
+		ctx->fw_in_mem = NULL;
+		goto out;
+	}
+	sst_set_fw_state_locked(sst_drv_ctx, SST_FW_LIB_LOAD);
+	goto exit;
+out:
+	sst_set_fw_state_locked(sst_drv_ctx, SST_UN_INIT);
+exit:
+	if (fw != NULL)
+		release_firmware(fw);
+}
+
 /*
  * sst_request_fw - requests audio fw from kernel and saves a copy
  *
@@ -1456,19 +1521,29 @@ int sst_load_fw(void)
 
 	pr_debug("sst_load_fw\n");
 
-	if (sst_drv_ctx->sst_state != SST_START_INIT ||
+	if ((sst_drv_ctx->sst_state !=  SST_START_INIT &&
+			sst_drv_ctx->sst_state !=  SST_FW_LIB_LOAD) ||
 			sst_drv_ctx->sst_state == SST_SHUTDOWN)
 		return -EAGAIN;
 
+	/* If static module download(download at boot time) is supported,
+	 * set the flag to indicate lib download is to be done
+	 */
+	if (sst_drv_ctx->pdata->lib_info)
+		if (sst_drv_ctx->pdata->lib_info->mod_ddr_dnld)
+			sst_drv_ctx->lib_dwnld_reqd = true;
+
 	if (!sst_drv_ctx->fw_in_mem) {
-		ret_val = sst_request_fw(sst_drv_ctx);
-		if (ret_val)
-			return ret_val;
-		/* If static module download(download at boot time) is supported,
-		   set the flag to indicate lib download is to be done */
-		if (sst_drv_ctx->pdata->lib_info)
-			if (sst_drv_ctx->pdata->lib_info->mod_ddr_dnld)
-				sst_drv_ctx->lib_dwnld_reqd = true;
+		if (sst_drv_ctx->sst_state != SST_START_INIT) {
+			/* even wake*/
+			pr_err("sst : wait for FW to be downloaded\n");
+			return -EBUSY;
+		} else {
+			pr_debug("sst: FW not in memory retry to download\n");
+			ret_val = sst_request_fw(sst_drv_ctx);
+			if (ret_val)
+				return ret_val;
+		}
 	}
 
 	BUG_ON(!sst_drv_ctx->fw_in_mem);

@@ -30,6 +30,7 @@
 
 #include <linux/dmaengine.h>
 #include <linux/pm_runtime.h>
+#include <linux/firmware.h>
 #include <linux/intel_mid_dma.h>
 #include <linux/lnw_gpio.h>
 #include <asm/platform_sst.h>
@@ -65,7 +66,8 @@ enum sst_states {
 	SST_ERROR,
 	SST_SUSPENDED,
 	SST_FW_CTXT_RESTORE,
-	SST_SHUTDOWN
+	SST_SHUTDOWN,
+	SST_FW_LIB_LOAD,
 };
 
 #define SST_BLOCK_TIMEOUT	1000
@@ -467,6 +469,7 @@ struct sst_vtsv_cache {
  * @cp_streams : total active cp streams
  * @audio_start : audio status
  * @qos		: PM Qos struct
+ * firmware_name : Firmware / Library name
  */
 struct intel_sst_drv {
 	int			sst_state;
@@ -552,6 +555,10 @@ struct intel_sst_drv {
 	 * different
 	 */
 	const char *hid;
+	/* Holder for firmware name. Due to async call it needs to be
+	 * persistent till worker thread gets called
+	 */
+	char firmware_name[20];
 };
 
 extern struct intel_sst_drv *sst_drv_ctx;
@@ -667,12 +674,14 @@ int sst_free_block(struct intel_sst_drv *ctx, struct sst_block *freed);
 int sst_wake_up_block(struct intel_sst_drv *ctx, int result,
 		u32 drv_id, u32 ipc, void *data, u32 size);
 int sst_alloc_drv_context(struct device *dev);
+int sst_request_firmware_async(struct intel_sst_drv *ctx);
 int sst_driver_ops(struct intel_sst_drv *sst);
 struct sst_platform_info *sst_get_acpi_driver_data(const char *hid);
 int sst_acpi_probe(struct platform_device *pdev);
 int sst_acpi_remove(struct platform_device *pdev);
 void sst_save_shim64(struct intel_sst_drv *ctx, void __iomem *shim,
 		     struct sst_shim_regs64 *shim_regs);
+void sst_firmware_load_cb(const struct firmware *fw, void *context);
 int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx);
 
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst);

@@ -514,6 +514,22 @@ static ssize_t sst_sysfs_set_recovery(struct device *dev,
 static DEVICE_ATTR(audio_recovery, S_IRUGO | S_IWUSR,
 			sst_sysfs_get_recovery, sst_sysfs_set_recovery);
 
+int sst_request_firmware_async(struct intel_sst_drv *ctx)
+{
+	int ret = 0;
+
+	snprintf(ctx->firmware_name, sizeof(ctx->firmware_name),
+			"%s%04x%s", "fw_sst_",
+			ctx->pci_id, ".bin");
+	pr_debug("Requesting FW %s now...\n", ctx->firmware_name);
+
+	ret = request_firmware_nowait(THIS_MODULE, 1, ctx->firmware_name,
+			ctx->dev, GFP_KERNEL, ctx, sst_firmware_load_cb);
+	if (ret)
+		pr_err("could not load firmware %s error %d\n", ctx->firmware_name, ret);
+
+	return ret;
+}
 /*
 * intel_sst_probe - PCI probe function
 *
@@ -610,6 +626,11 @@ static int intel_sst_probe(struct pci_dev *pci,
 		mutex_init(&stream->lock);
 	}
 
+	ret = sst_request_firmware_async(sst_drv_ctx);
+	if (ret) {
+		pr_err("Firmware download failed:%d\n", ret);
+		goto do_free_mem;
+	}
 	/* Init the device */
 	ret = pci_enable_device(pci);
 	if (ret) {
