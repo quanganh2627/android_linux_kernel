@@ -23,7 +23,11 @@
 #define AIC31XX_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE \
 			 | SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S32_LE)
 
+#define AIC31XX_REQ_TIMER_FREQ		1000000
 #define AIC31XX_FREQ_25000000		25000000
+
+#define AIC31XX_INTERNALCLOCK		0
+#define AIC31XX_MCLK			1
 /* Audio data word length = 16-bits (default setting) */
 #define AIC31XX_WORD_LEN_16BITS		0x00
 #define AIC31XX_WORD_LEN_20BITS		0x01
@@ -363,6 +367,11 @@ void aic31xx_btn_press_intr_enable(struct snd_soc_codec *codec,
 #define AIC31XX_MICPGAMI				0x131
 /* Input CM Settings */
 #define AIC31XX_MICPGACM				0x132
+
+/* Timer Clock MCLK Divider */
+#define AIC31XX_TIMERCLOCK				0x210
+#define AIC31XX_CLKSEL_MASK				0x80
+#define AIC31XX_DIVIDER_MASK				0x7F
 
 /* ****************** Page 3 Registers **************************************/
 

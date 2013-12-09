@@ -85,6 +85,8 @@ static int aic31xx_set_dai_fmt(struct snd_soc_dai *codec_dai,
 
 static int aic31xx_set_bias_level(struct snd_soc_codec *codec,
 		enum snd_soc_bias_level level);
+static int aic31xx_set_sysclk(struct snd_soc_codec *codec,
+		int clk_id, int source, unsigned int freq, int dir);
 
 static const struct aic31xx_rate_divs aic31xx_divs[] = {
 /* 8k rate */
@@ -1004,6 +1006,27 @@ static int aic31xx_set_dai_pll(struct snd_soc_dai *dai,
 	return 0;
 }
 
+
+/*
+ * aic31xx_set_sysclk - This function is called from machine driver to switch
+ *			clock source based on DAPM Event
+ */
+static int aic31xx_set_sysclk(struct snd_soc_codec *codec,
+		int clk_id, int source, unsigned int freq, int dir)
+{
+	if (clk_id == AIC31XX_MCLK) {
+		snd_soc_update_bits(codec, AIC31XX_TIMERCLOCK,
+			 AIC31XX_CLKSEL_MASK, AIC31XX_CLKSEL_MASK);
+	} else if (clk_id == AIC31XX_INTERNALCLOCK) {
+		snd_soc_update_bits(codec, AIC31XX_TIMERCLOCK,
+			AIC31XX_CLKSEL_MASK, 0x0);
+	} else {
+		dev_err(codec->dev, "Wrong clock src\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
 /*
  * aic31xx_set_bias_level - This function is to get triggered when dapm
  * events occurs.
@@ -1348,6 +1371,7 @@ static struct snd_soc_codec_driver soc_codec_driver_aic31xx = {
 	.reg_cache_size		= 0,
 	.reg_word_size		= sizeof(u8),
 	.reg_cache_default	= NULL,
+	.set_sysclk		= aic31xx_set_sysclk,
 };
 
 /*
