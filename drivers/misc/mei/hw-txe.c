@@ -276,6 +276,19 @@ int mei_txe_aliveness_set_sync(struct mei_device *dev, u32 req)
 }
 
 /**
+ * mei_txe_pg_state  - translate aliveness register value
+ *   to the mei power gating state
+ *
+ * @dev: the device structure
+ * returns: MEI_PG_OFF if alivenss is on and MEI_PG_ON otherwise
+ */
+static inline enum mei_pg_state mei_txe_pg_state(struct mei_device *dev)
+{
+	struct mei_txe_hw *hw = to_txe_hw(dev);
+	return hw->aliveness ? MEI_PG_OFF : MEI_PG_ON;
+}
+
+/**
  * mei_txe_input_ready_interrupt_enable - sets the Input Ready Interrupt
  *
  * @dev: the device structure
@@ -969,6 +982,8 @@ out:
 
 
 static const struct mei_hw_ops mei_txe_hw_ops = {
+
+	.pg_state = mei_txe_pg_state,
 
 	.host_is_ready = mei_txe_host_is_ready,
 
