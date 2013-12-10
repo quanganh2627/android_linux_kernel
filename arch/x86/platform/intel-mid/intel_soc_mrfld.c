@@ -377,12 +377,15 @@ static int mrfld_nc_set_power_state(int islands, int state_type,
 		if (lss) {
 			mask = D0I3_MASK << (BITS_PER_LSS * i);
 			status_mask = status_mask | mask;
-			if (state_type == OSPM_ISLAND_DOWN)
+			if (state_type == OSPM_ISLAND_DOWN) {
 				pwr_mask |= mask;
-			else if (state_type == OSPM_ISLAND_UP)
+				mid_pmu_cxt->nc_d0i0_time[i] +=
+					(cpu_clock(0) - mid_pmu_cxt->nc_d0i0_prev_time[i]);
+			} else if (state_type == OSPM_ISLAND_UP) {
 				pwr_mask &= ~mask;
+				mid_pmu_cxt->nc_d0i0_prev_time[i] = cpu_clock(0);
 			/* Soft reset case */
-			else if (state_type == OSPM_ISLAND_SR) {
+			} else if (state_type == OSPM_ISLAND_SR) {
 				pwr_mask &= ~mask;
 				mask = SR_MASK << (BITS_PER_LSS * i);
 				pwr_mask |= mask;

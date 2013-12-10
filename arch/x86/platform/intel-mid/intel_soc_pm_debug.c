@@ -27,8 +27,6 @@
 #ifdef CONFIG_PM_DEBUG
 #define MAX_CSTATES_POSSIBLE	32
 
-
-
 static struct latency_stat *lat_stat;
 
 static void latency_measure_enable_disable(bool enable_measure)
@@ -638,7 +636,7 @@ static void pmu_stat_seq_printf(struct seq_file *s, int type, char *typestr)
 	seq_printf(s, "%5lu.%06lu\t",
 	   (unsigned long) t, nanosec_rem / 1000);
 
-	t =  cpu_clock(raw_smp_processor_id());
+	t =  cpu_clock(0);
 	t -= mid_pmu_cxt->pmu_init_time;
 	nanosec_rem = do_div(t, NANO_SEC);
 
@@ -671,7 +669,7 @@ static unsigned long pmu_dev_res_print(int index, unsigned long *precision,
 	unsigned long nanosec_rem, remainder;
 	unsigned long time, init_to_now_time;
 
-	t =  cpu_clock(raw_smp_processor_id());
+	t =  cpu_clock(0);
 
 	if (dev_state) {
 		/* print for d0ix */
@@ -891,7 +889,7 @@ static ssize_t devices_state_write(struct file *file,
 					sizeof(mid_pmu_cxt->num_wakes));
 		mid_pmu_cxt->pmu_current_state = SYS_STATE_S0I0;
 		mid_pmu_cxt->pmu_init_time =
-			cpu_clock(raw_smp_processor_id());
+			cpu_clock(0);
 		clear_d0ix_stats();
 		up(&mid_pmu_cxt->scu_ready_sem);
 	}
@@ -1440,7 +1438,7 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 	unsigned int base_class;
 	u32 mask, val, nc_pwr_sts;
 	struct pmu_ss_states cur_pmsss;
-	long long uptime;
+	long long uptime, uptime_t;
 	int ret;
 
 	if (!pmu_initialized)
@@ -1486,18 +1484,76 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 	seq_printf(s, "\n\nTotal time: %5lu.%03lu Sec\n", (unsigned long)uptime,
 		   (unsigned long) val/1000000);
 
-	seq_printf(s, "\nNORTH COMPLEX DEVICES :\n\n");
+	seq_puts(s, "\nNORTH COMPLEX DEVICES :\n\n");
+	seq_puts(s, "  IP_NAME : State D0i0_Time D0i0\%\n");
+	seq_puts(s, "=================================\n");
 
 	nc_pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, NC_PM_SSS);
 	for (i = 0; i < mrfl_no_of_nc_devices; i++) {
+		unsigned long long t, t1;
+		u32 remainder, time, d0i0_time_secs;
+
 		val = nc_pwr_sts & 3;
 		nc_pwr_sts >>= BITS_PER_LSS;
-		seq_printf(s, "%9s : %s\n", mrfl_nc_devices[i], dstates[val]);
+
+		/* For Islands after VED, we dont receive
+		 * requests for D0ix
+		 */
+		if (i <= VED) {
+			down(&mid_pmu_cxt->scu_ready_sem);
+
+			t = mid_pmu_cxt->nc_d0i0_time[i];
+			/* If in D0i0 add current time */
+			if (val == D0I0_MASK)
+				t += (cpu_clock(0) - mid_pmu_cxt->nc_d0i0_prev_time[i]);
+
+			uptime_t =  cpu_clock(0);
+			uptime_t -= mid_pmu_cxt->pmu_init_time;
+
+			up(&mid_pmu_cxt->scu_ready_sem);
+
+			t1 = t;
+			d0i0_time_secs = do_div(t1, NANO_SEC);
+
+			/* convert to usecs */
+			do_div(t, 10000);
+			do_div(uptime_t, 1000000);
+
+			if (uptime_t) {
+				remainder = do_div(t, uptime_t);
+
+				time = (unsigned long) t;
+
+				/* for getting 2 digit precision after
+				 * decimal dot */
+				t = (u64) remainder;
+				t *= 100;
+				remainder = do_div(t, uptime_t);
+			} else {
+				time = t = 0;
+			}
+		}
+
+		seq_printf(s, "%9s : %s", mrfl_nc_devices[i], dstates[val]);
+		if (i <= VED) {
+			seq_printf(s, " %5lu.%02lu", (unsigned long)t1,
+						   (unsigned long) d0i0_time_secs/10000000);
+			seq_printf(s, "   %3lu.%02lu\n", (unsigned long) time, (unsigned long) t);
+		} else
+			seq_puts(s, "\n");
 	}
 
 	seq_printf(s, "\nSOUTH COMPLEX DEVICES :\n\n");
 
+	seq_puts(s, "PCI VNDR DEVC DEVICE_NAME  DEVICE_DRIVER_STRING  LSS#");
+	seq_puts(s, "   State    D0i0_Time        D0i0\%\n");
+	seq_puts(s, "=====================================================");
+	seq_puts(s, "==================================\n");
 	for_each_pci_dev(pdev) {
+		unsigned long long t, t1;
+		u32 remainder, time, d0i0_time_secs;
+		int lss;
+
 		/* find the base class info */
 		base_class = pdev->class >> 16;
 
@@ -1515,11 +1571,50 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 		val	= (cur_pmsss.pmu2_states[ss_idx] & mask) >>
 						(ss_pos * BITS_PER_LSS);
 
-		seq_printf(s, "pci %04x %04X %s %20.20s: lss:%02d reg:%d ",
+		lss = index - mid_pmu_cxt->pmu1_max_devs;
+
+		/* for calculating percentage residency */
+		down(&mid_pmu_cxt->scu_ready_sem);
+
+		t = mid_pmu_cxt->d0i0_time[lss];
+		/* If in D0i0 add current time */
+		if (val == D0I0_MASK)
+			t += (cpu_clock(0) - mid_pmu_cxt->d0i0_prev_time[lss]);
+
+		uptime_t =  cpu_clock(0);
+		uptime_t -= mid_pmu_cxt->pmu_init_time;
+
+		up(&mid_pmu_cxt->scu_ready_sem);
+
+		t1 = t;
+		d0i0_time_secs = do_div(t1, NANO_SEC);
+
+		/* convert to usecs */
+		do_div(t, 10000);
+		do_div(uptime_t, 1000000);
+
+		if (uptime_t) {
+			remainder = do_div(t, uptime_t);
+
+			time = (unsigned long) t;
+
+			/* for getting 2 digit precision after
+			 * decimal dot */
+			t = (u64) remainder;
+			t *= 100;
+			remainder = do_div(t, uptime_t);
+		} else {
+			time = t = 0;
+		}
+
+
+		seq_printf(s, "pci %04x %04X %s %20.20s: lss:%02d",
 			pdev->vendor, pdev->device, dev_name(&pdev->dev),
-			dev_driver_string(&pdev->dev),
-			index - mid_pmu_cxt->pmu1_max_devs, ss_idx);
-		seq_printf(s, "mask:%08X  %s\n",  mask, dstates[val & 3]);
+			dev_driver_string(&pdev->dev), lss);
+		seq_printf(s, " %s", dstates[val & 3]);
+		seq_printf(s, "\t%5lu.%02lu", (unsigned long)t1,
+						   (unsigned long) d0i0_time_secs/10000000);
+		seq_printf(s, "\t%3lu.%02lu\n", (unsigned long) time, (unsigned long) t);
 	}
 
 	return 0;
@@ -1554,7 +1649,6 @@ static ssize_t devices_state_write(struct file *file,
 		ret = intel_scu_ipc_simple_command(DUMP_S0IX_COUNT, 0);
 		if (ret)
 			printk(KERN_ERR "IPC command to DUMP S0ix count failed\n");
-		up(&mid_pmu_cxt->scu_ready_sem);
 
 		mid_pmu_cxt->pmu_init_time = cpu_clock(0);
 		prev_s0ix_cnt[SYS_STATE_S0I1] = readl(s0ix_counter[SYS_STATE_S0I1]);
@@ -1567,7 +1661,24 @@ static ssize_t devices_state_write(struct file *file,
 		prev_s0ix_res[SYS_STATE_S0I2] = readq(residency[SYS_STATE_S0I2]);
 		prev_s0ix_res[SYS_STATE_S0I3] = readq(residency[SYS_STATE_S0I3]);
 		prev_s0ix_res[SYS_STATE_S3] = 0 ;
+
+		/* D0i0 time stats clear */
+		{
+			int i;
+			for (i = 0; i < MAX_LSS_POSSIBLE; i++) {
+				mid_pmu_cxt->d0i0_time[i] = 0;
+				mid_pmu_cxt->d0i0_prev_time[i] = cpu_clock(0);
+			}
+
+			for (i = 0; i < OSPM_MAX_POWER_ISLANDS; i++) {
+				mid_pmu_cxt->nc_d0i0_time[i] = 0;
+				mid_pmu_cxt->nc_d0i0_prev_time[i] = cpu_clock(0);
+			}
+		}
+
+		up(&mid_pmu_cxt->scu_ready_sem);
 	}
+
 	return buf_size;
 }
 
@@ -2409,6 +2520,20 @@ void pmu_stats_init(void)
 			/* Restrict platform Cx state to C6 */
 			pm_qos_update_request(mid_pmu_cxt->cstate_qos,
 						(CSTATE_EXIT_LATENCY_S0i1-1));
+		}
+
+		/* D0i0 time stats clear */
+		{
+			int i;
+			for (i = 0; i < MAX_LSS_POSSIBLE; i++) {
+				mid_pmu_cxt->d0i0_time[i] = 0;
+				mid_pmu_cxt->d0i0_prev_time[i] = cpu_clock(0);
+			}
+
+			for (i = 0; i < OSPM_MAX_POWER_ISLANDS; i++) {
+				mid_pmu_cxt->nc_d0i0_time[i] = 0;
+				mid_pmu_cxt->nc_d0i0_prev_time[i] = cpu_clock(0);
+			}
 		}
 
 		/* /sys/kernel/debug/ignore_add */

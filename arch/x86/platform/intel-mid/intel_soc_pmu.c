@@ -1549,6 +1549,17 @@ retry:
 	inc_d0ix_stat((i-mid_pmu_cxt->pmu1_max_devs),
 				pci_to_platform_state(state));
 
+	/* D0i0 time stats */
+	{
+		int lss = i-mid_pmu_cxt->pmu1_max_devs;
+		if (state == PCI_D0) {
+			mid_pmu_cxt->d0i0_prev_time[lss] = cpu_clock(0);
+		} else {
+			mid_pmu_cxt->d0i0_time[lss] += (cpu_clock(0) -
+						mid_pmu_cxt->d0i0_prev_time[lss]);
+		}
+	}
+
 	/* check if tranisition to requested state has happened */
 	pmu_read_sss(&cur_pmssc);
 
@@ -1948,8 +1959,7 @@ mid_pmu_probe(struct pci_dev *dev, const struct pci_device_id *pci_id)
 	}
 	dev_warn(&mid_pmu_cxt->pmu_dev->dev, "after pmu initialization\n");
 
-	mid_pmu_cxt->pmu_init_time =
-		cpu_clock(raw_smp_processor_id());
+	mid_pmu_cxt->pmu_init_time = cpu_clock(0);
 
 #ifdef CONFIG_PM_DEBUG
 	/*

@@ -171,6 +171,22 @@ enum pmu_ss_state {
 	SS_STATE_D0I3 = 3
 };
 
+enum pmu_mrfl_nc_device_name {
+	GFXSLC = 0,
+	GSDKCK,
+	GRSCD,
+	VED,
+	VEC,
+	DPA,
+	DPB,
+	DPC,
+	VSP,
+	ISP,
+	MIO,
+	HDMIO,
+	GFXSLCLDO
+};
+
 
 struct pmu_ss_states {
 	unsigned long pmu1_states;
@@ -318,6 +334,12 @@ struct mid_pmu_dev {
 
 	u32 __iomem *emergency_emmc_up_addr;
 	u64 pmu_init_time;
+
+	u64 d0i0_prev_time[MAX_LSS_POSSIBLE];
+	u64 d0i0_time[MAX_LSS_POSSIBLE];
+
+	u64 nc_d0i0_time[OSPM_MAX_POWER_ISLANDS];
+	u64 nc_d0i0_prev_time[OSPM_MAX_POWER_ISLANDS];
 
 	int cmd_error_int;
 	int s0ix_possible;
