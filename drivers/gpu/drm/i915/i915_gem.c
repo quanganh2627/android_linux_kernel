@@ -1392,11 +1392,36 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	unsigned long pfn;
 	int ret = 0, err = 0;
 	bool write = !!(vmf->flags & FAULT_FLAG_WRITE);
+	struct intel_ring_buffer *ring = NULL;
+	unsigned int reset_counter;
+	u32 seqno;
 
 	i915_rpm_get_callback(dev);
 	/* We don't use vmf->pgoff since that has the fake offset */
 	page_offset = ((unsigned long)vmf->virtual_address - vma->vm_start) >>
 		PAGE_SHIFT;
+
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		goto out;
+
+	ring = obj->ring;
+	seqno = !write ? obj->last_write_seqno : obj->last_read_seqno;
+	reset_counter = atomic_read(&dev_priv->gpu_error.reset_counter);
+
+	mutex_unlock(&dev->struct_mutex);
+
+	/* wait for GPU to finish first without acquiring struct_mutex.
+	   This will offload the mutex contention as subsequent wait for GPU
+	   while holding mutex in this routine will be as good as NOOP
+	*/
+	if (seqno != 0) {
+		ret = __wait_seqno(ring, seqno,
+				reset_counter, true, NULL);
+
+		if (ret)
+			goto out;
+	}
 
 	ret = i915_mutex_lock_interruptible(dev);
 	if (ret)
