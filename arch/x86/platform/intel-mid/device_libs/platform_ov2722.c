@@ -27,6 +27,7 @@
 
 /* workround - pin defined for byt */
 #define CAMERA_1_RESET 127
+#define CAMERA_1_RESET_CRV2 120
 #define CAMERA_1_PWDN 124
 #ifdef CONFIG_VLV2_PLAT_CLK
 #define OSC_CAM1_CLK 0x1
@@ -50,6 +51,7 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	int ret;
 	int pin;
+
 	if (!IS_BYT) {
 		if (gp_camera1_power_down < 0) {
 			ret = camera_sensor_gpio(-1, GP_CAMERA_1_POWER_DOWN,
@@ -72,7 +74,11 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		 * The GPIO value would be provided by ACPI table, which is
 		 * not implemented currently.
 		 */
-		pin = CAMERA_1_RESET;
+		if (spid.hardware_id == BYT_TABLET_BLK_CRV2)
+			pin = CAMERA_1_RESET_CRV2;
+		else
+			pin = CAMERA_1_RESET;
+
 		if (gp_camera1_reset < 0) {
 			ret = gpio_request(pin, "camera_1_reset");
 			if (ret) {
@@ -107,7 +113,8 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		gp_camera1_power_down = pin;
 
 		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
-		    spid.hardware_id == BYT_TABLET_BLK_8PR1)
+		    spid.hardware_id == BYT_TABLET_BLK_8PR1 ||
+		    spid.hardware_id == BYT_TABLET_BLK_CRV2)
 			ret = gpio_direction_output(pin, 0);
 		else
 			ret = gpio_direction_output(pin, 1);
@@ -121,7 +128,8 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	}
 	if (flag) {
 		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
-		    spid.hardware_id == BYT_TABLET_BLK_8PR1)
+		    spid.hardware_id == BYT_TABLET_BLK_8PR1 ||
+		    spid.hardware_id == BYT_TABLET_BLK_CRV2)
 			gpio_set_value(gp_camera1_power_down, 0);
 		else
 			gpio_set_value(gp_camera1_power_down, 1);
@@ -132,7 +140,8 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	} else {
 		gpio_set_value(gp_camera1_reset, 0);
 		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
-		    spid.hardware_id == BYT_TABLET_BLK_8PR1)
+		    spid.hardware_id == BYT_TABLET_BLK_8PR1 ||
+		    spid.hardware_id == BYT_TABLET_BLK_CRV2)
 			gpio_set_value(gp_camera1_power_down, 1);
 		else
 			gpio_set_value(gp_camera1_power_down, 0);

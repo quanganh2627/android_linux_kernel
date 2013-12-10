@@ -27,6 +27,7 @@
 
 /* workround - pin defined for byt */
 #define CAMERA_0_RESET 126
+#define CAMERA_0_RESET_CRV2 119
 #ifdef CONFIG_VLV2_PLAT_CLK
 #define OSC_CAM0_CLK 0x0
 #define CLK_19P2MHz 0x1
@@ -63,14 +64,18 @@ static int imx175_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		 * not implemented currently
 		 */
 		if (camera_reset < 0) {
-			ret = gpio_request(CAMERA_0_RESET, "camera_0_reset");
+			if (spid.hardware_id == BYT_TABLET_BLK_CRV2)
+				camera_reset = CAMERA_0_RESET_CRV2;
+			else
+				camera_reset = CAMERA_0_RESET;
+			ret = gpio_request(camera_reset, "camera_reset");
 			if (ret) {
 				pr_err("%s: failed to request gpio(pin %d)\n",
 				__func__, CAMERA_0_RESET);
 				return -EINVAL;
 			}
 		}
-		camera_reset = CAMERA_0_RESET;
+
 		ret = gpio_direction_output(camera_reset, 1);
 		if (ret) {
 			pr_err("%s: failed to set gpio(pin %d) direction\n",
