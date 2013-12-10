@@ -249,6 +249,10 @@ static const char *smb34x_extcon_cable[] = {
 	NULL,
 };
 
+/* flag for Host mode, used by display driver to save 7mW in S3 */
+bool __otg_connect;
+EXPORT_SYMBOL(__otg_connect);
+
 struct smb347_otg_event {
 	struct list_head	node;
 	bool			param;
@@ -1356,9 +1360,11 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 		else if (ret & 0x1E) {
 			gpio_direction_output(smb->pdata->gpio_mux, 0);
 			smb347_otg_enable(smb);
+			__otg_connect = true;
 		} else {
 			gpio_direction_output(smb->pdata->gpio_mux, 1);
 			smb347_otg_disable(smb);
+			__otg_connect = false;
 		}
 		ret = IRQ_HANDLED;
 	}
