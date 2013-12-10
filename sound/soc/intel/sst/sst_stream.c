@@ -168,9 +168,9 @@ int sst_alloc_stream_mrfld(char *params, struct sst_block *block)
 	sst_drv_ctx->streams[str_id].num_ch = num_ch;
 
 	pvt_id = sst_assign_pvt_id(sst_drv_ctx);
-	alloc_param.ts = (struct snd_sst_tstamp *) (sst_drv_ctx->mailbox_add +
-			sst_drv_ctx->tstamp + (str_id * sizeof(fw_tstamp)));
-	pr_debug("alloc tstamp location = 0x%p\n", alloc_param.ts);
+	alloc_param.ts = sst_drv_ctx->mailbox_add + sst_drv_ctx->tstamp +
+			 (str_id * sizeof(fw_tstamp));
+	pr_debug("alloc tstamp location = 0x%x\n", alloc_param.ts);
 	pr_debug("assigned pipe id 0x%x to task %d\n", pipe_id, task_id);
 
 	/*allocate device type context*/

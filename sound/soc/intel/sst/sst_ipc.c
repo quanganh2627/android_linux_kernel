@@ -139,9 +139,11 @@ static int sst_send_runtime_param(struct snd_sst_runtime_params *params)
 		return ret_val;
 	sst_fill_header(&msg->header, IPC_IA_SET_RUNTIME_PARAMS, 1,
 							params->str_id);
-	msg->header.part.data = sizeof(u32) + sizeof(*params) + params->size;
+	msg->header.part.data = sizeof(u32) + sizeof(*params) - sizeof(params->addr)
+				+ params->size;
 	memcpy(msg->mailbox_data, &msg->header.full, sizeof(u32));
-	memcpy(msg->mailbox_data + sizeof(u32), params, sizeof(*params));
+	memcpy(msg->mailbox_data + sizeof(u32), params, sizeof(*params)
+				- sizeof(params->addr));
 	/* driver doesn't need to send address, so overwrite addr with data */
 	memcpy(msg->mailbox_data + sizeof(u32) + sizeof(*params)
 			- sizeof(params->addr),
