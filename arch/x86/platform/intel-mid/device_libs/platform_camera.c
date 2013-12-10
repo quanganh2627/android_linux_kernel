@@ -87,6 +87,23 @@ static struct camera_device_table byt_ffrd8_cam_table[] = {
 			&intel_register_i2c_camera_device}
 	}
 };
+
+static struct camera_device_table byt_crv2_cam_table[] = {
+	{
+		{SFI_DEV_TYPE_I2C, 2, 0x10, 0x0, 0x0, "imx134"},
+		{"imx134", SFI_DEV_TYPE_I2C, 0, &imx134_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 2, 0x36, 0x0, 0x0, "ov2722"},
+		{"ov2722", SFI_DEV_TYPE_I2C, 0, &ov2722_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 2, 0x53, 0x0, 0x0, "lm3554"},
+		{"lm3554", SFI_DEV_TYPE_I2C, 0, &lm3554_platform_data_func,
+			&intel_register_i2c_camera_device}
+	}
+};
+
 static struct atomisp_camera_caps default_camera_caps;
 
 #ifdef CHT_RVP_USE_BYT_CAM_AOB
@@ -344,6 +361,9 @@ static void atomisp_unregister_acpi_devices(struct atomisp_platform_data *pdata)
 		"4-0053",	/* FFRD10 lm3554 */
 		"4-0054",	/* imx1xx EEPROM*/
 		"4-000c",	/* imx1xx driver*/
+		"2-0053",	/* byt-crv2 lm3554*/
+		"2-0010",	/* imx1xx driver*/
+		"2-0036",	/* ov2722 driver*/
 #if 0
 		"INTCF0B:00",	/* From ACPI ov2722 */
 		"INTCF1A:00",	/* From ACPI imx175 */
@@ -415,7 +435,10 @@ static int camera_af_power_gpio = -1;
 
 static int camera_af_power_ctrl(struct v4l2_subdev *sd, int flag)
 {
-	return gpio_direction_output(camera_af_power_gpio, flag);
+	if (!INTEL_MID_BOARD(1, TABLET, BYT))
+		return gpio_direction_output(camera_af_power_gpio, flag);
+	else
+		return 0;
 }
 
 const struct camera_af_platform_data *camera_get_af_platform_data(void)
@@ -428,11 +451,11 @@ const struct camera_af_platform_data *camera_get_af_platform_data(void)
 	};
 	int gpio, r;
 
-	if (camera_af_power_gpio == -1) {
+	if (!INTEL_MID_BOARD(1, TABLET, BYT) && camera_af_power_gpio == -1) {
 		gpio = get_gpio_by_name(gpio_name);
 		if (gpio < 0) {
-			pr_err("%s: can not find gpio `%s', using default\n",
-				__func__, gpio_name);
+			pr_err("%s: can't find gpio `%s',default\n",
+						__func__, gpio_name);
 			gpio = GPIO_DEFAULT;
 		}
 		pr_info("camera pdata: af gpio: %d\n", gpio);
@@ -498,6 +521,9 @@ void __init camera_init_device(void)
 		    spid.hardware_id == BYT_TABLET_BLK_8PR1) {
 			table = byt_ffrd8_cam_table;
 			entry_num = ARRAY_SIZE(byt_ffrd8_cam_table);
+		} else if (spid.hardware_id == BYT_TABLET_BLK_CRV2) {
+			table = byt_crv2_cam_table;
+			entry_num = ARRAY_SIZE(byt_crv2_cam_table);
 		} else {
 			table = byt_ffrd10_cam_table;
 			entry_num = ARRAY_SIZE(byt_ffrd10_cam_table);
