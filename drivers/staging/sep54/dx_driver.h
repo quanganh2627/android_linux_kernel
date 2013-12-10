@@ -401,9 +401,11 @@ void dump_word_array(const char *name, const u32 *the_array,
  * @client_ctx:	 The client context object
  *
  */
-static inline u64 alloc_crypto_ctx_id(struct sep_client_ctx
-						       *client_ctx)
+static inline struct crypto_ctx_uid alloc_crypto_ctx_id(
+	struct sep_client_ctx *client_ctx)
 {
+	struct crypto_ctx_uid uid;
+
 	/* Assuming 32 bit atomic counter is large enough to never wrap
 	 * during a lifetime of a process...
 	 * Someone would laugh (or cry) on this one day */
@@ -414,9 +416,11 @@ static inline u64 alloc_crypto_ctx_id(struct sep_client_ctx
 		BUG();
 	}
 #endif
-	return (((u64) (unsigned long)client_ctx) <<
-		CRYPTO_CTX_ID_CLIENT_SHIFT) |
-	    (u64) atomic_inc_return(&client_ctx->uid_cntr);
+
+	uid.addr = (u64)client_ctx;
+	uid.cntr = (u32)atomic_inc_return(&client_ctx->uid_cntr);
+
+	return uid;
 }
 
 /**

@@ -862,7 +862,7 @@ static int map_ctx_for_proc(struct sep_client_ctx *client_ctx,
 		pr_err("Failed mapping context\n");
 		return rc;
 	}
-	if (ctxmgr_get_session_id(ctx_info) != (u32) client_ctx) {
+	if (ctxmgr_get_session_id(ctx_info) != (u64) client_ctx) {
 		pr_err("Context ID is not associated with this session\n");
 		rc = -EINVAL;
 	}
@@ -3447,12 +3447,12 @@ static int sep_ioctl_set_iv(struct sep_client_ctx *client_ctx,
 	struct dxdi_aes_iv_params params;
 	struct host_crypto_ctx_sym_cipher *host_context =
 	    (struct host_crypto_ctx_sym_cipher *)user_params->context_buf;
-	u64 uid;
+	struct crypto_ctx_uid uid;
 	int err;
 
 	/* Copy ctx uid from user context */
 	if (copy_from_user(&uid, &host_context->uid,
-			   sizeof(u64))) {
+			   sizeof(struct crypto_ctx_uid))) {
 		pr_err("Failed reading input parameters");
 		return -EFAULT;
 	}
@@ -3592,6 +3592,7 @@ void cleanup_client_ctx(struct queue_drvdata *drvdata,
 #if MAX_SEPAPP_SESSION_PER_CLIENT_CTX > 0
 	struct sep_op_ctx op_ctx;
 	int session_id;
+	struct crypto_ctx_uid uid;
 
 	/* Free any Applet session left open */
 	for (session_id = 0; session_id < MAX_SEPAPP_SESSION_PER_CLIENT_CTX;
@@ -3628,13 +3629,14 @@ void cleanup_client_ctx(struct queue_drvdata *drvdata,
 	 * client_ctx */
 	desc_q_mark_invalid_cookie(drvdata->desc_queue, (u32) client_ctx);
 
+	uid.addr = ((u64) (unsigned long)client_ctx);
+	uid.cntr = 0;
+
 	/* Invalidate any crypto context cache entry associated with this client
 	 * context before freeing context data object that may be reused.
 	 * This assures retaining of UIDs uniqueness (and makes sense since all
 	 * associated contexts does not exist anymore) */
-	ctxmgr_sep_cache_invalidate(drvdata->sep_cache,
-				    ((u64) (unsigned long)client_ctx) <<
-				    CRYPTO_CTX_ID_CLIENT_SHIFT,
+	ctxmgr_sep_cache_invalidate(drvdata->sep_cache, uid,
 				    CRYPTO_CTX_ID_CLIENT_MASK);
 }
 

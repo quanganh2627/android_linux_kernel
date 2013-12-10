@@ -435,7 +435,7 @@ static int dispatch_crypto_op(struct sep_op_ctx *op_ctx, bool may_backlog,
 	struct queue_drvdata *drvdata = op_ctx->client_ctx->drv_data;
 	struct client_crypto_ctx_info *ctx_info = &op_ctx->ctx_info;
 	int sep_ctx_load_req;
-	u64 ctx_id = ctxmgr_get_ctx_id(ctx_info);
+	struct crypto_ctx_uid ctx_id = ctxmgr_get_ctx_id(ctx_info);
 	int rc;
 	struct sep_sw_desc desc;
 
