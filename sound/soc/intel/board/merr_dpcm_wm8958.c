@@ -219,7 +219,9 @@ static int mrfld_8958_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 
-	return mrfld_wm8958_set_clk_fmt(codec_dai);
+	if (!strcmp(codec_dai->name, "wm8994-aif1"))
+		return mrfld_wm8958_set_clk_fmt(codec_dai);
+	return 0;
 }
 
 static int mrfld_wm8958_compr_set_params(struct snd_compr_stream *cstream)
