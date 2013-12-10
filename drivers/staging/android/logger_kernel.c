@@ -294,12 +294,10 @@ console_initcall(logger_console_init);
 static int __init logger_kernel_init(void)
 {
 	int ret;
+	if (!(logger_console.flags & CON_ENABLED))
+		return 0;
 
 	ret = create_log(LOGGER_LOG_KERNEL, 256*1024);
-	if (unlikely(ret))
-		goto out;
-
-out:
 	return ret;
 }
 device_initcall(logger_kernel_init);
