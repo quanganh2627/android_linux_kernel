@@ -52,6 +52,8 @@ MODULE_VERSION("1.1.0");
 
 #define CLOCK_19200_KHZ			19200000
 
+#define UNASSIGNED_GPIO_MAPPING 0xffff
+
 /* FIXME: use of lpeshim_base_address should be
  * avoided and replaced by a call to SST driver that will
  * take care to access LPE Shim registers */
@@ -106,7 +108,7 @@ static struct pci_driver intel_mid_i2s_driver = {
 };
 
 /************* ACPI **************/
-
+#ifdef CONFIG_ACPI
 static const struct acpi_device_id i2s_acpi_ids[] = {
 /*	{"XXXNAMEXXX", (kernel_ulong_t) &intel_byt_info },*/
 	{SSPCODEC, 0 },
@@ -126,7 +128,7 @@ static struct platform_driver i2s_acpi_driver = {
 	.probe = i2s_acpi_probe,
 	.remove = i2s_acpi_remove,
 };
-
+#endif
 
 /*
  * Local functions declaration
@@ -1188,6 +1190,7 @@ check_device_pci(struct device *device_ptr, void *data)
 	return 0; /* not usage we look for, or already opened */
 }
 
+#ifdef CONFIG_ACPI
 /**
  * check_device_acpi -  return if the device is the usage we want (usage =*data)
  * @device_ptr : pointer on device struct
@@ -1203,9 +1206,6 @@ check_device_pci(struct device *device_ptr, void *data)
 static int
 check_device_acpi(struct device *device_ptr, void *data)
 {
-#ifndef CONFIG_ACPI
-	WARN(true, "== opening check device ACPI without ACPI in kernel ! ==");
-#else
 	struct intel_mid_i2s_hdl *drv_data;
 	enum intel_mid_i2s_ssp_usage usage;
 	enum intel_mid_i2s_ssp_usage usage_to_find;
@@ -1222,9 +1222,9 @@ check_device_acpi(struct device *device_ptr, void *data)
 			return 1;  /* Already opened, do not use this result */
 	}
 
-#endif
 	return 0;
 }
+#endif
 
 /**
  * i2s_reset_command_done - reset driver state if dma callback is not excuted before stream stop
@@ -2391,7 +2391,6 @@ static u32 calculate_ssacd(struct intel_mid_i2s_hdl *drv_data,
 		[SSP_TIMESLOT_4] = 4,
 		[SSP_TIMESLOT_8] = 8 };
 
-
 	/* timeslot */
 	switch (ps_settings->frame_rate_divider_control) {
 	case 1:
@@ -2909,6 +2908,7 @@ static int intel_mid_i2s_probe(struct pci_dev *pdev,
 	dev_dbg(&(pdev->dev), "ioaddr = : %p\n", drv_data->ioaddr);
 
 	/* Find SSP usage */
+	ssp_fs_pin.ssp_fs_gpio_mapping = UNASSIGNED_GPIO_MAPPING;
 	status = intel_mid_i2s_find_usage(pdev, drv_data, &usage, &ssp_fs_pin);
 	if (status)
 		goto err_i2s_probe3;
@@ -2924,6 +2924,13 @@ static int intel_mid_i2s_probe(struct pci_dev *pdev,
 		base_address_p = drv_data->paddr - SSP1_OFFSET;
 	else if (drv_data->device_instance == 2)
 		base_address_p = drv_data->paddr - SSP2_OFFSET;
+	else {
+		dev_err(&pdev->dev,
+			"Unknown instance %d for SSP\n",
+			drv_data->device_instance);
+		status = -ENODEV;
+		goto err_i2s_probe3;
+	}
 
 	lpeshim_base_address_p = base_address_p + LPESHIM_OFFSET;
 
@@ -2934,7 +2941,6 @@ static int intel_mid_i2s_probe(struct pci_dev *pdev,
 				&(pdev->dev),
 				lpeshim_base_address_p,
 				MRFL_LPE_SHIM_REG_SIZE);
-
 
 	/* prepare for DMA channel allocation */
 	/* get the pci_dev structure pointer */
@@ -2998,7 +3004,9 @@ static int intel_mid_i2s_probe(struct pci_dev *pdev,
 		 * Switch the SSP_FS pin from GPIO Input Mode
 		 * to functional Mode
 		 */
-		if (usage == SSP_USAGE_MODEM)
+		if (ssp_fs_pin.ssp_fs_gpio_mapping == UNASSIGNED_GPIO_MAPPING)
+			dev_err(drv_data->ssp_dev, "Bad GPIO initialisation\n");
+		else if (usage == SSP_USAGE_MODEM)
 			gpio_request(ssp_fs_pin.ssp_fs_gpio_mapping,
 								"ssp_modem");
 		else if (usage == SSP_USAGE_BLUETOOTH_FM)
@@ -3011,8 +3019,9 @@ static int intel_mid_i2s_probe(struct pci_dev *pdev,
 			goto err_i2s_probe3;
 		}
 
-		lnw_gpio_set_alt(ssp_fs_pin.ssp_fs_gpio_mapping,
-				 ssp_fs_pin.ssp_fs_mode);
+		if (ssp_fs_pin.ssp_fs_gpio_mapping != UNASSIGNED_GPIO_MAPPING)
+			lnw_gpio_set_alt(ssp_fs_pin.ssp_fs_gpio_mapping,
+				ssp_fs_pin.ssp_fs_mode);
 
 		dev_dbg(&pdev->dev, "SET GPIO_A0N %d to %d Mode\n",
 			ssp_fs_pin.ssp_fs_gpio_mapping,
@@ -3250,6 +3259,12 @@ int i2s_acpi_probe(struct platform_device *platdev)
 		base_address_p = rsrc->start - SSP1_OFFSET;
 	else if (drv_data->device_instance == 2)
 		base_address_p = rsrc->start - SSP2_OFFSET;
+	else {
+		dev_err(drv_data->ssp_dev, "Unknown instance %d for SSP\n",
+			drv_data->device_instance);
+		status = -ENODEV;
+		goto acpi_probe_err1;
+	}
 
 	lpeshim_base_address_p = base_address_p + LPESHIM_OFFSET;
 
@@ -3343,8 +3358,6 @@ int i2s_acpi_probe(struct platform_device *platdev)
 
 	pm_runtime_enable(drv_data->ssp_dev);
 
-
-
 	dev_set_drvdata(drv_data->ssp_dev, drv_data);
 
 	return status;
@@ -3376,7 +3389,6 @@ static int __init intel_mid_i2s_init(void)
 
 	pr_info("INFO: I2S DRIVER loading... ver: %s cpu=%d\n", "1.2.0",
 						intel_mid_identify_cpu());
-
 
 	ret = pci_register_driver(&intel_mid_i2s_driver);
 	if (ret)
