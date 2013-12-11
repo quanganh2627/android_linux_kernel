@@ -69,6 +69,7 @@ config SND_BYT_MACHINE
 	tristate "SOC Machine Audio driver for Intel Baytrail MID platform"
 	depends on X86
 	select SND_SOC_RT5642
+	select SND_SOC_TLV320AIC31XX
 	select SND_SST_PLATFORM
 	select SND_SST_MACHINE
 	select SND_INTEL_SST
