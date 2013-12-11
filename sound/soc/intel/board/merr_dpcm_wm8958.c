@@ -708,8 +708,8 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 	{
 		.name = "SSP2-Codec",
 		.be_id = 1,
-		.cpu_dai_name = "snd-soc-dummy-dai",
-		.platform_name = "snd-soc-dummy",
+		.cpu_dai_name = "ssp2-codec",
+		.platform_name = "sst-platform",
 		.no_pcm = 1,
 		.codec_dai_name = "wm8994-aif1",
 		.codec_name = "wm8994-codec",

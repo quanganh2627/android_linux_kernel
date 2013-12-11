@@ -670,6 +670,7 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		sst_find_and_send_pipe_algo(w->platform, w);
 		sst_send_slot_map(sst);
+		sst_set_pipe_gain(ids, sst, 0);
 	}
 	return 0;
 }
@@ -737,6 +738,7 @@ static int sst_set_media_path(struct snd_soc_dapm_widget *w,
 
 	if (SND_SOC_DAPM_EVENT_ON(event))
 		sst_find_and_send_pipe_algo(w->platform, w);
+	sst_set_pipe_gain(ids, sst, 0);
 
 	return 0;
 }
@@ -771,6 +773,7 @@ static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
 			      sizeof(cmd.header) + cmd.header.length);
 	if (SND_SOC_DAPM_EVENT_ON(event))
 		sst_find_and_send_pipe_algo(w->platform, w);
+	sst_set_pipe_gain(ids, sst, 0);
 	return 0;
 }
 
@@ -1315,37 +1318,41 @@ static inline bool is_sst_dapm_widget(struct snd_soc_dapm_widget *w)
 		return false;
 }
 
-static void  sst_set_gain(struct snd_kcontrol *kctl, struct sst_data *sst,
-	struct snd_card *card, int mute)
-{
-	struct sst_gain_mixer_control *mc;
-	struct sst_gain_value *gv;
-
-	pr_debug("control name=%s", kctl->id.name);
-	mc = (void *)kctl->private_value;
-	gv = mc->gain_val;
-
-	sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id, mute);
-}
-
 int sst_send_pipe_gains(struct snd_soc_dai *dai, int stream, int mute)
 {
 	struct snd_soc_platform *platform = dai->platform;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
-	struct snd_soc_dapm_context *dapm = &platform->dapm;
-	struct snd_card *card = platform->card->snd_card;
 	struct snd_soc_dapm_widget *w;
+	struct snd_soc_dapm_path *p = NULL;
 
 	pr_debug("%s: enter, dai-name=%s dir=%d\n", __func__, dai->name, stream);
 
-	list_for_each_entry(w, &dapm->card->widgets, list) {
-		if (w->power && w->platform && is_sst_dapm_widget(w)) {
-			struct sst_ids *ids = w->priv;
-			struct module *gain = NULL;
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_debug("Stream name=%s\n", dai->playback_widget->name);
+		w = dai->playback_widget;
+		list_for_each_entry(p, &w->sinks, list_source) {
+			if (p->connected && !p->connected(w, p->sink))
+				continue;
 
-			pr_debug("widget is power up name=%s\n", w->name);
-			list_for_each_entry(gain, &ids->gain_list, node) {
-				sst_set_gain(gain->kctl, sst, card, mute);
+			if (p->connect && p->sink->power && is_sst_dapm_widget(p->sink)) {
+				struct sst_ids *ids = p->sink->priv;
+
+				pr_debug("send gains for widget=%s\n", p->sink->name);
+				sst_set_pipe_gain(ids, sst, mute);
+			}
+		}
+	} else {
+		pr_debug("Stream name=%s\n", dai->capture_widget->name);
+		w = dai->capture_widget;
+		list_for_each_entry(p, &w->sources, list_sink) {
+			if (p->connected && !p->connected(w, p->sink))
+				continue;
+
+			if (p->connect &&  p->source->power && is_sst_dapm_widget(p->source)) {
+				struct sst_ids *ids = p->source->priv;
+
+				pr_debug("send gain for widget=%s\n", p->source->name);
+				sst_set_pipe_gain(ids, sst, mute);
 			}
 		}
 	}

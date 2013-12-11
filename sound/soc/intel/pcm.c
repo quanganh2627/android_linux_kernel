@@ -101,7 +101,7 @@ static int sst_media_digital_mute(struct snd_soc_dai *dai, int mute, int stream)
 	pr_debug("%s: enter, mute=%d dai-name=%s dir=%d\n", __func__, mute, dai->name, stream);
 
 #if IS_BUILTIN(CONFIG_SST_MRFLD_DPCM)
-	sst_send_pipe_gains(dai, stream, mute);
+		sst_send_pipe_gains(dai, stream, mute);
 #endif
 
 	return 0;
@@ -733,6 +733,24 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 		.channels_min = SST_MONO,
 		.channels_max = SST_MONO,
 		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+},
+/*BE CPU  Dais */
+{
+	.name = "ssp2-codec",
+	.playback = {
+		.stream_name = "ssp2 playback",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+	.capture = {
+		.stream_name = "ssp2 Capture",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 },
