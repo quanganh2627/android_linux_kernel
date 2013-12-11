@@ -8785,7 +8785,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 		kfree(work);
 		drm_vblank_put(dev, intel_crtc->pipe);
-		intel_crtc->unpin_work = NULL;
+
 		DRM_DEBUG_DRIVER("flip queue: crtc already busy\n");
 		return -EBUSY;
 	}
