@@ -111,6 +111,8 @@ enum sst_stream_states {
 enum sst_ram_type {
 	SST_IRAM	= 1,
 	SST_DRAM	= 2,
+	SST_DDR	= 5,
+	SST_CUSTOM_INFO	= 7,	/* consists of FW binary information */
 };
 
 /* SST shim registers to structure mapping  */

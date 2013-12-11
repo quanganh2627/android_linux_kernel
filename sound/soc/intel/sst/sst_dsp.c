@@ -835,6 +835,12 @@ static int sst_parse_module_dma(struct intel_sst_drv *sst_ctx,
 		case SST_DRAM:
 			ram = sst_ctx->dram_base;
 			break;
+		case SST_DDR:
+			ram = sst_drv_ctx->ddr_base;
+			break;
+		case SST_CUSTOM_INFO:
+			block = (void *)block + sizeof(*block) + block->size;
+			continue;
 		default:
 			pr_err("wrong ram type0x%x in block0x%x\n",
 					block->type, count);
@@ -1059,6 +1065,12 @@ static int sst_parse_module_memcpy(struct fw_module_header *module,
 		case SST_DRAM:
 			ram_iomem = sst_drv_ctx->dram;
 			break;
+		case SST_DDR:
+			ram_iomem = sst_drv_ctx->ddr;
+			break;
+		case SST_CUSTOM_INFO:
+			block = (void *)block + sizeof(*block) + block->size;
+			continue;
 		default:
 			pr_err("wrong ram type0x%x in block0x%x\n",
 					block->type, count);
