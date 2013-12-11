@@ -29,6 +29,7 @@ enum intel_mid_pmic_type {
 };
 
 struct intel_dwc_otg_pdata {
+	unsigned device_hibernation:1;
 	int is_hvp;
 	enum intel_mid_pmic_type pmic_type;
 	int charger_detect_enable;

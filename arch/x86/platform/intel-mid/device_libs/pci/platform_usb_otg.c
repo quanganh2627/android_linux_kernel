@@ -93,6 +93,7 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 		} else if (INTEL_MID_BOARD(1, PHONE, MRFL)) {
 			dwc_otg_pdata.pmic_type = BASIN_COVE;
 			dwc_otg_pdata.charger_detect_enable = 1;
+			dwc_otg_pdata.device_hibernation = 1;
 
 			dwc_otg_pdata.charging_compliance =
 				dwc_otg_get_usbspecoverride(MERR_SMIP_VIOLATE_BC_ADDR);

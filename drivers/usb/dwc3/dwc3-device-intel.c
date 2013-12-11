@@ -589,6 +589,7 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 	dwc->dev	= dev;
 	if (otg_data->usb2_phy_type == USB2_PHY_UTMI)
 		dwc->utmi_phy = 1;
+	dwc->hiber_enabled = !!otg_data->device_hibernation;
 
 	dev->dma_mask	= dev->parent->dma_mask;
 	dev->dma_parms	= dev->parent->dma_parms;
