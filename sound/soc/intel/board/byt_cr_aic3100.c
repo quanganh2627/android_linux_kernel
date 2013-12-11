@@ -53,6 +53,14 @@
 
 #define BYT_HS_DET_RETRY_COUNT          6
 
+#define VLV2_PLAT_CLK_AUDIO	3
+#define PLAT_CLK_FORCE_ON	1
+#define PLAT_CLK_FORCE_OFF	2
+
+/* 0 = 25MHz from crystal, 1 = 19.2MHz from PLL */
+#define PLAT_CLK_FREQ_XTAL	0
+
+
 struct byt_mc_private {
 	struct snd_soc_jack jack;
 	struct delayed_work hs_insert_work;
@@ -218,12 +226,28 @@ static void byt_check_hs_insert_status(struct work_struct *work)
 {
 	struct snd_soc_jack_gpio *gpio = &hs_gpio;
 	struct snd_soc_jack *jack = gpio->jack;
+	struct snd_soc_codec *codec = jack->codec;
 	struct byt_mc_private *ctx =
 		 container_of(work, struct byt_mc_private, hs_insert_work.work);
 	int jack_type = 0;
 
 	mutex_lock(&ctx->jack_mlock);
 	pr_debug("Enter:%s", __func__);
+
+	/* TODO: Switch to MCLK instead of internal clock once
+		 Jack connect interrupt is raised
+		 This is because with internal clock headset
+		 is getting detected as headphone. Need to check
+		 with TI guys whether this is limitation. Side
+		 effect of this is that 25MHz MCLK will remain
+		 ON if headset is inserted and removed without
+		 playback or capture done after insertion
+	*/
+	vlv2_plat_configure_clock(VLV2_PLAT_CLK_AUDIO,
+			PLAT_CLK_FORCE_ON);
+	pr_debug("Platform clk turned ON\n");
+	snd_soc_codec_set_sysclk(codec, AIC31XX_MCLK,
+			0, AIC31XX_FREQ_25000000, SND_SOC_CLOCK_IN);
 
 	jack_type = byt_check_jack_type();
 
@@ -440,14 +464,6 @@ static inline struct snd_soc_codec *byt_get_codec(struct snd_soc_card *card)
 	return codec;
 }
 
-#define VLV2_PLAT_CLK_AUDIO	3
-#define PLAT_CLK_FORCE_ON	1
-#define PLAT_CLK_FORCE_OFF	2
-
-/* 0 = 25MHz from crystal, 1 = 19.2MHz from PLL */
-#define PLAT_CLK_FREQ_XTAL	0
-
-/* We have to find if this is supported in aic3xx */
 static int platform_clock_control(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *k, int  event)
 {
@@ -455,6 +471,7 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_card *card = dapm->card;
 	struct snd_soc_codec *codec;
+	int ret = 0;
 	codec = byt_get_codec(card);
 	if (!codec) {
 		pr_err("Codec not found; Unable to set platform clock\n");
@@ -464,11 +481,20 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 		vlv2_plat_configure_clock(VLV2_PLAT_CLK_AUDIO,
 				PLAT_CLK_FORCE_ON);
 		pr_debug("Platform clk turned ON\n");
+		snd_soc_codec_set_sysclk(codec, AIC31XX_MCLK,
+				0, AIC31XX_FREQ_25000000, SND_SOC_CLOCK_IN);
+		pr_debug("%d Jack_type detected = %d\n", __LINE__, ret);
 	} else {
+		/* Set codec clock source to internal clock before
+		   turning off the platform clock. Codec needs clock
+		   for Jack detection and button press */
+		snd_soc_codec_set_sysclk(codec, AIC31XX_INTERNALCLOCK,
+				0, 0, SND_SOC_CLOCK_IN);
 		vlv2_plat_configure_clock(VLV2_PLAT_CLK_AUDIO,
 				PLAT_CLK_FORCE_OFF);
 		pr_debug("Platform clk turned OFF\n");
 	}
+
 	return 0;
 }
 
@@ -566,9 +592,6 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	byt_set_bias_level(card, dapm, SND_SOC_BIAS_OFF);
 	card->dapm.idle_bias_off = true;
 
-	/* Set input clock frequency to codec */
-	vlv2_plat_set_clock_freq(VLV2_PLAT_CLK_AUDIO, PLAT_CLK_FREQ_XTAL);
-
 	/* Headset jack detection */
 	ret = snd_soc_jack_new(codec, "Headset Jack",
 			SND_JACK_HEADSET | SND_JACK_HEADPHONE | SND_JACK_BTN_0,
@@ -595,7 +618,6 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		pr_err("unable to sync dapm\n");
 		return ret;
 	}
-
 	return ret;
 }
 
