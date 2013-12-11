@@ -725,6 +725,7 @@ static const struct dev_pm_ops fsa9285_pm_ops = {
 
 static const struct i2c_device_id fsa9285_id[] = {
 	{"fsa9285", 0},
+	{"SFSA9285", 0},
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, fsa9285_id);
