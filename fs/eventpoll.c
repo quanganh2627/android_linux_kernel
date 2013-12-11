@@ -42,7 +42,6 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/compat.h>
-#include <linux/suspend.h>
 
 /*
  * LOCKING:
@@ -305,7 +304,6 @@ ctl_table epoll_table[] = {
 #endif /* CONFIG_SYSCTL */
 
 static const struct file_operations eventpoll_fops;
-static bool ep_pm_stay_awake_enable = true;
 
 static inline int is_file_epoll(struct file *f)
 {
@@ -553,7 +551,7 @@ static inline void ep_pm_stay_awake(struct epitem *epi)
 {
 	struct wakeup_source *ws = ep_wakeup_source(epi);
 
-	if (ws && ep_pm_stay_awake_enable)
+	if (ws)
 		__pm_stay_awake(ws);
 }
 
@@ -569,7 +567,7 @@ static inline void ep_pm_stay_awake_rcu(struct epitem *epi)
 
 	rcu_read_lock();
 	ws = rcu_dereference(epi->ws);
-	if (ws && ep_pm_stay_awake_enable)
+	if (ws)
 		__pm_stay_awake(ws);
 	rcu_read_unlock();
 }
@@ -1017,7 +1015,7 @@ static int ep_poll_callback(wait_queue_t *wait, unsigned mode, int sync, void *k
 		if (epi->next == EP_UNACTIVE_PTR) {
 			epi->next = ep->ovflist;
 			ep->ovflist = epi;
-			if (epi->ws && ep_pm_stay_awake_enable) {
+			if (epi->ws) {
 				/*
 				 * Activate ep->ws since epi->ws may get
 				 * deactivated at any time.
@@ -2049,29 +2047,6 @@ COMPAT_SYSCALL_DEFINE6(epoll_pwait, int, epfd,
 }
 #endif
 
-int ep_pm_notify(struct notifier_block *notify_block,
-					unsigned long mode, void *unused)
-{
-	switch (mode) {
-	case PM_HIBERNATION_PREPARE:
-	case PM_SUSPEND_PREPARE:
-		ep_pm_stay_awake_enable = false;
-		break;
-
-	case PM_POST_SUSPEND:
-	case PM_POST_HIBERNATION:
-	case PM_POST_RESTORE:
-		ep_pm_stay_awake_enable = true;
-		break;
-	}
-
-	return NOTIFY_DONE;
-}
-
-struct notifier_block ep_pm_suspend_notifier = {
-	.notifier_call = &ep_pm_notify,
-};
-
 static int __init eventpoll_init(void)
 {
 	struct sysinfo si;
@@ -2109,8 +2084,6 @@ static int __init eventpoll_init(void)
 	/* Allocates slab cache used to allocate "struct eppoll_entry" */
 	pwq_cache = kmem_cache_create("eventpoll_pwq",
 			sizeof(struct eppoll_entry), 0, SLAB_PANIC, NULL);
-
-	register_pm_notifier(&ep_pm_suspend_notifier);
 
 	return 0;
 }
