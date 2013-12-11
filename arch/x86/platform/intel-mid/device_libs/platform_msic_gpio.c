@@ -64,6 +64,13 @@ void __init *msic_gpio_platform_data(void *info)
 		msic_gpio_pdata.gpio0_lv_ctli = 0x8E;
 		msic_gpio_pdata.gpio0_hv_ctlo = 0x84;
 		msic_gpio_pdata.gpio0_hv_ctli = 0x94;
+	} else if (INTEL_MID_BOARD(1, PHONE, MOFD)) {
+		msic_gpio_pdata.ngpio_lv = 6;
+		msic_gpio_pdata.ngpio_hv = 2;
+		msic_gpio_pdata.gpio0_lv_ctlo = 0x107E;
+		msic_gpio_pdata.gpio0_lv_ctli = 0x108E;
+		msic_gpio_pdata.gpio0_hv_ctlo = 0x1084;
+		msic_gpio_pdata.gpio0_hv_ctli = 0x1094;
 	}
 
 	msic_gpio_pdata.can_sleep = 1;
