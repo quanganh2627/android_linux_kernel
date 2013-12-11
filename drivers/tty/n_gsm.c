@@ -3026,6 +3026,9 @@ struct tty_ldisc_ops tty_ldisc_packet = {
 	.read            = gsmld_read,
 	.write           = gsmld_write,
 	.ioctl           = gsmld_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl    = gsmld_ioctl, /* No translation needed */
+#endif
 	.poll            = gsmld_poll,
 	.receive_buf     = gsmld_receive_buf,
 	.write_wakeup    = gsmld_write_wakeup
@@ -3467,6 +3470,9 @@ static const struct tty_operations gsmtty_ops = {
 	.chars_in_buffer	= gsmtty_chars_in_buffer,
 	.flush_buffer		= gsmtty_flush_buffer,
 	.ioctl			= gsmtty_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl		= gsmtty_ioctl, /* No translation needed */
+#endif
 	.throttle		= gsmtty_throttle,
 	.unthrottle		= gsmtty_unthrottle,
 	.set_termios		= gsmtty_set_termios,
