@@ -978,7 +978,7 @@ int pmu_set_emmc_to_d0i0_atomic(void)
 	cur_pmssc.pmu2_states[sub_sys_index] = new_value;
 
 	/* Request SCU for PM interrupt enabling */
-	writel(PMU_PANIC_EMMC_UP_REQ_CMD, mid_pmu_cxt->emergeny_emmc_up_addr);
+	writel(PMU_PANIC_EMMC_UP_REQ_CMD, mid_pmu_cxt->emergency_emmc_up_addr);
 
 	status = pmu_issue_interactive_command(&cur_pmssc, false, false);
 
@@ -1714,12 +1714,12 @@ static int pmu_init(void)
 	}
 
 	/* initialize the state variables here */
-	ss_config = kzalloc(sizeof(struct pmu_suspend_config), GFP_KERNEL);
-
-	if (ss_config == NULL) {
+	ss_config = devm_kzalloc(&mid_pmu_cxt->pmu_dev->dev,
+			sizeof(struct pmu_suspend_config), GFP_KERNEL);
+	if (!ss_config) {
 		dev_dbg(&mid_pmu_cxt->pmu_dev->dev,
 			"Allocation of memory for ss_config has failed\n");
-		status = PMU_FAILED;
+		status = -ENOMEM;
 		goto out_err1;
 	}
 
@@ -1770,7 +1770,7 @@ static int pmu_init(void)
 		" = %d\n", status);
 		status = PMU_FAILED;
 		up(&mid_pmu_cxt->scu_ready_sem);
-		goto out_err2;
+		goto out_err1;
 	}
 
 	/*
@@ -1803,9 +1803,6 @@ retry:
 
 	return PMU_SUCCESS;
 
-out_err2:
-	kfree(ss_config);
-	mid_pmu_cxt->ss_config = NULL;
 out_err1:
 	return status;
 }
@@ -1875,34 +1872,34 @@ mid_pmu_probe(struct pci_dev *dev, const struct pci_device_id *pci_id)
 	if (pmu == NULL) {
 		dev_dbg(&mid_pmu_cxt->pmu_dev->dev,
 				"Unable to map the PMU2 address space\n");
-		ret = PMU_FAILED;
+		ret = -EIO;
 		goto out_err2;
 	}
 
 	mid_pmu_cxt->pmu_reg = pmu;
 
 	/* Map the memory of emergency emmc up */
-	mid_pmu_cxt->emergeny_emmc_up_addr =
-		ioremap_nocache(PMU_PANIC_EMMC_UP_ADDR, 4);
-	if (mid_pmu_cxt->emergeny_emmc_up_addr == NULL) {
+	mid_pmu_cxt->emergency_emmc_up_addr =
+		devm_ioremap_nocache(&mid_pmu_cxt->pmu_dev->dev, PMU_PANIC_EMMC_UP_ADDR, 4);
+	if (!mid_pmu_cxt->emergency_emmc_up_addr) {
 		dev_dbg(&mid_pmu_cxt->pmu_dev->dev,
 		"Unable to map the emergency emmc up address space\n");
-		ret = PMU_FAILED;
+		ret = -ENOMEM;
 		goto out_err3;
 	}
 
-	if (request_irq(dev->irq, pmu_sc_irq, IRQF_NO_SUSPEND, PMU_DRV_NAME,
-			NULL)) {
+	if (devm_request_irq(&mid_pmu_cxt->pmu_dev->dev, dev->irq, pmu_sc_irq,
+			IRQF_NO_SUSPEND, PMU_DRV_NAME, NULL)) {
 		dev_dbg(&mid_pmu_cxt->pmu_dev->dev, "Registering isr has failed\n");
-		ret = PMU_FAILED;
-		goto out_err4;
+		ret = -ENOENT;
+		goto out_err3;
 	}
 
 	/* call pmu init() for initialization of pmu interface */
 	ret = pmu_init();
 	if (ret != PMU_SUCCESS) {
 		dev_dbg(&mid_pmu_cxt->pmu_dev->dev, "PMU initialization has failed\n");
-		goto out_err5;
+		goto out_err3;
 	}
 	dev_warn(&mid_pmu_cxt->pmu_dev->dev, "after pmu initialization\n");
 
@@ -1925,21 +1922,15 @@ mid_pmu_probe(struct pci_dev *dev, const struct pci_device_id *pci_id)
 #endif
 	return 0;
 
-out_err5:
-	free_irq(dev->irq, &pmu_sc_irq);
-out_err4:
-	iounmap(mid_pmu_cxt->emergeny_emmc_up_addr);
-	mid_pmu_cxt->emergeny_emmc_up_addr = NULL;
 out_err3:
 	iounmap(mid_pmu_cxt->pmu_reg);
-	mid_pmu_cxt->base_addr.pmu1_base = NULL;
-	mid_pmu_cxt->base_addr.pmu2_base = NULL;
 out_err2:
 	pci_release_region(dev, 0);
 out_err1:
 	pci_disable_device(dev);
 out_err0:
 	wakeup_source_unregister(mid_pmu_cxt->pmu_wake_lock);
+
 	return ret;
 }
 
@@ -1951,12 +1942,7 @@ static void mid_pmu_remove(struct pci_dev *dev)
 	if (pmu_ops->remove)
 		pmu_ops->remove();
 
-	iounmap(mid_pmu_cxt->emergeny_emmc_up_addr);
-	mid_pmu_cxt->emergeny_emmc_up_addr = NULL;
-
 	pci_iounmap(dev, mid_pmu_cxt->pmu_reg);
-	mid_pmu_cxt->base_addr.pmu1_base = NULL;
-	mid_pmu_cxt->base_addr.pmu2_base = NULL;
 
 	/* disable the current PCI device */
 	pci_release_region(dev, 0);
@@ -2176,10 +2162,8 @@ static void __exit mid_pci_cleanup(void)
 	/* registering PCI device */
 	pci_unregister_driver(&driver);
 
-	if (mid_pmu_cxt) {
+	if (mid_pmu_cxt)
 		pmu_stats_finish();
-		kfree(mid_pmu_cxt->ss_config);
-	}
 
 	kfree(mid_pmu_cxt);
 }
