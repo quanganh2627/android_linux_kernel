@@ -2382,6 +2382,9 @@ static const struct dev_pm_ops smb347_pm_ops = {
 static const struct i2c_device_id smb347_id[] = {
 	{ "smb347", 0},
 	{ "smb349", 1},
+	{ "SMB0347", 0},
+	{ "SMB0349", 1},
+	{}
 };
 MODULE_DEVICE_TABLE(i2c, smb347_id);
 
