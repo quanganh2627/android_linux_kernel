@@ -92,7 +92,7 @@ static bool msic_battery_check(struct max17042_platform_data *pdata)
 					"PG000001", (BATTID_LEN)) == 0) {
 					snprintf(pdata->battid,
 						(BATTID_LEN + 1),
-							"%s", mrfl_batt_str);
+						"%s", mrfl_batt_str);
 				} else {
 					snprintf(pdata->battid,
 						(BATTID_LEN + 1),
@@ -312,7 +312,9 @@ static void __iomem *smip;
 int get_smip_plat_config(int offset)
 {
 	if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
-		INTEL_MID_BOARD(1, TABLET, MRFL)) {
+		INTEL_MID_BOARD(1, TABLET, MRFL) ||
+		INTEL_MID_BOARD(1, PHONE, MOFD) ||
+		INTEL_MID_BOARD(1, TABLET, MOFD)) {
 		if (!is_mapped) {
 			smip = ioremap_nocache(MRFL_SMIP_SRAM_ADDR +
 				MRFL_PLATFORM_CONFIG_OFFSET, 8);
@@ -330,7 +332,9 @@ static void init_tgain_toff(struct max17042_platform_data *pdata)
 		pdata->tgain = NTC_10K_B3435K_TDK_TGAIN;
 		pdata->toff = NTC_10K_B3435K_TDK_TOFF;
 	} else if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
-		INTEL_MID_BOARD(1, TABLET, MRFL)) {
+		INTEL_MID_BOARD(1, TABLET, MRFL) ||
+		INTEL_MID_BOARD(1, PHONE, MOFD) ||
+		INTEL_MID_BOARD(1, TABLET, MOFD)) {
 		pdata->tgain = NTC_10K_MURATA_TGAIN;
 		pdata->toff = NTC_10K_MURATA_TOFF;
 	} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||
@@ -390,7 +394,9 @@ static void init_callbacks(struct max17042_platform_data *pdata)
 		pdata->battery_pack_temp = ctp_get_battery_temp;
 		pdata->is_volt_shutdown_enabled = ctp_is_volt_shutdown_enabled;
 	} else if (INTEL_MID_BOARD(1, PHONE, MRFL)
-			|| INTEL_MID_BOARD(1, TABLET, MRFL)) {
+			|| INTEL_MID_BOARD(1, TABLET, MRFL)
+			|| INTEL_MID_BOARD(1, PHONE, MOFD)
+			|| INTEL_MID_BOARD(1, TABLET, MOFD)) {
 		/* MRFL Phones and tablets*/
 		pdata->battery_health = mrfl_get_bat_health;
 		pdata->battery_pack_temp = pmic_get_battery_pack_temp;
@@ -452,7 +458,9 @@ static void init_platform_params(struct max17042_platform_data *pdata)
 			pdata->soc_intr_mode_enabled = true;
 		}
 	} else if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
-				INTEL_MID_BOARD(1, TABLET, MRFL)) {
+				INTEL_MID_BOARD(1, TABLET, MRFL) ||
+				INTEL_MID_BOARD(1, PHONE, MOFD) ||
+				INTEL_MID_BOARD(1, TABLET, MOFD)) {
 		if (msic_battery_check(pdata)) {
 			pdata->enable_current_sense = true;
 			pdata->technology = POWER_SUPPLY_TECHNOLOGY_LION;
@@ -492,7 +500,9 @@ static void init_platform_thresholds(struct max17042_platform_data *pdata)
 		pdata->volt_min_lim = 3200;
 		pdata->volt_max_lim = 4350;
 	} else if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
-			INTEL_MID_BOARD(1, TABLET, MRFL)) {
+			INTEL_MID_BOARD(1, TABLET, MRFL) ||
+			INTEL_MID_BOARD(1, PHONE, MOFD) ||
+			INTEL_MID_BOARD(1, TABLET, MOFD)) {
 		/* Bit 1 of shutdown method determines if voltage based
 		 * shutdown in enabled.
 		 * Bit 3 specifies if capacity for NFC should be reserved.
