@@ -105,7 +105,7 @@ struct sst_ids {
 #define SST_SWM_MIXER(wname, wreg, wtask, wloc_id, wcontrols, wevent)			\
 {	.id = snd_soc_dapm_mixer, .name = wname, .reg = wreg, .shift = 0,		\
 	.invert = 0, .kcontrol_news = wcontrols, .num_kcontrols = ARRAY_SIZE(wcontrols),\
-	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,	\
+	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD | SND_SOC_DAPM_POST_REG,	\
 	.priv = (void *)&(struct sst_ids) { .task_id = wtask, .location_id = wloc_id, }	\
 }
 
