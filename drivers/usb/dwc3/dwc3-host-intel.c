@@ -31,6 +31,8 @@
 #include "core.h"
 #include "otg.h"
 
+#define WAIT_DISC_EVENT_COMPLETE_TIMEOUT 5 /* 100ms */
+
 static int otg_irqnum;
 
 static int dwc3_start_host(struct usb_hcd *hcd);
@@ -344,6 +346,7 @@ dealloc_usb2_hcd:
 
 static int dwc3_stop_host(struct usb_hcd *hcd)
 {
+	int count = 0;
 	struct xhci_hcd *xhci;
 	struct usb_hcd *xhci_shared_hcd;
 
@@ -354,6 +357,18 @@ static int dwc3_stop_host(struct usb_hcd *hcd)
 
 	pm_runtime_get_sync(hcd->self.controller);
 
+	/* When plug out micro A cable, there will be two flows be executed.
+	 * The first one is xHCI controller get disconnect event. The
+	 * second one is PMIC get ID change event. During these events
+	 * handling, they both try to call usb_disconnect. Then met some
+	 * conflicts and cause kernel panic.
+	 * So treat disconnect event as first priority, handle the ID change
+	 * event until disconnect event handled done.*/
+	while (if_usb_devices_connected(xhci)) {
+		msleep(20);
+		if (count++ > WAIT_DISC_EVENT_COMPLETE_TIMEOUT)
+			break;
+	};
 	dwc3_xhci_driver.shutdown = NULL;
 
 	if (xhci->shared_hcd) {
