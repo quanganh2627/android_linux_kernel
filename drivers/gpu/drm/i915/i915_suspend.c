@@ -348,9 +348,6 @@ static void i915_restore_display(struct drm_device *dev)
 		i915_restore_vga(dev);
 	else
 		i915_redisable_vga(dev);
-	/* Restore Gamma/Csc/Hue/Saturation/Brightness/Contrast */
-	if (!intel_restore_clr_mgr_status(dev))
-		DRM_ERROR("Restore Color manager status failed");
 }
 
 
