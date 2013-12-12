@@ -20,6 +20,8 @@
 #define	NTC_10K_B3435K_TDK_TOFF		0x2218
 #define	NTC_10K_NCP15X_TGAIN		0xE254
 #define	NTC_10K_NCP15X_TOFF		0x2ACF
+#define NTC_10K_MURATA_TGAIN		0xE39C
+#define NTC_10K_MURATA_TOFF		0x2673
 
 extern void *max17042_platform_data(void *info) __attribute__((weak));
 #endif
