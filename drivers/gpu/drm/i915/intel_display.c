@@ -3162,6 +3162,9 @@ static void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct drm_i915_gem_object *obj;
+	unsigned long flags;
 
 	if (crtc->fb == NULL)
 		return;
@@ -3171,12 +3174,36 @@ static void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 	/* flush pending flip to avoid wait_pending_flips stuck later */
 	flush_workqueue(dev_priv->flipwq);
 
-	wait_event(dev_priv->pending_flip_queue,
-		   !intel_crtc_has_pending_flip(crtc));
+	obj = to_intel_framebuffer(crtc->fb)->obj;
+	if (wait_event_timeout(dev_priv->pending_flip_queue,
+		!intel_crtc_has_pending_flip(crtc), 5) == 0) {
+		DRM_DEBUG_DRIVER("flip wait timed out.\n");
+
+		/* cleanup */
+		if (intel_crtc->unpin_work) {
+			intel_unpin_work_fn(&intel_crtc->unpin_work->work);
+			atomic_clear_mask(1 << intel_crtc->plane,
+					&obj->pending_flip.counter);
+
+			spin_lock_irqsave(&dev->event_lock, flags);
+			intel_crtc->unpin_work = NULL;
+			spin_unlock_irqrestore(&dev->event_lock, flags);
+		}
+
+		if (intel_crtc->sprite_unpin_work) {
+			intel_unpin_sprite_work_fn(
+				&intel_crtc->sprite_unpin_work->work);
+			obj = intel_crtc->sprite_unpin_work->old_fb_obj;
+			atomic_clear_mask(1 << intel_crtc->plane,
+				&obj->pending_flip.counter);
+
+			spin_lock_irqsave(&dev->event_lock, flags);
+			intel_crtc->sprite_unpin_work = NULL;
+			spin_unlock_irqrestore(&dev->event_lock, flags);
+		}
+	}
 
 	mutex_lock(&dev->struct_mutex);
-	if (to_intel_crtc(crtc)->sprite_unpin_work)
-		intel_finish_sprite_page_flip(dev, to_intel_crtc(crtc)->pipe);
 	intel_finish_fb(crtc->fb);
 	mutex_unlock(&dev->struct_mutex);
 }
@@ -8212,7 +8239,7 @@ static void intel_crtc_destroy(struct drm_crtc *crtc)
 	kfree(intel_crtc);
 }
 
-static void intel_unpin_work_fn(struct work_struct *__work)
+void intel_unpin_work_fn(struct work_struct *__work)
 {
 	struct intel_unpin_work *work =
 		container_of(__work, struct intel_unpin_work, work);
