@@ -67,6 +67,8 @@ static struct {
 		"current_standby_pullmode"},
 	{NORMAL_FOPS, TYPE_SBY_OD_DIS, "available_standby_opendrain",
 		"current_standby_opendrain"},
+	{NORMAL_FOPS, TYPE_IRQ_LINE, "available_irq_line",
+		"current_irq_line"},
 
 };
 

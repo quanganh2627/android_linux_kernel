@@ -31,6 +31,7 @@
 #include <linux/io.h>
 #include <asm/intel_chv.h>
 #include <linux/pnp.h>
+#include "gpiodebug.h"
 
 #define GPIO_PATH_MAX	64
 
@@ -47,6 +48,7 @@
 #define CV_GPIO_RX_STAT		BIT(0)
 #define CV_GPIO_TX_STAT		BIT(1)
 #define CV_GPIO_EN		BIT(15)
+#define CV_GPIO_PULL		BIT(23)
 
 #define CV_CFG_LOCK_MASK	BIT(31)
 #define CV_INT_CFG_MASK		(BIT(0) | BIT(1) | BIT(2))
@@ -59,6 +61,9 @@
 #define CV_INV_RX_DATA		BIT(6)
 
 #define CV_INT_SEL_MASK		(0xF << 28)
+#define CV_PAD_MODE_MASK	(0xF << 16)
+#define CV_GPIO_PULL_MODE	(0xF << 20)
+#define CV_GPIO_PULL_STRENGTH_MASK	(0x7 << 20)
 
 #define MAX_INTR_LINE_NUM	16
 
@@ -430,6 +435,7 @@ struct chv_gpio {
 	struct irq_domain	*domain;
 	int			irq_base;
 	int			intr_lines[MAX_INTR_LINE_NUM];
+	struct gpio_debug	*debug;
 };
 
 static DEFINE_SPINLOCK(chv_reg_access_lock);
@@ -823,7 +829,7 @@ static void chv_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 
 		seq_printf(s, " gpio-%-3d %s %s %s pad-%-3d offset:0x%03x "
 				"mux:%d %s %s %s %s %s "
-				"IntSel:%d\n",
+				"IntSel:%d ctrl0: 0x%x ctrl1: 0x%x\n",
 			i,
 			((ctrl0 & CV_GPIO_CFG_MASK) == 0x0) ? "out" : " ",
 			(ctrl0 & CV_GPIO_RX_EN) ? "in" : " ",
@@ -837,7 +843,9 @@ static void chv_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 			(ctrl1 & CV_INT_CFG_MASK) == 0x3 ? "both" : "",
 			(ctrl1 & CV_INT_CFG_MASK) == 0x4 ?
 				((ctrl1 & CV_INV_RX_DATA) ? "level-low" : "level-high") : "",
-			(ctrl0 & CV_INT_SEL_MASK) >> 28);
+			(ctrl0 & CV_INT_SEL_MASK) >> 28,
+			ctrl0,
+			ctrl1);
 	}
 	spin_unlock_irqrestore(&cg->lock, flags);
 }
@@ -951,6 +959,7 @@ static void chv_gpio_irq_dispatch(struct chv_gpio *cg)
 	u32 intr_line, mask, offset;
 	void __iomem *reg, *mask_reg;
 	u32 pending;
+	struct gpio_debug *debug = cg->debug;
 
 	/* each GPIO controller has one INT_STAT reg */
 	reg = chv_gpio_reg(&cg->chip, 0, CV_INT_STAT_REG);
@@ -964,6 +973,7 @@ static void chv_gpio_irq_dispatch(struct chv_gpio *cg)
 		if (unlikely(offset < 0))
 			dev_warn(&cg->pdev->dev, "unregistered GPIO irq\n");
 
+		DEFINE_DEBUG_IRQ_CONUNT_INCREASE(cg->chip.base + offset);
 		generic_handle_irq(irq_find_mapping(cg->domain, offset));
 		pending = chv_readl(reg) & chv_readl(mask_reg) & 0xFFFF;
 	}
@@ -986,6 +996,308 @@ static void chv_irq_init_hw(struct chv_gpio *cg)
 	reg = chv_gpio_reg(&cg->chip, 0, CV_INT_STAT_REG);
 	chv_writel(0xffff, reg);
 }
+
+static char conf_reg_msg[] =
+	"\nGPIO Pad Ctrl0 register:\n"
+	"\t[ 0: 0]\tGPIO RX State\n"
+	"\t[ 1: 1]\tGPIO TX State\n"
+	"\t[ 7: 2]\tReserved\n"
+	"\t[10: 8]\tGPIO Config\n"
+	"\t[14:11]\tReserved\n"
+	"\t[15:15]\tGPIO Enable\n"
+	"\t[19:16]\tPad Mode\n"
+	"\t[23:20]\tTermination\n"
+	"\t[25:24]\tRX/TX Enable Config\n"
+	"\t[27:26]\tGlitch Filter Config\n"
+	"\t[31:28]\tInterrupt Select\n";
+
+static char *pinvalue[] = {"low", "high"};
+static char *pindirection[] = {"Both", "Out", "In", "HiZ"};
+static char *irqtype[] = {"irq_none", "edge_falling", "edge_rising",
+		"edge_both", "level_high", "level_low"};
+static char *pinmux[] = {"mode0", "mode1", "mode2", "mode3", "mode4", "mode5",
+		"mode6", "mode7", "mode8", "mode9", "mode10", "mode11",
+		"mode12", "mode13", "mode14", "mode15", "gpio"};
+static char *pullmode[] = {"pull_none", "pulldown_20k", "pulldown_5k",
+		"pulldown_1k", "pullup_20k", "pullup_5k", "pullup_1k"};
+static char *odstate[] = {"od_disable", "od_enable"};
+static char *irqline[] = {"line0", "line1", "line2", "line3", "line4",
+		 "line5", "line6", "line7", "line8", "line9", "line10",
+		 "line11", "line12", "line13", "line14", "line15"};
+
+static int chv_get_generic(struct gpio_control *control, void *private_data,
+		unsigned gpio)
+{
+	struct chv_gpio *cg = private_data;
+	void __iomem *reg;
+	u32 offset = gpio - cg->chip.base;
+	u32 value;
+	u32 shift = control->shift;
+	u32 mask = control->mask;
+	int num;
+
+	reg = chv_gpio_reg(&cg->chip, offset, control->reg);
+	value = chv_readl(reg);
+
+	if (control->get_handle)
+		num = control->get_handle(value);
+	else
+		num = (value & (mask << shift)) >> shift;
+
+	if (num < control->num)
+		return num;
+
+	return -1;
+}
+
+static int chv_set_generic(struct gpio_control *control, void *private_data,
+		unsigned gpio, unsigned int num)
+{
+	struct chv_gpio *cg = private_data;
+	void __iomem *reg;
+	unsigned long flags;
+	u32 offset = gpio - cg->chip.base;
+	u32 value;
+	u32 shift = control->shift;
+	u32 mask = control->mask;
+
+	reg = chv_gpio_reg(&cg->chip, offset, control->reg);
+
+	spin_lock_irqsave(&cg->lock, flags);
+	value = chv_readl(reg);
+
+	if (control->set_handle)
+		control->set_handle(num, &value);
+	else {
+		value &= ~(mask << shift);
+		value |= (num & mask) << shift;
+	}
+	chv_writel(value, reg);
+	spin_unlock_irqrestore(&cg->lock, flags);
+
+	return 0;
+}
+
+static int pinmux_get_handle(int value)
+{
+	int num;
+
+	if (value & CV_GPIO_EN)
+		num = 16;
+	else
+		num = (value & CV_PAD_MODE_MASK) >> 16;
+
+	return num;
+}
+
+static void pinmux_set_handle(unsigned int num, int *value)
+{
+	if (num == 16)
+		*value |= CV_GPIO_EN;
+	else if (num < 16) {
+		*value &= ~CV_PAD_MODE_MASK;
+		*value |= (num << 16);
+	}
+}
+
+static int pullmode_get_handle(int value)
+
+{
+	int num;
+
+	if (!(value & CV_GPIO_PULL_MODE))
+		return 0;
+
+	num =  (value & CV_GPIO_PULL) ? 4 : 1;
+	num += __ffs((value & CV_GPIO_PULL_STRENGTH_MASK) >> 20);
+
+	return num;
+}
+
+static void pullmode_set_handle(unsigned int num, int *value)
+{
+	*value &= ~CV_GPIO_PULL_MODE;
+
+	if (num == 0)
+		return;
+	else if (num >= 4 && num < 7) {
+		*value |= CV_GPIO_PULL;
+		num -= 3;
+	} else if (num >= 7)
+		return;
+
+	*value |= (1 << ((num - 1) + 20));
+}
+
+static int pinvalue_get_handle(int value)
+{
+	if ((value & CV_GPIO_CFG_MASK) == CV_GPIO_TX_EN)
+		return !!(value & CV_GPIO_TX_STAT);
+	else
+		return value & CV_GPIO_RX_STAT;
+}
+
+static void pinvalue_set_handle(unsigned int num, int *value)
+{
+	/* only can change output pin value */
+	if ((*value & CV_GPIO_CFG_MASK) != CV_GPIO_TX_EN)
+		return;
+
+	if (num)
+		*value |= CV_GPIO_TX_STAT;
+	else
+		*value &= ~CV_GPIO_TX_STAT;
+}
+
+static int irqtype_get_handle(int value)
+{
+	int num;
+
+	num = (value & CV_INT_CFG_MASK);
+
+	if (num == 4 && (value & CV_INV_RX_DATA))
+		num = 5;
+
+	return num;
+}
+
+static void irqtype_set_handle(unsigned int num, int *value)
+{
+	*value &= ~CV_INT_CFG_MASK;
+
+	if (num == 4)
+		*value &= ~CV_INV_RX_DATA;
+	if (num == 5)
+		*value |= CV_INV_RX_DATA;
+
+	*value |= num;
+}
+
+#define CHV_NORMAL_CONTROL(xtype, xinfo, xnum, xreg, xshift, xmask) \
+{	.type = xtype, .pininfo = xinfo, .num = xnum, .reg = xreg, \
+	.shift = xshift, .mask = xmask, .get = chv_get_generic, \
+	.set = chv_set_generic, .get_handle = NULL, .set_handle = NULL}
+
+#define CHV_SPECIAL_CONTROL(xtype, xinfo, xnum, xreg, get_hdl, set_hdl) \
+{	.type = xtype, .pininfo = xinfo, .num = xnum, .reg = xreg, \
+	.get = chv_get_generic, .set = chv_set_generic, \
+	.get_handle = get_hdl, .set_handle = set_hdl}
+
+static struct gpio_control chv_gpio_controls[] = {
+CHV_NORMAL_CONTROL(TYPE_DIRECTION, pindirection, 4, CV_PADCTRL0_REG, 8, 0x7),
+CHV_NORMAL_CONTROL(TYPE_OPEN_DRAIN, odstate, 2, CV_PADCTRL1_REG, 3, 0x1),
+CHV_NORMAL_CONTROL(TYPE_IRQ_LINE, irqline, 16, CV_PADCTRL0_REG, 28, 0xF),
+CHV_SPECIAL_CONTROL(TYPE_PINMUX, pinmux, 17, CV_PADCTRL0_REG,
+			pinmux_get_handle, pinmux_set_handle),
+CHV_SPECIAL_CONTROL(TYPE_PULLMODE, pullmode, 7, CV_PADCTRL0_REG,
+			pullmode_get_handle, pullmode_set_handle),
+CHV_SPECIAL_CONTROL(TYPE_PIN_VALUE, pinvalue, 2, CV_PADCTRL0_REG,
+			pinvalue_get_handle, pinvalue_set_handle),
+CHV_SPECIAL_CONTROL(TYPE_IRQ_TYPE, irqtype, 6, CV_PADCTRL1_REG,
+			irqtype_get_handle, irqtype_set_handle),
+};
+
+static unsigned int chv_get_conf_reg(struct gpio_debug *debug, unsigned gpio)
+{
+	struct chv_gpio *cg = debug->private_data;
+	void __iomem *reg;
+	u32 offset = gpio - cg->chip.base;
+	u32 value;
+
+	reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL0_REG);
+	value = chv_readl(reg);
+
+	return value;
+}
+
+static void chv_set_conf_reg(struct gpio_debug *debug, unsigned gpio,
+		unsigned int value)
+{
+	struct chv_gpio *cg = debug->private_data;
+	void __iomem *reg;
+	u32 offset = gpio - cg->chip.base;
+	unsigned long flags;
+
+	reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL0_REG);
+
+	spin_lock_irqsave(&cg->lock, flags);
+	chv_writel(value, reg);
+	spin_unlock_irqrestore(&cg->lock, flags);
+}
+
+static char **chv_get_avl_pininfo(struct gpio_debug *debug, unsigned gpio,
+		unsigned int type, unsigned *num)
+{
+	struct gpio_control *control;
+
+	control = find_gpio_control(chv_gpio_controls,
+			ARRAY_SIZE(chv_gpio_controls), type);
+	if (control == NULL)
+		return NULL;
+
+	*num = control->num;
+
+	return control->pininfo;
+}
+
+
+static char *chv_get_cul_pininfo(struct gpio_debug *debug, unsigned gpio,
+		unsigned int type)
+{
+	struct chv_gpio *cg = debug->private_data;
+	struct gpio_control *control;
+	int num;
+
+	control = find_gpio_control(chv_gpio_controls,
+			ARRAY_SIZE(chv_gpio_controls), type);
+	if (control == NULL)
+		return NULL;
+
+	num = control->get(control, cg, gpio);
+	if (num == -1)
+		return NULL;
+
+	return *(control->pininfo + num);
+
+}
+
+static void chv_set_pininfo(struct gpio_debug *debug, unsigned gpio,
+		unsigned int type, const char *info)
+{
+	struct chv_gpio *cg = debug->private_data;
+	struct gpio_control *control;
+	int num;
+
+	control = find_gpio_control(chv_gpio_controls,
+			ARRAY_SIZE(chv_gpio_controls), type);
+	if (control == NULL)
+		return;
+
+	num = find_pininfo_num(control, info);
+	if (num == -1)
+		return;
+
+	if (control->set)
+		control->set(control, cg, gpio, num);
+
+}
+
+static int chv_get_register_msg(char **buf, unsigned long *size)
+{
+	*buf = conf_reg_msg;
+	*size = strlen(conf_reg_msg);
+
+	return 0;
+}
+
+static struct gpio_debug_ops chv_gpio_debug_ops = {
+	.get_conf_reg = chv_get_conf_reg,
+	.set_conf_reg = chv_set_conf_reg,
+	.get_avl_pininfo = chv_get_avl_pininfo,
+	.get_cul_pininfo = chv_get_cul_pininfo,
+	.set_pininfo = chv_set_pininfo,
+	.get_register_msg = chv_get_register_msg,
+};
 
 static int chv_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
@@ -1024,6 +1336,7 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 	int gpio_base;
 	char path[GPIO_PATH_MAX];
 	int nbanks = sizeof(chv_banks_pnp) / sizeof(struct gpio_bank_pnp);
+	struct gpio_debug *debug;
 
 	cg = devm_kzalloc(dev, sizeof(struct chv_gpio), GFP_KERNEL);
 	if (!cg) {
@@ -1112,6 +1425,25 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 	if (ret) {
 		dev_err(dev, "failed adding chv-gpio chip\n");
 		goto err;
+	}
+
+	debug = gpio_debug_alloc();
+	if (debug) {
+		__set_bit(TYPE_IRQ_LINE, debug->typebit);
+		__clear_bit(TYPE_PULLSTRENGTH, debug->typebit);
+		__clear_bit(TYPE_DEBOUNCE, debug->typebit);
+
+		debug->chip = gc;
+		debug->ops = &chv_gpio_debug_ops;
+		debug->private_data = cg;
+		cg->debug = debug;
+
+		ret = gpio_debug_register(debug);
+		if (ret) {
+			dev_err(&pdev->dev, "gpio_add_debug_debugfs error %d\n",
+				ret);
+			gpio_debug_remove(debug);
+		}
 	}
 
 	chv_irq_init_hw(cg);
