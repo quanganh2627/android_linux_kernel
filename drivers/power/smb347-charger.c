@@ -114,7 +114,13 @@
 
 /* Interrupt Status registers */
 #define IRQSTAT_A				0x35
+#define IRQSTAT_A_HOT_HARD_STAT		BIT(6)
+#define IRQSTAT_A_HOT_HARD_IRQ			BIT(7)
+#define IRQSTAT_A_COLD_HARD_STAT		BIT(4)
+#define IRQSTAT_A_COLD_HARD_IRQ		BIT(5)
 #define IRQSTAT_B				0x36
+#define IRQSTAT_B_BATOVP_STAT			BIT(6)
+#define IRQSTAT_B_BATOVP_IRQ			BIT(7)
 #define IRQSTAT_C				0x37
 #define IRQSTAT_C_TERMINATION_STAT		BIT(0)
 #define IRQSTAT_C_TERMINATION_IRQ		BIT(1)
@@ -890,6 +896,37 @@ static void smb347_otg_drive_vbus(struct smb347_charger *smb, bool enable)
 	}
 }
 
+int smb34x_get_bat_health()
+{
+	struct smb347_charger *smb = smb347_dev;
+	int ret;
+
+	if (!smb)
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+
+	ret = smb347_read(smb, IRQSTAT_A);
+	if (ret < 0)
+		return POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
+
+	if (ret &
+		(IRQSTAT_A_HOT_HARD_STAT|IRQSTAT_A_COLD_HARD_STAT)) {
+		dev_info(&smb->client->dev, "overtemperature detected");
+		return POWER_SUPPLY_HEALTH_OVERHEAT;
+	}
+
+	ret = smb347_read(smb, IRQSTAT_B);
+	if (ret < 0)
+		return POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
+
+	if (ret & IRQSTAT_B_BATOVP_STAT) {
+		dev_info(&smb->client->dev, "BAT OVP occurred");
+		return POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+	}
+
+	return POWER_SUPPLY_HEALTH_GOOD;
+}
+EXPORT_SYMBOL(smb34x_get_bat_health);
+
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
 static void smb347_full_worker(struct work_struct *work)
 {
@@ -1273,6 +1310,17 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 		ret = IRQ_HANDLED;
 	}
 
+	if (irqstat_a & (IRQSTAT_A_HOT_HARD_IRQ|IRQSTAT_A_COLD_HARD_IRQ)) {
+		dev_info(&smb->client->dev, "exterme temperature interrupt");
+		if (smb->pdata->use_usb)
+			power_supply_changed(&smb->usb);
+	}
+
+	if (irqstat_b & IRQSTAT_B_BATOVP_IRQ) {
+		dev_info(&smb->client->dev, "BATOVP interrupt");
+		if (smb->pdata->use_usb)
+			power_supply_changed(&smb->usb);
+	}
 	/*
 	 * If we reached the termination current the battery is charged and
 	 * we can update the status now. Charging is automatically

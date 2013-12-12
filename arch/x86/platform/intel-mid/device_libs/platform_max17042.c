@@ -403,6 +403,7 @@ static void init_callbacks(struct max17042_platform_data *pdata)
 		pdata->get_vmin_threshold = mrfl_get_vsys_min;
 		pdata->get_vmax_threshold = mrfl_get_volt_max;
 	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
+		pdata->battery_health = smb34x_get_bat_health;
 		pdata->get_vmin_threshold = byt_get_vsys_min;
 		pdata->get_vmax_threshold = byt_get_vbatt_max;
 		pdata->is_volt_shutdown = 1;

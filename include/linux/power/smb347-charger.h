@@ -118,6 +118,7 @@ struct smb347_charger_platform_data {
 extern int smb347_get_charging_status(void);
 extern int smb347_enable_charger(void);
 extern int smb347_disable_charger(void);
+extern int smb34x_get_bat_health(void);
 #else
 static int smb347_get_charging_status(void)
 {
@@ -131,6 +132,9 @@ static int smb347_disable_charger(void)
 {
 	return 0;
 }
-#endif
-
+int smb34x_get_bat_health(void)
+{
+	return 0;
+}
 #endif /* SMB347_CHARGER_H */
+#endif

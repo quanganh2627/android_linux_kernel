@@ -182,7 +182,7 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pr1_pdata = {
 						0x05, 0x05,
 				/* enable APSD interrupt along with others */
 						0x06, 0x06,
-						0x07, 0x95,
+						0x07, 0x85,
 					/* I2C control OTG */
 						0x9, 0x80,
 					/* OTG current  500mA*/
