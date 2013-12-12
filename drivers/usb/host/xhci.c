@@ -1601,7 +1601,10 @@ int xhci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 	 * This is a workaround to avoid the xHCI controller returning
 	 * event stopped - length invalid when dequeueing a link TRB.
 	 */
-	usleep_range(1000, 1001);
+	if (in_interrupt() || irqs_disabled())
+		udelay(1000);
+	else
+		usleep_range(1000, 1001);
 	spin_lock_irqsave(&xhci->lock, flags);
 	/* Make sure the URB hasn't completed or been unlinked already */
 	ret = usb_hcd_check_unlink_urb(hcd, urb, status);
