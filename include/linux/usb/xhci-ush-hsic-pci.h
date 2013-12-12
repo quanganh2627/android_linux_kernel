@@ -4,8 +4,6 @@
 #include <linux/usb.h>
 #include <linux/wakelock.h>
 
-#define USH_HSIC_AUX1_GPIO       136
-#define USH_HSIC_WAKEUP_GPIO     152
 #define HSIC_HUB_RESET_TIME   10
 #define HSIC_ENABLE_SIZE      2
 #define HSIC_DURATION_SIZE    7
@@ -76,6 +74,8 @@ enum {
 struct ush_hsic_pdata {
 	unsigned has_modem:1;     /* has modem or not */
 	unsigned enabled:1;       /* enable flag */
+	int aux_gpio;
+	int wakeup_gpio;
 };
 
 static int hsic_notify(struct notifier_block *self,

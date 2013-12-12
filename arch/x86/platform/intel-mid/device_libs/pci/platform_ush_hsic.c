@@ -16,14 +16,10 @@
 
 static struct ush_hsic_pdata hsic_pdata = {
 	.has_modem = 0,
-	.enabled = 0
+	.enabled = 0,
+	.aux_gpio = -EINVAL,
+	.wakeup_gpio = -EINVAL
 };
-
-static unsigned int is_ush_hsic_supported(void)
-{
-	return  INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||
-		INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1);
-}
 
 static struct ush_hsic_pdata *get_hsic_platform_data(struct pci_dev *pdev)
 {
@@ -31,8 +27,9 @@ static struct ush_hsic_pdata *get_hsic_platform_data(struct pci_dev *pdev)
 
 	switch (pdev->device) {
 	case PCI_DEVICE_ID_INTEL_BYT_USH:
-		if (is_ush_hsic_supported()) {
-			/* request SPH CS_N gpio by name */
+		if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||
+			INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1)) {
+			/* support HSIC */
 			pdata->has_modem = 1;
 			pdata->enabled = 1;
 		}

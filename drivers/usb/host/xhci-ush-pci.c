@@ -17,6 +17,11 @@
  * Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#ifdef CONFIG_ACPI
+#include <linux/acpi.h>
+#include <linux/acpi_gpio.h>
+#endif
+
 #include <linux/pci.h>
 #include <linux/module.h>
 #include <linux/wakelock.h>
@@ -113,38 +118,36 @@ static irqreturn_t hsic_wakeup_gpio_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int hsic_aux_irq_init(void)
+static int hsic_aux_irq_init(int pin)
 {
 	int retval;
 
-	dev_dbg(&pci_dev->dev,
-		"%s---->\n", __func__);
+	dev_dbg(&pci_dev->dev, "%s---->%d\n", __func__, pin);
 	if (hsic.hsic_aux_irq_enable) {
 		dev_dbg(&pci_dev->dev,
 			"%s<----AUX IRQ is enabled\n", __func__);
 		return 0;
 	}
 	hsic.hsic_aux_irq_enable = 1;
-	gpio_direction_input(hsic.aux_gpio);
-	retval = request_irq(gpio_to_irq(hsic.aux_gpio),
+	gpio_direction_input(pin);
+	retval = request_irq(gpio_to_irq(pin),
 			hsic_aux_gpio_irq,
 			IRQF_NO_SUSPEND | IRQF_TRIGGER_RISING,
 			"hsic_disconnect_request", &pci_dev->dev);
 	if (retval) {
 		dev_err(&pci_dev->dev,
 			"unable to request irq %i, err: %d\n",
-			gpio_to_irq(hsic.aux_gpio), retval);
+			gpio_to_irq(pin), retval);
 		goto err;
 	}
 
-	lnw_gpio_set_alt(hsic.aux_gpio, 0);
-	dev_dbg(&pci_dev->dev,
-		"%s<----\n", __func__);
+	lnw_gpio_set_alt(pin, 0);
+	dev_dbg(&pci_dev->dev, "%s<----\n", __func__);
 	return retval;
 
 err:
 	hsic.hsic_aux_irq_enable = 0;
-	free_irq(gpio_to_irq(hsic.aux_gpio), &pci_dev->dev);
+	free_irq(gpio_to_irq(pin), &pci_dev->dev);
 	return retval;
 }
 
@@ -185,19 +188,18 @@ err:
 }
 
 /* Init HSIC AUX GPIO */
-static int hsic_aux_gpio_init(void)
+static int hsic_aux_gpio_init(int pin)
 {
 	int		retval = 0;
 
-	dev_dbg(&pci_dev->dev,
-		"%s---->\n", __func__);
-	hsic.aux_gpio = USH_HSIC_AUX1_GPIO;
-	if (gpio_is_valid(hsic.aux_gpio)) {
-		retval = gpio_request(hsic.aux_gpio, "hsic_aux");
+	dev_dbg(&pci_dev->dev, "%s----> %d\n", __func__, pin);
+
+	if (gpio_is_valid(pin)) {
+		retval = gpio_request(pin, "hsic_aux");
 		if (retval < 0) {
 			dev_err(&pci_dev->dev,
 				"Request GPIO %d with error %d\n",
-				hsic.aux_gpio, retval);
+				pin, retval);
 			retval = -ENODEV;
 			goto err1;
 		}
@@ -207,15 +209,16 @@ static int hsic_aux_gpio_init(void)
 	}
 
 	pr_debug("%s----> Enable AUX irq\n", __func__);
-	retval = hsic_aux_irq_init();
+	retval = hsic_aux_irq_init(pin);
 	if (retval) {
 		dev_err(&pci_dev->dev,
 			"unable to request IRQ\n");
 		goto err2;
 	}
 
-	dev_dbg(&pci_dev->dev,
-		"%s<----\n", __func__);
+	hsic.aux_gpio = pin;
+
+	dev_dbg(&pci_dev->dev, "%s<----\n", __func__);
 	return retval;
 
 err2:
@@ -225,34 +228,29 @@ err1:
 }
 
 /* Init HSIC AUX2 GPIO as side band remote wakeup source */
-static int hsic_wakeup_gpio_init(void)
+static int hsic_wakeup_gpio_init(int pin)
 {
 	int		retval = 0;
 
-	dev_dbg(&pci_dev->dev,
-		"%s---->\n", __func__);
-	hsic.wakeup_gpio = USH_HSIC_WAKEUP_GPIO;
-	if (gpio_is_valid(hsic.wakeup_gpio)) {
-		retval = gpio_request(hsic.wakeup_gpio, "hsic_wakeup");
+	dev_dbg(&pci_dev->dev, "%s----> %d\n", __func__, pin);
+	if (gpio_is_valid(pin)) {
+		retval = gpio_request(pin, "hsic_wakeup");
 		if (retval < 0) {
 			dev_err(&pci_dev->dev,
 				"Request GPIO %d with error %d\n",
-				hsic.wakeup_gpio, retval);
+				pin, retval);
 			retval = -ENODEV;
 			goto err;
 		}
+		hsic.wakeup_gpio = pin;
 	} else {
 		retval = -ENODEV;
 		goto err;
 	}
 
 	gpio_direction_input(hsic.wakeup_gpio);
-	dev_dbg(&pci_dev->dev,
-		"%s<----\n", __func__);
-	return retval;
-
+	dev_dbg(&pci_dev->dev, "%s<----\n", __func__);
 err:
-	gpio_free(hsic.wakeup_gpio);
 	return retval;
 }
 
@@ -1080,6 +1078,63 @@ static void remove_device_files()
 	device_remove_file(&pci_dev->dev, &dev_attr_registers);
 }
 
+static int hsic_get_gpio_num(struct pci_dev *pdev)
+{
+#ifdef CONFIG_ACPI
+	struct ush_hsic_pdata *pdata;
+	acpi_handle handle;
+	acpi_status status;
+
+	pdata = pdev->dev.platform_data;
+
+	status = acpi_get_handle(NULL,
+			"\\_SB.PCI0.XHC1.RHUB.HSC1", &handle);
+	if (ACPI_FAILURE(status)) {
+		dev_err(&pdev->dev, "HSIC: cannot get HSC1 acpi handle\n");
+		/* Try to get GPIO pin number from fixed value */
+		pdata->aux_gpio = acpi_get_gpio("\\_SB.GPO2", 6);
+		pdata->wakeup_gpio = acpi_get_gpio("\\_SB.GPO2", 22);
+		if (gpio_is_valid(pdata->aux_gpio) &&
+			gpio_is_valid(pdata->wakeup_gpio)) {
+			dev_info(&pdev->dev, "HSIC GPO2 aux %d wakeup %d\n",
+					pdata->aux_gpio, pdata->wakeup_gpio);
+			return 0;
+		} else {
+			dev_err(&pdev->dev, "HSIC: no GPO2 entry for GPIO\n");
+			return -ENODEV;
+		}
+	}
+	ACPI_HANDLE_SET(&pdev->dev, handle);
+
+	/* Get the GPIO value from ACPI table */
+	pdata->aux_gpio = acpi_get_gpio_by_index(&pdev->dev, 0, NULL);
+	if (pdata->aux_gpio < 0) {
+		dev_err(&pdev->dev, "HSIC: fail to get AUX1 from acpi %d\n",
+				pdata->aux_gpio);
+		pdata->aux_gpio = acpi_get_gpio("\\_SB.GPO2", 6);
+		if (!gpio_is_valid(pdata->aux_gpio)) {
+			dev_err(&pdev->dev, "HSIC: no GPO2 entry for GPIO\n");
+			return -ENODEV;
+		}
+	}
+
+	pdata->wakeup_gpio = acpi_get_gpio_by_index(&pdev->dev, 1, NULL);
+	if (pdata->wakeup_gpio < 0) {
+		dev_err(&pdev->dev, "HSIC: fail to get WAKEUP from acpi %d\n",
+				pdata->wakeup_gpio);
+		pdata->wakeup_gpio = acpi_get_gpio("\\_SB.GPO2", 22);
+		if (!gpio_is_valid(pdata->wakeup_gpio)) {
+			dev_err(&pdev->dev, "HSIC: no GPO2 entry for GPIO\n");
+			return -ENODEV;
+		}
+	}
+
+	dev_info(&pdev->dev, "USH HSIC GPIO AUX %d WAKEUP %d\n",
+			pdata->aux_gpio, pdata->wakeup_gpio);
+#endif
+	return 0;
+}
+
 /*
  * We need to register our own PCI probe function (instead of the USB core's
  * function) in order to create a second roothub under xHCI.
@@ -1109,15 +1164,21 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	hsic.hsic_s3_entry_nb.notifier_call = hsic_s3_entry_notify;
 	register_pm_notifier(&hsic.hsic_s3_entry_nb);
 
+	retval = hsic_get_gpio_num(pci_dev);
+	if (retval < 0) {
+		dev_err(&dev->dev, "failed to get gpio value\n");
+		return -ENODEV;
+	}
+
 	/* AUX GPIO init */
-	retval = hsic_aux_gpio_init();
+	retval = hsic_aux_gpio_init(hsic_pdata->aux_gpio);
 	if (retval < 0) {
 		dev_err(&dev->dev, "AUX GPIO init fail\n");
 		retval = -ENODEV;
 	}
 
 	/* AUX GPIO init */
-	retval = hsic_wakeup_gpio_init();
+	retval = hsic_wakeup_gpio_init(hsic_pdata->wakeup_gpio);
 	if (retval < 0) {
 		dev_err(&dev->dev, "Wakeup GPIO init fail\n");
 		retval = -ENODEV;
