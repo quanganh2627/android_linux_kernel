@@ -33,10 +33,10 @@
 
 /* NVRAM access */
 static u32 nvram_size;
-static u32 nvram_addr;
+static phys_addr_t nvram_addr;
 
 static int platform_type;	/* Identifies the platform. */
-static u32 *nvram_ptr;
+static void *nvram_ptr;
 
 #define DRIVER_NAME "modem_nvram"
 
@@ -55,7 +55,7 @@ static struct kobj_attribute size_attribute =
 static ssize_t dump_show(struct kobject *kobj, struct kobj_attribute *attr,
 			char *buf)
 {
-	static u32 __iomem *nv_base;
+	void __iomem *nv_base;
 
 	if (((platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
 		(platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE)) &&
@@ -80,8 +80,8 @@ static ssize_t dump_store(struct kobject *kobj, struct kobj_attribute *attr,
 {
 	u32 sptr_dw_mask;
 	int dptr_reg;
-	static u32 __iomem *nv_base;
-	static int ret;
+	void __iomem *nv_base;
+	int ret;
 
 	if (count == 0)
 		return 0;
@@ -142,8 +142,8 @@ static ssize_t dump_clear(void)
 {
 	int dptr_reg;
 	u32 sptr_dw_mask;
-	static u32 __iomem *nv_base;
-	static int ret;
+	void __iomem *nv_base;
+	int ret;
 
 	if (((platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
 		(platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE)) &&
@@ -335,7 +335,7 @@ static int __init modem_nvram_init(void)
 		}
 		pr_info("Modem NVRAM: PTR: 0x%p\n", nvram_ptr);
 	} else {
-		pr_info("Modem NVRAM: ADDR: 0x%u\n", nvram_addr);
+		pr_info("Modem NVRAM: ADDR: %pa\n", &nvram_addr);
 	}
 
 	pr_info("Modem NVRAM: SIZE: 0x%x\n", nvram_size);

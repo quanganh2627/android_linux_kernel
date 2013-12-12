@@ -557,7 +557,7 @@ static int reboot_notifier(struct notifier_block *this,
 int open_security(struct inode *i, struct file *f)
 {
 	int ret = 0;
-	u64 *ptr;
+	void __iomem *ptr;
 	u32 value;
 
 	ptr = ioremap_nocache(SECURITY_WATCHDOG_ADDR, sizeof(u32));

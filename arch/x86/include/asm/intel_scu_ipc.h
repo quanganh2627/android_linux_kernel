@@ -90,7 +90,7 @@ static int intel_scu_ipc_write_umip(u8 *data, int len, int offset)
 
 /* NVRAM access */
 u32 intel_scu_ipc_get_nvram_size(void);
-u32 intel_scu_ipc_get_nvram_addr(void);
+phys_addr_t intel_scu_ipc_get_nvram_addr(void);
 
 /* Penwell has 4 osc clocks */
 #define OSC_CLK_AUDIO	0	/* Audio */

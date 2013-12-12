@@ -259,8 +259,7 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 
 	struct timespec ts;
-	/* Using u32 instead of int for 32bit uspace and 64bit kernel */
-	u32 rv = 0;
+	long rv = 0;
 
 
 	switch (ANDROID_ALARM_BASE_CMD(cmd)) {
@@ -291,7 +290,7 @@ static long alarm_compat_ioctl(struct file *file, unsigned int cmd,
 {
 
 	struct timespec ts;
-	int rv;
+	long rv;
 
 	switch (ANDROID_ALARM_BASE_CMD(cmd)) {
 	case ANDROID_ALARM_SET_AND_WAIT_COMPAT(0):
