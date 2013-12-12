@@ -95,8 +95,6 @@
 #define STATUS_INTR_VMIN_BIT	(1 << 8)
 #define STATUS_INTR_SOCMAX_BIT	(1 << 14)
 #define STATUS_INTR_SOCMIN_BIT	(1 << 10)
-#define STATUS_INTR_TMIN_BIT	(1 << 9)
-#define STATUS_INTR_TMAX_BIT	(1 << 13)
 
 
 #define VFSOC0_LOCK		0x0000
@@ -128,7 +126,6 @@
 #define CONSTANT_TEMP_IN_POWER_SUPPLY	350
 #define POWER_SUPPLY_VOLT_MIN_THRESHOLD	3500000
 #define BATTERY_VOLT_MIN_THRESHOLD	3400000
-#define BATT_TEMP_HYSTERESIS_VAL	2	/* 2 DegC */
 
 #define CYCLES_ROLLOVER_CUTOFF		0x00FF
 #define MAX17042_DEF_RO_LRNCFG		0x0076
@@ -617,7 +614,7 @@ static irqreturn_t max17042_intr_handler(int id, void *dev)
 static irqreturn_t max17042_thread_handler(int id, void *dev)
 {
 	struct max17042_chip *chip = dev;
-	int stat, temp, tmin, tmax, ret;
+	int stat;
 
 	pm_runtime_get_sync(&chip->client->dev);
 
@@ -654,49 +651,6 @@ static irqreturn_t max17042_thread_handler(int id, void *dev)
 		}
 	}
 
-	if ((stat & STATUS_INTR_TMIN_BIT) ||
-		(stat & STATUS_INTR_TMAX_BIT)) {
-		ret = max17042_read_reg(chip->client, MAX17042_TALRT_Th);
-		if (ret < 0) {
-			dev_warn(&chip->client->dev, "error reading Talert");
-			goto intr_exit;
-		} else {
-			temp = ret;
-			dev_info(&chip->client->dev,
-					"TALRT Thresholds%x\n", temp);
-		}
-
-		/* currently we are only handling +ve temperatures */
-		tmin = temp & 0xFF;
-		tmax = (temp & 0xFF00) >> 8;
-		if (stat & STATUS_INTR_TMIN_BIT) {
-			if (chip->pdata->temp_min_lim == tmin) {
-				temp = (chip->pdata->temp_min_lim +
-					BATT_TEMP_HYSTERESIS_VAL) << 8;
-				temp |= chip->pdata->temp_min_lim;
-			} else {
-				temp = chip->pdata->temp_max_lim << 8;
-				temp |= chip->pdata->temp_min_lim;
-			}
-		}
-
-		if (stat & STATUS_INTR_TMAX_BIT) {
-			if (chip->pdata->temp_max_lim == tmax) {
-				temp = chip->pdata->temp_max_lim << 8;
-				temp |= chip->pdata->temp_max_lim -
-						BATT_TEMP_HYSTERESIS_VAL;
-			} else {
-				temp = chip->pdata->temp_max_lim << 8;
-				temp |= chip->pdata->temp_min_lim;
-			}
-		}
-
-		ret = max17042_write_reg(chip->client, MAX17042_TALRT_Th, temp);
-		if (ret < 0)
-			dev_warn(&chip->client->dev, "error reading alert");
-	}
-
-intr_exit:
 	/* update battery status and health */
 	schedule_work(&chip->evt_worker);
 	pm_runtime_put_sync(&chip->client->dev);
@@ -1924,15 +1878,8 @@ static void configure_interrupts(struct max17042_chip *chip)
 					VOLT_DEF_MAX_MIN_THRLD);
 
 	/* Setting T-alrt threshold register to default values */
-	if (chip->pdata->en_temp_alert) {
-		temp_threshold = (chip->pdata->temp_max_lim << 8) |
-				chip->pdata->temp_min_lim;
-		max17042_write_reg(chip->client, MAX17042_TALRT_Th,
-					temp_threshold);
-	} else {
-		max17042_write_reg(chip->client, MAX17042_TALRT_Th,
+	max17042_write_reg(chip->client, MAX17042_TALRT_Th,
 					TEMP_DEF_MAX_MIN_THRLD);
-	}
 
 	/* clear BI bit */
 	max17042_reg_read_modify(chip->client, MAX17042_STATUS,
