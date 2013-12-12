@@ -365,14 +365,17 @@ int sst_wait_timeout(struct intel_sst_drv *sst_drv_ctx, struct sst_block *block)
 		retval = -block->ret_code;
 	} else {
 		block->on = false;
-		pr_err("sst: Wait timed-out condition:%#x, msg_id:%#x\n",
-				block->condition, block->msg_id);
+		pr_err("sst: Wait timed-out condition:%#x, msg_id:%#x fw_state %#x\n",
+				block->condition, block->msg_id, sst_drv_ctx->sst_state);
 
-		sst_do_recovery(sst_drv_ctx);
-		/* settign firmware state as uninit so that the
-		firmware will get redownloaded on next request
-		this is because firmare not responding for 5 sec
-		is equalant to some unrecoverable error of FW */
+		if (sst_drv_ctx->sst_state == SST_FW_LOADED) {
+			pr_err("Can't recover as timedout while downloading the FW\n");
+			pr_err("reseting fw state to unint...\n");
+			sst_drv_ctx->sst_state = SST_UN_INIT;
+		} else {
+			sst_do_recovery(sst_drv_ctx);
+		}
+
 		retval = -EBUSY;
 	}
 	return retval;
