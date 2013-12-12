@@ -320,7 +320,7 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 
 			hcd->has_wakeup_irq = 1;
 
-			hcd->has_sram = 1;
+			hcd->has_sram = 0;
 			hcd->sram_no_payload = 1;
 			sram_init(hcd);
 
