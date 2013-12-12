@@ -508,6 +508,7 @@ static void acm_read_bulk_callback(struct urb *urb)
 	struct acm_rb *rb = urb->context;
 	struct acm *acm = rb->instance;
 	unsigned long flags;
+	struct usb_device *usb_dev = interface_to_usbdev(acm->control);
 
 	dev_vdbg(&acm->data->dev, "%s - urb %d, len %d\n", __func__,
 					rb->index, urb->actual_length);
@@ -531,6 +532,11 @@ static void acm_read_bulk_callback(struct urb *urb)
 			return;
 		}
 
+	} else {
+		if (usb_dev->dev.power.runtime_auto) {
+			usb_autopm_get_interface_async(acm->control);
+			usb_autopm_put_interface_async(acm->control);
+		}
 	}
 
 	spin_lock_irqsave(&acm->write_lock, flags);

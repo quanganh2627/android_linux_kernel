@@ -620,6 +620,9 @@ static void rx_complete (struct urb *urb)
 					min(urb->actual_length,
 					usbnet_partial_dump_len));
 		}
+
+		usb_autopm_get_interface_async(dev->intf);
+		usb_autopm_put_interface_async(dev->intf);
 		break;
 
 	/* stalls need manual reset. this is rare ... except that
