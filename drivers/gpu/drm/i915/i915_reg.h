@@ -1233,8 +1233,6 @@
 /* CZ Clock, CD Clock Frequency ratio register */
 #define CD_CZ_CLOCK_FREQ_REG	(VLV_DISPLAY_BASE + 0x6508)
 
-#define GCI_CONTROL	(VLV_DISPLAY_BASE + 0x650C)  /* GCI Control reg */
-
 /*
  * Clock control & power management
  */
