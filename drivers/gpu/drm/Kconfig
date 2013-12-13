@@ -188,7 +188,7 @@ config DRM_I915_PRELIMINARY_HW_SUPPORT
 
 config DRM_I915_SYNC
 	bool "Enable native sync support"
-	depends on SYNC
+	depends on SYNC && DRM_I915
 	default y
 	help
 	  Choose this option if you require native sync support within the i915
