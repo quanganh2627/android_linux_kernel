@@ -1088,7 +1088,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	if (ret)
 		goto pre_mutex_err;
 
-	if (dev_priv->ums.mm_suspended) {
+	if (dev_priv->ums.mm_suspended || dev_priv->pm.shutdown_in_progress) {
 		mutex_unlock(&dev->struct_mutex);
 		ret = -EBUSY;
 		goto pre_mutex_err;
