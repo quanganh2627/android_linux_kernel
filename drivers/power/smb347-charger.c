@@ -237,6 +237,7 @@
 
 #define CFG_PIN_DEFAULT_CFG		0x7E
 #define SMB34X_FULL_WORK_JIFFIES		(30*HZ)
+#define SMB34X_CHG_UPD_JIFFIES  (HZ)
 
 #define SMB34X_EXTCON_SDP		"CHARGER_USB_SDP"
 #define SMB34X_EXTCON_DCP		"CHARGER_USB_DCP"
@@ -286,6 +287,7 @@ struct smb347_charger {
 	struct power_supply	mains;
 	struct power_supply	usb;
 	struct power_supply	battery;
+	struct delayed_work     chg_upd_worker;
 	bool			mains_online;
 	bool			usb_online;
 	bool			charging_enabled;
@@ -401,7 +403,7 @@ static inline int smb347_force_fcc(struct smb347_charger *smb)
 static int smb34x_get_health(struct smb347_charger *smb)
 {
 	bool usb = 0;
-	int stat_e = 0;
+	int stat_e = 0, ret;
 	int chrg_health;
 
 	if (!smb->is_smb349) {
@@ -409,16 +411,24 @@ static int smb34x_get_health(struct smb347_charger *smb)
 		goto end;
 	}
 
+	ret = smb347_read(smb, STAT_D);
+	if (ret < 0) {
+		dev_err(&smb->client->dev, "%s:i2c read error", __func__);
+		chrg_health = POWER_SUPPLY_HEALTH_UNKNOWN;
+		goto end;
+	}
+
 	stat_e = smb347_read(smb, IRQSTAT_E);
 	if (stat_e < 0) {
 		dev_warn(&smb->client->dev, "i2c failed %d", stat_e);
-		chrg_health = POWER_SUPPLY_HEALTH_UNKNOWN;
+		chrg_health = POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
 		goto end;
 	}
 
 	usb = !smb->is_disabled;
 
-	if (usb) {
+	if (ret && usb) {
+		/* charger present && charger not disabled */
 		if (stat_e & SMB349_IRQSTAT_E_DCIN_UV_STAT)
 			chrg_health = POWER_SUPPLY_HEALTH_DEAD;
 		else if (stat_e & SMB349_IRQSTAT_E_DCIN_OV_STAT)
@@ -921,11 +931,18 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 	 */
 	power_ok = smb347_read(smb, IRQSTAT_E);
 	if ((power_ok & (SMB349_IRQSTAT_E_DCIN_UV_STAT |
-			 SMB349_IRQSTAT_E_DCIN_OV_STAT |
-			 SMB349_IRQSTAT_E_DCIN_UV_IRQ |
-			 SMB349_IRQSTAT_E_DCIN_OV_IRQ)) && ret != 0)
+			SMB349_IRQSTAT_E_DCIN_OV_STAT |
+			SMB349_IRQSTAT_E_DCIN_UV_IRQ |
+			SMB349_IRQSTAT_E_DCIN_OV_IRQ)) && ret != 0) {
+		/*
+		 * during UV condition,chgr removal is
+		 * not identified and using worker thread
+		 * status is updated
+		 */
+		schedule_delayed_work(&smb->chg_upd_worker,
+			SMB34X_CHG_UPD_JIFFIES);
 		return;
-
+	}
 
 	switch (ret) {
 	case SMB_CHRG_TYPE_ACA_DOCK:
@@ -1002,6 +1019,16 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 		gpio_direction_output(smb->pdata->gpio_mux, 0);
 	}
 	return;
+}
+
+static void smb347_chg_upd_worker(struct work_struct *work)
+{
+	struct smb347_charger *smb =
+		container_of(work, struct smb347_charger, chg_upd_worker.work);
+
+	dev_info(&smb->client->dev, "%s", __func__);
+
+	smb34x_update_charger_type(smb);
 }
 
 static void smb347_otg_work(struct work_struct *work)
@@ -2288,6 +2315,7 @@ static int smb347_probe(struct i2c_client *client,
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
 	INIT_DELAYED_WORK(&smb->full_worker, smb347_full_worker);
 #endif
+	INIT_DELAYED_WORK(&smb->chg_upd_worker, smb347_chg_upd_worker);
 	smb->running = true;
 	smb->dentry = debugfs_create_file("smb347-regs", S_IRUSR, NULL, smb,
 					  &smb347_debugfs_fops);
