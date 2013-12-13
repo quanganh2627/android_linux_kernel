@@ -584,7 +584,7 @@ static int get_battery_status(struct power_supply *psy)
 					(bat_prop.algo_stat ==
 							PSY_ALGO_STAT_MAINT))
 					status = POWER_SUPPLY_STATUS_FULL;
-				else
+				else if (IS_CHARGING_ENABLED(chrgr_lst[cnt]))
 					status = POWER_SUPPLY_STATUS_CHARGING;
 			}
 		}
