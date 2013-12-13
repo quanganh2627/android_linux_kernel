@@ -29,7 +29,7 @@ struct bq24261_plat_data {
 	int (*set_cc) (int val);
 	int (*set_cv) (int val);
 	int (*set_iterm) (int val);
-	int (*enable_vbus) (int val);
+	int (*enable_vbus) (bool val);
 	/* WA for ShadyCove VBUS removal detect issue */
 	int (*handle_low_supply) (void);
 	void (*dump_master_regs) (void);
