@@ -111,6 +111,14 @@ struct atomisp_camera_caps {
 	struct atomisp_sensor_caps sensor[MAX_SENSORS_PER_PORT];
 };
 
+struct atomisp_input_stream_info {
+	enum atomisp_input_stream_id stream;
+	unsigned int enable;
+	/* Sensor driver fills ch_id with the id
+	   of the virtual channel. */
+	unsigned int ch_id;
+};
+
 struct camera_sensor_platform_data {
 	int (*gpio_ctrl)(struct v4l2_subdev *subdev, int flag);
 	int (*flisclk_ctrl)(struct v4l2_subdev *subdev, int flag);
