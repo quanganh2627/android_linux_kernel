@@ -212,6 +212,15 @@ static int ap1302_platform_deinit(void)
 	return 0;
 }
 
+static struct atomisp_camera_caps ap1302_camera_caps;
+
+static struct atomisp_camera_caps *ap1302_get_camera_caps(void)
+{
+	ap1302_camera_caps.sensor_num = 1;
+	ap1302_camera_caps.sensor[0].stream_num = 2;
+	return &ap1302_camera_caps;
+}
+
 static struct camera_sensor_platform_data ap1302_sensor_platform_data = {
 	.gpio_ctrl      = ap1302_gpio_ctrl,
 	.flisclk_ctrl   = ap1302_flisclk_ctrl,
@@ -219,6 +228,7 @@ static struct camera_sensor_platform_data ap1302_sensor_platform_data = {
 	.csi_cfg        = ap1302_csi_configure,
 	.platform_init  = ap1302_platform_init,
 	.platform_deinit = ap1302_platform_deinit,
+	.get_camera_caps = ap1302_get_camera_caps,
 };
 
 void *ap1302_platform_data(void *info)
