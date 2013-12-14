@@ -85,6 +85,7 @@ static struct byt_device_table byt_ffrd8_cam_table[] = {
 			&intel_register_i2c_camera_device}
 	}
 };
+static struct atomisp_camera_caps default_camera_caps;
 
 /*
  * One-time gpio initialization.
@@ -361,6 +362,18 @@ const struct atomisp_platform_data *atomisp_get_platform_data(void)
 	}
 }
 EXPORT_SYMBOL_GPL(atomisp_get_platform_data);
+
+const struct atomisp_camera_caps *atomisp_get_default_camera_caps(void)
+{
+	static bool init;
+	if (!init) {
+		default_camera_caps.sensor_num = 1;
+		default_camera_caps.sensor[0].stream_num = 1;
+		init = true;
+	}
+	return &default_camera_caps;
+}
+EXPORT_SYMBOL_GPL(atomisp_get_default_camera_caps);
 
 static int camera_af_power_gpio = -1;
 

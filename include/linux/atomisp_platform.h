@@ -26,6 +26,8 @@
 #include <media/v4l2-subdev.h>
 #include "atomisp.h"
 
+#define MAX_SENSORS_PER_PORT 4
+
 enum atomisp_bayer_order {
 	atomisp_bayer_order_grbg,
 	atomisp_bayer_order_rggb,
@@ -95,6 +97,20 @@ struct atomisp_platform_data {
 	const struct soft_platform_id *spid;
 };
 
+/* Describe the capacities of one single sensor. */
+struct atomisp_sensor_caps {
+	/* The number of streams this sensor can output. */
+	int stream_num;
+};
+
+/* Describe the capacities of sensors connected to one camera port. */
+struct atomisp_camera_caps {
+	/* The number of sensors connected to this camera port. */
+	int sensor_num;
+	/* The capacities of each sensor. */
+	struct atomisp_sensor_caps sensor[MAX_SENSORS_PER_PORT];
+};
+
 struct camera_sensor_platform_data {
 	int (*gpio_ctrl)(struct v4l2_subdev *subdev, int flag);
 	int (*flisclk_ctrl)(struct v4l2_subdev *subdev, int flag);
@@ -104,6 +120,7 @@ struct camera_sensor_platform_data {
 	int (*platform_init)(struct i2c_client *);
 	int (*platform_deinit)(void);
 	char *(*msr_file_name)(void);
+	struct atomisp_camera_caps *(*get_camera_caps)(void);
 };
 
 struct camera_af_platform_data {
@@ -121,5 +138,6 @@ struct camera_mipi_info {
 };
 
 extern const struct atomisp_platform_data *atomisp_get_platform_data(void);
+extern const struct atomisp_camera_caps *atomisp_get_default_camera_caps(void);
 
 #endif /* ATOMISP_PLATFORM_H_ */
