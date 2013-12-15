@@ -186,7 +186,7 @@ struct devs_id __initconst device_ids[] = {
 						&ipc_device_handler},
 	{"bcove_power_btn", SFI_DEV_TYPE_IPC, 1, &msic_power_btn_platform_data,
 					&ipc_device_handler},
-	{"shadycove_power_btn", SFI_DEV_TYPE_IPC, 1,
+	{"scove_power_btn", SFI_DEV_TYPE_IPC, 1,
 					&msic_power_btn_platform_data,
 					&ipc_device_handler},
 	{"msic_battery", SFI_DEV_TYPE_IPC, 1, &msic_battery_platform_data,
