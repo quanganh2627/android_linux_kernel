@@ -510,6 +510,18 @@ i915_gem_execbuffer_unreserve_object(struct drm_i915_gem_object *obj)
 	entry->flags &= ~(__EXEC_OBJECT_HAS_FENCE | __EXEC_OBJECT_HAS_PIN);
 }
 
+static void
+i915_gem_execbuffer_unreserve(struct list_head *objects)
+{
+	struct drm_i915_gem_object *obj;
+
+	/* Decrement pin count for bound objects */
+	list_for_each_entry(obj, objects, exec_list)
+		i915_gem_execbuffer_unreserve_object(obj);
+
+	return;
+}
+
 static int
 i915_gem_execbuffer_reserve(struct intel_ring_buffer *ring,
 			    struct list_head *objects,
@@ -555,7 +567,17 @@ i915_gem_execbuffer_reserve(struct intel_ring_buffer *ring,
 	 *     the execbuffer (fenceable, mappable, alignment etc).
 	 * 1b. Increment pin count for already bound objects.
 	 * 2.  Bind new objects.
-	 * 3.  Decrement pin count.
+	 * 3.  Decrement pin count(only when a 2nd attempt is
+	 *     required, if some objects couldn't get mapped in GTT
+	 *     in the 1st attempt or iteration). Otherwise for the
+	 *     normal case, the pin count will be decremented once
+	 *     they have been moved to the active list, this is
+	 *     because there is a possibilty that if the objects are
+	 *     unpinned now, they can get potentially unmapped from GTT
+	 *     before the batch buffer is dispatched or they become a
+	 *     part of active list. This will happen in the low memory
+	 *     scenario when the shrinker is invoked in the exec buffer
+	 *     path itself.
 	 *
 	 * This avoid unnecessary unbinding of later objects in order to make
 	 * room for the earlier objects *unless* we need to defragment.
@@ -604,12 +626,13 @@ i915_gem_execbuffer_reserve(struct intel_ring_buffer *ring,
 				goto err;
 		}
 
-err:		/* Decrement pin count for bound objects */
-		list_for_each_entry(obj, objects, exec_list)
-			i915_gem_execbuffer_unreserve_object(obj);
-
+err:
 		if (ret != -ENOSPC || retry++)
 			return ret;
+
+		/* Decrement pin count for bound objects,
+		   before starting the next iteration */
+		i915_gem_execbuffer_unreserve(objects);
 
 		ret = i915_gem_evict_everything(ring->dev);
 		if (ret)
@@ -641,6 +664,10 @@ i915_gem_execbuffer_relocate_slow(struct drm_device *dev,
 		list_del_init(&obj->exec_list);
 		drm_gem_object_unreference(&obj->base);
 	}
+
+	/* Decrement the pin count for bound objects,
+	   before the unlock */
+	i915_gem_execbuffer_unreserve(&eb->objects);
 
 	mutex_unlock(&dev->struct_mutex);
 
@@ -1231,6 +1258,15 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 err:
 	if (ret || sync_err)
 		i915_sync_cancel_request(handle, args, ring);
+
+	/* Finally decrement the pin count for bound objects,
+	 * this is completely safe as the objects have been
+	 * moved to active list. Also in case of an error, if objects
+	 * were not actually pinned, still it is fine to call the
+	 * unreserve function, as it has a check that it will unpin
+	 * only those objects which were actually pinned in execbuffer
+	 * path. */
+	i915_gem_execbuffer_unreserve(&eb->objects);
 
 	eb_destroy(eb);
 
