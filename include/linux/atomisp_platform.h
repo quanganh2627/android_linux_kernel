@@ -33,6 +33,15 @@ enum atomisp_bayer_order {
 	atomisp_bayer_order_gbrg
 };
 
+enum atomisp_input_stream_id {
+	ATOMISP_INPUT_STREAM_GENERAL = 0,
+	ATOMISP_INPUT_STREAM_CAPTURE = 0,
+	ATOMISP_INPUT_STREAM_POSTVIEW,
+	ATOMISP_INPUT_STREAM_PREVIEW,
+	ATOMISP_INPUT_STREAM_VIDEO,
+	ATOMISP_INPUT_STREAM_NUM
+};
+
 enum atomisp_input_format {
 	ATOMISP_INPUT_FORMAT_YUV420_8_LEGACY,/* 8 bits per subpixel (legacy) */
 	ATOMISP_INPUT_FORMAT_YUV420_8, /* 8 bits per subpixel */
