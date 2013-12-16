@@ -2979,7 +2979,7 @@ CONFIG_STAGING=y
 # CONFIG_VT6655 is not set
 # CONFIG_VT6656 is not set
 # CONFIG_DX_SEP is not set
-# CONFIG_DX_SEP54 is not set
+CONFIG_DX_SEP54=y
 
 #
 # IIO staging drivers
