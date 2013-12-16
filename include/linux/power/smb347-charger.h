@@ -94,6 +94,7 @@ struct smb347_charger_platform_data {
 	bool		use_mains;
 	bool		use_usb;
 	bool		show_battery;
+	bool		is_valid_battery;
 	int		irq_gpio;
 	unsigned int	termination_current;
 	enum smb347_chg_enable enable_control;

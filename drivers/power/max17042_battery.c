@@ -2289,7 +2289,17 @@ static int max17042_reboot_callback(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
-module_i2c_driver(max17042_i2c_driver);
+static int __init max17042_init(void)
+{
+	return i2c_add_driver(&max17042_i2c_driver);
+}
+late_initcall(max17042_init);
+
+static void __exit max17042_exit(void)
+{
+	i2c_del_driver(&max17042_i2c_driver);
+}
+module_exit(max17042_exit);
 
 int __init set_fake_batt_full(char *p)
 {

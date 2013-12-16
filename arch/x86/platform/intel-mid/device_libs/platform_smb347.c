@@ -20,6 +20,10 @@
 #include "platform_smb347.h"
 #include <linux/power_supply.h>
 #include <linux/power/battery_id.h>
+#include <linux/iio/consumer.h>
+
+#define BYT_FFD8_PR1_BATID_LL 0x2D0
+#define BYT_FFD8_PR1_BATID_UL 0x2F0
 
 /* Redridge DV2.1 */
 static struct smb347_charger_platform_data smb347_rr_pdata = {
@@ -31,6 +35,7 @@ static struct smb347_charger_platform_data smb347_rr_pdata = {
 		.charge_full_design	= 6894000,
 	},
 	.use_mains			= true,
+	.is_valid_battery		= true,
 	.enable_control			= SMB347_CHG_ENABLE_PIN_ACTIVE_LOW,
 	.otg_control			= SMB347_OTG_CONTROL_SW,
 	.irq_gpio			= SMB347_IRQ_GPIO,
@@ -64,6 +69,7 @@ static struct smb347_charger_platform_data smb347_ev05_pdata = {
 		.charge_full_design	= 6894000,
 	},
 	.use_mains			= true,
+	.is_valid_battery		= true,
 	.enable_control			= SMB347_CHG_ENABLE_PIN_ACTIVE_LOW,
 	.otg_control			= SMB347_OTG_CONTROL_DISABLED,
 	.irq_gpio			= SMB347_IRQ_GPIO,
@@ -98,6 +104,7 @@ static struct smb347_charger_platform_data smb347_ev10_pdata = {
 		.charge_full_design	= 6894000,
 	},
 	.use_mains			= true,
+	.is_valid_battery		= true,
 	.enable_control			= SMB347_CHG_ENABLE_PIN_ACTIVE_LOW,
 	.otg_control			= SMB347_OTG_CONTROL_DISABLED,
 	.irq_gpio			= SMB347_IRQ_GPIO,
@@ -131,6 +138,7 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pr0_pdata = {
 		.charge_full_design	= 6894000,
 	},
 	.use_mains			= false,
+	.is_valid_battery		= true,
 	.use_usb			= true,
 	.enable_control			= SMB347_CHG_ENABLE_SW,
 	.otg_control			= SMB347_OTG_CONTROL_SW,
@@ -168,6 +176,7 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pr1_pdata = {
 		.charge_full_design	= 6894000,
 	},
 	.use_mains			= false,
+	.is_valid_battery		= false,
 	.use_usb			= true,
 	.enable_control			= SMB347_CHG_ENABLE_SW,
 	.otg_control			= SMB347_OTG_CONTROL_SW,
@@ -192,7 +201,7 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pr1_pdata = {
 						0x0D, 0xF4,
 						0x10, 0x40,
 				/* disable suspend as charging didnot start */
-						0x30, 0x42,
+						0x30, 0x40,
 						0x31, 0x01,
 					},
 };
@@ -207,6 +216,7 @@ static struct smb347_charger_platform_data byt_t_cr_crb_pdata = {
 		.charge_full_design	= 4900000,
 	},
 	.use_mains			= false,
+	.is_valid_battery		= true,
 	.use_usb			= true,
 	.enable_control			= SMB347_CHG_ENABLE_SW,
 	.otg_control			= SMB347_OTG_CONTROL_DISABLED,
@@ -263,70 +273,106 @@ static char *smb347_supplied_to[] = {
 	"max17047_battery",
 };
 
-static void *platform_get_batt_charge_profile(void)
+bool smb347_is_valid_batid(void)
+{
+	int val = 0;
+	bool is_valid = false;
+	struct iio_channel *indio_chan = NULL;
+
+	/* Get batid pmic channel */
+	indio_chan = iio_channel_get(NULL, "BATID");
+	if (IS_ERR_OR_NULL(indio_chan)) {
+		pr_err("platform_smb347: IIO channel get error!!\n");
+		return is_valid;
+	}
+
+	/* Read pmic batid ADC */
+	if (iio_read_channel_raw(indio_chan, &val) >= 0) {
+		pr_info("platform_smb347: IIO channel read Sucess,"
+				 " val=%.3X\n", val);
+		/* Due to internal capacitor 0.1uF across batid resistor,
+		 * the pmic batid adc count is not in expected range,
+		 * between 0x40 to 0x60. This is workaround to check
+		 * the valid batid with actual battery.
+		 */
+		if ((val > 0x40 && val < 0x60)
+			|| (val > BYT_FFD8_PR1_BATID_LL
+			&& val < BYT_FFD8_PR1_BATID_UL))
+			is_valid = true;
+	}
+	iio_channel_release(indio_chan);
+	return is_valid;
+}
+EXPORT_SYMBOL(smb347_is_valid_batid);
+
+static void *platform_get_batt_charge_profile(struct smb347_charger_platform_data *pdata)
 {
 	struct ps_temp_chg_table temp_mon_range[BATT_TEMP_NR_RNG];
 
 	char batt_str[] = "INTN0001";
 
-	/*
-	 * WA: hard coding the profile
-	 * till we get OEM0 table from FW.
-	 */
-	memcpy(batt_chg_profile.batt_id, batt_str, strlen(batt_str));
+	if (pdata->is_valid_battery) {
+		/*
+		 * WA: hard coding the profile
+		 * till we get OEM0 table from FW.
+		 */
+		memcpy(batt_chg_profile.batt_id, batt_str, strlen(batt_str));
 
-	batt_chg_profile.battery_type = 0x2;
-	batt_chg_profile.capacity = 0x2C52;
-	batt_chg_profile.voltage_max = 4350;
-	batt_chg_profile.chrg_term_ma = 300;
-	batt_chg_profile.low_batt_mV = 3400;
-	batt_chg_profile.disch_tmp_ul = 55;
-	batt_chg_profile.disch_tmp_ll = 0;
-	batt_chg_profile.temp_mon_ranges = 5;
+		batt_chg_profile.battery_type = 0x2;
+		batt_chg_profile.capacity = 0x2C52;
+		batt_chg_profile.voltage_max = 4350;
+		batt_chg_profile.chrg_term_ma = 300;
+		batt_chg_profile.low_batt_mV = 3400;
+		batt_chg_profile.disch_tmp_ul = 55;
+		batt_chg_profile.disch_tmp_ll = 0;
+		batt_chg_profile.temp_mon_ranges = 5;
 
-	temp_mon_range[0].temp_up_lim = 55;
-	temp_mon_range[0].full_chrg_vol = 4100;
-	temp_mon_range[0].full_chrg_cur = 1800;
-	temp_mon_range[0].maint_chrg_vol_ll = 4050;
-	temp_mon_range[0].maint_chrg_vol_ul = 4100;
-	temp_mon_range[0].maint_chrg_cur = 1800;
+		temp_mon_range[0].temp_up_lim = 55;
+		temp_mon_range[0].full_chrg_vol = 4100;
+		temp_mon_range[0].full_chrg_cur = 1800;
+		temp_mon_range[0].maint_chrg_vol_ll = 4050;
+		temp_mon_range[0].maint_chrg_vol_ul = 4100;
+		temp_mon_range[0].maint_chrg_cur = 1800;
 
-	temp_mon_range[1].temp_up_lim = 45;
-	temp_mon_range[1].full_chrg_vol = 4350;
-	temp_mon_range[1].full_chrg_cur = 1800;
-	temp_mon_range[1].maint_chrg_vol_ll = 4300;
-	temp_mon_range[1].maint_chrg_vol_ul = 4350;
-	temp_mon_range[1].maint_chrg_cur = 1800;
+		temp_mon_range[1].temp_up_lim = 45;
+		temp_mon_range[1].full_chrg_vol = 4350;
+		temp_mon_range[1].full_chrg_cur = 1800;
+		temp_mon_range[1].maint_chrg_vol_ll = 4300;
+		temp_mon_range[1].maint_chrg_vol_ul = 4350;
+		temp_mon_range[1].maint_chrg_cur = 1800;
 
-	temp_mon_range[2].temp_up_lim = 23;
-	temp_mon_range[2].full_chrg_vol = 4350;
-	temp_mon_range[2].full_chrg_cur = 1400;
-	temp_mon_range[2].maint_chrg_vol_ll = 4300;
-	temp_mon_range[2].maint_chrg_vol_ul = 4350;
-	temp_mon_range[2].maint_chrg_cur = 1400;
+		temp_mon_range[2].temp_up_lim = 23;
+		temp_mon_range[2].full_chrg_vol = 4350;
+		temp_mon_range[2].full_chrg_cur = 1400;
+		temp_mon_range[2].maint_chrg_vol_ll = 4300;
+		temp_mon_range[2].maint_chrg_vol_ul = 4350;
+		temp_mon_range[2].maint_chrg_cur = 1400;
 
-	temp_mon_range[3].temp_up_lim = 10;
-	temp_mon_range[3].full_chrg_vol = 4350;
-	temp_mon_range[3].full_chrg_cur = 1000;
-	temp_mon_range[3].maint_chrg_vol_ll = 4300;
-	temp_mon_range[3].maint_chrg_vol_ul = 4350;
-	temp_mon_range[3].maint_chrg_cur = 1000;
+		temp_mon_range[3].temp_up_lim = 10;
+		temp_mon_range[3].full_chrg_vol = 4350;
+		temp_mon_range[3].full_chrg_cur = 1000;
+		temp_mon_range[3].maint_chrg_vol_ll = 4300;
+		temp_mon_range[3].maint_chrg_vol_ul = 4350;
+		temp_mon_range[3].maint_chrg_cur = 1000;
 
-	temp_mon_range[4].temp_up_lim = 0;
-	temp_mon_range[4].full_chrg_vol = 0;
-	temp_mon_range[4].full_chrg_cur = 0;
-	temp_mon_range[4].maint_chrg_vol_ll = 0;
-	temp_mon_range[4].maint_chrg_vol_ul = 0;
-	temp_mon_range[4].maint_chrg_vol_ul = 0;
-	temp_mon_range[4].maint_chrg_cur = 0;
+		temp_mon_range[4].temp_up_lim = 0;
+		temp_mon_range[4].full_chrg_vol = 0;
+		temp_mon_range[4].full_chrg_cur = 0;
+		temp_mon_range[4].maint_chrg_vol_ll = 0;
+		temp_mon_range[4].maint_chrg_vol_ul = 0;
+		temp_mon_range[4].maint_chrg_vol_ul = 0;
+		temp_mon_range[4].maint_chrg_cur = 0;
 
-	memcpy(batt_chg_profile.temp_mon_range,
-		temp_mon_range,
-		BATT_TEMP_NR_RNG * sizeof(struct ps_temp_chg_table));
+		memcpy(batt_chg_profile.temp_mon_range,
+			temp_mon_range,
+			BATT_TEMP_NR_RNG * sizeof(struct ps_temp_chg_table));
 
-	batt_chg_profile.temp_low_lim = 0;
-
-	ps_batt_chrg_prof.chrg_prof_type = PSE_MOD_CHRG_PROF;
+		batt_chg_profile.temp_low_lim = 0;
+		ps_batt_chrg_prof.chrg_prof_type = PSE_MOD_CHRG_PROF;
+	} else {
+		memset(&batt_chg_profile, 0, sizeof(struct ps_pse_mod_prof));
+		ps_batt_chrg_prof.chrg_prof_type = CHRG_PROF_NONE;
+	}
 	ps_batt_chrg_prof.batt_prof = &batt_chg_profile;
 	battery_prop_changed(POWER_SUPPLY_BATTERY_INSERTED, &ps_batt_chrg_prof);
 	return &ps_batt_chrg_prof;
@@ -341,16 +387,21 @@ static void platform_init_chrg_params(
 	pdata->num_supplicants = ARRAY_SIZE(smb347_supplied_to);
 	pdata->supported_cables = POWER_SUPPLY_CHARGER_TYPE_USB;
 	pdata->chg_profile = (struct ps_batt_chg_prof *)
-			platform_get_batt_charge_profile();
+			platform_get_batt_charge_profile(pdata);
 }
 #else
 static void platform_init_chrg_params(
 	struct smb347_charger_platform_data *pdata)
 {
 }
-static void *platform_get_batt_charge_profile(void)
+static void *platform_get_batt_charge_profile(struct smb347_charger_platform_data *pdata)
 {
 }
+bool smb347_is_valid_batid(void)
+{
+	return true;
+}
+EXPORT_SYMBOL(smb347_is_valid_batid);
 #endif
 
 static void *get_platform_data(void)
@@ -383,6 +434,7 @@ static void *get_platform_data(void)
 			lnw_gpio_set_alt(byt_t_ffrd8_pr1_pdata.gpio_mux, 0);
 			gpio_request(byt_t_ffrd8_pr1_pdata.gpio_mux,
 								"gpio_mux");
+			byt_t_ffrd8_pr1_pdata.is_valid_battery = smb347_is_valid_batid();
 			platform_init_chrg_params(&byt_t_ffrd8_pr1_pdata);
 			return &byt_t_ffrd8_pr1_pdata;
 		} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2) ||

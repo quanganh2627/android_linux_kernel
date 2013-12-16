@@ -904,6 +904,12 @@ int smb34x_get_bat_health()
 	if (!smb)
 		return POWER_SUPPLY_HEALTH_UNKNOWN;
 
+	/* For unknown battery, health cannot be predected */
+	if (!smb->pdata->is_valid_battery) {
+		dev_info(&smb->client->dev,
+			"Invalid Battery Detected.\n");
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
 	ret = smb347_read(smb, IRQSTAT_A);
 	if (ret < 0)
 		return POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
@@ -2493,7 +2499,7 @@ static int __init smb347_init(void)
 {
 	return i2c_add_driver(&smb347_driver);
 }
-module_init(smb347_init);
+late_initcall(smb347_init);
 
 static void __exit smb347_exit(void)
 {
