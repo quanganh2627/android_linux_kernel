@@ -102,8 +102,8 @@ enum {
 	INTEL_BYT_TABLET  = 0x0007,
 	INTEL_MOFD_PHONE  = 0x0008,
 	INTEL_MOFD_TABLET = 0x0009,
-	INTEL_CRC_PHONE   = 0x000A,
-	INTEL_CRC_TABLET  = 0x000B,
+	INTEL_CHT_PHONE   = 0x000A,
+	INTEL_CHT_TABLET  = 0x000B,
 	INTEL_PLATFORM_UNKNOWN = 0xFFFF
 };
 
@@ -213,19 +213,6 @@ enum {
 	INTEL_MOFD_TABLET_UNKNOWN = 0xFFFF
 };
 
-/* Product_Line_ID table for Platform_Family_ID == INTEL_CRC_PHONE */
-enum {
-	INTEL_CRC_PHONE_PRO = 0x0000,
-	INTEL_CRC_PHONE_ENG = 0x8000,
-	INTEL_CRC_PHONE_UNKNOWN = 0xFFFF,
-};
-
-/* Product_Line_ID table for Platform_Family_ID == INTEL_CRC_TABLET */
-enum {
-	INTEL_CRC_TABLET_TBD_PRO = 0x0000,
-	INTEL_CRC_TABLET_TBD_ENG = 0x8000,
-	INTEL_CRC_TABLET_UNKNOWN = 0xFFFF
-};
 
 /* Hardware_ID table for Product_Line_ID == INTEL_MFLD_PHONE_BB15 */
 enum {
@@ -560,24 +547,22 @@ enum {
 	MOFD_TABLET_TBD_UNKNOWN = 0xFFFF
 };
 
-/* Hardware_ID table for Product_Line_ID == INTEL_CRC_PHONE */
+/* Hardware_ID table for Product_Line_ID == INTEL_CHT_PHONE_TBD */
 enum {
-	CRC_PHONE_VVA = 0x0000, /* Slayton VV FAB A */
-	CRC_PHONE_VVB = 0x0001, /* Slayton VV FAB B */
-	CRC_PHONE_VVC = 0x0002, /* Slayton VV FAB C */
-	CRC_PHONE_VVD = 0x0003, /* Slayton VV FAB D */
-	CRC_PHONE_PRHA = 0x0004, /* CRC PRh FAB A */
-	CRC_PHONE_PRHB = 0x0005, /* CRC PRh FAB B */
-	CRC_PHONE_PRHC = 0x0006, /* CRC PRh FAB C */
-	CRC_PHONE_PRHD = 0x0007, /* CRC PRh FAB D */
+	CHT_PHONE_TBD_TBD,
+	CHT_PHONE_TBD_RSVD,
+	CHT_PHONE_TBD_UNKNOWN = 0xFFFF
 };
 
-/* Hardware_ID table for Product_Line_ID == INTEL_CRC_TABLET_TBD */
-
+/* Hardware_ID table for Product_Line_ID == INTEL_CHT_TABLET */
 enum {
-	CRC_TABLET_TBD_TBD,
-	CRC_TABLET_TBD_RSVD,
-	CRC_TABLET_TBD_UNKNOWN = 0xFFFF
+	CHT_TABLET_RVP1, /* Cherry Trail RVP Fab 1 */
+	CHT_TABLET_RVP2, /* Cherry Trail RVP Fab 2 */
+	CHT_TABLET_RVP3, /* Cherry Trail RVP Fab 3 */
+	CHT_TABLET_FRD_PR0, /* Cherry Trail FFRD PR0 */
+	CHT_TABLET_FRD_PR1, /* Cherry Trail FFRD PR1 */
+	CHT_TABLET_FRD_PR2, /* Cherry Trail FFRD PR2 */
+	CHT_TABLET_UNKNOWN = 0xFFFF
 };
 
 /* Macros for SPID based checks */
