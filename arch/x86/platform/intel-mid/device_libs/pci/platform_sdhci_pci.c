@@ -502,8 +502,8 @@ static struct sdhci_pci_data moor_sdhci_pci_data[] = {
 			.cd_gpio = -EINVAL,
 			.quirks = 0,
 			.platform_quirks = 0,
-			.setup = 0,
-			.cleanup = 0,
+			.setup = mrfl_sdio_setup,
+			.cleanup = mrfl_sdio_cleanup,
 			.power_up = 0,
 	},
 };
