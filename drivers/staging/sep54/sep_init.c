@@ -141,7 +141,7 @@ static int fetch_image(struct device *mydev, const char *image_name,
 	/* Image copied into the DMA coherent buffer. No need for "firmware" */
 	release_firmware(image);
 	if (likely(rc == 0))
-		pr_debug("%s: %d Bytes\n", image_name, *image_size_p);
+		pr_debug("%s: %zu Bytes\n", image_name, *image_size_p);
 	return rc;
 }
 

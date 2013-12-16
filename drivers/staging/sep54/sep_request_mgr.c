@@ -231,8 +231,8 @@ int dx_sep_req_wait_for_request(u8 agent_id, u8 *sep_req_buf_p,
 	u32 gpr_val;
 
 	pr_debug("Wait for sep request\n");
-	pr_debug("agent_id=%d sep_req_buf_p=0x%08X timeout=%d\n",
-		      agent_id, (u32) sep_req_buf_p, timeout);
+	pr_debug("agent_id=%d sep_req_buf_p=0x%p timeout=%d\n",
+		 agent_id, sep_req_buf_p, timeout);
 
 	/* Validate agent ID is in range */
 	if (agent_id >= DX_SEP_REQUEST_MAX_AGENTS) {
@@ -323,8 +323,8 @@ int dx_sep_req_send_response(u8 agent_id, u8 *host_resp_buf_p,
 	u32 gpr_val;
 
 	pr_debug("Send host response\n");
-	pr_debug("agent_id=%d host_resp_buf_p=0x%08X resp_buf_size=%d\n",
-		      agent_id, (u32) host_resp_buf_p, resp_buf_size);
+	pr_debug("agent_id=%d host_resp_buf_p=0x%p resp_buf_size=%d\n",
+		 agent_id, host_resp_buf_p, resp_buf_size);
 
 	/* Validate agent ID is in range */
 	if (agent_id >= DX_SEP_REQUEST_MAX_AGENTS) {

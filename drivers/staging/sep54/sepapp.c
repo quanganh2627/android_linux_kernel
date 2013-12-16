@@ -890,11 +890,15 @@ int sepapp_image_verify(u8 *addr, ssize_t size, u32 key_index, u32 magic_num)
 	struct dxdi_sepapp_kparams cmd_params;
 	int rc = 0;
 
-	printk(KERN_INFO "image verify: addr %08p size: %d key_index: %08X magic_num: %08X\n",
+	pr_info("image verify: addr 0x%p size: %zd key_index: 0x%08X magic_num: 0x%08X\n",
 		addr, size, key_index, magic_num);
 
 	cmd_params.params_types[0] = DXDI_SEPAPP_PARAM_VAL;
-	cmd_params.params[0].val.data[0] = (u32)addr;
+	/* addr is already a physical address, so this works on
+	 * a system with <= 4GB RAM.
+	 * TODO revisit this if the physical address of IMR can be higher
+	 */
+	cmd_params.params[0].val.data[0] = (unsigned long)addr & (DMA_BIT_MASK(32));
 	cmd_params.params[0].val.data[1] = 0;
 	cmd_params.params[0].val.copy_dir = DXDI_DATA_TO_DEVICE;
 

@@ -94,6 +94,10 @@
 #include "dx_init_cc_abi.h"
 #include "dx_driver.h"
 
+#ifdef CONFIG_COMPAT
+#include "sep_compat_ioctl.h"
+#endif
+
 #if SEPAPP_UUID_SIZE != DXDI_SEPAPP_UUID_SIZE
 #error Size mismatch of SEPAPP_UUID_SIZE and DXDI_SEPAPP_UUID_SIZE
 #endif
@@ -300,8 +304,7 @@ static int send_combined_op_desc(struct sep_op_ctx *op_ctx,
 	rc = desc_q_enqueue(drvdata->desc_queue, &desc, true);
 	if (unlikely(IS_DESCQ_ENQUEUE_ERR(rc))) {
 		/*invalidate first descriptor (if still pending) */
-		desc_q_mark_invalid_cookie(drvdata->desc_queue,
-					   (u32) op_ctx);
+		desc_q_mark_invalid_cookie(drvdata->desc_queue, (void *)op_ctx);
 		/* Desc. sending failed - "signal" process_desc_completion */
 		op_ctx->error_info = DXDI_ERROR_NO_RESOURCE;
 	} else {
@@ -810,10 +813,11 @@ static int init_crypto_context(struct sep_op_ctx *op_ctx,
 	rc = mutex_lock_interruptible(&drvdata->desc_queue_sequencer);
 	if (rc != 0) {
 		pr_err("Failed locking descQ sequencer[%u]\n",
-			    op_ctx->client_ctx->qid);
+		       op_ctx->client_ctx->qid);
 		op_ctx->error_info = DXDI_ERROR_NO_RESOURCE;
 		goto ctx_init_exit;
 	}
+
 	ctxmgr_set_sep_cache_idx(&op_ctx->ctx_info,
 				 ctxmgr_sep_cache_alloc(drvdata->sep_cache,
 							ctxmgr_get_ctx_id
@@ -821,9 +825,11 @@ static int init_crypto_context(struct sep_op_ctx *op_ctx,
 							&sep_cache_load_req));
 	if (!sep_cache_load_req)
 		pr_err("New context already in SeP cache?!");
+
 	rc = send_crypto_op_desc(op_ctx,
 				 1 /*always load on init */ , 1 /*INIT*/,
 				 SEP_PROC_MODE_NOP);
+
 	mutex_unlock(&drvdata->desc_queue_sequencer);
 	if (likely(rc == 0))
 		rc = wait_for_sep_op_result(op_ctx);
@@ -862,7 +868,7 @@ static int map_ctx_for_proc(struct sep_client_ctx *client_ctx,
 		pr_err("Failed mapping context\n");
 		return rc;
 	}
-	if (ctxmgr_get_session_id(ctx_info) != (u64) client_ctx) {
+	if (ctxmgr_get_session_id(ctx_info) != (uintptr_t) client_ctx) {
 		pr_err("Context ID is not associated with this session\n");
 		rc = -EINVAL;
 	}
@@ -2329,7 +2335,7 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 	/* Verify RPC message size */
 	if (unlikely(SEP_RPC_MAX_MSG_SIZE < rpc_params_size)) {
 		pr_err("Given rpc_params is too big (%lu B)\n",
-			    rpc_params_size);
+		       rpc_params_size);
 		return -EINVAL;
 	}
 
@@ -2365,7 +2371,7 @@ static int dispatch_sep_rpc(struct sep_op_ctx *op_ctx,
 	}
 	for (i = 0; i < num_of_mem_refs; i++) {
 		pr_debug(
-			"memref[%d]: id=%d dma_dir=%d start/offset 0x%08lX size %lu\n",
+			"memref[%d]: id=%d dma_dir=%d start/offset 0x%08x size %u\n",
 			i, mem_refs[i].ref_id, mem_refs[i].dma_direction,
 			mem_refs[i].start_or_offset, mem_refs[i].size);
 
@@ -2739,12 +2745,12 @@ static int sep_ioctl_sym_cipher_init(struct sep_client_ctx *client_ctx,
 				     unsigned long arg)
 {
 	struct dxdi_sym_cipher_init_params __user *user_init_params =
-	    (struct dxdi_sym_cipher_init_params __user *)arg;
+			(struct dxdi_sym_cipher_init_params __user *)arg;
 	struct dxdi_sym_cipher_init_params init_params;
 	struct sep_op_ctx op_ctx;
 	/* Calculate size of input parameters part */
 	const unsigned long input_size =
-	    offsetof(struct dxdi_sym_cipher_init_params, error_info);
+		offsetof(struct dxdi_sym_cipher_init_params, error_info);
 	int rc;
 
 	/* access permissions to arg was already checked in sep_ioctl */
@@ -2754,8 +2760,10 @@ static int sep_ioctl_sym_cipher_init(struct sep_client_ctx *client_ctx,
 	}
 
 	op_ctx_init(&op_ctx, client_ctx);
+
 	rc = init_crypto_context(&op_ctx, init_params.context_buf,
 				 ALG_CLASS_SYM_CIPHER, &(init_params.props));
+
 	/* Even on SeP error the function above
 	 * returns 0 (operation completed with no host side errors) */
 	__put_user(op_ctx.error_info, &(user_init_params->error_info));
@@ -3627,7 +3635,7 @@ void cleanup_client_ctx(struct queue_drvdata *drvdata,
 
 	/* Invalidate any outstanding descriptors associated with this
 	 * client_ctx */
-	desc_q_mark_invalid_cookie(drvdata->desc_queue, (u32) client_ctx);
+	desc_q_mark_invalid_cookie(drvdata->desc_queue, (void *)client_ctx);
 
 	uid.addr = ((u64) (unsigned long)client_ctx);
 	uid.cntr = 0;
@@ -3655,7 +3663,7 @@ static int sep_release(struct inode *inode, struct file *file)
 static ssize_t
 sep_read(struct file *filp, char __user *buf, size_t count, loff_t *ppos)
 {
-	pr_debug("Invoked for %u bytes", count);
+	pr_debug("Invoked for %zu bytes", count);
 	return -ENOSYS;		/* nothing to read... IOCTL only */
 }
 
@@ -3720,7 +3728,7 @@ sep_write(struct file *filp, const char __user *buf, size_t count, loff_t *ppos)
 
 	return count;		/* Noting to write for this device... */
 #else /* DEBUG */
-	pr_debug("Invoked for %u bytes", count);
+	pr_debug("Invoked for %zu bytes", count);
 	return -ENOSYS;		/* nothing to write... IOCTL only */
 #endif /* DEBUG */
 }
@@ -3743,7 +3751,7 @@ sep_write(struct file *filp, const char __user *buf, size_t count, loff_t *ppos)
  * \retval -EIO     : SeP HW error or another internal error
  *                    (probably operation timed out or unexpected behavior)
  */
-static long sep_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+long sep_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct sep_client_ctx *client_ctx = filp->private_data;
 	unsigned long long ioctl_start, ioctl_end;
@@ -3930,7 +3938,11 @@ static const struct file_operations sep_fops = {
 	.release = sep_release,
 	.read = sep_read,
 	.write = sep_write,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = sep_compat_ioctl,
+#else
 	.unlocked_ioctl = sep_ioctl,
+#endif
 };
 
 /**
@@ -3988,25 +4000,25 @@ static int alloc_host_mem_for_sep(struct sep_drvdata *drvdata)
 	const int icache_sizes_enum2log[] = DX_CC_ICACHE_SIZE_ENUM2LOG;
 
 	pr_debug("icache_size=%uKB dcache_size=%uKB\n",
-		      1 << (icache_size_log2 - 10),
-		      1 << (dcache_size_log2 - 10));
+		 1 << (icache_size_log2 - 10),
+		 1 << (dcache_size_log2 - 10));
 
 	/* Verify validity of chosen cache memory sizes */
 	if ((dcache_size_log2 > DX_CC_INIT_D_CACHE_MAX_SIZE_LOG2) ||
 	    (dcache_size_log2 < DX_CC_INIT_D_CACHE_MIN_SIZE_LOG2)) {
 		pr_err("Requested Dcache size (%uKB) is invalid\n",
-			    1 << (dcache_size_log2 - 10));
+		       1 << (dcache_size_log2 - 10));
 		return -EINVAL;
 	}
 	/* Icache size must be one of values defined for this device */
 	for (i = 0; i < sizeof(icache_sizes_enum2log) / sizeof(int); i++)
 		if ((icache_size_log2 == icache_sizes_enum2log[i]) &&
-				(icache_sizes_enum2log[i] >= 0))
+		    (icache_sizes_enum2log[i] >= 0))
 			/* Found valid value */
 			break;
 	if (unlikely(i == sizeof(icache_sizes_enum2log))) {
 		pr_err("Requested Icache size (%uKB) is invalid\n",
-			    1 << (icache_size_log2 - 10));
+		       1 << (icache_size_log2 - 10));
 	}
 	drvdata->icache_size_log2 = icache_size_log2;
 	/* Allocate pages suitable for 32bit DMA and out of cache (cold) */
@@ -4023,7 +4035,7 @@ static int alloc_host_mem_for_sep(struct sep_drvdata *drvdata)
 					    dcache_size_log2 - PAGE_SHIFT);
 	if (drvdata->dcache_pages == NULL) {
 		pr_err("Failed allocating %uKB for Dcache\n",
-			    1 << (dcache_size_log2 - 10));
+		       1 << (dcache_size_log2 - 10));
 		__free_pages(drvdata->icache_pages,
 			     drvdata->icache_size_log2 - PAGE_SHIFT);
 		return -ENOMEM;
@@ -4036,7 +4048,7 @@ static int alloc_host_mem_for_sep(struct sep_drvdata *drvdata)
 						    __GFP_COLD);
 	if (unlikely(drvdata->sep_backup_buf == NULL)) {
 		pr_err("Failed allocating %d B for SEP backup buffer\n",
-			    SEP_BACKUP_BUF_SIZE);
+		       SEP_BACKUP_BUF_SIZE);
 		return -ENOMEM;
 	}
 	drvdata->sep_backup_buf_size = SEP_BACKUP_BUF_SIZE;
@@ -4132,7 +4144,7 @@ static int rpmb_agent(void *unused)
 	u8 in_buf[RPMB_FRAME_LENGTH];
 	u8 *out_buf = NULL;
 	u32 in_buf_size = RPMB_FRAME_LENGTH;
-	u32 timeout = MAX_SCHEDULE_TIMEOUT;
+	u32 timeout = INT_MAX;
 	/* structure to pass to the eMMC driver's RPMB API */
 	struct mmc_ioc_rpmb_req req2emmc;
 
@@ -4235,8 +4247,8 @@ static int rpmb_agent(void *unused)
 }
 
 static int sep_setup(struct device *dev,
-			       const struct resource *regs_res,
-			       struct resource *r_irq)
+		     const struct resource *regs_res,
+		     struct resource *r_irq)
 {
 	dev_t devt;
 	struct sep_drvdata *drvdata = NULL;
@@ -4294,16 +4306,23 @@ static int sep_setup(struct device *dev,
 		goto failed1;
 	}
 
+	/* create a mask in the lower 4 GB of memory */
+	if (!dma_set_mask(dev, DMA_BIT_MASK(32)))
+		dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
+	else
+		pr_warn("sep54: No suitble DMA available\n");
+
 	drvdata->dev = dev;
+
 	drvdata->cc_base = ioremap(drvdata->mem_start, drvdata->mem_size);
 	if (drvdata->cc_base == NULL) {
 		pr_err("ioremap() failed\n");
 		goto failed2;
 	}
 
-	pr_info("regbase_phys=0x%08X..0x%08X\n",
-		     (u32) drvdata->mem_start, (u32) drvdata->mem_end);
-	pr_info("regbase_virt=0x%08X\n", (u32) drvdata->cc_base);
+	pr_info("regbase_phys=0x%p..0x%p\n", &drvdata->mem_start,
+		&drvdata->mem_end);
+	pr_info("regbase_virt=0x%p\n", drvdata->cc_base);
 
 #ifdef DX_BASE_ENV_REGS
 	pr_info("FPGA ver. = UNKNOWN\n");
@@ -4345,8 +4364,8 @@ static int sep_setup(struct device *dev,
 		pr_err("Could not allocate interrupt %d\n", drvdata->irq);
 		goto failed3;
 	}
-	pr_info("%s at 0x%08X mapped to interrupt %d\n",
-		     DRIVER_NAME, (unsigned int)drvdata->cc_base, drvdata->irq);
+	pr_info("%s at 0x%p mapped to interrupt %d\n",
+		DRIVER_NAME, drvdata->cc_base, drvdata->irq);
 
 #endif				/*SEP_INTERRUPT_BY_TIMER */
 
@@ -4409,8 +4428,7 @@ static int sep_setup(struct device *dev,
 		drvdata->queue[i].desc_queue =
 		    desc_q_create(i, &drvdata->queue[i]);
 		if (drvdata->queue[i].desc_queue == DESC_Q_INVALID_HANDLE) {
-			pr_err("Unable to allocate desc_q object (%d)\n",
-				    i);
+			pr_err("Unable to allocate desc_q object (%d)\n", i);
 			rc = -ENOMEM;
 			goto failed7;
 		}
@@ -4420,18 +4438,15 @@ static int sep_setup(struct device *dev,
 	for (i = 0; i < drvdata->num_of_desc_queues; i++) {
 		const int num_of_cache_entries = get_q_cache_size(drvdata, i);
 		if (num_of_cache_entries < 1) {
-			pr_err(
-				    "No SeP cache entries were assigned for qid=%d",
-				    i);
+			pr_err("No SeP cache entries were assigned for qid=%d",
+			       i);
 			rc = -ENOMEM;
 			goto failed7;
 		}
 		drvdata->queue[i].sep_cache =
 		    ctxmgr_sep_cache_create(num_of_cache_entries);
 		if (drvdata->queue[i].sep_cache == SEP_CTX_CACHE_NULL_HANDLE) {
-			pr_err(
-				    "Unable to allocate SeP cache object (%d)\n",
-				    i);
+			pr_err("Unable to allocate SeP cache object (%d)\n", i);
 			rc = -ENOMEM;
 			goto failed7;
 		}
@@ -4463,11 +4478,10 @@ static int sep_setup(struct device *dev,
 	if (unlikely(rc != 0))
 		goto failed9;
 	pr_debug("Allocated %u chrdevs at %u:%u\n", SEP_DEVICES,
-		      MAJOR(drvdata->devt_base), MINOR(drvdata->devt_base));
+		 MAJOR(drvdata->devt_base), MINOR(drvdata->devt_base));
 	for (i = 0; i < drvdata->num_of_desc_queues; i++) {
-		devt =
-		    MKDEV(MAJOR(drvdata->devt_base),
-			  MINOR(drvdata->devt_base) + i);
+		devt = MKDEV(MAJOR(drvdata->devt_base),
+			     MINOR(drvdata->devt_base) + i);
 		cdev_init(&drvdata->queue[i].cdev, &sep_fops);
 		drvdata->queue[i].cdev.owner = THIS_MODULE;
 		rc = cdev_add(&drvdata->queue[i].cdev, devt, 1);
@@ -4522,11 +4536,11 @@ static int sep_setup(struct device *dev,
 		goto failed10;
 
 	rc = dx_sepapp_session_open(sctx, uuid, 0, NULL, NULL, &sess_id,
-			&ret_origin);
+				    &ret_origin);
 	if (unlikely(rc != 0))
 		goto failed11;
 	rc = dx_sepapp_command_invoke(sctx, sess_id, CMD_RPMB_ENABLE, NULL,
-			&ret_origin);
+				      &ret_origin);
 	if (unlikely(rc != 0))
 		goto failed11;
 
@@ -4551,13 +4565,16 @@ static int sep_setup(struct device *dev,
 	llimgr_destroy(drvdata->llimgr);
  failed7:
 	for (i = 0; i < drvdata->num_of_desc_queues; i++) {
-		if (drvdata->queue[i].devt)
+		if (drvdata->queue[i].devt) {
 			cdev_del(&drvdata->queue[i].cdev);
 			device_destroy(sep_class, drvdata->queue[i].devt);
+		}
+
 		if (drvdata->queue[i].sep_cache != SEP_CTX_CACHE_NULL_HANDLE) {
 			ctxmgr_sep_cache_destroy(drvdata->queue[i].sep_cache);
 			drvdata->queue[i].sep_cache = SEP_CTX_CACHE_NULL_HANDLE;
 		}
+
 		if (drvdata->queue[i].desc_queue != DESC_Q_INVALID_HANDLE) {
 			desc_q_destroy(drvdata->queue[i].desc_queue);
 			drvdata->queue[i].desc_queue = DESC_Q_INVALID_HANDLE;
@@ -4655,7 +4672,7 @@ MODULE_DEVICE_TABLE(pci, sep_pci_id_tbl);
  *	discovered by the PCI layer.
  */
 static int sep_pci_probe(struct pci_dev *pdev,
-				   const struct pci_device_id *ent)
+			 const struct pci_device_id *ent)
 {
 	int error;
 	struct resource res;

@@ -86,11 +86,15 @@
  * It uses the space of the first entry so the "SeP" table start after it.
  */
 #define SEP_MLLI_SET_NEXT_VA(cur_mlli_p, next_mlli_p) \
-	SEP_LLI_SET(cur_mlli_p , ADDR, (u32)next_mlli_p)
+do { \
+	u32 __phys_ptr_ = virt_to_phys(next_mlli_p) & (DMA_BIT_MASK(32));\
+	SEP_LLI_SET(cur_mlli_p , ADDR, __phys_ptr_);\
+} while (0)
 #define SEP_MLLI_SET_NEXT_VA_NULL(cur_mlli_start) \
 		SEP_MLLI_SET_NEXT_VA(mlli_table_p, 0)
 #define SEP_MLLI_GET_NEXT_VA(cur_mlli_start) \
-	((u32 *)SEP_LLI_GET((cur_mlli_start), ADDR))
+	SEP_LLI_GET((cur_mlli_start), ADDR) == 0 ? 0 :  ((u32 *)phys_to_virt(SEP_LLI_GET((cur_mlli_start), ADDR)));\
+
 
 #define CACHE_LINE_MASK (L1_CACHE_BYTES - 1)
 
@@ -1212,7 +1216,7 @@ static inline int copy_to_from_aux_buf(bool to_buf,
 		copied_cnt = sg_copy_from_buffer(sgl, nents, buf_p, buf_len);
 
 	if (copied_cnt < buf_len) {
-		pr_err("Failed copying %s buf of %u B\n",
+		pr_err("Failed copying %s buf of %zu B\n",
 			    to_buf ? "to" : "from", buf_len);
 		return -ENOMEM;
 	}

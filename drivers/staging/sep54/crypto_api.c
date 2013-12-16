@@ -1291,20 +1291,19 @@ static int mac_setkey(struct crypto_ahash *tfm,
 				  key_data->key, &key_data->key_size);
 		if (unlikely(rc != 0))
 			pr_err("Failed digesting key of %u bytes\n",
-				    keylen);
+			       keylen);
 		if (key_data->key_size != digest_alg->ahash.halg.digestsize)
-			pr_err(
-				    "Returned digest size is %u != %u (expected)\n",
-				    key_data->key_size,
-				    digest_alg->ahash.halg.digestsize);
+			pr_err("Returned digest size is %u != %u (expected)\n",
+			       key_data->key_size,
+			       digest_alg->ahash.halg.digestsize);
 	} else {		/* No need to digest the key */
 		/* Verify that the key size for AES based MACs is not too
 		   large. */
 		if ((digest_alg->hash_type == DXDI_HASH_NONE) &&
 		    (keylen > SEP_AES_KEY_SIZE_MAX)) {
 			pr_err("Invalid key size %u for %s\n",
-				    keylen,
-				    digest_alg->ahash.halg.base.cra_name);
+			       keylen,
+			       digest_alg->ahash.halg.base.cra_name);
 			tfm_flags |= CRYPTO_TFM_RES_BAD_KEY_LEN;
 			crypto_ahash_set_flags(tfm, tfm_flags);
 			rc = -EINVAL;

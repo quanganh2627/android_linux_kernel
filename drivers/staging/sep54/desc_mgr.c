@@ -163,7 +163,7 @@ void *desc_q_create(int qid, struct queue_drvdata *drvdata)
 
 	new_q_p = kzalloc(sizeof(struct desc_q), GFP_KERNEL);
 	if (unlikely(new_q_p == NULL)) {
-		pr_err("Q%d: Failed allocating %d B for new_q\n",
+		pr_err("Q%d: Failed allocating %zu B for new_q\n",
 			    qid, sizeof(struct desc_q));
 		goto desc_q_create_failed;
 	}
@@ -188,7 +188,7 @@ void *desc_q_create(int qid, struct queue_drvdata *drvdata)
 	}
 
 	new_q_p->enqueue_time = kmalloc(SEP_DESC_Q_ENTRIES_NUM *
-					sizeof(unsigned long long), GFP_KERNEL);
+					sizeof(u64), GFP_KERNEL);
 	if (new_q_p->enqueue_time == NULL) {
 		pr_err("Q%d: Failed allocating time stats array\n", qid);
 		goto desc_q_create_failed;
@@ -383,7 +383,7 @@ int desc_q_enqueue_sleep_req(void *q_h, struct sep_op_ctx *op_ctx)
 
 	SEP_SW_DESC_INIT(&desc);
 	SEP_SW_DESC_SET(&desc, TYPE, SEP_SW_DESC_TYPE_SLEEP_REQ);
-	SEP_SW_DESC_SET(&desc, COOKIE, (u32) op_ctx);
+	SEP_SW_DESC_SET_COOKIE(&desc, op_ctx);
 
 	mutex_lock(&q_p->qlock);
 	if (q_p->qstate == DESC_Q_ASLEEP) {
@@ -447,8 +447,7 @@ static void backlog_q_cleanup(struct desc_q *q_p)
 static int backlog_q_enqueue(struct desc_q *q_p, struct sep_sw_desc *desc_p)
 {
 	struct descs_backlog_queue *backlog_q_p = &q_p->backlog_q;
-	struct sep_op_ctx *op_ctx =
-	    (struct sep_op_ctx *)SEP_SW_DESC_GET(desc_p, COOKIE);
+	struct sep_op_ctx *op_ctx = SEP_SW_DESC_GET_COOKIE(desc_p);
 	struct descs_backlog_item *new_q_item;
 
 	pr_debug("->backlog(op_ctx=%p):\n", op_ctx);
@@ -496,7 +495,7 @@ static int backlog_q_dequeue(struct desc_q *q_p)
 	/* Process/dispatch the descriptor to the SW-q. */
 	desc_p = &first_item->desc;
 	dump_desc(desc_p);
-	op_ctx = (struct sep_op_ctx *)SEP_SW_DESC_GET(desc_p, COOKIE);
+	op_ctx = SEP_SW_DESC_GET_COOKIE(desc_p);
 	if (unlikely(op_ctx == NULL)) {
 		pr_err("Invalid desc - COOKIE is NULL\n");
 		return -EINVAL;
@@ -589,8 +588,7 @@ void desc_q_get_info4sep(void *q_h,
 int desc_q_enqueue(void *q_h, struct sep_sw_desc *desc_p, bool may_backlog)
 {
 	struct desc_q *q_p = (struct desc_q *)q_h;
-	struct sep_op_ctx *op_ctx =
-	    (struct sep_op_ctx *)SEP_SW_DESC_GET(desc_p, COOKIE);
+	struct sep_op_ctx *op_ctx = SEP_SW_DESC_GET_COOKIE(desc_p);
 	int rc;
 
 	mutex_lock(&q_p->qlock);
@@ -600,22 +598,21 @@ int desc_q_enqueue(void *q_h, struct sep_sw_desc *desc_p, bool may_backlog)
 	    (q_p->qstate == DESC_Q_ASLEEP)) {	/* or in sleep state */
 		if (may_backlog) {
 			pr_debug("Enqueuing desc. to queue@%s\n",
-				      q_p->qstate == DESC_Q_ASLEEP ?
-				      "ASLEEP" : "FULL");
+				 q_p->qstate == DESC_Q_ASLEEP ?
+					 "ASLEEP" : "FULL");
 			rc = backlog_q_enqueue(q_p, desc_p);
 			if (unlikely(rc != 0)) {
-				pr_err(
-					    "Failed enqueuing desc. to queue@%s\n",
-					    q_p->qstate == DESC_Q_ASLEEP ?
-					    "ASLEEP" : "FULL");
+				pr_err("Failed enqueuing desc. to queue@%s\n",
+				       q_p->qstate == DESC_Q_ASLEEP ?
+					       "ASLEEP" : "FULL");
 			} else {
 				rc = -EBUSY;
 			}
 		} else {
 			pr_debug("Q%d: %s and may not backlog.\n",
-				      q_p->qid,
-				      q_p->qstate == DESC_Q_ASLEEP ?
-				      "ASLEEP" : "FULL");
+				 q_p->qid,
+				 q_p->qstate == DESC_Q_ASLEEP ?
+					 "ASLEEP" : "FULL");
 			rc = -ENOMEM;
 		}
 
@@ -645,7 +642,7 @@ int desc_q_enqueue(void *q_h, struct sep_sw_desc *desc_p, bool may_backlog)
  * There is no race with the interrupt because the op_ctx (cookie) is still
  * valid when invoking this function.
  */
-void desc_q_mark_invalid_cookie(void *q_h, u32 cookie)
+void desc_q_mark_invalid_cookie(void *q_h, void *cookie)
 {
 	struct desc_q *q_p = (struct desc_q *)q_h;
 	struct sep_sw_desc desc;
@@ -663,8 +660,8 @@ void desc_q_mark_invalid_cookie(void *q_h, u32 cookie)
 		/* (we only need the cookie) */
 		SEP_SW_DESC_COPY_FROM_SEP(&desc,
 					  GET_DESC_PTR(q_p, cur_desc_idx));
-		if (SEP_SW_DESC_GET(&desc, COOKIE) == cookie) {
-			SEP_SW_DESC_SET(&desc, COOKIE, 0);	/* Invalidate */
+		if (SEP_SW_DESC_GET_COOKIE(&desc) == cookie) {
+			SEP_SW_DESC_SET_COOKIE(&desc, (uintptr_t *)0);	/* Invalidate */
 			SEP_SW_DESC_COPY_TO_SEP(GET_DESC_PTR(q_p, cur_desc_idx),
 						&desc);
 			pr_debug("Invalidated desc at desc_cnt=%u\n",
@@ -676,8 +673,8 @@ void desc_q_mark_invalid_cookie(void *q_h, u32 cookie)
 	mutex_unlock(&q_p->qlock);
 
 	if (drop_cnt > 0)
-		pr_warn("Invalidated %u descriptors of cookie=0x%08X\n",
-			     drop_cnt, cookie);
+		pr_warn("Invalidated %u descriptors of cookie=0x%p\n",
+			drop_cnt, cookie);
 
 }
 
@@ -696,7 +693,7 @@ void desc_q_process_completed(void *q_h)
 	struct sep_op_ctx *op_ctx;
 	struct sep_sw_desc desc;
 	enum sep_sw_desc_type desc_type;
-	u32 cookie;
+	struct sep_op_ctx *cookie;
 	u32 ret_code;
 	u32 desc_idx;
 	u32 new_completed_cntr;
@@ -734,19 +731,20 @@ void desc_q_process_completed(void *q_h)
 		/* (we only need type the fields: type, retcode, cookie) */
 		SEP_SW_DESC_COPY_FROM_SEP(&desc, GET_DESC_PTR(q_p, desc_idx));
 		desc_type = SEP_SW_DESC_GET(&desc, TYPE);
-		cookie = SEP_SW_DESC_GET(&desc, COOKIE);
+		cookie = SEP_SW_DESC_GET_COOKIE(&desc);
 		ret_code = SEP_SW_DESC_GET(&desc, RET_CODE);
 		sysfs_update_sep_stats(q_p->qid, desc_type,
 				       q_p->enqueue_time[desc_idx],
 				       sched_clock());
 		q_p->completed_cntr++;	/* prepare for next */
-		pr_debug("type=%u retcode=0x%08X cookie=0x%08X",
-			      desc_type, ret_code, cookie);
+		pr_debug("type=%u retcode=0x%08X cookie=0x%p",
+			 desc_type, ret_code, cookie);
 		if (cookie == 0) {
 			/* Probably late completion on invalidated cookie */
 			pr_err("Got completion with NULL cookie\n");
 			continue;
 		}
+
 		op_ctx = (struct sep_op_ctx *)cookie;
 		if (desc_type == SEP_SW_DESC_TYPE_APP_REQ) {/* Applet Req. */
 			/* "internal error" flag is currently available only
@@ -757,6 +755,7 @@ void desc_q_process_completed(void *q_h)
 			op_ctx->session_ctx->sep_session_id =
 			    SEP_SW_DESC_GET4TYPE(&desc, APP_REQ, SESSION_ID);
 		}
+
 #ifdef DEBUG
 		if (op_ctx->pending_descs_cntr > MAX_PENDING_DESCS)
 			pr_err("Invalid num of pending descs %d\n",
@@ -801,7 +800,7 @@ void desq_q_pack_debug_desc(struct sep_sw_desc *desc_p,
 {
 	SEP_SW_DESC_INIT(desc_p);
 	SEP_SW_DESC_SET(desc_p, TYPE, SEP_SW_DESC_TYPE_DEBUG);
-	SEP_SW_DESC_SET(desc_p, COOKIE, (u32) op_ctx);
+	SEP_SW_DESC_SET_COOKIE(desc_p, op_ctx);
 }
 
 /**
@@ -825,7 +824,7 @@ void desc_q_pack_crypto_op_desc(struct sep_sw_desc *desc_p,
 
 	SEP_SW_DESC_INIT(desc_p);
 	SEP_SW_DESC_SET(desc_p, TYPE, SEP_SW_DESC_TYPE_CRYPTO_OP);
-	SEP_SW_DESC_SET(desc_p, COOKIE, (u32) op_ctx);
+	SEP_SW_DESC_SET_COOKIE(desc_p, op_ctx);
 
 	SEP_SW_DESC_SET4TYPE(desc_p, CRYPTO_OP, FW_CACHE_IDX,
 			     ctxmgr_get_sep_cache_idx(&op_ctx->ctx_info));
@@ -875,7 +874,7 @@ void desc_q_pack_combined_op_desc(struct sep_sw_desc *desc_p,
 
 	SEP_SW_DESC_INIT(desc_p);
 	SEP_SW_DESC_SET(desc_p, TYPE, SEP_SW_DESC_TYPE_COMBINED_OP);
-	SEP_SW_DESC_SET(desc_p, COOKIE, (u32) op_ctx);
+	SEP_SW_DESC_SET_COOKIE(desc_p, op_ctx);
 
 	SEP_SW_DESC_SET4TYPE(desc_p, COMBINED_OP, L, sep_ctx_load_req);
 	SEP_SW_DESC_SET4TYPE(desc_p, COMBINED_OP, CONFIG_SCHEME, cfg_scheme);
@@ -916,7 +915,7 @@ void desc_q_pack_load_op_desc(struct sep_sw_desc *desc_p,
 
 	SEP_SW_DESC_INIT(desc_p);
 	SEP_SW_DESC_SET(desc_p, TYPE, SEP_SW_DESC_TYPE_LOAD_OP);
-	SEP_SW_DESC_SET(desc_p, COOKIE, (u32) op_ctx);
+	SEP_SW_DESC_SET_COOKIE(desc_p, op_ctx);
 
 	for (idx = 0; idx < SEP_MAX_COMBINED_ENGINES; idx++, ctx_info_p++) {
 		BITFIELD_SET(p[SEP_SW_DESC_LOAD_OP_FW_CACHE_IDX_WORD_OFFSET],
@@ -960,7 +959,7 @@ void desc_q_pack_rpc_desc(struct sep_sw_desc *desc_p,
 {
 	SEP_SW_DESC_INIT(desc_p);
 	SEP_SW_DESC_SET(desc_p, TYPE, SEP_SW_DESC_TYPE_RPC_MSG);
-	SEP_SW_DESC_SET(desc_p, COOKIE, (u32) op_ctx);
+	SEP_SW_DESC_SET_COOKIE(desc_p, op_ctx);
 
 #ifdef DEBUG
 	/* Verify that given agent_id is not too large for AGENT_ID field */
@@ -994,7 +993,7 @@ void desc_q_pack_app_req_desc(struct sep_sw_desc *desc_p,
 {
 	SEP_SW_DESC_INIT(desc_p);
 	SEP_SW_DESC_SET(desc_p, TYPE, SEP_SW_DESC_TYPE_APP_REQ);
-	SEP_SW_DESC_SET(desc_p, COOKIE, (u32) op_ctx);
+	SEP_SW_DESC_SET_COOKIE(desc_p, op_ctx);
 
 	SEP_SW_DESC_SET4TYPE(desc_p, APP_REQ, REQ_TYPE, req_type);
 	SEP_SW_DESC_SET4TYPE(desc_p, APP_REQ, SESSION_ID, session_id);
@@ -1027,35 +1026,32 @@ const char *crypto_proc_mode_to_str(enum sep_proc_mode proc_mode)
 static void dump_crypto_op_desc(const struct sep_sw_desc *desc_p)
 {
 	pr_debug("CRYPTO_OP::%s (type=%lu,cookie=0x%08lX)\n",
-		      crypto_proc_mode_to_str(SEP_SW_DESC_GET4TYPE
-					      (desc_p, CRYPTO_OP, PROC_MODE)),
-		      SEP_SW_DESC_GET(desc_p, TYPE), SEP_SW_DESC_GET(desc_p,
-								     COOKIE));
+		 crypto_proc_mode_to_str(SEP_SW_DESC_GET4TYPE
+					 (desc_p, CRYPTO_OP, PROC_MODE)),
+		 SEP_SW_DESC_GET(desc_p, TYPE),
+		 SEP_SW_DESC_GET_COOKIE(desc_p));
 
 	pr_debug("HCB=0x%08lX @ FwIdx=%lu %s%s\n",
-		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, HCB_ADDR),
-		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, FW_CACHE_IDX),
-		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, L) ?
-		      "(load)" : "",
-		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, I) ?
-		      "(init)" : "");
+		 SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, HCB_ADDR),
+		 SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, FW_CACHE_IDX),
+		 SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, L) ? "(load)" : "",
+		 SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, I) ? "(init)" : "");
 
 	pr_debug("IFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
-		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, IFT_ADDR),
-		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, IFT_SIZE),
-		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, IFT_NUM));
+		 SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, IFT_ADDR),
+		 SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, IFT_SIZE),
+		 SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, IFT_NUM));
 
 	pr_debug("OFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
-		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, OFT_ADDR),
-		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, OFT_SIZE),
-		      SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, OFT_NUM));
+		 SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, OFT_ADDR),
+		 SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, OFT_SIZE),
+		 SEP_SW_DESC_GET4TYPE(desc_p, CRYPTO_OP, OFT_NUM));
 
-	pr_debug(
-		"0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X\n",
-		((u32 *)desc_p)[0], ((u32 *)desc_p)[1],
-		((u32 *)desc_p)[2], ((u32 *)desc_p)[3],
-		((u32 *)desc_p)[4], ((u32 *)desc_p)[5],
-		((u32 *)desc_p)[6], ((u32 *)desc_p)[7]);
+	pr_debug("0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X\n",
+		 ((u32 *)desc_p)[0], ((u32 *)desc_p)[1],
+		 ((u32 *)desc_p)[2], ((u32 *)desc_p)[3],
+		 ((u32 *)desc_p)[4], ((u32 *)desc_p)[5],
+		 ((u32 *)desc_p)[6], ((u32 *)desc_p)[7]);
 }
 
 static void dump_load_op_desc(const struct sep_sw_desc *desc_p)
@@ -1065,8 +1061,8 @@ static void dump_load_op_desc(const struct sep_sw_desc *desc_p)
 	int idx;
 
 	pr_debug("LOAD_OP (type=%lu,cookie=0x%08lX)\n",
-		      SEP_SW_DESC_GET(desc_p, TYPE),
-		      SEP_SW_DESC_GET(desc_p, COOKIE));
+		 SEP_SW_DESC_GET(desc_p, TYPE),
+		 SEP_SW_DESC_GET_COOKIE(desc_p));
 
 	for (idx = 0; idx < SEP_MAX_COMBINED_ENGINES; idx++) {
 		cache_idx =
@@ -1079,7 +1075,7 @@ static void dump_load_op_desc(const struct sep_sw_desc *desc_p)
 		hcb =
 		    BITFIELD_GET(p
 				 [SEP_SW_DESC_LOAD_OP_HCB_ADDR_WORD_OFFSET
-				  (idx)],
+				 (idx)],
 				 SEP_SW_DESC_LOAD_OP_HCB_ADDR_BIT_OFFSET,
 				 SEP_SW_DESC_LOAD_OP_HCB_ADDR_BIT_SIZE);
 
@@ -1097,27 +1093,25 @@ static void dump_load_op_desc(const struct sep_sw_desc *desc_p)
 static void dump_combined_op_desc(const struct sep_sw_desc *desc_p)
 {
 	pr_debug("COMBINED_OP::%s (type=%lu,cookie=0x%08lX)\n",
-		      crypto_proc_mode_to_str(SEP_SW_DESC_GET4TYPE
-					      (desc_p, COMBINED_OP, PROC_MODE)),
-		      SEP_SW_DESC_GET(desc_p, TYPE), SEP_SW_DESC_GET(desc_p,
-								     COOKIE));
+		 crypto_proc_mode_to_str(SEP_SW_DESC_GET4TYPE
+					 (desc_p, COMBINED_OP, PROC_MODE)),
+		 SEP_SW_DESC_GET(desc_p, TYPE),
+		 SEP_SW_DESC_GET_COOKIE(desc_p));
 
 	pr_debug("SCHEME=0x%08lX %s%s\n",
-		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, CONFIG_SCHEME),
-		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, L) ?
-		      "(load)" : "",
-		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, I) ?
-		      "(init)" : "");
+		 SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, CONFIG_SCHEME),
+		 SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, L) ? "(load)" : "",
+		 SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, I) ? "(init)" : "");
 
 	pr_debug("IFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
-		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, IFT_ADDR),
-		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, IFT_SIZE),
-		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, IFT_NUM));
+		 SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, IFT_ADDR),
+		 SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, IFT_SIZE),
+		 SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, IFT_NUM));
 
 	pr_debug("OFT: addr=0x%08lX , size=0x%08lX , tbl_num=%lu\n",
-		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, OFT_ADDR),
-		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, OFT_SIZE),
-		      SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, OFT_NUM));
+		 SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, OFT_ADDR),
+		 SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, OFT_SIZE),
+		 SEP_SW_DESC_GET4TYPE(desc_p, COMBINED_OP, OFT_NUM));
 }
 
 static void dump_rpc_msg_desc(const struct sep_sw_desc *desc_p)

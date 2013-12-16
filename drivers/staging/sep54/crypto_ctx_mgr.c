@@ -34,6 +34,7 @@
 #include <linux/pagemap.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
+#include <linux/sched.h>
 #define SEP_LOG_CUR_COMPONENT SEP_LOG_MASK_CTX_MGR
 #include "sep_log.h"
 #include "dx_driver.h"
@@ -408,10 +409,9 @@ int ctxmgr_map_kernel_ctx(struct client_crypto_ctx_info *ctx_info,
 	   contiguous for SeP DMA access) */
 	if ((((unsigned long)sep_ctx_p + sizeof(struct sep_ctx_cache_entry))
 	     >> PAGE_SHIFT) != ((unsigned long)sep_ctx_p >> PAGE_SHIFT)) {
-		pr_err(
-			    "SeP context cross page boundary (start=0x%08lX len=0x%04X\n",
-			    (unsigned long)sep_ctx_p,
-			    sizeof(struct sep_ctx_cache_entry));
+		pr_err("SeP context cross page boundary start=0x%x len=0x%zX\n",
+		       (unsigned long)sep_ctx_p,
+		       sizeof(struct sep_ctx_cache_entry));
 		return -EINVAL;
 	}
 
@@ -870,12 +870,10 @@ bool ctxmgr_is_valid_size(struct client_crypto_ctx_info *ctx_info,
 				if (host_ctx_p->props.
 				    alg_specific.aes_xts.
 				    data_unit_size != data_unit_size) {
-					pr_err(
-						"Data unit mismatch. was %lu. now %lu.\n",
-						host_ctx_p->props.alg_specific.
-						aes_xts.
-						data_unit_size,
-						data_unit_size);
+					pr_err("Data unit mismatch. was %u. now %lu.\n",
+					       host_ctx_p->props.alg_specific.
+					       aes_xts.data_unit_size,
+					       data_unit_size);
 					return false;
 				}
 			}
