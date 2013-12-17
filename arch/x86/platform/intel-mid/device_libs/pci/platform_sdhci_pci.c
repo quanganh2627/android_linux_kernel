@@ -652,8 +652,10 @@ static struct sdhci_pci_data *get_sdhci_platform_data(struct pci_dev *pdev)
 		pdata = &moor_sdhci_pci_data[SDIO_INDEX];
 		if (intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_HVP)
 			pdata->platform_quirks |= PLFM_QUIRK_NO_HOST_CTRL_HW;
-		if (intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_SLE)
+		else if (intel_mid_identify_sim() == INTEL_MID_CPU_SIMULATION_SLE)
 			pdata->platform_quirks |= PLFM_QUIRK_NO_HOST_CTRL_HW;
+		else
+			pdata->quirks = sdhci_pdata_quirks;
 		break;
 	default:
 		break;
