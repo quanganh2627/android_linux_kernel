@@ -93,13 +93,13 @@ struct sst_ids {
 
 /* output is triggered before input */
 #define SST_PATH_INPUT(name, task_id, loc_id, event) \
-	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_POST_PMU)
+	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD)
 
 #define SST_PATH_OUTPUT(name, task_id, loc_id, event) \
-	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_PRE_PMU)
+	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD)
 
 #define SST_PATH_MEDIA_LOOP_OUTPUT(name, task_id, loc_id, format, event) \
-	SST_PATH_MEDIA_LOOP(name, task_id, loc_id, format, event, SND_SOC_DAPM_PRE_PMU)
+	SST_PATH_MEDIA_LOOP(name, task_id, loc_id, format, event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD)
 
 
 #define SST_SWM_MIXER(wname, wreg, wtask, wloc_id, wcontrols, wevent)			\
