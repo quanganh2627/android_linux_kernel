@@ -78,6 +78,8 @@ static struct cfg_match cfg_assoc_tbl[] = {
 	{"XMM7260_CONF_4", "XMM_7260_REV2", CPU_ANNIEDALE},
 	/* Cherrytrail */
 	{"XMM7260_CONF_2", "XMM_7260_REV1", CPU_CHERRYVIEW},
+	/* Baytrail M2 */
+	{"XMM7160_CONF_7", "XMM_7160", CPU_VVIEW2},
 };
 
 /* Modem data */
@@ -364,6 +366,14 @@ int mcd_get_config_ver(char *mdm_name, int mid_cpu)
 	return 0;
 }
 
+int mcd_get_config_type(void)
+{
+	if (!strncmp(config_name, "XMM7160_CONF_7", SFI_NAME_LEN))
+		return XMM_CONF_M2;
+	else
+		return XMM_CONF_GENERIC;
+}
+
 int mcd_get_cpu_ver(void)
 {
 	enum intel_mid_cpu_type mid_cpu = intel_mid_identify_cpu();
@@ -434,6 +444,8 @@ void *modem_platform_data(void *data)
 		kfree(mcd_info);
 		return NULL;
 	}
+	/* Convert the configuration name to mcd configuration type*/
+	mcd_info->conf_type = mcd_get_config_type();
 	pr_info("SFI %s cpu: %d mdm: %d pmic: %d.\n", __func__,
 		mcd_info->cpu_ver, mcd_info->mdm_ver, mcd_info->pmic_ver);
 	pr_info("SFI %s cpu: %s, mdm: %s:, conf: %s\n", __func__,
@@ -593,6 +605,9 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	} else
 		mcd_get_config_ver(out_obj->string.pointer, mcd_reg_info->cpu_ver);
 
+	/* Convert the configuration name to mcd configuration type*/
+	mcd_reg_info->conf_type = mcd_get_config_type();
+
 	/* PMIC */
 	switch (mcd_reg_info->cpu_ver) {
 	case CPU_VVIEW2:
@@ -633,16 +648,35 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	pr_info("%s: cpu info setup\n", __func__);
 
 	/* finalize cpu data */
-	cpu_data->gpio_pwr_on = acpi_get_gpio_by_index(&pdev->dev, 0, NULL);
-	cpu_data->gpio_cdump = acpi_get_gpio_by_index(&pdev->dev, 1, NULL);
-	cpu_data->gpio_rst_out = acpi_get_gpio_by_index(&pdev->dev, 2, NULL);
-	cpu_data->gpio_rst_bbn = acpi_get_gpio_by_index(&pdev->dev, 3, NULL);
+	if (mcd_reg_info->conf_type == XMM_CONF_M2) {
+		/* M.2 specific GPIO configuration */
+		cpu_data->gpio_wwan_disable =
+			acpi_get_gpio_by_index(&pdev->dev, 0, NULL);
+		cpu_data->gpio_wake_on_wwan =
+			acpi_get_gpio_by_index(&pdev->dev, 1, NULL);
+		cpu_data->gpio_rst_bbn =
+			acpi_get_gpio_by_index(&pdev->dev, 2, NULL);
 
-	pr_info("%s:Setup GPIOs(PO:%d, RO:%d, RB:%d, CD:%d)",
-		__func__,
-		cpu_data->gpio_pwr_on,
-		cpu_data->gpio_rst_out,
-		cpu_data->gpio_rst_bbn, cpu_data->gpio_cdump);
+		pr_info("%s:Setup GPIOs(WWAN_Disable:%d, W_WWAN:%d, RB:%d)",
+			__func__,
+			cpu_data->gpio_wwan_disable,
+			cpu_data->gpio_wake_on_wwan,
+			cpu_data->gpio_rst_bbn);
+	} else {
+		cpu_data->gpio_pwr_on =
+			acpi_get_gpio_by_index(&pdev->dev, 0, NULL);
+		cpu_data->gpio_cdump =
+			acpi_get_gpio_by_index(&pdev->dev, 1, NULL);
+		cpu_data->gpio_rst_out =
+			acpi_get_gpio_by_index(&pdev->dev, 2, NULL);
+		cpu_data->gpio_rst_bbn =
+			 acpi_get_gpio_by_index(&pdev->dev, 3, NULL);
+		pr_info("%s:Setup GPIOs(PO:%d, RO:%d, RB:%d, CD:%d)",
+			__func__,
+			cpu_data->gpio_pwr_on,
+			cpu_data->gpio_rst_out,
+			cpu_data->gpio_rst_bbn, cpu_data->gpio_cdump);
+	}
 
 	status = get_acpi_param(handle, ACPI_TYPE_PACKAGE, "EPWR", &out_obj);
 	if (ACPI_FAILURE(status)) {
