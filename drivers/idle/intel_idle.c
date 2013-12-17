@@ -729,14 +729,15 @@ static unsigned int get_target_residency(unsigned int cstate)
 	unsigned int prev_idx;
 
 	/* get the previous lower sleep state */
-	if ((cstate == 8) || (cstate == 9))
+	if ((cstate == 5) || (cstate == 6))
 		prev_idx = cstate - 2;
 	else
 		prev_idx = cstate - 1;
 
 	/* calculate target_residency only if not defined already */
 	if (!t_sleep) {
-		unsigned int p_active = cpuidle_state_table[0].power_usage;
+		/* Use C0 power usage to calculate the target residency */
+		unsigned int p_active = C0_POWER_USAGE;
 		unsigned int prev_state_power = cpuidle_state_table
 							[prev_idx].power_usage;
 		unsigned int curr_state_power = cpuidle_state_table
@@ -750,13 +751,15 @@ static unsigned int get_target_residency(unsigned int cstate)
 		    prev_state_lat && curr_state_lat &&
 		    (curr_state_lat > prev_state_lat) &&
 		    (prev_state_power > curr_state_power)) {
-			t_sleep = (p_active * (curr_state_lat - prev_state_lat)
+
+			t_sleep = ((p_active * (curr_state_lat - prev_state_lat))
 					+ (prev_state_lat * prev_state_power)
 					- (curr_state_lat * curr_state_power)) /
 				  (prev_state_power - curr_state_power);
 
 			/* round-up target_residency */
 			t_sleep++;
+
 		}
 	}
 
