@@ -1185,6 +1185,31 @@ static int handle_mrfl_dev_ioapic(int irq)
 	return ret;
 }
 
+/* This is the callback function launched when kernel panic() function */
+/* is executed. In that case we force the SCU to reset due to kernel   */
+/* watchdog after RESET_ON_PANIC_TIMEOUT and we bypass the warning     */
+/* interrupt  mechanism.                                               */
+static int watchdog_panic_handler(struct notifier_block *this,
+				  unsigned long         event,
+				  void                  *unused)
+{
+	int ret = 0;
+
+	/* trigger reset after RESET_ON_PANIC_TIMEOUT, we set timeout and pretimeout */
+	/* to the same value, and restart counters */
+	ret = watchdog_config_and_start(RESET_ON_PANIC_TIMEOUT, RESET_ON_PANIC_TIMEOUT);
+	if (ret)
+		pr_err("can't start timer\n");
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block watchdog_panic_notifier = {
+	.notifier_call	= watchdog_panic_handler,
+	.next		= NULL,
+	.priority	= 150	/* priority: INT_MAX >= x >= 0 */
+};
+
 /* Init code */
 static int intel_scu_watchdog_init(void)
 {
@@ -1216,6 +1241,13 @@ static int intel_scu_watchdog_init(void)
 		goto error_stop_timer;
 	}
 
+	ret = atomic_notifier_chain_register(&panic_notifier_list,
+			&watchdog_panic_notifier);
+	if (ret) {
+		pr_crit("cannot register panic notifier %d\n", ret);
+		goto error_reboot_notifier;
+	}
+
 	/* Do not publish the watchdog device when disable (TO BE REMOVED) */
 	if (!disable_kernel_watchdog) {
 		watchdog_device.miscdev.minor = WATCHDOG_MINOR;
@@ -1226,7 +1258,7 @@ static int intel_scu_watchdog_init(void)
 		if (ret) {
 			pr_crit("Cannot register miscdev %d err =%d\n",
 				WATCHDOG_MINOR, ret);
-			goto error_reboot_notifier;
+			goto error_panic_notifier;
 		}
 	}
 
@@ -1284,6 +1316,10 @@ error_debugfs_entry:
 error_misc_register:
 	misc_deregister(&watchdog_device.miscdev);
 
+error_panic_notifier:
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+						 &watchdog_panic_notifier);
+
 error_reboot_notifier:
 	unregister_reboot_notifier(&watchdog_device.reboot_notifier);
 
@@ -1312,6 +1348,8 @@ static void intel_scu_watchdog_exit(void)
 
 	misc_deregister(&watchdog_device.miscdev);
 	unregister_reboot_notifier(&watchdog_device.reboot_notifier);
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+						 &watchdog_panic_notifier);
 }
 
 static int watchdog_rpmsg_probe(struct rpmsg_channel *rpdev)

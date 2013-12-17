@@ -38,6 +38,7 @@
 
 #define DEFAULT_PRETIMEOUT 75
 #define DEFAULT_TIMEOUT 90
+#define RESET_ON_PANIC_TIMEOUT 15
 
 /* Value 0 to reset the reset counter */
 #define OSNIB_WRITE_VALUE 0
