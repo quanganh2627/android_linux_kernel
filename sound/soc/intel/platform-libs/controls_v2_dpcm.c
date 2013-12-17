@@ -674,6 +674,7 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 	struct sst_cmd_sba_hw_set_ssp cmd;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	struct sst_ids *ids = w->priv;
+	static int ssp_active[SSP_CODEC + 1];
 
 	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
 
@@ -683,6 +684,12 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 				- sizeof(struct sst_dsp_header);
 
 	if (SND_SOC_DAPM_EVENT_ON(event))
+		ssp_active[ids->ssp_id]++;
+	else
+		ssp_active[ids->ssp_id]--;
+
+	pr_debug("ssp_id=%d ssp_active=%d", ids->ssp_id, ssp_active[ids->ssp_id]);
+	if (ssp_active[ids->ssp_id])
 		cmd.switch_state = SST_SWITCH_ON;
 	else
 		cmd.switch_state = SST_SWITCH_OFF;
