@@ -47,12 +47,12 @@ struct soc_throttle_data {
  *
  * @num_sensors:	Maximum number of sensors supported
  * @sensors:		sensor info
- * @soc_cooling:	True or false
+ * @gpu_cooling:	Whether to register a cdev for GPU throttling
  */
 struct intel_mid_thermal_platform_data {
 	int num_sensors;
 	struct intel_mid_thermal_sensor *sensors;
-	bool soc_cooling;
+	bool gpu_cooling;
 };
 
 /**
