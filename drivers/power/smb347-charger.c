@@ -299,6 +299,8 @@ struct smb347_charger {
 	bool			charging_enabled;
 	bool			running;
 	bool			is_smb349;
+	bool			drive_vbus;
+	bool			a_bus_enable;
 	struct dentry		*dentry;
 	struct usb_phy		*otg;
 	struct notifier_block	otg_nb;
@@ -1161,6 +1163,34 @@ static int sm347_reload_setting(struct smb347_charger *smb)
 	return ret;
 }
 
+
+static void smb347_usb_otg_enable(struct usb_phy *phy)
+{
+	struct smb347_charger *smb = smb347_dev;
+
+	if (!smb)
+		return;
+
+	dev_info(&smb->client->dev, "%s:%d", __func__, __LINE__);
+
+	if (phy->vbus_state == VBUS_DISABLED) {
+		dev_info(&smb->client->dev, "OTG Disable");
+		smb->a_bus_enable = false;
+		if (smb->drive_vbus) {
+			smb347_otg_disable(smb);
+			__otg_connect = false;
+		}
+	} else {
+		dev_info(&smb->client->dev, "OTG Enable");
+		smb->a_bus_enable = true;
+		if (smb->drive_vbus) {
+			smb347_otg_enable(smb);
+			__otg_connect = true;
+		}
+	}
+}
+
+
 static int smb347_hw_init(struct smb347_charger *smb)
 {
 	int ret, loopCount, i;
@@ -1198,6 +1228,8 @@ static int smb347_hw_init(struct smb347_charger *smb)
 			INIT_LIST_HEAD(&smb->otg_queue);
 			spin_lock_init(&smb->otg_queue_lock);
 
+			smb->a_bus_enable = true;
+			smb->otg->a_bus_drop = smb347_usb_otg_enable;
 			smb->otg_nb.notifier_call = smb347_otg_notifier;
 			ret = usb_register_notifier(smb->otg, &smb->otg_nb);
 			if (ret < 0) {
@@ -1439,12 +1471,15 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 		dev_info(&smb->client->dev, "stat_b = %x", ret);
 		if (ret < 0)
 			dev_err(&smb->client->dev, "i2c error %d", ret);
-		else if (ret & 0x1E) {
+		else if (ret & 0x10) {
+			smb->drive_vbus = true;
 			gpio_direction_output(smb->pdata->gpio_mux, 0);
-			smb347_otg_enable(smb);
-			__otg_connect = true;
+			if (smb->a_bus_enable) {
+				smb347_otg_enable(smb);
+				__otg_connect = true;
+			}
 		} else {
-			gpio_direction_output(smb->pdata->gpio_mux, 1);
+			smb->drive_vbus = false;
 			smb347_otg_disable(smb);
 			__otg_connect = false;
 		}
