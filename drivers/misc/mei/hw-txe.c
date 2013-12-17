@@ -869,7 +869,7 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 	struct mei_txe_hw *hw = to_txe_hw(dev);
 	struct mei_cl_cb complete_list;
 	s32 slots;
-	int rets;
+	int rets = 0;
 
 	dev_dbg(&dev->pdev->dev, "irq thread: Interrupt Registers HHISR|HISR|SEC=%02X|%04X|%02X\n",
 		mei_txe_br_reg_read(hw, HHISR_REG),
@@ -907,11 +907,11 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 			    dev->dev_state != MEI_DEV_INITIALIZING &&
 			    dev->dev_state != MEI_DEV_POWER_UP &&
 			    dev->dev_state != MEI_DEV_POWER_DOWN) {
-				dev_dbg(&dev->pdev->dev, "FW not ready.\n");
 
+				dev_warn(&dev->pdev->dev, "FW not ready: resetting.\n");
 				schedule_work(&dev->reset_work);
-				mutex_unlock(&dev->device_lock);
-				return IRQ_HANDLED;
+				goto end;
+
 			}
 		}
 		wake_up_interruptible(&dev->wait_hw_ready);
@@ -945,8 +945,9 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 		if (rets) {
 			dev_err(&dev->pdev->dev,
 				"mei_irq_read_handler ret = %d.\n", rets);
-			mutex_unlock(&dev->device_lock);
-			goto out;
+
+			schedule_work(&dev->reset_work);
+			goto end;
 		}
 	}
 	/* Input Ready: Detection if host can write to SeC */
@@ -957,8 +958,7 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 		/* if SeC did not complete reading the written data by host */
 		if (!mei_txe_is_input_ready(dev)) {
 			dev_dbg(&dev->pdev->dev, "got Input Ready Int, but SEC_IPC_INPUT_STATUS_RDY is 0.\n");
-			mutex_unlock(&dev->device_lock);
-			goto out;
+			goto end;
 		}
 
 		rets = mei_irq_write_handler(dev, &complete_list);
@@ -969,12 +969,13 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 	}
 
 
-	mutex_unlock(&dev->device_lock);
 
 	mei_irq_compl_handler(dev, &complete_list);
 
-out:
-	dev_dbg(&dev->pdev->dev, "irq thread end\n");
+end:
+	dev_dbg(&dev->pdev->dev, "interrupt thread end ret = %d\n", rets);
+
+	mutex_unlock(&dev->device_lock);
 
 	mei_enable_interrupts(dev);
 	return IRQ_HANDLED;
