@@ -1227,12 +1227,22 @@ bool is_cursor_enabled(struct drm_i915_private *dev_priv,
 
 bool is_maxfifo_needed(struct drm_i915_private *dev_priv)
 {
-	if (!(is_plane_enabled(dev_priv, PLANE_A) &&
-		is_plane_enabled(dev_priv, PLANE_B)) &&
-		!(is_sprite_enabled(dev_priv, PIPE_A, PLANE_A) ||
-		is_sprite_enabled(dev_priv, PIPE_A, PLANE_B) ||
-		is_sprite_enabled(dev_priv, PIPE_B, PLANE_A) ||
-		is_sprite_enabled(dev_priv, PIPE_B, PLANE_B)))
+	int cnt = 0;
+
+	if (is_plane_enabled(dev_priv, PLANE_A))
+		cnt++;
+	if (is_plane_enabled(dev_priv, PLANE_B))
+		cnt++;
+	if (is_sprite_enabled(dev_priv, PIPE_A, PLANE_A))
+		cnt++;
+	if (is_sprite_enabled(dev_priv, PIPE_A, PLANE_B))
+		cnt++;
+	if (is_sprite_enabled(dev_priv, PIPE_B, PLANE_A))
+		cnt++;
+	if (is_sprite_enabled(dev_priv, PIPE_B, PLANE_B))
+		cnt++;
+
+	if (cnt == 1)
 		return true;
 	else
 		return false;
@@ -1952,6 +1962,11 @@ static void intel_disable_plane(struct drm_i915_private *dev_priv,
 	val = I915_READ(reg);
 	if ((val & DISPLAY_PLANE_ENABLE) == 0)
 		return;
+
+	/* If MAX FIFO enabled disable */
+	if (I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN)
+		I915_WRITE(FW_BLC_SELF_VLV,
+			   I915_READ(FW_BLC_SELF_VLV) & ~FW_CSPWRDWNEN);
 
 	I915_WRITE(reg, val & ~DISPLAY_PLANE_ENABLE);
 	intel_flush_display_plane(dev_priv, plane);

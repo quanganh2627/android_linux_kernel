@@ -1294,6 +1294,7 @@ static int
 intel_disable_plane(struct drm_plane *plane)
 {
 	struct drm_device *dev = plane->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	int ret = 0;
 
@@ -1302,6 +1303,11 @@ intel_disable_plane(struct drm_plane *plane)
 
 	if (WARN_ON(!plane->crtc))
 		return -EINVAL;
+
+	/* If MAX FIFO enabled disable */
+	if (I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN)
+		I915_WRITE(FW_BLC_SELF_VLV,
+			   I915_READ(FW_BLC_SELF_VLV) & ~FW_CSPWRDWNEN);
 
 	intel_enable_primary(plane->crtc);
 	intel_wait_for_vblank(dev, intel_plane->pipe);
