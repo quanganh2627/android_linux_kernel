@@ -763,6 +763,8 @@ static int sst_platform_open(struct snd_pcm_substream *substream)
 	struct snd_soc_dai_link *dai_link = rtd->dai_link;
 
 	pr_debug("sst_platform_open called:%s\n", dai_link->cpu_dai_name);
+	if (substream->pcm->internal)
+		return 0;
 	runtime = substream->runtime;
 	runtime->hw = sst_platform_pcm_hw;
 	return 0;
@@ -783,6 +785,8 @@ static int sst_platform_pcm_trigger(struct snd_pcm_substream *substream,
 	struct sst_runtime_stream *stream;
 	int str_cmd, status, alsa_state;
 
+	if (substream->pcm->internal)
+		return 0;
 	pr_debug("sst_platform_pcm_trigger called\n");
 	stream = substream->runtime->private_data;
 	str_id = stream->stream_info.str_id;
