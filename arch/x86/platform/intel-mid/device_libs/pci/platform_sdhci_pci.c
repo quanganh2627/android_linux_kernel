@@ -517,7 +517,7 @@ static struct sdhci_pci_data moor_sdhci_pci_data[] = {
 			.cd_gpio = 77,
 			.quirks = 0,
 			.platform_quirks = 0,
-			.setup = 0,
+			.setup = mrfl_sd_setup,
 			.cleanup = 0,
 			.power_up = 0,
 	},
