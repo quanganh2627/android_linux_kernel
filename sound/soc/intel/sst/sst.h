@@ -561,7 +561,7 @@ struct intel_sst_drv {
 };
 
 extern struct intel_sst_drv *sst_drv_ctx;
-extern struct sst_platform_info byt_ffrd10_platform_data;
+extern struct sst_platform_info byt_rvp_platform_data;
 extern struct sst_platform_info byt_ffrd8_platform_data;
 
 /* misc definitions */

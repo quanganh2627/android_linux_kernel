@@ -1217,7 +1217,7 @@ static DEFINE_PCI_DEVICE_TABLE(intel_sst_ids) = {
 MODULE_DEVICE_TABLE(pci, intel_sst_ids);
 
 static const struct acpi_device_id sst_acpi_ids[] = {
-	{ "LPE0F28",  (kernel_ulong_t) &byt_ffrd10_platform_data },
+	{ "LPE0F28",  (kernel_ulong_t) &byt_rvp_platform_data },
 	{ "LPE0F281", (kernel_ulong_t) &byt_ffrd8_platform_data },
 	{ "80860F28", (kernel_ulong_t) &byt_ffrd8_platform_data },
 	{ },

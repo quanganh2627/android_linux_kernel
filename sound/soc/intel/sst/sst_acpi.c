@@ -49,7 +49,7 @@ static const struct sst_platform_config_data sst_byt_pdata = {
 };
 
 /* use array[0] for ssp_platform_data even though SSP2 is used */
-static const struct sst_board_config_data sst_byt_ffrd10_bdata = {
+static const struct sst_board_config_data sst_byt_rvp_bdata = {
 	.active_ssp_ports = 1,
 	.platform_id = 3,
 	.board_id = 1,
@@ -138,10 +138,10 @@ static const struct sst_lib_dnld_info  byt_lib_dnld_info = {
 	.mod_ddr_dnld       = true,
 };
 
-struct sst_platform_info byt_ffrd10_platform_data = {
+struct sst_platform_info byt_rvp_platform_data = {
 	.probe_data = &byt_fwparse_info,
 	.ssp_data = NULL,
-	.bdata = &sst_byt_ffrd10_bdata,
+	.bdata = &sst_byt_rvp_bdata,
 	.pdata = &sst_byt_pdata,
 	.ipc_info = &byt_ipc_info,
 	.lib_info = NULL,
