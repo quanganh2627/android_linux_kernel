@@ -8,7 +8,8 @@ enum {
 };
 
 enum batt_chrg_prof_type {
-	PSE_MOD_CHRG_PROF = 0,
+	CHRG_PROF_NONE = 0,
+	PSE_MOD_CHRG_PROF,
 };
 
 /* charging profile structure definition */
