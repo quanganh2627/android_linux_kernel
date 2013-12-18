@@ -999,8 +999,6 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 		cable_props.ma = SMB_CHRG_CUR_ACA;
 		notify_chrg = 1;
 		vbus_present = 1;
-		if (!wake_lock_active(&smb->wakelock))
-			wake_lock(&smb->wakelock);
 		break;
 
 	case SMB_CHRG_TYPE_CDP:
@@ -1027,16 +1025,12 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 		cable_props.ma = SMB_CHRG_CUR_DCP;
 		notify_chrg = 1;
 		vbus_present = 1;
-		if (!wake_lock_active(&smb->wakelock))
-			wake_lock(&smb->wakelock);
 		break;
 
 	default:
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
 		cable_props.ma = 0;
 		vbus_present = 0;
-		if (wake_lock_active(&smb->wakelock))
-			wake_unlock(&smb->wakelock);
 		break;
 	}
 
@@ -1050,8 +1044,14 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 	}
 
 	if (notify_chrg) {
-		if (vbus_present)
+		if (vbus_present) {
 			sm347_reload_setting(smb);
+			if (!wake_lock_active(&smb->wakelock))
+				wake_lock(&smb->wakelock);
+		} else {
+			if (wake_lock_active(&smb->wakelock))
+				wake_unlock(&smb->wakelock);
+		}
 		atomic_notifier_call_chain(&power_supply_notifier,
 				POWER_SUPPLY_CABLE_EVENT, &cable_props);
 	}
@@ -1061,6 +1061,7 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 		notify_usb = 0;
 		gpio_direction_output(smb->pdata->gpio_mux, 0);
 	}
+
 	return;
 }
 
