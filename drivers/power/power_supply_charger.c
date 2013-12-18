@@ -596,7 +596,7 @@ static int get_battery_status(struct power_supply *psy)
 
 static void update_charger_online(struct power_supply *psy)
 {
-	if (IS_CHARGER_ENABLED(psy) && IS_HEALTH_GOOD(psy))
+	if (IS_CHARGER_ENABLED(psy))
 		set_charger_online(psy, 1);
 	else
 		set_charger_online(psy, 0);
