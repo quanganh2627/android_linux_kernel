@@ -3276,6 +3276,7 @@ int i2s_acpi_probe(struct platform_device *platdev)
 					VLV2_LPE_SHIM_REG_SIZE);
 
 	rsrc = platform_get_resource(platdev, IORESOURCE_MEM, 1);
+#if 0
 	if (!rsrc) {
 		pr_err("Invalid base from IFWI");
 		return -EIO;
@@ -3284,6 +3285,13 @@ int i2s_acpi_probe(struct platform_device *platdev)
 			(unsigned int)rsrc->start, (unsigned int)rsrc->end);
 	/* paddr is same as ioaddr but from LPE view */
 	drv_data->paddr = rsrc->start;
+#endif
+	if (!strncmp(hid, "SSPC0000", 8))
+		drv_data->paddr = 0xFF2a0000;
+	if (!strncmp(hid, "SSPM0000", 8))
+		drv_data->paddr = 0xFF2a1000;
+	if (!strncmp(hid, "SSPB0000", 8))
+		drv_data->paddr = 0xFF2a2000;
 
 	/* unmasking the SSPx IRQ to IA */
 	if (drv_data->device_instance == 0)
@@ -3303,7 +3311,7 @@ int i2s_acpi_probe(struct platform_device *platdev)
 
 	pr_info("SSP I2S driver : Probe for HID=%s usage is %d\n",
 			hid, drv_data->usage);
-	drv_data->dmacdev = intel_mid_get_acpi_dma();
+	drv_data->dmacdev = intel_mid_get_acpi_dma("ADMA0F28");
 	pr_info("SSP I2S driver : dmac1 dmadev found = %p\n",
 			drv_data->dmacdev);
 
