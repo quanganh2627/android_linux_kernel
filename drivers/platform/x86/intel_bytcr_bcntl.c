@@ -140,8 +140,8 @@ static int bcntl_i2c_probe(struct i2c_client *client,
 		return -EIO;
 	}
 
-	init_boost_cntl_regs();
 	i2c_bcntl = client;
+	init_boost_cntl_regs();
 
 	return 0;
 }
