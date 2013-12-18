@@ -504,6 +504,8 @@ static enum power_supply_property max17042_battery_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_AVG,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_TEMP_ALERT_MIN,
+	POWER_SUPPLY_PROP_TEMP_ALERT_MAX,
 	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
@@ -835,11 +837,34 @@ static int max17042_set_property(struct power_supply *psy,
 	struct max17042_chip *chip = container_of(psy,
 				struct max17042_chip, battery);
 	int ret = 0;
+	int8_t temp;
 
 	mutex_lock(&chip->batt_lock);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		chip->status = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_TEMP_ALERT_MIN:
+		ret = max17042_read_reg(chip->client, MAX17042_TALRT_Th);
+		if (ret < 0)
+			break;
+		temp = val->intval / 10; /* 0.1C prop to 1C reg */
+		/* Force that min is under max */
+		if (temp >= (int8_t)(ret >> 8))
+			temp = (int8_t)(ret >> 8) - 1;
+		ret = (ret & 0xff00) + (uint8_t)temp;
+		ret = max17042_write_reg(chip->client, MAX17042_TALRT_Th, ret);
+		break;
+	case POWER_SUPPLY_PROP_TEMP_ALERT_MAX:
+		ret = max17042_read_reg(chip->client, MAX17042_TALRT_Th);
+		if (ret < 0)
+			break;
+		temp = val->intval / 10; /* 0.1C prop to 1C reg */
+		/* Force that max is over min */
+		if (temp <= (int8_t)(ret & 0xff))
+			temp = (int8_t)(ret & 0xff) + 1;
+		ret = (temp << 8) + (ret & 0xff);
+		ret = max17042_write_reg(chip->client, MAX17042_TALRT_Th, ret);
 		break;
 	default:
 		ret = -EINVAL;
@@ -956,6 +981,18 @@ static int max17042_get_property(struct power_supply *psy,
 		 * celsius.
 		 */
 		val->intval = batt_temp * 10;
+		break;
+	case POWER_SUPPLY_PROP_TEMP_ALERT_MIN:
+		ret = max17042_read_reg(chip->client, MAX17042_TALRT_Th);
+		if (ret < 0)
+			goto ps_prop_read_err;
+		val->intval = ((int8_t)(ret & 0xff)) * 10; /* 0.1C */
+		break;
+	case POWER_SUPPLY_PROP_TEMP_ALERT_MAX:
+		ret = max17042_read_reg(chip->client, MAX17042_TALRT_Th);
+		if (ret < 0)
+			goto ps_prop_read_err;
+		val->intval = ((int8_t)(ret >> 8)) * 10; /* 0.1C */
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		ret = max17042_read_reg(chip->client, MAX17042_VCELL);
