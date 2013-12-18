@@ -144,7 +144,7 @@ struct sst_platform_info byt_rvp_platform_data = {
 	.bdata = &sst_byt_rvp_bdata,
 	.pdata = &sst_byt_pdata,
 	.ipc_info = &byt_ipc_info,
-	.lib_info = NULL,
+	.lib_info = &byt_lib_dnld_info,
 };
 
 struct sst_platform_info byt_ffrd8_platform_data = {
