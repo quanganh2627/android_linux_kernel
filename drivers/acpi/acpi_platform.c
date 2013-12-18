@@ -33,7 +33,8 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 	{ "BCM2E1A" },
 	{ "BCM2E3A" },
 	{ "BCM4752" },
-
+	{ "RTL8723" },
+	{ "OBDA8723" },
   /* Telepĥony */
 	{ "MCD0001", 0 },
 	/* SSP devices */
