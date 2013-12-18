@@ -184,14 +184,19 @@ relocate_entry_cpu(struct drm_i915_gem_object *obj,
 {
 	uint32_t page_offset = offset_in_page(reloc->offset);
 	char *vaddr;
+	struct page *page_tmp;
 	int ret = -EINVAL;
 
 	ret = i915_gem_object_set_to_cpu_domain(obj, 1);
 	if (ret)
 		return ret;
 
-	vaddr = kmap_atomic(i915_gem_object_get_page(obj,
-				reloc->offset >> PAGE_SHIFT));
+	page_tmp = i915_gem_object_get_page(obj,
+				reloc->offset >> PAGE_SHIFT);
+	if (!page_tmp)
+		return -ENOMEM;
+
+	vaddr = kmap_atomic(page_tmp);
 	*(uint32_t *)(vaddr + page_offset) = reloc->delta;
 	kunmap_atomic(vaddr);
 

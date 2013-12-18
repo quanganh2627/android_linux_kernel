@@ -513,6 +513,8 @@ i915_error_object_create_sized(struct drm_i915_private *dev_priv,
 			void *s;
 
 			page = i915_gem_object_get_page(src, i);
+			if (!page)
+				return NULL;
 
 			drm_clflush_pages(&page, 1);
 
