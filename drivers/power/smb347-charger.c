@@ -236,8 +236,8 @@
 #define SMB_CHRG_TYPE_SDP		(1<<1)
 #define SMB_CHRG_TYPE_UNKNOWN	(1<<0)
 
-#define SMB_CHRG_CUR_DCP		1500
-#define SMB_CHRG_CUR_ACA		1500
+#define SMB_CHRG_CUR_DCP		1800
+#define SMB_CHRG_CUR_ACA		1800
 #define SMB_CHRG_CUR_CDP		1500
 #define SMB_CHRG_CUR_SDP		500
 
@@ -2330,7 +2330,7 @@ static int smb347_probe(struct i2c_client *client,
 		smb->usb.num_throttle_states = pdata->num_throttle_states;
 		smb->usb.supported_cables = pdata->supported_cables;
 		smb->usb.set_property = smb347_usb_set_property;
-		smb->max_cc = 2000;
+		smb->max_cc = 1800;
 		smb->max_cv = 4350;
 		ret = power_supply_register(dev, &smb->usb);
 		if (ret < 0)
