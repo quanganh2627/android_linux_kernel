@@ -1058,27 +1058,24 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		return connector->status;
 
 	/* Suppress spurious IRQ, if current status is same as live status*/
-	if (connector->status == hdmi_live_status(dev, intel_hdmi))
+	status = hdmi_live_status(dev, intel_hdmi);
+	if (connector->status == status)
 		return connector->status;
 
 	dev_priv->is_hdmi = false;
 	intel_hdmi->has_hdmi_sink = false;
 	intel_hdmi->has_audio = false;
 	intel_hdmi->rgb_quant_range_selectable = false;
-	/*
-	 * the belo patch removes g4x_hdmi_connected(), hence removing this func
-	 * commit 202adf4b9f5957b26a1cb97267d78e0edb319c5e
-	 * Author: Daniel Vetter <daniel.vetter@ffwll.ch>
-	 * Date:   Fri Feb 22 00:53:04 2013 +0100
-	 */
 
-	edid = drm_get_edid(connector,
+	/* Read EDID only if live status permits */
+	if (status == connector_status_connected) {
+		edid = drm_get_edid(connector,
 			intel_gmbus_get_adapter(dev_priv,
 					intel_hdmi->ddc_bus));
+	}
 
 	if (edid) {
 		if (edid->input & DRM_EDID_INPUT_DIGITAL) {
-			status = connector_status_connected;
 			dev_priv->is_hdmi = true;
 			if (intel_hdmi->force_audio != HDMI_AUDIO_OFF_DVI)
 				intel_hdmi->has_hdmi_sink =
@@ -1121,6 +1118,7 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		}
 	}
 #endif
+	/* Inform Audio */
 	if ((status == connector_status_connected)
 			&& (status != i915_hdmi_state)) {
 		/* Added for HDMI Audio */
