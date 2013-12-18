@@ -480,10 +480,10 @@ static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	struct sst_ids *ids = w->priv;
 	bool set_mixer = false;
-	int val = sst->widget[w->reg];
+	int val = sst->widget[ids->reg];
 
-	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
-	pr_debug("reg=%d reg value:%#x\n", w->reg, sst->widget[w->reg]);
+	pr_debug("%s: widget=%s\n", __func__, w->name);
+	pr_debug("%s: reg[%d] = %#x\n", __func__, ids->reg, val);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -491,40 +491,35 @@ static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
 		set_mixer = true;
 		break;
 	case SND_SOC_DAPM_POST_REG:
-		if (w->power) {
+		if (w->power)
 			set_mixer = true;
-			/*FIXME when stream is runnning the widget reg is
-			with +1. so below workarround*/
-			val = (val | 0x1) & ~(val & 0x1);
-		}
 		break;
 	default:
 		set_mixer = false;
 	}
 
-	if (set_mixer) {
-		if (SND_SOC_DAPM_EVENT_ON(event) ||
-			event == SND_SOC_DAPM_POST_REG)
-			cmd.switch_state = SST_SWM_ON;
-		else
-			cmd.switch_state = SST_SWM_OFF;
+	if (set_mixer == false)
+		return 0;
 
-		SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
-		/* MMX_SET_SWM == SBA_SET_SWM */
-		cmd.header.command_id = SBA_SET_SWM;
+	if (SND_SOC_DAPM_EVENT_ON(event) ||
+	    event == SND_SOC_DAPM_POST_REG)
+		cmd.switch_state = SST_SWM_ON;
+	else
+		cmd.switch_state = SST_SWM_OFF;
 
-		SST_FILL_DESTINATION(2, cmd.output_id,
-				     ids->location_id, SST_DEFAULT_MODULE_ID);
-		pr_debug("O/p Location mixer:%s, location id:%#x\n", w->name, cmd.output_id.location_id.f);
+	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
+	/* MMX_SET_SWM == SBA_SET_SWM */
+	cmd.header.command_id = SBA_SET_SWM;
 
-		cmd.nb_inputs =	fill_swm_input(&cmd.input[0], val);
-		cmd.header.length = offsetof(struct sst_cmd_set_swm, input) - sizeof(struct sst_dsp_header)
-					+ (cmd.nb_inputs * sizeof(cmd.input[0]));
+	SST_FILL_DESTINATION(2, cmd.output_id,
+			     ids->location_id, SST_DEFAULT_MODULE_ID);
+	cmd.nb_inputs =	fill_swm_input(&cmd.input[0], val);
+	cmd.header.length = offsetof(struct sst_cmd_set_swm, input) - sizeof(struct sst_dsp_header)
+				+ (cmd.nb_inputs * sizeof(cmd.input[0]));
 
-		sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
-				      ids->task_id, 0, &cmd,
-				      sizeof(cmd.header) + cmd.header.length);
-	}
+	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
+			      ids->task_id, 0, &cmd,
+			      sizeof(cmd.header) + cmd.header.length);
 	return 0;
 }
 

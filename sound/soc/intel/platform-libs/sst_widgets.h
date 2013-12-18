@@ -44,6 +44,7 @@ struct sst_ids {
 	u8  task_id;
 	u8  ssp_id;
 	u8  format;
+	u8  reg;
 	struct list_head algo_list;
 	struct list_head gain_list;
 };
@@ -63,7 +64,7 @@ struct sst_ids {
 }
 
 #define SST_SSP_INPUT(wname, wssp_id, wevent)						\
-{	.id = snd_soc_dapm_input, .name = wname, .sname = NULL,			\
+{	.id = snd_soc_dapm_input, .name = wname, .sname = NULL,				\
 	.reg = SND_SOC_NOPM, .shift = 0, .invert = 0,					\
 	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,	\
 	.priv = (void *)&(struct sst_ids) { .ssp_id = wssp_id, }			\
@@ -88,25 +89,27 @@ struct sst_ids {
 	.invert = 0, .kcontrol_news = NULL, .num_kcontrols = 0,                         \
 	.event = wevent, .event_flags = wflags,                                         \
 	.priv = (void *)&(struct sst_ids) { .task_id = wtask, .location_id = wloc_id,	\
-	.format = wformat,}								\
+					    .format = wformat,}				\
 }
 
 /* output is triggered before input */
-#define SST_PATH_INPUT(name, task_id, loc_id, event) \
+#define SST_PATH_INPUT(name, task_id, loc_id, event)					\
 	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD)
 
-#define SST_PATH_OUTPUT(name, task_id, loc_id, event) \
+#define SST_PATH_OUTPUT(name, task_id, loc_id, event)					\
 	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD)
 
-#define SST_PATH_MEDIA_LOOP_OUTPUT(name, task_id, loc_id, format, event) \
+#define SST_PATH_MEDIA_LOOP_OUTPUT(name, task_id, loc_id, format, event)		\
 	SST_PATH_MEDIA_LOOP(name, task_id, loc_id, format, event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD)
 
 
 #define SST_SWM_MIXER(wname, wreg, wtask, wloc_id, wcontrols, wevent)			\
-{	.id = snd_soc_dapm_mixer, .name = wname, .reg = wreg, .shift = 0,		\
+{	.id = snd_soc_dapm_mixer, .name = wname, .reg = SND_SOC_NOPM, .shift = 0,	\
 	.invert = 0, .kcontrol_news = wcontrols, .num_kcontrols = ARRAY_SIZE(wcontrols),\
-	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD | SND_SOC_DAPM_POST_REG,	\
-	.priv = (void *)&(struct sst_ids) { .task_id = wtask, .location_id = wloc_id, }	\
+	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD |	\
+					SND_SOC_DAPM_POST_REG,				\
+	.priv = (void *)&(struct sst_ids) { .task_id = wtask, .location_id = wloc_id,	\
+					    .reg = wreg }				\
 }
 
 enum sst_gain_kcontrol_type {
