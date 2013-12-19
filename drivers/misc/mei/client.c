@@ -422,18 +422,20 @@ int mei_cl_disconnect(struct mei_cl *cl)
 	if (cl->state != MEI_FILE_DISCONNECTING)
 		return 0;
 
-	cb = mei_io_cb_init(cl, NULL);
-	if (!cb)
-		return -ENOMEM;
-
-	cb->fop_type = MEI_FOP_CLOSE;
-
 	rets = pm_runtime_get(&dev->pdev->dev);
 	if (IS_ERR_VALUE(rets) && rets != -EINPROGRESS) {
 		pm_runtime_put_noidle(&dev->pdev->dev);
 		cl_err(dev, cl, "rpm: get failed %d\n", rets);
 		return rets;
 	}
+
+	cb = mei_io_cb_init(cl, NULL);
+	if (!cb) {
+		rets = -ENOMEM;
+		goto free;
+	}
+
+	cb->fop_type = MEI_FOP_CLOSE;
 
 	if (mei_hbuf_acquire(dev)) {
 		if (mei_hbm_cl_disconnect_req(dev, cl)) {
@@ -532,6 +534,13 @@ int mei_cl_connect(struct mei_cl *cl, struct file *file)
 
 	dev = cl->dev;
 
+	rets = pm_runtime_get(&dev->pdev->dev);
+	if (IS_ERR_VALUE(rets) && rets != -EINPROGRESS) {
+		pm_runtime_put_noidle(&dev->pdev->dev);
+		cl_err(dev, cl, "rpm: get failed %d\n", rets);
+		return rets;
+	}
+
 	cb = mei_io_cb_init(cl, file);
 	if (!cb) {
 		rets = -ENOMEM;
@@ -539,13 +548,6 @@ int mei_cl_connect(struct mei_cl *cl, struct file *file)
 	}
 
 	cb->fop_type = MEI_FOP_IOCTL;
-
-	rets = pm_runtime_get(&dev->pdev->dev);
-	if (IS_ERR_VALUE(rets) && rets != -EINPROGRESS) {
-		pm_runtime_put_noidle(&dev->pdev->dev);
-		cl_err(dev, cl, "rpm: get failed %d\n", rets);
-		return rets;
-	}
 
 	if (!mei_cl_is_other_connecting(cl) && mei_hbuf_acquire(dev)) {
 		if (mei_hbm_cl_connect_req(dev, cl)) {
