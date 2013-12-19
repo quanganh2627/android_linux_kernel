@@ -387,6 +387,16 @@ static void intel_hdmi_set_avi_infoframe(struct drm_encoder *encoder,
 
 	struct dip_infoframe avi_if = {
 		.type = DIP_TYPE_AVI,
+		.ver = DIP_VERSION_AVI,
+		.len = DIP_LEN_AVI,
+		.body.avi.Y_A_B_S = 0,
+		.body.avi.C_M_R = 8,
+		.body.avi.ITC_EC_Q_SC = 0,
+		.body.avi.VIC = 0,
+		.body.avi.YQ_CN_PR = 0,
+		.body.avi.top_bar_end = 0,
+		.body.avi.bottom_bar_start = 0,
+		.body.avi.left_bar_end = 0,
 		.body.avi.right_bar_start = 0,
 	};
 
