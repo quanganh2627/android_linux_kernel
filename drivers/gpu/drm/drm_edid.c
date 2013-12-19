@@ -1795,12 +1795,6 @@ set_size:
 		mode->height_mm = edid->height_cm * 10;
 	}
 
-	/* Mark the aspect ratio based on max width, height info from EDID */
-	if (mode->width_mm/4 == mode->height_mm/3)
-		mode->flags |= DRM_MODE_FLAG_PAR4_3;
-	if (mode->width_mm/16 == mode->height_mm/9)
-		mode->flags |= DRM_MODE_FLAG_PAR16_9;
-
 	mode->type = DRM_MODE_TYPE_DRIVER;
 	mode->vrefresh = drm_mode_vrefresh(mode);
 	drm_mode_set_name(mode);
@@ -2345,6 +2339,46 @@ u8 *drm_find_cea_extension(struct edid *edid)
 EXPORT_SYMBOL(drm_find_cea_extension);
 
 /*
+ * helper function to check whether two clocks can fall into the same VIC.
+ *
+ * Returns: true if possible, false otherwise.
+*/
+static bool drm_check_clock_match(int target, int reference)
+{
+	/* check target clock is in range of 60Hz or 59.94
+	 * (reference * 1000/1001) with (-0.5%, +0.5%) tolerance.
+	 * Based on CEA spec, when determining whether two video timings
+	 * are identical, clock frequencey within (-0.5%, +0.5%) tolerance
+	 * should be considered as the same.
+	*/
+
+	if (target >= DIV_ROUND_UP(reference * 995, 1001) &&
+		target <= DIV_ROUND_UP(reference * 1005, 1000))
+		return true;
+	return false;
+}
+
+/*
+ * helper function to add aspect ratio from the short video desriptor
+ * of cea_mode.
+ *
+*/
+static void drm_add_aspect_cea_mode(struct drm_display_mode *cur_mode,
+		struct drm_display_mode *cea_mode)
+{
+	if (drm_check_clock_match(cur_mode->clock, cea_mode->clock)
+	&& drm_mode_equal_no_clocks(cur_mode, cea_mode)) {
+		if (cea_mode->picture_aspect_ratio
+		== HDMI_PICTURE_ASPECT_4_3)
+			cur_mode->picture_aspect_ratio =
+			HDMI_PICTURE_ASPECT_4_3;
+		else
+			cur_mode->picture_aspect_ratio =
+			HDMI_PICTURE_ASPECT_16_9;
+	}
+}
+
+/*
  * Calculate the alternate clock for the CEA mode
  * (60Hz vs. 59.94Hz etc.)
  */
@@ -2385,17 +2419,12 @@ u8 drm_match_cea_mode(const struct drm_display_mode *to_match)
 
 	for (mode = 0; mode < ARRAY_SIZE(edid_cea_modes); mode++) {
 		const struct drm_display_mode *cea_mode = &edid_cea_modes[mode];
-		unsigned int clock1, clock2;
 
-		/* Check both 60Hz and 59.94Hz */
-		clock1 = cea_mode->clock;
-		clock2 = cea_mode_alternate_clock(cea_mode);
-
-	if ((KHZ2PICOS(to_match->clock) == KHZ2PICOS(clock1) ||
-		     KHZ2PICOS(to_match->clock) == KHZ2PICOS(clock2)) &&
-		    drm_mode_equal_no_clocks(to_match, cea_mode)) {
+		if (drm_check_clock_match(to_match->clock, cea_mode->clock) &&
+			drm_mode_equal_no_clocks(to_match, cea_mode) &&
+			to_match->picture_aspect_ratio ==
+			cea_mode->picture_aspect_ratio)
 			return mode + 1;
-		}
 	}
 	return 0;
 }
@@ -2466,6 +2495,7 @@ static int
 do_cea_modes (struct drm_connector *connector, u8 *db, u8 len)
 {
 	struct drm_device *dev = connector->dev;
+	struct drm_display_mode *cur_mode, *t;
 	u8 * mode, cea_mode;
 	int modes = 0;
 
@@ -2474,7 +2504,13 @@ do_cea_modes (struct drm_connector *connector, u8 *db, u8 len)
 		if (cea_mode < ARRAY_SIZE(edid_cea_modes)) {
 			struct drm_display_mode *newmode;
 			newmode = drm_mode_duplicate(dev,
-						     &edid_cea_modes[cea_mode]);
+					&edid_cea_modes[cea_mode]);
+			list_for_each_entry_safe(cur_mode, t,
+				&connector->probed_modes, head) {
+				if (cur_mode->picture_aspect_ratio)
+					continue;
+				drm_add_aspect_cea_mode(cur_mode, newmode);
+			}
 			if (newmode) {
 				newmode->vrefresh = 0;
 				drm_mode_probed_add(connector, newmode);
