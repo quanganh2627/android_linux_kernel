@@ -1290,12 +1290,38 @@ free_work:
 	return ret;
 }
 
+static void intel_disable_plane_unpin_work_fn(struct work_struct *__work)
+{
+	struct intel_plane *intel_plane =
+			container_of(__work, struct intel_plane, work);
+	struct drm_device *dev = intel_plane->base.dev;
+
+	intel_wait_for_vblank(dev, intel_plane->pipe);
+	if (intel_plane->obj || intel_plane->old_obj) {
+		mutex_lock(&dev->struct_mutex);
+		if (intel_plane->obj) {
+			intel_unpin_fb_obj(intel_plane->obj);
+			drm_gem_object_unreference(&intel_plane->obj->base);
+		}
+
+		if (intel_plane->old_obj) {
+			intel_unpin_fb_obj(intel_plane->old_obj);
+			drm_gem_object_unreference(&intel_plane->old_obj->base);
+		}
+
+		mutex_unlock(&dev->struct_mutex);
+	}
+
+	kfree(intel_plane);
+}
+
 static int
 intel_disable_plane(struct drm_plane *plane)
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane = to_intel_plane(plane);
+	struct intel_plane *intel_plane_wq;
 	int ret = 0;
 
 	if (!plane->fb)
@@ -1304,29 +1330,30 @@ intel_disable_plane(struct drm_plane *plane)
 	if (WARN_ON(!plane->crtc))
 		return -EINVAL;
 
+	intel_plane_wq = kzalloc(sizeof(*intel_plane_wq), GFP_KERNEL);
+	if (!intel_plane_wq)
+		return -ENOMEM;
+
+	/* To support deffered plane disable */
+	INIT_WORK(&intel_plane_wq->work, intel_disable_plane_unpin_work_fn);
+
 	/* If MAX FIFO enabled disable */
 	if (I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN)
 		I915_WRITE(FW_BLC_SELF_VLV,
 			   I915_READ(FW_BLC_SELF_VLV) & ~FW_CSPWRDWNEN);
 
 	intel_enable_primary(plane->crtc);
-	intel_wait_for_vblank(dev, intel_plane->pipe);
 	intel_plane->disable_plane(plane, plane->crtc);
 
-	if (intel_plane->obj || intel_plane->old_obj) {
-		mutex_lock(&dev->struct_mutex);
-		if (intel_plane->obj) {
-			intel_unpin_fb_obj(intel_plane->obj);
-			drm_gem_object_unreference(&intel_plane->obj->base);
-			intel_plane->obj = NULL;
-		}
-		if (intel_plane->old_obj) {
-			intel_unpin_fb_obj(intel_plane->old_obj);
-			drm_gem_object_unreference(&intel_plane->old_obj->base);
-			intel_plane->old_obj = NULL;
-		}
-		mutex_unlock(&dev->struct_mutex);
-	}
+	intel_plane_wq->base.dev = plane->dev;
+	intel_plane_wq->old_obj = intel_plane->old_obj;
+	intel_plane_wq->obj = intel_plane->obj;
+	intel_plane_wq->pipe = intel_plane->pipe;
+
+	intel_plane->obj = NULL;
+	intel_plane->old_obj = NULL;
+
+	schedule_work(&intel_plane_wq->work);
 
 	return ret;
 }
