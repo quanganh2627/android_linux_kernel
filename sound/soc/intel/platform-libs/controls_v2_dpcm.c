@@ -193,6 +193,58 @@ static int sst_slot_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+/* assumes a boolean mux */
+static inline bool get_mux_state(struct sst_data *sst, unsigned int reg, unsigned int shift)
+{
+	return (sst_reg_read(sst, reg, shift, 1) == 1);
+}
+
+static int sst_mux_get(struct snd_kcontrol *kcontrol,
+		       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct sst_data *sst = snd_soc_platform_get_drvdata(widget->platform);
+	struct soc_enum *e = (void *)kcontrol->private_value;
+	unsigned int max = e->max - 1;
+
+	ucontrol->value.enumerated.item[0] = sst_reg_read(sst, e->reg, e->shift_l, max);
+	return 0;
+}
+
+static int sst_mux_put(struct snd_kcontrol *kcontrol,
+		       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct sst_data *sst = snd_soc_platform_get_drvdata(widget->platform);
+	struct soc_enum *e = (void *)kcontrol->private_value;
+	struct snd_soc_dapm_update update;
+	unsigned int max = e->max - 1;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int mux, val;
+
+	if (ucontrol->value.enumerated.item[0] > e->max - 1)
+		return -EINVAL;
+
+	mux = ucontrol->value.enumerated.item[0];
+	val = sst_reg_write(sst, e->reg, e->shift_l, max, mux);
+
+	pr_debug("%s: reg[%d] = %#x\n", __func__, e->reg, val);
+
+	widget->value = val;
+	update.kcontrol = kcontrol;
+	update.widget = widget;
+	update.reg = e->reg;
+	update.mask = mask;
+	update.val = val;
+
+	widget->dapm->update = &update;
+	snd_soc_dapm_mux_update_power(widget, kcontrol, mux, e);
+	widget->dapm->update = NULL;
+	return 0;
+}
+
 static void sst_send_algo_cmd(struct sst_data *sst,
 			      struct sst_algo_control *bc)
 {
@@ -671,6 +723,8 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	struct sst_ids *ids = w->priv;
 	static int ssp_active[SSP_CODEC + 1];
+	bool is_bt;
+	unsigned int ssp_id = ids->ssp_id;
 
 	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
 
@@ -678,6 +732,12 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 	cmd.header.command_id = SBA_HW_SET_SSP;
 	cmd.header.length = sizeof(struct sst_cmd_sba_hw_set_ssp)
 				- sizeof(struct sst_dsp_header);
+
+	if (ssp_id == SSP_FM) {
+		/* switch to BT if the mux is set */
+		is_bt = get_mux_state(sst, SST_MUX_REG, 0);
+		ssp_id = is_bt ? SSP_BT : SSP_FM;
+	}
 
 	if (SND_SOC_DAPM_EVENT_ON(event))
 		ssp_active[ids->ssp_id]++;
@@ -691,7 +751,7 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 		cmd.switch_state = SST_SWITCH_OFF;
 
 	/* TODO: allow to be modified */
-	cmd.selection = ids->ssp_id;
+	cmd.selection = ssp_id;
 	cmd.nb_bits_per_slots = 24;
 	cmd.nb_slots = 4;
 	cmd.mode = 2;
@@ -890,6 +950,14 @@ static const struct snd_kcontrol_new sst_mix_sw_aware =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 0, 1, 0,
 		sst_mix_get, sst_mix_put);
 
+static const char * const sst_bt_fm_texts[] = {
+	"fm", "bt",
+};
+
+static const struct snd_kcontrol_new sst_bt_fm_mux =
+	SST_SSP_MUX_CTL("ssp1", 0, SST_MUX_REG, 0, sst_bt_fm_texts,
+			sst_mux_get, sst_mux_put);
+
 static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("tone"),
 	SND_SOC_DAPM_OUTPUT("aware"),
@@ -1002,6 +1070,7 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 		      sst_mix_modem_controls, sst_swm_mixer_event),
 
 	SND_SOC_DAPM_SWITCH("aware_out aware 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_aware),
+	SND_SOC_DAPM_MUX("ssp1 mux 0", SND_SOC_NOPM, 0, 0, &sst_bt_fm_mux),
 
 	SND_SOC_DAPM_SUPPLY("VBTimer", SND_SOC_NOPM, 0, 0,
 			    sst_vb_trigger_event,
@@ -1067,6 +1136,16 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"modem_out", NULL, "modem_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("modem_out mix 0"),
 
+	{"bt_fm_out", NULL, "ssp1 mux 0"},
+	{"ssp1 mux 0", "bt", "bt_out"},
+	{"ssp1 mux 0", "fm", "fm_out"},
+	{"bt_out", NULL, "bt_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("bt_out mix 0"),
+	{"fm_out", NULL, "fm_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("fm_out mix 0"),
+	{"bt_in", NULL, "bt_fm_in"},
+	{"fm_in", NULL, "bt_fm_in"},
+
 	/* Uplink processing */
 	{"txspeech_in", NULL, "hf_sns_out"},
 	{"txspeech_in", NULL, "hf_out"},
@@ -1084,7 +1163,6 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"rxspeech_out", NULL, "rxspeech_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("rxspeech_out mix 0"),
 
-	/* TODO: add BT and FM inputs and outputs */
 	/* TODO: add Tone inputs */
 	/* TODO: add Low Latency stream support */
 
@@ -1096,6 +1174,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"aware", NULL, "VBTimer"},
 	{"modem_in", NULL, "VBTimer"},
 	{"modem_out", NULL, "VBTimer"},
+	{"bt_fm_in", NULL, "VBTimer"},
+	{"bt_fm_out", NULL, "VBTimer"},
 };
 
 static const char * const slot_names[] = {

@@ -274,6 +274,18 @@ struct sst_algo_control {
 			  SST_SSP_SLOT_ENUM(s_ch_no, is_tx, xtexts), \
 			  xget, xput)
 
+#define SST_MUX_CTL_NAME(xpname, xinstance) \
+	xpname " " #xinstance
+
+#define SST_SSP_MUX_ENUM(xreg, xshift, xtexts) \
+	(struct soc_enum){ .reg = xreg, .texts = xtexts, .shift_l = xshift, \
+			   .shift_r = xshift, .max = ARRAY_SIZE(xtexts), }
+
+#define SST_SSP_MUX_CTL(xpname, xinstance, xreg, xshift, xtexts, xget, xput) \
+	SOC_DAPM_ENUM_EXT(SST_MUX_CTL_NAME(xpname, xinstance), \
+			  SST_SSP_MUX_ENUM(xreg, xshift, xtexts), \
+			  xget, xput)
+
 struct sst_probe_value {
 	unsigned int val;
 	const struct soc_enum *p_enum;

@@ -67,9 +67,11 @@
 #define SST_MIX_SWITCH		(SST_NUM_MIX + 1)
 #define SST_OUT_SWITCH		(SST_NUM_MIX + 2)
 #define SST_IN_SWITCH		(SST_NUM_MIX + 3)
+#define SST_MUX_REG		(SST_NUM_MIX + 4)
+#define SST_REG_LAST		(SST_MUX_REG)
 
 /* last entry defines array size */
-#define SST_NUM_WIDGETS		(SST_IN_SWITCH + 1)
+#define SST_NUM_WIDGETS		(SST_REG_LAST + 1)
 
 /* in each mixer register we will define one bit for each input */
 #define SST_MIX_IP(x)		(x)
