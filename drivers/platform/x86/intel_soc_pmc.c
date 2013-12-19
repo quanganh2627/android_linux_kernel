@@ -30,7 +30,7 @@
 #include <linux/semaphore.h>
 #include <linux/suspend.h>
 #include <linux/time.h>
-
+#include <linux/intel_mid_pm.h>
 #include <asm/intel_mid_pcihelpers.h>
 
 #define BYT_S3_HINT		0x64
@@ -44,6 +44,10 @@
 #define	S0_TMR_OFFSET		0x90
 
 #define	S0IX_WAKE_EN		0x3c
+#define	D3_STS0			0xA0
+#define	D3_STS1			0xA4
+#define FUNC_DIS		0x34
+#define FUNC_DIS2		0x38
 
 #define	PMC_MMIO_BAR		1
 #define	BASE_ADDRESS_MASK	0xFFFFFFFE00
@@ -64,6 +68,9 @@
 #define RENDER_POS		0
 #define MEDIA_POS		2
 #define DISPLAY_POS		6
+
+#define DSP_SSS_CHT		0x36
+#define DSP_SSS_POS_CHT		0x16
 
 #define MAX_POWER_ISLANDS	16
 #define ISLAND_UP		0x0
@@ -87,6 +94,66 @@
 #define PCI_ID_ANY		(~0)
 #define SUB_CLASS_MASK		0xFF00
 
+#define SC_NUM_DEVICES 36
+#define NC_NUM_DEVICES 6
+
+const char *d3_device_cht[] = {
+	"0 - LPSS 0 DMA 1", "1 - LPSS 0 PMW 0",
+	"2 - LPSS 0 PMW 0", "3 - LPSS 0 UART1",
+	"4 - LPSS 0 UART2", "5 - LPSS SPI",
+	"6 - LPSS 0 function 6", "7 - LPSS 0 function 7",
+	"8 - SCC EMMC", "9 - SCC SD",
+	"10 - SCC SDIO", "11 - MIPI", "12 - HDA",
+	"13 - LPE", "14 - USB SIP Bridge", "15 - UFS ",
+	"16 - GBE", "17 - SATA", "18 - USB ", "19 - SEC",
+	"20 - PCIE function 0", "21 - PCIE function 1",
+	"22 - PCIE function 2", "23 - PCIE function 3",
+	"24 - LPSS 1 DMA1", "25 - LPSS 1 I2c 1",
+	"26 - LPSS 1 I2c 2", "27 - LPSS 1 I2c 3",
+	"28 - LPSS 1 I2c 4", "29 - LPSS 1 I2c 5",
+	"30 - LPSS 1 I2c 6", "31 - LPSS 1 I2c 7",
+	"32 - SMB", "33 -GMM", "34 - ISH"
+};
+
+const char *d3_device_byt[] = {
+	"0 - LPSS 0 function 0 (DMA)",
+	"1 - LPSS 0 function 1 (PWM#1)",
+	"2 - LPSS 0 function 2 (PWM#2)",
+	"3 - LPSS 0 function 3 (HSUART#1)",
+	"4 - LPSS 0 function 4 (HSUART#2)",
+	"5 - LPSS 0 function 5 (SPI)",
+	"6 - LPSS 0 function 6",
+	"7 - LPSS 0 function 7",
+	"8 - SCC function 0 (eMMC)",
+	"9 - SCC function 1 (SDIO)",
+	"10 - SCC function 2 (SDCARD)",
+	"11 - MIPI",
+	"12 - HDA",
+	"13 - LPE",
+	"14 - OTG",
+	"15 - USH",
+	"16 - GBE",
+	"17 - SATA",
+	"18 - USB",
+	"19 - SEC",
+	"20 - PCIE function 0",
+	"21 - PCIE function 1",
+	"22 - PCIE function 2",
+	"23 - PCIE function 3",
+	"24 - LPSS 1 function 0 (DMA)",
+	"25 - LPSS 1 function 1 (I2C#)",
+	"26 - LPSS 1 function 2 (I2C#)",
+	"27 - LPSS 1 function 3 (I2C#)",
+	"28 - LPSS 1 function 4 (I2C#)",
+	"29 - LPSS 1 function 5 (I2C#)",
+	"30 - LPSS 1 function 6 (I2C#)",
+	"31 - LPSS 1 function 7 (I2C#)",
+	"32 - SMB",
+	"33 - USH Super speed PHY",
+	"34 - OTG Super speed PHY",
+	"35 - DFX"
+};
+
 enum system_state {
 	STATE_S0IR,
 	STATE_S0I1,
@@ -101,6 +168,10 @@ struct pmc_dev {
 	u32 base_address;
 	u32 __iomem *pmc_registers;
 	u32 __iomem *s0ix_wake_en;
+	u32 __iomem *d3_sts0;
+	u32 __iomem *d3_sts1;
+	u32 __iomem *func_dis;
+	u32 __iomem *func_dis2;
 	struct pci_dev const *pdev;
 	struct semaphore nc_ready_lock;
 	u32 state_residency[STATE_MAX];
@@ -126,10 +197,21 @@ struct nc_device {
 	char *name;
 	int reg;
 	int sss_pos;
-} nc_devices[] = {
+};
+
+const struct nc_device nc_devices_byt[] = {
 	{ "GFX RENDER", PWRGT_STATUS,  RENDER_POS },
 	{ "GFX MEDIA", PWRGT_STATUS, MEDIA_POS },
 	{ "DISPLAY", PWRGT_STATUS,  DISPLAY_POS },
+	{ "VED", VED_SS_PM0, SSS_SHIFT},
+	{ "ISP", ISP_SS_PM0, SSS_SHIFT},
+	{ "MIO", MIO_SS_PM, SSS_SHIFT},
+};
+
+const struct nc_device nc_devices_cht[] = {
+	{ "GFX RENDER", PWRGT_STATUS,  RENDER_POS },
+	{ "GFX MEDIA", PWRGT_STATUS, MEDIA_POS },
+	{ "DSP", DSP_SSS_CHT,  DSP_SSS_POS_CHT },
 	{ "VED", VED_SS_PM0, SSS_SHIFT},
 	{ "ISP", ISP_SS_PM0, SSS_SHIFT},
 	{ "MIO", MIO_SS_PM, SSS_SHIFT},
@@ -283,8 +365,13 @@ static void print_residency_per_state(struct seq_file *s, int state)
 static int pmc_devices_state_show(struct seq_file *s, void *unused)
 {
 	struct pmc_dev *pmc_cxt = (struct pmc_dev *)s->private;
-	int i;
-	u32 val, nc_pwr_sts, reg;
+	int i, j;
+	u32 val, nc_pwr_sts, reg, reg_d3sts0, reg_d3sts1, reg_func_dis,
+	    reg_func_dis2, tmp;
+	u8 bit;
+	u32 ignore_flag;
+	char **d3_device;
+	struct nc_device *nc_devices;
 	unsigned int base_class, sub_class;
 	struct pci_dev *dev = NULL;
 	u16 pmcsr;
@@ -301,13 +388,44 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 	pmc_cxt->state_residency[STATE_S0I3] -=
 		pmc_cxt->state_residency[STATE_S3];
 
+	reg_d3sts0 = readl(pmc_cxt->d3_sts0);
+	pr_info("d3sts0 = %x\n", reg_d3sts0);
+	reg_d3sts1 = readl(pmc_cxt->d3_sts1);
+	pr_info("d3sts1 = %x\n", reg_d3sts1);
+	reg_func_dis = readl(pmc_cxt->func_dis);
+	pr_info("func_dis = %x\n", reg_func_dis);
+	reg_func_dis2 = readl(pmc_cxt->func_dis2);
+	pr_info("func_dis2 = %x\n", reg_func_dis2);
+
+	if (platform_is(INTEL_ATOM_BYT)) {
+		nc_devices = nc_devices_byt;
+		d3_device = d3_device_byt;
+		/* swap bits 1 and 2 of func_dis2 to align them in order */
+		tmp = reg_func_dis2;
+		i = 1;
+		j = 2;
+		if (((tmp & (1 << i)) >> i) ^ ((tmp & (1 << j)) >> j)) {
+			tmp ^= (1 << i);
+			tmp ^= (1 << j);
+		}
+		reg_func_dis2 = tmp;
+	} else {
+		nc_devices = nc_devices_cht;
+		d3_device = d3_device_cht;
+		/* shift 3rd & 4th bits to 1st & 2nd position to align them in
+		 * order and ignore 3rd bit of d3_sts1 as it is reserved */
+		tmp = reg_func_dis2 & 0x01;
+		reg_func_dis2 >>= 2;
+		reg_func_dis2 &= (tmp & 0x08);
+	}
+
 	seq_puts(s, "State \t\t Time[sec] \t\t Residency[%%] \t\t Count\n");
 	for (i = STATE_S0IR; i < STATE_MAX; i++)
 		print_residency_per_state(s, i);
 
 	seq_puts(s, "\n\nNORTH COMPLEX DEVICES :\n");
 
-	for (i = 0; i < ARRAY_SIZE(nc_devices); i++) {
+	for (i = 0; i < NC_NUM_DEVICES; i++) {
 		reg = nc_devices[i].reg;
 		nc_pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, reg);
 		nc_pwr_sts >>= nc_devices[i].sss_pos;
@@ -317,25 +435,30 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 
 	seq_puts(s, "\nSOUTH COMPLEX DEVICES :\n");
 
-	while ((dev = pci_get_device(PCI_ID_ANY, PCI_ID_ANY, dev)) != NULL) {
-		/* find the base class info */
-		base_class = dev->class >> 16;
-		sub_class  = (dev->class & SUB_CLASS_MASK) >> 8;
-
-		if (base_class == PCI_BASE_CLASS_BRIDGE)
+	for (j = 0; j < SC_NUM_DEVICES; j++) {
+		if (j >= 32) {
+			ignore_flag = reg_func_dis2 & 0x01;
+			reg_func_dis2 >>= 1;
+			if (ignore_flag) {
+				reg_d3sts1 >>= 1;
+				continue;
+			}
+			bit  = reg_d3sts1 & 0x01;
+			seq_printf(s, "%9s  : %s\n", *(d3_device + j),
+					bit ? "D0i3" : "D0");
+			reg_d3sts1 = reg_d3sts1 >> 1;
 			continue;
-
-		if ((base_class == PCI_BASE_CLASS_DISPLAY) && !sub_class)
+		}
+		ignore_flag = reg_func_dis & 0x01;
+		reg_func_dis >>= 1;
+		if (ignore_flag) {
+			reg_d3sts0 >>= 1;
 			continue;
-
-		if ((base_class == PCI_BASE_CLASS_MULTIMEDIA) &&
-				(sub_class == ISP_SUB_CLASS))
-			continue;
-
-		pci_read_config_word(dev, dev->pm_cap + PCI_PM_CTRL, &pmcsr);
-		val = pmcsr & PMC_D0I3_MASK;
-		seq_printf(s, "%9s %15s : %s\n", dev_name(&dev->dev),
-			dev_driver_string(&dev->dev), dstates[val]);
+		}
+		bit  = reg_d3sts0 & 0x01;
+		seq_printf(s, "%9s  : %s\n", *(d3_device + j),
+				bit ? "D0i3" : "D0");
+		reg_d3sts0 = reg_d3sts0 >> 1;
 	}
 
 	seq_puts(s, "\n");
@@ -565,6 +688,16 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 
 	pmc_cxt->s0ix_wake_en = devm_ioremap_nocache(&pdev->dev,
 		pmc_cxt->base_address + S0IX_WAKE_EN, 4);
+
+	pmc_cxt->d3_sts0 = devm_ioremap_nocache(&pdev->dev,
+		pmc_cxt->base_address + D3_STS0, 4);
+	pmc_cxt->d3_sts1 = devm_ioremap_nocache(&pdev->dev,
+		pmc_cxt->base_address + D3_STS1, 4);
+
+	pmc_cxt->func_dis = devm_ioremap_nocache(&pdev->dev,
+		pmc_cxt->base_address + FUNC_DIS, 4);
+	pmc_cxt->func_dis2 = devm_ioremap_nocache(&pdev->dev,
+		pmc_cxt->base_address + FUNC_DIS2, 4);
 
 	if (!pmc_cxt->pmc_registers || !pmc_cxt->s0ix_wake_en) {
 		dev_err(&pdev->dev, "Failed to map PMC registers.\n");
