@@ -51,6 +51,11 @@ static int is_victoriabay(void)
 		       || SPID_HARDWARE_ID(CLVTP, PHONE, VB, PR20)));
 }
 
+static int is_moorefield(void)
+{
+	return INTEL_MID_BOARD(1, PHONE, MOFD);
+}
+
 /*
  * MRFLD VV primary camera sensor - IMX135 platform data
  */
@@ -94,6 +99,20 @@ static int imx135_power_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
+
+	if (is_moorefield()) {
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
+		ret = intel_scu_ipc_msic_vprog1(flag);
+#else
+		ret = -ENODEV;
+#endif
+		if (ret)
+			pr_err("imx135 power failed\n");
+		if (flag)
+			usleep_range(1000, 1200);
+
+		return ret;
+	}
 
 	if (flag) {
 		if (is_ctp()) {
@@ -185,7 +204,7 @@ static int imx135_platform_init(struct i2c_client *client)
 			return PTR_ERR(vemmc1_reg);
 		}
 	}
-	if (!is_victoriabay()) {
+	if (!is_victoriabay() && !is_moorefield()) {
 		vprog1_reg = regulator_get(&client->dev, "vprog1");
 		if (IS_ERR(vprog1_reg)) {
 			dev_err(&client->dev, "regulator_get failed\n");
@@ -203,7 +222,8 @@ static int imx135_platform_init(struct i2c_client *client)
 
 static int imx135_platform_deinit(void)
 {
-	regulator_put(vprog1_reg);
+	if (!is_victoriabay() && !is_moorefield())
+		regulator_put(vprog1_reg);
 
 	if (is_ctp())
 		regulator_put(vemmc1_reg);
