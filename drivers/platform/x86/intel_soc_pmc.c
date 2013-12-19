@@ -425,6 +425,11 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 
 	seq_puts(s, "\n\nNORTH COMPLEX DEVICES :\n");
 
+	/* WA: first read after S0ix (x>1) transitions is returning 0.
+	 * Do a dummy read to make sure status are properly reflectd
+	 * from next read onwards.
+	 */
+	nc_pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, PWRGT_STATUS);
 	for (i = 0; i < NC_NUM_DEVICES; i++) {
 		reg = nc_devices[i].reg;
 		nc_pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, reg);
