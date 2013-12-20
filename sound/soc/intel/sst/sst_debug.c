@@ -1122,29 +1122,49 @@ static const struct file_operations sst_debug_ddr_imr_dump = {
 	.mmap = sst_debug_ddr_imr_dump_mmap,
 };
 
+struct sst_debug {
+	const char *name;
+	const struct file_operations *fops;
+	umode_t mode;
+};
+
+static const struct sst_debug sst_common_dbg_entries[] = {
+	{"runtime_pm", &sst_debug_rtpm_ops, 0600},
+	{"shim_dump", &sst_debug_shim_ops, 0600},
+	{"fw_clear_context", &sst_debug_fw_clear_cntx, 0600},
+	{"fw_clear_cache", &sst_debug_fw_clear_cache, 0600},
+	{"fw_reset_state", &sst_debug_fw_reset_state, 0600},
+	{"fw_dwnld_mode", &sst_debug_dwnld_mode, 0600},
+	{"iram_dump", &sst_debug_iram_dump, 0400},
+	{"dram_dump", &sst_debug_dram_dump, 0400},
+	{"sram_ia_lpe_mailbox", &sst_debug_sram_ia_lpe_mbox_ops, 0400},
+	{"sram_lpe_ia_mailbox", &sst_debug_sram_lpe_ia_mbox_ops, 0400},
+};
 
 void sst_debugfs_init(struct intel_sst_drv *sst)
 {
+	int i;
+
 	sst->debugfs.root = debugfs_create_dir("sst", NULL);
 	if (IS_ERR(sst->debugfs.root) || !sst->debugfs.root) {
 		pr_err("Failed to create debugfs directory\n");
 		return;
 	}
-	/* Runtime PM enable/disable */
-	if (!debugfs_create_file("runtime_pm", 0600, sst->debugfs.root,
-				sst, &sst_debug_rtpm_ops)) {
-		pr_err("Failed to create runtime_pm file\n");
-		return;
+
+	for (i = 0; i < ARRAY_SIZE(sst_common_dbg_entries); i++) {
+		struct dentry *dentry;
+		const struct sst_debug *entry = &sst_common_dbg_entries[i];
+
+		dentry = debugfs_create_file(entry->name, entry->mode,
+				sst->debugfs.root, sst, entry->fops);
+		if (dentry == NULL) {
+			pr_err("Failed to create %s file\n", entry->name);
+			return;
+		}
 	}
+
 	/* Initial status is enabled */
 	sst->debugfs.runtime_pm_status = 1;
-
-	/* For dumping shim registers */
-	if (!debugfs_create_file("shim_dump", 0600, sst->debugfs.root,
-				sst, &sst_debug_shim_ops)) {
-		pr_err("Failed to create shim_dump file\n");
-		return;
-	}
 
 	/* For Reading/Enabling OSC Clock */
 	if (!debugfs_create_file("osc_clk0", 0600, sst->debugfs.root,
@@ -1164,16 +1184,7 @@ void sst_debugfs_init(struct intel_sst_drv *sst)
 		pr_err("Failed to create sram_lpe_checkpoint file\n");
 		return;
 	}
-	if (!debugfs_create_file("sram_ia_lpe_mailbox", 0400, sst->debugfs.root,
-				sst, &sst_debug_sram_ia_lpe_mbox_ops)) {
-		pr_err("Failed to create sram_ia_lpe_mailbox file\n");
-		return;
-	}
-	if (!debugfs_create_file("sram_lpe_ia_mailbox", 0400, sst->debugfs.root,
-				sst, &sst_debug_sram_lpe_ia_mbox_ops)) {
-		pr_err("Failed to create sram_lpe_ia_mailbox file\n");
-		return;
-	}
+
 	if (!debugfs_create_file("sram_lpe_scu_mailbox", 0400, sst->debugfs.root,
 				sst, &sst_debug_sram_lpe_scu_mbox_ops)) {
 		pr_err("Failed to create sram_lpe_scu_mailbox file\n");
@@ -1190,34 +1201,6 @@ void sst_debugfs_init(struct intel_sst_drv *sst)
 		return;
 	}
 
-	/* Firmware context */
-	if (!debugfs_create_file("fw_clear_context", 0600, sst->debugfs.root,
-				sst, &sst_debug_fw_clear_cntx)) {
-		pr_err("Failed to create fw_clear_context file\n");
-		return;
-	}
-
-	/* Firmware cached copy */
-	if (!debugfs_create_file("fw_clear_cache", 0600, sst->debugfs.root,
-				sst, &sst_debug_fw_clear_cache)) {
-		pr_err("Failed to create fw_clear_cache file\n");
-		return;
-	}
-
-	/* Firmware lpe state */
-	if (!debugfs_create_file("fw_reset_state", 0600, sst->debugfs.root,
-				sst, &sst_debug_fw_reset_state)) {
-		pr_err("Failed to create fw_reset_state file\n");
-		return;
-	}
-
-	/* fw/lib download mode interface */
-	if (!debugfs_create_file("fw_dwnld_mode", 0600, sst->debugfs.root,
-				sst, &sst_debug_dwnld_mode)) {
-		pr_err("Failed to create fw_dwnld_mode file\n");
-		return;
-	}
-
 	/* ssp_reg interface */
 	if (!debugfs_create_file("fw_ssp_reg", 0400, sst->debugfs.root,
 				sst, &sst_debug_ssp_reg)) {
@@ -1229,20 +1212,6 @@ void sst_debugfs_init(struct intel_sst_drv *sst)
 	if (!debugfs_create_file("fw_dma_reg", 0400, sst->debugfs.root,
 				sst, &sst_debug_dma_reg)) {
 		pr_err("Failed to create fw_dma_reg file\n");
-		return;
-	}
-
-	/* Dump Iram */
-	if (!debugfs_create_file("iram_dump", 0400, sst->debugfs.root,
-				sst, &sst_debug_iram_dump)) {
-		pr_err("Failed to create iram_dump file\n");
-		return;
-	}
-
-	/* dump Dram */
-	if (!debugfs_create_file("dram_dump", 0400, sst->debugfs.root,
-				sst, &sst_debug_dram_dump)) {
-		pr_err("Failed to create dram_dump file\n");
 		return;
 	}
 
