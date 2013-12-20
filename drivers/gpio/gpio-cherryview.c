@@ -48,6 +48,7 @@
 #define CV_GPIO_TX_STAT		BIT(1)
 #define CV_GPIO_EN		BIT(15)
 
+#define CV_CFG_LOCK_MASK	BIT(31)
 #define CV_INT_CFG_MASK		(BIT(0) | BIT(1) | BIT(2))
 #define CV_PAD_MODE_MASK	(0xF << 16)
 
@@ -61,7 +62,9 @@
 
 #define MAX_INTR_LINE_NUM	16
 
-/* TODO: add gpio_debug debugfs */
+/* When Pad Cfg is locked, driver can only change GPIOTXState or GPIORXState */
+#define PAD_CFG_LOCKED(offset)	(chv_readl(chv_gpio_reg(&cg->chip,	\
+				offset, CV_PADCTRL1_REG)) & CV_CFG_LOCK_MASK)
 
 enum INTR_CFG {
 	CV_INTR_DISABLE,
@@ -80,18 +83,6 @@ struct gpio_pad_info {
 
 };
 
-/* Interrupt lines info - mapping of interrupt lines to interruptible gpios
- * Note: [For CHV PO]
- *	 The interrupt lines info should be pre configured in BIOS.
- *	 We maintain this mapping table in gpio chip data.
- *	 If the configuration from the BIOS is not completed, we can
- *	 dynamically allocate and free the interrupt lines.
- */
-struct chip_intr_info {
-	int	off;		/* offset of the gpio */
-	bool	set_in_bios;	/* If the interrupt is pre-set in bios */
-};
-
 struct gpio_bank_pnp {
 	char			*name;
 	int			gpio_base;
@@ -102,7 +93,7 @@ struct gpio_bank_pnp {
 };
 
 /* For invalid GPIO number(not found in GPIO list),
- * initialize all three fields as -1.
+ * initialize all fields as -1.
  */
 static struct gpio_pad_info north_pads_info[CV_NGPIO_NORTH] = {
 	[GPIO_DFX_0]		= { 0,		0,	-1 },
@@ -438,7 +429,7 @@ struct chv_gpio {
 	struct gpio_pad_info	*pad_info;
 	struct irq_domain	*domain;
 	int			irq_base;
-	struct chip_intr_info	intr_lines[MAX_INTR_LINE_NUM];
+	int			intr_lines[MAX_INTR_LINE_NUM];
 };
 
 static DEFINE_SPINLOCK(chv_reg_access_lock);
@@ -496,6 +487,9 @@ static int chv_gpio_request(struct gpio_chip *chip, unsigned offset)
 	if (cg->pad_info[offset].family < 0)
 		return -EINVAL;
 
+	if (PAD_CFG_LOCKED(offset))
+		return 0;
+
 	reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL0_REG);
 	spin_lock_irqsave(&cg->lock, flags);
 	value = chv_readl(reg);
@@ -514,6 +508,9 @@ static void chv_gpio_free(struct gpio_chip *chip, unsigned offset)
 	u32 value;
 
 	if (cg->pad_info[offset].family < 0)
+		return;
+
+	if (PAD_CFG_LOCKED(offset))
 		return;
 
 	reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL0_REG);
@@ -550,6 +547,9 @@ void lnw_gpio_set_alt(int gpio, int alt)
 	}
 
 	if (cg->pad_info[offset].family < 0)
+		return;
+
+	if (PAD_CFG_LOCKED(offset))
 		return;
 
 	reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL0_REG);
@@ -621,55 +621,20 @@ static void chv_update_irq_type(struct chv_gpio *cg, unsigned type,
 	chv_writel(value, reg);
 }
 
-static int chv_intr_select(struct chv_gpio *cg, unsigned offset)
+/* BIOS programs IntSel bits for shared interrupt.
+ * GPIO driver follows it.
+ */
+static void pad_intr_line_save(struct chv_gpio *cg, unsigned offset)
 {
-	int i;
-	void __iomem *reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL0_REG);
 	u32 value;
+	u32 intr_line;
+	void __iomem *reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL0_REG);
 	struct gpio_pad_info *pad_info = cg->pad_info + offset;
 
-	/* Already selected? No need to do it again. */
-	if (pad_info->interrupt_line >= 0)
-		return 0;
-
-	for (i = 0; i < MAX_INTR_LINE_NUM; i++) {
-		if (cg->intr_lines[i].off >= 0)
-			continue;
-
-		cg->intr_lines[i].off = offset;
-		/* Select the interrupt line */
-		value = chv_readl(reg);
-		value &= ~CV_INT_SEL_MASK;
-		value |= (i << 28);
-		chv_writel(value, reg);
-		pad_info->interrupt_line = i;
-		break;
-	}
-
-	if (i == MAX_INTR_LINE_NUM)
-		return -ENOSPC;
-
-	return 0;
-}
-
-static void chv_intr_release(struct chv_gpio *cg, unsigned offset)
-{
-	struct gpio_pad_info *pad_info = cg->pad_info + offset;
-
-	/* when release intr line, it should contain valid intr line number,
-	 * otherwise return.
-	 */
-	if (pad_info->interrupt_line < 0 ||
-		pad_info->interrupt_line >= MAX_INTR_LINE_NUM)
-		return;
-
-	/* Dont touch/free the irqs which are pre-set in bios */
-	if (cg->intr_lines[pad_info->interrupt_line].set_in_bios)
-		return;
-
-	/* reset to the initial value */
-	cg->intr_lines[pad_info->interrupt_line].off = -1;
-	pad_info->interrupt_line = -1;
+	value = chv_readl(reg);
+	intr_line = (value & CV_INT_SEL_MASK) >> 28;
+	pad_info->interrupt_line = intr_line;
+	cg->intr_lines[intr_line] = offset;
 }
 
 static int chv_irq_type(struct irq_data *d, unsigned type)
@@ -686,24 +651,34 @@ static int chv_irq_type(struct irq_data *d, unsigned type)
 	if (cg->pad_info[offset].family < 0)
 		return -EINVAL;
 
-	reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL1_REG);
-
 	spin_lock_irqsave(&cg->lock, flags);
 
-	/* Select interrupt line first */
-	if (type != IRQ_TYPE_NONE && chv_intr_select(cg, offset)) {
-		ret = -EINVAL;
-		goto out;
+	/* Pins which can be used as shared interrupt are configured in BIOS.
+	 * Driver trusts BIOS configurations and assigns different handler
+	 * according to the irq type.
+	 *
+	 * Driver needs to save the mapping between each pin and
+	 * its interrupt line.
+	 * 1. If the pin cfg is locked in BIOS:
+	 *	Trust BIOS has programmed IntWakeCfg bits correctly,
+	 *	driver just needs to save the mapping.
+	 * 2. If the pin cfg is not locked in BIOS:
+	 *	Driver programs the IntWakeCfg bits and save the mapping.
+	 *
+	 */
+	if (!PAD_CFG_LOCKED(offset)) {
+		reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL1_REG);
+
+		chv_update_irq_type(cg, type, reg);
 	}
 
-	chv_update_irq_type(cg, type, reg);
+	pad_intr_line_save(cg, offset);
 
 	if (type & IRQ_TYPE_EDGE_BOTH)
 		__irq_set_handler_locked(d->irq, handle_edge_irq);
 	else if (type & IRQ_TYPE_LEVEL_MASK)
 		__irq_set_handler_locked(d->irq, handle_level_irq);
 
-out:
 	spin_unlock_irqrestore(&cg->lock, flags);
 
 	return ret;
@@ -724,7 +699,7 @@ static int chv_gpio_get(struct gpio_chip *chip, unsigned offset)
 	if ((value & CV_GPIO_CFG_MASK) == CV_GPIO_TX_EN)
 		return !!(value & CV_GPIO_TX_STAT);
 	else
-		return chv_readl(reg) & CV_GPIO_RX_STAT;
+		return value & CV_GPIO_RX_STAT;
 }
 
 static void chv_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
@@ -761,6 +736,9 @@ static int chv_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 	if (cg->pad_info[offset].family < 0)
 		return -EINVAL;
 
+	if (PAD_CFG_LOCKED(offset))
+		return 0;
+
 	reg = chv_gpio_reg(chip, offset, CV_PADCTRL0_REG);
 
 	spin_lock_irqsave(&cg->lock, flags);
@@ -785,6 +763,9 @@ static int chv_gpio_direction_output(struct gpio_chip *chip,
 
 	if (cg->pad_info[offset].family < 0)
 		return -EINVAL;
+
+	if (PAD_CFG_LOCKED(offset))
+		return 0;
 
 	reg = chv_gpio_reg(chip, offset, CV_PADCTRL0_REG);
 
@@ -814,7 +795,6 @@ static void chv_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned long flags;
 	u32 ctrl0, ctrl1, offs;
 	void __iomem *reg;
-	u32 pending;
 
 	spin_lock_irqsave(&cg->lock, flags);
 
@@ -825,8 +805,8 @@ static void chv_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	seq_printf(s, "CV_INT_MASK_REG: 0x%x\n", chv_readl(reg));
 
 	for (i = 0; i < 16; i++)
-		seq_printf(s, "intline: %d, offset: %d, set_in_bios: %d\n",
-		i, cg->intr_lines[i].off, cg->intr_lines[i].set_in_bios);
+		seq_printf(s, "intline: %d, offset: %d\n",
+				i, cg->intr_lines[i]);
 
 	for (i = 0; i < cg->chip.ngpio; i++) {
 		if (cg->pad_info[i].family < 0) {
@@ -842,7 +822,8 @@ static void chv_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 		ctrl1 = chv_readl(chv_gpio_reg(&cg->chip, i, CV_PADCTRL1_REG));
 
 		seq_printf(s, " gpio-%-3d %s %s %s pad-%-3d offset:0x%03x "
-				"mux:%d %s %s %s %s %s\n",
+				"mux:%d %s %s %s %s %s "
+				"IntSel:%d\n",
 			i,
 			((ctrl0 & CV_GPIO_CFG_MASK) == 0x0) ? "out" : " ",
 			(ctrl0 & CV_GPIO_RX_EN) ? "in" : " ",
@@ -854,10 +835,13 @@ static void chv_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 			(ctrl1 & CV_INT_CFG_MASK) == 0x1 ? "fall" : "",
 			(ctrl1 & CV_INT_CFG_MASK) == 0x2 ? "rise" : "",
 			(ctrl1 & CV_INT_CFG_MASK) == 0x3 ? "both" : "",
-			(ctrl1 & CV_INT_CFG_MASK) == 0x4 ? "level" : "");
+			(ctrl1 & CV_INT_CFG_MASK) == 0x4 ?
+				((ctrl1 & CV_INV_RX_DATA) ? "level-low" : "level-high") : "",
+			(ctrl0 & CV_INT_SEL_MASK) >> 28);
 	}
 	spin_unlock_irqrestore(&cg->lock, flags);
 }
+
 static void chv_irq_unmask(struct irq_data *d)
 {
 	struct chv_gpio *cg = irq_data_get_irq_chip_data(d);
@@ -945,11 +929,11 @@ static void chv_irq_shutdown(struct irq_data *d)
 
 	chv_irq_mask(d);
 
-	spin_lock_irqsave(&cg->lock, flags);
-	chv_update_irq_type(cg, IRQ_TYPE_NONE, reg);
-	/* release interrupt line resource */
-	chv_intr_release(cg, offset);
-	spin_unlock_irqrestore(&cg->lock, flags);
+	if (!PAD_CFG_LOCKED(offset)) {
+		spin_lock_irqsave(&cg->lock, flags);
+		chv_update_irq_type(cg, IRQ_TYPE_NONE, reg);
+		spin_unlock_irqrestore(&cg->lock, flags);
+	}
 }
 
 static struct irq_chip chv_irqchip = {
@@ -976,7 +960,7 @@ static void chv_gpio_irq_dispatch(struct chv_gpio *cg)
 		intr_line = __ffs(pending);
 		mask = BIT(intr_line);
 		chv_writel(mask, reg);
-		offset = cg->intr_lines[intr_line].off;
+		offset = cg->intr_lines[intr_line];
 		if (unlikely(offset < 0))
 			dev_warn(&cg->pdev->dev, "unregistered GPIO irq\n");
 
@@ -994,7 +978,6 @@ static void chv_gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 	chv_gpio_irq_dispatch(cg);
 	chip->irq_eoi(data);
 }
-
 
 static void chv_irq_init_hw(struct chv_gpio *cg)
 {
@@ -1019,7 +1002,6 @@ static int chv_gpio_irq_map(struct irq_domain *d, unsigned int virq,
 	irq_set_chip_and_handler_name(virq, &chv_irqchip, handle_simple_irq,
 				      "demux");
 	irq_set_chip_data(virq, cg);
-	/* irq_set_irq_type(virq, IRQ_TYPE_NONE); */
 
 	return 0;
 }
@@ -1029,29 +1011,10 @@ static const struct irq_domain_ops chv_gpio_irq_ops = {
 	.xlate = irq_domain_xlate_twocell,
 };
 
-static void chv_gpio_scan_intr_pads(struct chv_gpio *cg, unsigned offset)
-{
-	void __iomem *padctrl0 = chv_gpio_reg(&cg->chip,
-					offset, CV_PADCTRL0_REG);
-	void __iomem *padctrl1 = chv_gpio_reg(&cg->chip,
-					offset, CV_PADCTRL1_REG);
-	u32 int_cfg;
-	u32 int_line;
-	struct gpio_pad_info *pad_info = cg->pad_info + offset;
-
-	int_cfg = chv_readl(padctrl0) & CV_INT_CFG_MASK;
-	if (int_cfg && int_cfg <= CV_TRIG_LEVEL) {
-		int_line = (chv_readl(padctrl1) & CV_INT_SEL_MASK) >> 28;
-		cg->intr_lines[int_line].off = offset;
-		cg->intr_lines[int_line].set_in_bios = true;
-		pad_info->interrupt_line = int_line;
-	}
-}
-
 static int
 chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 {
-	int i, off;
+	int i;
 	struct chv_gpio *cg;
 	struct gpio_chip *gc;
 	struct resource *mem_rc, *irq_rc;
@@ -1133,16 +1096,9 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 	gc->can_sleep = 0;
 	gc->dev = dev;
 
-	/* Initialize interrupt lines table with negative value */
-	for (i = 0; i < MAX_INTR_LINE_NUM; i++) {
-		cg->intr_lines[i].off = -1;
-		cg->intr_lines[i].set_in_bios = false;
-	}
-
-	for (off = 0; off < cg->chip.ngpio; off++) {
-		if (cg->pad_info[off].family >= 0)
-			chv_gpio_scan_intr_pads(cg, off);
-	}
+	/* Initialize interrupt lines array with negative value */
+	for (i = 0; i < MAX_INTR_LINE_NUM; i++)
+		cg->intr_lines[i] = -1;
 
 	cg->domain = irq_domain_add_simple(pdev->dev.of_node,
 			cg->chip.ngpio, cg->irq_base,
