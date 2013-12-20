@@ -513,8 +513,8 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 				irq_attr.ioapic = ioapic;
 				irq_attr.ioapic_pin = irq;
 				irq_attr.trigger = 1;
-				if (intel_mid_identify_cpu() ==
-						INTEL_MID_CPU_CHIP_TANGIER) {
+				if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER
+					|| intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
 					if (!strncmp(pentry->name,
 							"r69001-ts-i2c", 13))
 						/* active low */
