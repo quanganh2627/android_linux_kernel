@@ -284,7 +284,12 @@ notify_otg_em:
 	return 0;
 
 dev_det_i2c_failed:
-	dev_err(&chip->client->dev, "i2c read failed:%d\n", ret);
+	if (chip->pdata->is_vbus_online())
+		dev_err(&chip->client->dev,
+				"vbus present: i2c read failed:%d\n", ret);
+	else
+		dev_info(&chip->client->dev,
+				"vbus removed: i2c read failed:%d\n", ret);
 	return ret;
 }
 
