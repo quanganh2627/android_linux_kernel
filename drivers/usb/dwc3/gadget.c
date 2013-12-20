@@ -2589,7 +2589,8 @@ static void link_state_change_work(struct work_struct *data)
 	struct dwc3 *dwc = container_of((struct delayed_work *)data,
 			struct dwc3, link_work);
 
-	if (dwc->link_state == DWC3_LINK_STATE_U3) {
+	if (dwc->link_state == DWC3_LINK_STATE_U3 ||
+		dwc->pm_state == PM_SUSPENDED) {
 		dev_info(dwc->dev, "device suspended; notify OTG\n");
 		__dwc3_vbus_draw(dwc, OTG_DEVICE_SUSPEND);
 	}
