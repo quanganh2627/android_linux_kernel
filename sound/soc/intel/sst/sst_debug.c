@@ -931,7 +931,8 @@ static ssize_t sst_debug_ssp_reg_read(struct file *file,
 
 	ret = is_fw_running(drv);
 	if (ret)
-		return ret;
+		goto err;
+
 	buf[0] = 0;
 
 	for (i = 0; i < num_ssp ; i++) {
@@ -945,6 +946,7 @@ static ssize_t sst_debug_ssp_reg_read(struct file *file,
 	sst_pm_runtime_put(drv);
 
 	ret = simple_read_from_buffer(user_buf, count, ppos, buf, pos);
+err:
 	kfree(buf);
 	return ret;
 }
@@ -1021,7 +1023,8 @@ static ssize_t sst_debug_dma_reg_read(struct file *file,
 
 	ret = is_fw_running(drv);
 	if (ret)
-		return ret;
+		goto err;
+
 	buf[0] = 0;
 
 	for (i = 0; i < num_dma; i++)
@@ -1030,6 +1033,7 @@ static ssize_t sst_debug_dma_reg_read(struct file *file,
 	sst_pm_runtime_put(drv);
 
 	ret = simple_read_from_buffer(user_buf, count, ppos, buf, pos);
+err:
 	kfree(buf);
 	return ret;
 }
