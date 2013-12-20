@@ -898,43 +898,6 @@ static void smb347_otg_drive_vbus(struct smb347_charger *smb, bool enable)
 	}
 }
 
-int smb34x_get_bat_health()
-{
-	struct smb347_charger *smb = smb347_dev;
-	int ret;
-
-	if (!smb)
-		return POWER_SUPPLY_HEALTH_UNKNOWN;
-
-	/* For unknown battery, health cannot be predected */
-	if (!smb->pdata->is_valid_battery) {
-		dev_info(&smb->client->dev,
-			"Invalid Battery Detected.\n");
-		return POWER_SUPPLY_HEALTH_UNKNOWN;
-	}
-	ret = smb347_read(smb, IRQSTAT_A);
-	if (ret < 0)
-		return POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
-
-	if (ret &
-		(IRQSTAT_A_HOT_HARD_STAT|IRQSTAT_A_COLD_HARD_STAT)) {
-		dev_info(&smb->client->dev, "overtemperature detected");
-		return POWER_SUPPLY_HEALTH_OVERHEAT;
-	}
-
-	ret = smb347_read(smb, IRQSTAT_B);
-	if (ret < 0)
-		return POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
-
-	if (ret & IRQSTAT_B_BATOVP_STAT) {
-		dev_info(&smb->client->dev, "BAT OVP occurred");
-		return POWER_SUPPLY_HEALTH_OVERVOLTAGE;
-	}
-
-	return POWER_SUPPLY_HEALTH_GOOD;
-}
-EXPORT_SYMBOL(smb34x_get_bat_health);
-
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
 static void smb347_full_worker(struct work_struct *work)
 {

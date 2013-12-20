@@ -1559,6 +1559,11 @@ static int max17042_get_batt_health(void)
 	struct max17042_chip *chip = i2c_get_clientdata(max17042_client);
 	int vavg, temp, ret;
 
+	if (!chip->pdata->valid_battery) {
+		dev_err(&chip->client->dev, "Invalid battery detected");
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
+
 	ret = read_batt_pack_temp(chip, &temp);
 	if (ret < 0) {
 		dev_err(&chip->client->dev,

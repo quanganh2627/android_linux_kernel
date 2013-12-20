@@ -40,6 +40,8 @@
 #define MRFL_VOLT_SHUTDOWN_MASK (1 << 1)
 #define MRFL_NFC_RESV_MASK	(1 << 3)
 
+#define BYT_TEMP_HYSTERESIS	3
+
 void max17042_i2c_reset_workaround(void)
 {
 /* toggle clock pin of I2C to recover devices from abnormal status.
@@ -405,13 +407,18 @@ static void init_callbacks(struct max17042_platform_data *pdata)
 		pdata->get_vmin_threshold = mrfl_get_vsys_min;
 		pdata->get_vmax_threshold = mrfl_get_volt_max;
 	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
-		pdata->battery_health = smb34x_get_bat_health;
 		pdata->get_vmin_threshold = byt_get_vsys_min;
 		pdata->get_vmax_threshold = byt_get_vbatt_max;
 		pdata->is_volt_shutdown = 1;
 		pdata->reset_chip = true;
-		pdata->temp_min_lim = 0;
-		pdata->temp_max_lim = 55;
+		if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
+			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1)) {
+			pdata->temp_min_lim = 0 + BYT_TEMP_HYSTERESIS;
+			pdata->temp_max_lim = 55 - BYT_TEMP_HYSTERESIS;
+		} else {
+			pdata->temp_min_lim = 0;
+			pdata->temp_max_lim = 55;
+		}
 		pdata->volt_min_lim = 3400;
 		pdata->volt_max_lim = 4400;
 	}
@@ -440,9 +447,11 @@ static void init_platform_params(struct max17042_platform_data *pdata)
 		if (msic_battery_check(pdata)) {
 			pdata->enable_current_sense = true;
 			pdata->technology = POWER_SUPPLY_TECHNOLOGY_LION;
+			pdata->valid_battery = true;
 		} else {
 			pdata->enable_current_sense = false;
 			pdata->technology = POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+			pdata->valid_battery = false;
 		}
 	} else if (INTEL_MID_BOARD(2, TABLET, MFLD, YKB, ENG) ||
 		INTEL_MID_BOARD(2, TABLET, MFLD, YKB, PRO)) {
@@ -450,9 +459,11 @@ static void init_platform_params(struct max17042_platform_data *pdata)
 		if (msic_battery_check(pdata)) {
 			pdata->enable_current_sense = true;
 			pdata->technology = POWER_SUPPLY_TECHNOLOGY_LION;
+			pdata->valid_battery = true;
 		} else {
 			pdata->enable_current_sense = false;
 			pdata->technology = POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+			pdata->valid_battery = false;
 		}
 	} else if (INTEL_MID_BOARD(2, TABLET, MFLD, RR, ENG) ||
 			INTEL_MID_BOARD(2, TABLET, MFLD, RR, PRO) ||
@@ -461,6 +472,7 @@ static void init_platform_params(struct max17042_platform_data *pdata)
 		/* MFLD  Redridge and Salitpa Tablets */
 		pdata->enable_current_sense = true;
 		pdata->technology = POWER_SUPPLY_TECHNOLOGY_LION;
+		pdata->valid_battery = true;
 	} else if (INTEL_MID_BOARD(1, PHONE, CLVTP) ||
 				INTEL_MID_BOARD(1, TABLET, CLVT)) {
 		if (msic_battery_check(pdata)) {
@@ -468,6 +480,7 @@ static void init_platform_params(struct max17042_platform_data *pdata)
 			pdata->technology = POWER_SUPPLY_TECHNOLOGY_LION;
 			pdata->file_sys_storage_enabled = 1;
 			pdata->soc_intr_mode_enabled = true;
+			pdata->valid_battery = true;
 		}
 	} else if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
 				INTEL_MID_BOARD(1, TABLET, MRFL) ||
@@ -478,6 +491,7 @@ static void init_platform_params(struct max17042_platform_data *pdata)
 			pdata->technology = POWER_SUPPLY_TECHNOLOGY_LION;
 			pdata->file_sys_storage_enabled = 1;
 			pdata->soc_intr_mode_enabled = true;
+			pdata->valid_battery = true;
 		}
 	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
 		if (max17042_is_valid_batid()) {
@@ -485,11 +499,13 @@ static void init_platform_params(struct max17042_platform_data *pdata)
 						"%s", "INTN0001");
 			pdata->technology = POWER_SUPPLY_TECHNOLOGY_LION;
 			pdata->enable_current_sense = true;
+			pdata->valid_battery = true;
 		} else {
 			snprintf(pdata->battid, (BATTID_LEN + 1),
 						"%s", "UNKNOWNB");
 			pdata->technology = POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 			pdata->enable_current_sense = false;
+			pdata->valid_battery = false;
 		}
 		pdata->file_sys_storage_enabled = 1;
 		pdata->soc_intr_mode_enabled = true;
