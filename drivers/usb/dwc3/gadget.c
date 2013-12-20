@@ -1751,11 +1751,13 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on)
 		/* WORKAROUND: reset PHY via FUNC_CTRL before disconnect
 		 * to avoid PHY hang
 		 */
-		usb_phy = usb_get_phy(USB_PHY_TYPE_USB2);
-		if (usb_phy)
-			usb_phy_io_write(usb_phy,
+		if (!dwc->utmi_phy) {
+			usb_phy = usb_get_phy(USB_PHY_TYPE_USB2);
+			if (usb_phy)
+				usb_phy_io_write(usb_phy,
 					0x6D, ULPI_FUNC_CTRL);
-		usb_put_phy(usb_phy);
+			usb_put_phy(usb_phy);
+		}
 	} else
 		return 0;
 

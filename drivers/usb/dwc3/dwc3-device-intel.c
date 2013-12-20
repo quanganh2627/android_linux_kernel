@@ -459,6 +459,7 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 	struct device		*dev = &pdev->dev;
 	int			ret = -ENOMEM;
 	void			*mem;
+	struct intel_dwc_otg_pdata	*otg_data = dev->parent->platform_data;
 
 	struct dwc_device_par	*pdata;
 	struct usb_phy		*usb_phy;
@@ -532,6 +533,8 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 	dwc->regs   = pdata->io_addr + DWC3_GLOBALS_REGS_START;
 	dwc->regs_size  = pdata->len - DWC3_GLOBALS_REGS_START;
 	dwc->dev	= dev;
+	if (otg_data->usb2_phy_type == USB2_PHY_UTMI)
+		dwc->utmi_phy = 1;
 
 	dev->dma_mask	= dev->parent->dma_mask;
 	dev->dma_parms	= dev->parent->dma_parms;

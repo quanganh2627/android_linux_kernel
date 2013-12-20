@@ -336,12 +336,15 @@ static int dwc3_core_init(struct dwc3 *dwc)
 
 	/* DCTL core soft reset may cause PHY hang, delay 1 ms and check ulpi */
 	mdelay(1);
-	usb_phy = usb_get_phy(USB_PHY_TYPE_USB2);
-	if (usb_phy &&
-		usb_phy_io_read(usb_phy, ULPI_VENDOR_ID_LOW) < 0)
-		dev_err(dwc->dev,
-			"ULPI not working after DCTL soft reset\n");
-	usb_put_phy(usb_phy);
+
+	if (!dwc->utmi_phy) {
+		usb_phy = usb_get_phy(USB_PHY_TYPE_USB2);
+		if (usb_phy &&
+			usb_phy_io_read(usb_phy, ULPI_VENDOR_ID_LOW) < 0)
+			dev_err(dwc->dev,
+				"ULPI not working after DCTL soft reset\n");
+		usb_put_phy(usb_phy);
+	}
 
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
 	reg &= ~DWC3_GCTL_SCALEDOWN_MASK;
