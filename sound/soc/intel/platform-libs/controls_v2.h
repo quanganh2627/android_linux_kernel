@@ -434,19 +434,6 @@ enum sst_cmd {
 	AWARE_ENV_CLASS_PARAMS	= 130,
 };
 
-enum sst_ssp_port {
-	SSP_MODEM = 0,
-	SSP_BT = 1,
-	SSP_FM = 2,
-	SSP_CODEC = 3,
-};
-
-enum sst_ssp_mode {
-	SST_DUPLEX = 0,
-	SST_RX = 1,
-	SST_TX = 2,
-};
-
 enum sst_dsp_switch {
 	SST_SWITCH_OFF = 0,
 	SST_SWITCH_ON = 3,
@@ -595,31 +582,70 @@ struct sst_cmd_sba_set_media_loop_map {
 	u16	map;
 } __packed;
 
+enum sst_ssp_mode {
+	SSP_MODE_MASTER = 0,
+	SSP_MODE_SLAVE = 1,
+};
+
+enum sst_ssp_pcm_mode {
+	SSP_PCM_MODE_NORMAL = 0,
+	SSP_PCM_MODE_NETWORK = 1,
+};
+
+enum sst_ssp_duplex {
+	SSP_DUPLEX = 0,
+	SSP_RX = 1,
+	SSP_TX = 2,
+};
+
+enum sst_ssp_fs_frequency {
+	SSP_FS_8_KHZ = 0,
+	SSP_FS_16_KHZ = 1,
+	SSP_FS_44_1_KHZ = 2,
+	SSP_FS_48_KHZ = 3,
+};
+
+enum sst_ssp_fs_polarity {
+	SSP_FS_ACTIVE_LOW = 0,
+	SSP_FS_ACTIVE_HIGH = 1,
+};
+
+enum sst_ssp_protocol {
+	SSP_MODE_PCM = 0,
+	SSP_MODE_I2S = 1,
+};
+
+enum sst_ssp_port_id {
+	SSP_MODEM = 0,
+	SSP_BT = 1,
+	SSP_FM = 2,
+	SSP_CODEC = 3,
+};
 
 struct sst_cmd_sba_hw_set_ssp {
 	struct sst_dsp_header header;
 	u16 selection;			/* 0:SSP0(def), 1:SSP1, 2:SSP2 */
 
-	u16 switch_state;               /* 0: Off, 1-2: reserved, 3-Init/On */
+	u16 switch_state;
 
 	u16 nb_bits_per_slots:6;        /* 0-32 bits, 24 (def) */
 	u16 nb_slots:4;			/* 0-8: slots per frame  */
 	u16 mode:3;			/* 0:Master, 1: Slave  */
-	u16 duplex:3;			/* 0:Full duplex, 1: Rx Only, 2:Tx only active */
+	u16 duplex:3;
 
 	u16 active_tx_slot_map:8;       /* Bit map, 0:off, 1:on */
-	u16 reserved1:8;                /* Reserved for future/alignment */
+	u16 reserved1:8;
 
 	u16 active_rx_slot_map:8;       /* Bit map 0: Off, 1:On */
-	u16 reserved2:8;                /* Reserved for future/alignment */
+	u16 reserved2:8;
 
-	u16 frame_sync_frequency;       /* 0:8KHz, 1:16KHz, 2:44.1KHz, 3:48KHz(def) */
+	u16 frame_sync_frequency;
 
-	u16 frame_sync_polarity:8;      /* 0:RFL, 1:FRL, 2:RFH, 3:FRL */
-	u16 data_polarity:8;            /* 0: Act low, 1: Act high*/
+	u16 frame_sync_polarity:8;
+	u16 data_polarity:8;
 
 	u16 frame_sync_width;           /* 1 to N clocks */
-	u16 ssp_protocol:8;		/* 0: PCM, 1: I2S, 2:TI SSP Mode */
+	u16 ssp_protocol:8;
 	u16 start_delay:8;		/* Start delay in terms of clock ticks */
 } __packed;
 

@@ -108,6 +108,7 @@ int sst_probe_enum_info(struct snd_kcontrol *kcontrol,
 		e->texts[uinfo->value.enumerated.item]);
 	return 0;
 }
+
 /*
  * slot map value is a bitfield where each bit represents a FW channel
  *
@@ -751,9 +752,11 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 	struct sst_cmd_sba_hw_set_ssp cmd;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	struct sst_ids *ids = w->priv;
-	static int ssp_active[SSP_CODEC + 1];
-	bool is_bt, is_wideband;
-	unsigned int ssp_id = ids->ssp_id;
+	static int ssp_active[SST_NUM_SSPS];
+	unsigned int domain, mux;
+	unsigned int ssp_no = ids->ssp->ssp_number;
+	int domain_shift, mux_shift;
+	const struct sst_ssp_config *config;
 
 	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
 
@@ -761,44 +764,41 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 	cmd.header.command_id = SBA_HW_SET_SSP;
 	cmd.header.length = sizeof(struct sst_cmd_sba_hw_set_ssp)
 				- sizeof(struct sst_dsp_header);
+	mux_shift = *ids->ssp->mux_shift;
+	mux = (mux_shift == -1) ? 0 : get_mux_state(sst, SST_MUX_REG, mux_shift);
+	domain_shift = (*ids->ssp->domain_shift)[mux];
+	domain = (domain_shift == -1) ? 0 : get_mux_state(sst, SST_MUX_REG, domain_shift);
 
-	if (ssp_id == SSP_FM) {
-		/* switch to BT if the mux is set */
-		is_bt = get_mux_state(sst, SST_MUX_REG, SST_BT_FM_MUX_SHIFT);
-		ssp_id = is_bt ? SSP_BT : SSP_FM;
-	}
+	config = &(*ids->ssp->ssp_config)[mux][domain];
+	pr_debug("%s: ssp_id: %u, mux: %d, domain: %d\n", __func__,
+		 config->ssp_id, mux, domain);
 
 	if (SND_SOC_DAPM_EVENT_ON(event))
-		ssp_active[ids->ssp_id]++;
+		ssp_active[ssp_no]++;
 	else
-		ssp_active[ids->ssp_id]--;
+		ssp_active[ssp_no]--;
 
-	pr_debug("ssp_id=%d ssp_active=%d", ids->ssp_id, ssp_active[ids->ssp_id]);
-	if (ssp_active[ids->ssp_id])
+	pr_debug("%s: ssp_no: %u ssp_active: %d", __func__, ssp_no, ssp_active[ssp_no]);
+	if (ssp_active[ssp_no])
 		cmd.switch_state = SST_SWITCH_ON;
 	else
 		cmd.switch_state = SST_SWITCH_OFF;
 
-	/* TODO: allow to be modified */
-	cmd.selection = ssp_id;
-	cmd.nb_bits_per_slots = 24;
-	cmd.nb_slots = 4;
-	cmd.mode = 2;
-	cmd.duplex = 0;
-	cmd.active_tx_slot_map = 0xF;
-	cmd.active_rx_slot_map = 0xF;
-	cmd.frame_sync_frequency = 3;
-	cmd.frame_sync_polarity = 1;
+	cmd.selection = config->ssp_id;
+	cmd.nb_bits_per_slots = config->bits_per_slot;
+	cmd.nb_slots = config->slots;
+	cmd.mode = config->ssp_mode | (config->pcm_mode << 1);
+	cmd.duplex = config->duplex;
+	cmd.active_tx_slot_map = config->active_slot_map;
+	cmd.active_rx_slot_map = config->active_slot_map;
+	cmd.frame_sync_frequency = config->fs_frequency;
+	cmd.frame_sync_polarity = SSP_FS_ACTIVE_HIGH;
 	cmd.data_polarity = 1;
-	cmd.frame_sync_width = 1;
-	cmd.ssp_protocol = 0;
-	cmd.start_delay = 0;
+	cmd.frame_sync_width = config->fs_width;
+	cmd.ssp_protocol = config->ssp_protocol;
+	cmd.start_delay = config->start_delay;
+	cmd.reserved1 = cmd.reserved2 = 0xFF;
 
-	if (ssp_id == SSP_BT) {
-		is_wideband = get_mux_state(sst, SST_MUX_REG, SST_BT_MODE_SHIFT);
-		if (is_wideband)
-			cmd.frame_sync_frequency = 1;
-	}
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 			      SST_TASK_SBA, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
@@ -996,18 +996,132 @@ static const struct snd_kcontrol_new sst_bt_fm_mux =
 	SST_SSP_MUX_CTL("ssp1", 0, SST_MUX_REG, SST_BT_FM_MUX_SHIFT, sst_bt_fm_texts,
 			sst_mux_get, sst_mux_put);
 
+#define SST_SSP_CODEC_MUX		0
+#define SST_SSP_CODEC_DOMAIN		0
+#define SST_SSP_MODEM_MUX		0
+#define SST_SSP_MODEM_DOMAIN		0
+#define SST_SSP_FM_MUX			0
+#define SST_SSP_FM_DOMAIN		0
+#define SST_SSP_BT_MUX			1
+#define SST_SSP_BT_NB_DOMAIN		0
+#define SST_SSP_BT_WB_DOMAIN		1
+
+static const int sst_ssp_mux_shift[SST_NUM_SSPS] = {
+	[SST_SSP0] = -1,			/* no register shift, i.e. single mux value */
+	[SST_SSP1] = SST_BT_FM_MUX_SHIFT,
+	[SST_SSP2] = -1,
+};
+
+static const int sst_ssp_domain_shift[SST_NUM_SSPS][SST_MAX_SSP_MUX] = {
+	[SST_SSP0][0] = -1,			/* no domain shift, i.e. single domain */
+	[SST_SSP1] = {
+		[SST_SSP_FM_MUX] = -1,
+		[SST_SSP_BT_MUX] = SST_BT_MODE_SHIFT,
+	},
+	[SST_SSP2][0] = -1,
+};
+
+static const struct sst_ssp_config
+sst_ssp_configs[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
+	[SST_SSP0] = {
+		[SST_SSP_MODEM_MUX] = {
+			[SST_SSP_MODEM_DOMAIN] = {
+				.ssp_id = SSP_MODEM,
+				.bits_per_slot = 16,
+				.slots = 1,
+				.ssp_mode = SSP_MODE_MASTER,
+				.pcm_mode = SSP_PCM_MODE_NETWORK,
+				.duplex = SSP_DUPLEX,
+				.ssp_protocol = SSP_MODE_PCM,
+				.fs_width = 1,
+				.fs_frequency = SSP_FS_48_KHZ,
+				.active_slot_map = 0x1,
+				.start_delay = 1,
+			},
+		},
+	},
+	[SST_SSP1] = {
+		[SST_SSP_FM_MUX] = {
+			[SST_SSP_FM_DOMAIN] = {
+				.ssp_id = SSP_FM,
+				.bits_per_slot = 16,
+				.slots = 2,
+				.ssp_mode = SSP_MODE_MASTER,
+				.pcm_mode = SSP_PCM_MODE_NORMAL,
+				.duplex = SSP_DUPLEX,
+				.ssp_protocol = SSP_MODE_I2S,
+				.fs_width = 32,
+				.fs_frequency = SSP_FS_48_KHZ,
+				.active_slot_map = 0x3,
+				.start_delay = 0,
+			},
+		},
+		[SST_SSP_BT_MUX] = {
+			[SST_SSP_BT_NB_DOMAIN] = {
+				.ssp_id = SSP_BT,
+				.bits_per_slot = 16,
+				.slots = 1,
+				.ssp_mode = SSP_MODE_MASTER,
+				.pcm_mode = SSP_PCM_MODE_NORMAL,
+				.duplex = SSP_DUPLEX,
+				.ssp_protocol = SSP_MODE_PCM,
+				.fs_width = 1,
+				.fs_frequency = SSP_FS_8_KHZ,
+				.active_slot_map = 0x1,
+				.start_delay = 1,
+			},
+			[SST_SSP_BT_WB_DOMAIN] = {
+				.ssp_id = SSP_BT,
+				.bits_per_slot = 16,
+				.slots = 1,
+				.ssp_mode = SSP_MODE_MASTER,
+				.pcm_mode = SSP_PCM_MODE_NORMAL,
+				.duplex = SSP_DUPLEX,
+				.ssp_protocol = SSP_MODE_PCM,
+				.fs_width = 1,
+				.fs_frequency = SSP_FS_16_KHZ,
+				.active_slot_map = 0x1,
+				.start_delay = 1,
+			},
+		},
+	},
+	[SST_SSP2] = {
+		[SST_SSP_CODEC_MUX] = {
+			[SST_SSP_CODEC_DOMAIN] = {
+				.ssp_id = SSP_CODEC,
+				.bits_per_slot = 24,
+				.slots = 4,
+				.ssp_mode = SSP_MODE_MASTER,
+				.pcm_mode = SSP_PCM_MODE_NETWORK,
+				.duplex = SSP_DUPLEX,
+				.ssp_protocol = SSP_MODE_PCM,
+				.fs_width = 1,
+				.fs_frequency = SSP_FS_48_KHZ,
+				.active_slot_map = 0xF,
+				.start_delay = 0,
+			},
+		},
+	},
+};
+
+#define SST_SSP_CFG(wssp_no)								\
+	(const struct sst_ssp_cfg){ .ssp_config = &sst_ssp_configs[wssp_no],		\
+				    .ssp_number = wssp_no,				\
+				    .mux_shift = &sst_ssp_mux_shift[wssp_no],		\
+				    .domain_shift = &sst_ssp_domain_shift[wssp_no], }
+
 static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("tone"),
 	SND_SOC_DAPM_OUTPUT("aware"),
 	SND_SOC_DAPM_OUTPUT("vad"),
-	SST_SSP_INPUT("modem_in", SSP_MODEM, sst_ssp_event),
-	SST_SSP_AIF_IN("codec_in0", SSP_CODEC, sst_ssp_event),
-	SST_SSP_AIF_IN("codec_in1", SSP_CODEC, sst_ssp_event),
-	SST_SSP_INPUT("bt_fm_in", SSP_FM, sst_ssp_event),
-	SST_SSP_OUTPUT("modem_out", SSP_MODEM, sst_ssp_event),
-	SST_SSP_AIF_OUT("codec_out0", SSP_CODEC, sst_ssp_event),
-	SST_SSP_AIF_OUT("codec_out1", SSP_CODEC, sst_ssp_event),
-	SST_SSP_OUTPUT("bt_fm_out", SSP_FM, sst_ssp_event),
+	SST_SSP_INPUT("modem_in",  sst_ssp_event, SST_SSP_CFG(SST_SSP0)),
+	SST_SSP_AIF_IN("codec_in0", sst_ssp_event, SST_SSP_CFG(SST_SSP2)),
+	SST_SSP_AIF_IN("codec_in1", sst_ssp_event, SST_SSP_CFG(SST_SSP2)),
+	SST_SSP_INPUT("bt_fm_in", sst_ssp_event, SST_SSP_CFG(SST_SSP1)),
+	SST_SSP_OUTPUT("modem_out", sst_ssp_event, SST_SSP_CFG(SST_SSP0)),
+	SST_SSP_AIF_OUT("codec_out0", sst_ssp_event, SST_SSP_CFG(SST_SSP2)),
+	SST_SSP_AIF_OUT("codec_out1", sst_ssp_event, SST_SSP_CFG(SST_SSP2)),
+	SST_SSP_OUTPUT("bt_fm_out", sst_ssp_event, SST_SSP_CFG(SST_SSP1)),
 
 	/* Media Paths */
 	/* MediaX IN paths are set via ALLOC, so no SET_MEDIA_PATH command */

@@ -33,48 +33,81 @@
 #define SST_FMT_MONO 0
 #define SST_FMT_STEREO 3
 
+/* physical SSP numbers */
+enum {
+	SST_SSP0 = 0,
+	SST_SSP1,
+	SST_SSP2,
+	SST_SSP_LAST = SST_SSP2,
+};
+
+#define SST_NUM_SSPS		(SST_SSP_LAST + 1)	/* physical SSPs */
+#define SST_MAX_SSP_MUX		2			/* single SSP muxed between pipes */
+#define SST_MAX_SSP_DOMAINS	2			/* domains present in each pipe */
+
 struct module {
 	struct snd_kcontrol *kctl;
 	struct list_head node;
+};
+
+struct sst_ssp_config {
+	u8 ssp_id;
+	u8 bits_per_slot;
+	u8 slots;
+	u8 ssp_mode;
+	u8 pcm_mode;
+	u8 duplex;
+	u8 ssp_protocol;
+	u8 fs_frequency;
+	u8 active_slot_map;
+	u8 start_delay;
+	u16 fs_width;
+};
+
+struct sst_ssp_cfg {
+	const u8 ssp_number;
+	const int *mux_shift;
+	const int (*domain_shift)[SST_MAX_SSP_MUX];
+	const struct sst_ssp_config (*ssp_config)[SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS];
 };
 
 struct sst_ids {
 	u16 location_id;
 	u16 module_id;
 	u8  task_id;
-	u8  ssp_id;
 	u8  format;
 	u8  reg;
 	struct list_head algo_list;
 	struct list_head gain_list;
+	const struct sst_ssp_cfg *ssp;
 };
 
-#define SST_SSP_AIF_IN(wname, wssp_id, wevent)						\
+#define SST_SSP_AIF_IN(wname, wevent, wssp_cfg)						\
 {	.id = snd_soc_dapm_aif_in, .name = wname, .sname = NULL,			\
 	.reg = SND_SOC_NOPM, .shift = 0, .invert = 0,					\
 	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,	\
-	.priv = (void *)&(struct sst_ids) { .ssp_id = wssp_id, }			\
+	.priv = (void *)&(struct sst_ids) { .ssp = &wssp_cfg, }				\
 }
 
-#define SST_SSP_AIF_OUT(wname, wssp_id, wevent)						\
+#define SST_SSP_AIF_OUT(wname, wevent, wssp_cfg)					\
 {	.id = snd_soc_dapm_aif_out, .name = wname, .sname = NULL,			\
 	.reg = SND_SOC_NOPM, .shift = 0, .invert = 0,					\
 	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,	\
-	.priv = (void *)&(struct sst_ids) { .ssp_id = wssp_id, }			\
+	.priv = (void *)&(struct sst_ids) { .ssp = &wssp_cfg, }				\
 }
 
-#define SST_SSP_INPUT(wname, wssp_id, wevent)						\
+#define SST_SSP_INPUT(wname, wevent, wssp_cfg)						\
 {	.id = snd_soc_dapm_input, .name = wname, .sname = NULL,				\
 	.reg = SND_SOC_NOPM, .shift = 0, .invert = 0,					\
 	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,	\
-	.priv = (void *)&(struct sst_ids) { .ssp_id = wssp_id, }			\
+	.priv = (void *)&(struct sst_ids) { .ssp = &wssp_cfg, }				\
 }
 
-#define SST_SSP_OUTPUT(wname, wssp_id, wevent)						\
+#define SST_SSP_OUTPUT(wname, wevent, wssp_cfg)						\
 {	.id = snd_soc_dapm_output, .name = wname, .sname = NULL,			\
 	.reg = SND_SOC_NOPM, .shift = 0, .invert = 0,					\
 	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,	\
-	.priv = (void *)&(struct sst_ids) { .ssp_id = wssp_id, }			\
+	.priv = (void *)&(struct sst_ids) { .ssp = &wssp_cfg, }				\
 }
 
 #define SST_PATH(wname, wtask, wloc_id, wevent, wflags)					\
