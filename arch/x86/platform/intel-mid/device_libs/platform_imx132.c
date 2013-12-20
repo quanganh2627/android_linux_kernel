@@ -31,6 +31,11 @@ static struct regulator *vprog1_reg;
  * MRFLD VV secondary camera sensor - imx132 platform data
  */
 
+static int is_moorefield(void)
+{
+	return INTEL_MID_BOARD(1, PHONE, MOFD);
+}
+
 static int imx132_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	int ret;
@@ -71,6 +76,19 @@ static int imx132_power_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	int ret = 0;
 
+	if (is_moorefield()) {
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
+		ret = intel_scu_ipc_msic_vprog1(flag);
+#else
+		ret = -ENODEV;
+#endif
+		if (ret)
+			pr_err("imx132 voltage setting failed\n");
+		if (flag)
+			usleep_range(1000, 1200);
+		return ret;
+	}
+
 	if (flag) {
 		if (!camera_vprog1_on) {
 			ret = regulator_enable(vprog1_reg);
@@ -102,6 +120,9 @@ static int imx132_platform_init(struct i2c_client *client)
 {
 	int ret;
 
+	if (is_moorefield())
+		return 0;
+
 	vprog1_reg = regulator_get(&client->dev, "vprog1");
 	if (IS_ERR(vprog1_reg)) {
 		dev_err(&client->dev, "regulator_get failed\n");
@@ -117,7 +138,8 @@ static int imx132_platform_init(struct i2c_client *client)
 
 static int imx132_platform_deinit(void)
 {
-	regulator_put(vprog1_reg);
+	if (!is_moorefield())
+		regulator_put(vprog1_reg);
 
 	return 0;
 }
