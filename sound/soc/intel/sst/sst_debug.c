@@ -272,12 +272,6 @@ static ssize_t sst_debug_sram_lpe_checkpoint_read(struct file *file,
 	int ret = 0;
 	u32 offset;
 
-	if ((sst_drv_ctx->pci_id != SST_CLV_PCI_ID) &&
-		(sst_drv_ctx->pci_id != SST_MRFLD_PCI_ID)) {
-		pr_err("Only Supported for CTP and MRFLD\n");
-		return -EPERM;
-	}
-
 	ret = is_fw_running(drv);
 	if (ret)
 		return ret;
@@ -350,11 +344,6 @@ static ssize_t sst_debug_sram_lpe_scu_mbox_read(struct file *file,
 	struct intel_sst_drv *drv = file->private_data;
 	int ret = 0;
 
-	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) {
-		pr_err("Not supported for MRFLD\n");
-		return -EPERM;
-	}
-
 	ret = is_fw_running(drv);
 	if (ret)
 		return ret;
@@ -375,11 +364,6 @@ static ssize_t sst_debug_sram_scu_lpe_mbox_read(struct file *file,
 		char __user *user_buf, size_t count, loff_t *ppos)
 {	struct intel_sst_drv *drv = file->private_data;
 	int ret = 0;
-
-	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) {
-		pr_err("Not supported for MRFLD\n");
-		return -EPERM;
-	}
 
 	ret = is_fw_running(drv);
 	if (ret)
@@ -413,11 +397,6 @@ static ssize_t sst_debug_lpe_log_enable_write(struct file *file,
 
 	size_t buf_size = min(count, sizeof(buf)-1);
 	memset(&params, 0, sizeof(params));
-
-	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) {
-		pr_err("Currently not supported for mrfld\n");
-		return -EPERM;
-	}
 
 	ret_val = is_fw_running(drv);
 	if (ret_val)
@@ -486,11 +465,6 @@ static ssize_t sst_debug_lpe_log_enable_read(struct file *file,
 	size_t size1, size2, offset, bytes_read;
 	char *buf = NULL;
 	int ret;
-
-	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) {
-		pr_err("Currently not supported for mrfld\n");
-		return -EPERM;
-	}
 
 	ret = is_fw_running(drv);
 	if (ret)
@@ -907,12 +881,6 @@ static ssize_t sst_debug_ssp_reg_read(struct file *file,
 	struct intel_sst_drv *drv = file->private_data;
 	int num_ssp, buf_size, ret;
 
-	if ((sst_drv_ctx->pci_id != SST_CLV_PCI_ID) &&
-		(sst_drv_ctx->pci_id != SST_MRFLD_PCI_ID)) {
-		pr_err("Only Supported for CTP and MRFLD\n");
-		return -EPERM;
-	}
-
 	num_ssp = sst_drv_ctx->pdata->debugfs_data->num_ssp;
 	buf_size = DEBUGFS_SSP_BUF_SIZE * num_ssp;
 
@@ -1003,11 +971,6 @@ static ssize_t sst_debug_dma_reg_read(struct file *file,
 	struct intel_sst_drv *drv = file->private_data;
 	int num_dma, buf_size;
 
-	if ((sst_drv_ctx->pci_id != SST_CLV_PCI_ID) &&
-		(sst_drv_ctx->pci_id != SST_MRFLD_PCI_ID)) {
-		pr_err("Only Supported for CTP and MRFLD\n");
-		return -EPERM;
-	}
 	num_dma = sst_drv_ctx->pdata->debugfs_data->num_dma;
 	buf_size = DEBUGFS_DMA_BUF_SIZE * num_dma;
 
@@ -1107,11 +1070,6 @@ int sst_debug_ddr_imr_dump_mmap(struct file *file, struct vm_area_struct *vma)
 	int retval;
 	struct intel_sst_drv *sst = sst_drv_ctx;
 
-	if (sst_drv_ctx->pci_id != SST_MRFLD_PCI_ID) {
-		pr_err("Currently Support MRFLD only\n");
-		return -EPERM;
-	}
-
 	retval = sst_debug_remap(vma, sst->ddr, 0);
 
 	return retval;
@@ -1141,19 +1099,32 @@ static const struct sst_debug sst_common_dbg_entries[] = {
 	{"sram_lpe_ia_mailbox", &sst_debug_sram_lpe_ia_mbox_ops, 0400},
 };
 
-void sst_debugfs_init(struct intel_sst_drv *sst)
+static const struct sst_debug ctp_dbg_entries[] = {
+	{"sram_lpe_debug", &sst_debug_sram_lpe_debug_ops, 0400},
+	{"sram_lpe_checkpoint", &sst_debug_sram_lpe_checkpoint_ops, 0400},
+	{"sram_lpe_scu_mailbox", &sst_debug_sram_lpe_scu_mbox_ops, 0400},
+	{"sram_scu_lpe_mailbox", &sst_debug_sram_scu_lpe_mbox_ops, 0400},
+	{"lpe_log_enable", &sst_debug_lpe_log_enable_ops, 0400},
+	{"fw_ssp_reg", &sst_debug_ssp_reg, 0400},
+	{"fw_dma_reg", &sst_debug_dma_reg, 0400},
+	{"osc_clk0", &sst_debug_osc_clk0_ops, 0600},
+};
+
+static const struct sst_debug mrfld_dbg_entries[] = {
+	{"sram_lpe_checkpoint", &sst_debug_sram_lpe_checkpoint_ops, 0400},
+	{"fw_ssp_reg", &sst_debug_ssp_reg, 0400},
+	{"fw_dma_reg", &sst_debug_dma_reg, 0400},
+	{"ddr_imr_dump", &sst_debug_ddr_imr_dump, 0400},
+};
+
+void sst_debugfs_create_files(struct intel_sst_drv *sst,
+			const struct sst_debug *entries, int size)
 {
 	int i;
 
-	sst->debugfs.root = debugfs_create_dir("sst", NULL);
-	if (IS_ERR(sst->debugfs.root) || !sst->debugfs.root) {
-		pr_err("Failed to create debugfs directory\n");
-		return;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(sst_common_dbg_entries); i++) {
+	for (i = 0; i < size; i++) {
 		struct dentry *dentry;
-		const struct sst_debug *entry = &sst_common_dbg_entries[i];
+		const struct sst_debug *entry = &entries[i];
 
 		dentry = debugfs_create_file(entry->name, entry->mode,
 				sst->debugfs.root, sst, entry->fops);
@@ -1162,65 +1133,35 @@ void sst_debugfs_init(struct intel_sst_drv *sst)
 			return;
 		}
 	}
+}
+
+void sst_debugfs_init(struct intel_sst_drv *sst)
+{
+	int size = 0;
+	const struct sst_debug *debug = NULL;
+
+	sst->debugfs.root = debugfs_create_dir("sst", NULL);
+	if (IS_ERR(sst->debugfs.root) || !sst->debugfs.root) {
+		pr_err("Failed to create debugfs directory\n");
+		return;
+	}
+
+	sst_debugfs_create_files(sst, sst_common_dbg_entries,
+				ARRAY_SIZE(sst_common_dbg_entries));
 
 	/* Initial status is enabled */
 	sst->debugfs.runtime_pm_status = 1;
 
-	/* For Reading/Enabling OSC Clock */
-	if (!debugfs_create_file("osc_clk0", 0600, sst->debugfs.root,
-				sst, &sst_debug_osc_clk0_ops)) {
-		pr_err("Failed to create osc_clk0 file\n");
-		return;
+	if (sst->pci_id == SST_MRFLD_PCI_ID) {
+		debug = mrfld_dbg_entries;
+		size = ARRAY_SIZE(mrfld_dbg_entries);
+	} else if (sst->pci_id == SST_CLV_PCI_ID) {
+		debug = ctp_dbg_entries;
+		size = ARRAY_SIZE(ctp_dbg_entries);
 	}
 
-	/* For SRAM Dump */
-	if (!debugfs_create_file("sram_lpe_debug", 0400, sst->debugfs.root,
-				sst, &sst_debug_sram_lpe_debug_ops)) {
-		pr_err("Failed to create sram_lpe_debug file\n");
-		return;
-	}
-	if (!debugfs_create_file("sram_lpe_checkpoint", 0400, sst->debugfs.root,
-				sst, &sst_debug_sram_lpe_checkpoint_ops)) {
-		pr_err("Failed to create sram_lpe_checkpoint file\n");
-		return;
-	}
-
-	if (!debugfs_create_file("sram_lpe_scu_mailbox", 0400, sst->debugfs.root,
-				sst, &sst_debug_sram_lpe_scu_mbox_ops)) {
-		pr_err("Failed to create sram_lpe_scu_mailbox file\n");
-		return;
-	}
-	if (!debugfs_create_file("sram_scu_lpe_mailbox", 0400, sst->debugfs.root,
-				sst, &sst_debug_sram_scu_lpe_mbox_ops)) {
-		pr_err("Failed to create sram_lpe_ia_mailbox file\n");
-		return;
-	}
-	if (!debugfs_create_file("lpe_log_enable", 0400, sst->debugfs.root,
-				sst, &sst_debug_lpe_log_enable_ops)) {
-		pr_err("Failed to create lpe_debug_enable file\n");
-		return;
-	}
-
-	/* ssp_reg interface */
-	if (!debugfs_create_file("fw_ssp_reg", 0400, sst->debugfs.root,
-				sst, &sst_debug_ssp_reg)) {
-		pr_err("Failed to create fw_ssp_reg file\n");
-		return;
-	}
-
-	/* dma_reg interface */
-	if (!debugfs_create_file("fw_dma_reg", 0400, sst->debugfs.root,
-				sst, &sst_debug_dma_reg)) {
-		pr_err("Failed to create fw_dma_reg file\n");
-		return;
-	}
-
-	/* dump Dram */
-	if (!debugfs_create_file("ddr_imr_dump", 0400, sst->debugfs.root,
-				sst, &sst_debug_ddr_imr_dump)) {
-		pr_err("Failed to create ddr_imr_dump file\n");
-		return;
-	}
+	if (debug)
+		sst_debugfs_create_files(sst, debug, size);
 
 	/* README file for user help */
 	if (!debugfs_create_file("README", 0400, sst->debugfs.root,
