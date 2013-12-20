@@ -954,6 +954,9 @@ static int ulpi_read(struct usb_phy *phy, u32 reg)
 	u32 val32 = 0, count = 200;
 	u8 val, tmp;
 
+	if (phy->intf != USB2_PHY_ULPI)
+		return -ENODEV;
+
 	reg &= 0xFF;
 
 	while (count) {
@@ -1015,6 +1018,9 @@ static int ulpi_write(struct usb_phy *phy, u32 val, u32 reg)
 	struct dwc_otg2 *otg = container_of(phy, struct dwc_otg2, usb2_phy);
 	u32 val32 = 0, count = 200;
 	u8 tmp;
+
+	if (phy->intf != USB2_PHY_ULPI)
+		return -ENODEV;
 
 	val &= 0xFF;
 	reg &= 0xFF;

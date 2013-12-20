@@ -50,6 +50,14 @@ static int is_basin_cove(struct dwc_otg2 *otg)
 	return data->pmic_type == BASIN_COVE;
 }
 
+static int is_utmi_phy(struct dwc_otg2 *otg)
+{
+	if (!otg || !otg->otg_data)
+		return -EINVAL;
+
+	return otg->usb2_phy.intf == USB2_PHY_UTMI;
+}
+
 static int is_hybridvp(struct dwc_otg2 *otg)
 {
 	struct intel_dwc_otg_pdata *data;
@@ -295,11 +303,13 @@ int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 	/* Get usb2 phy type */
 	otg->usb2_phy.intf = data->usb2_phy_type;
 
-	otg_info(otg, "De-assert USBRST# to enable PHY\n");
-	retval = intel_scu_ipc_iowrite8(PMIC_USBPHYCTRL,
-			PMIC_USBPHYCTRL_D0);
-	if (retval)
-		otg_err(otg, "Fail to de-assert USBRST#\n");
+	if (!is_utmi_phy(otg)) {
+		otg_info(otg, "De-assert USBRST# to enable PHY\n");
+		retval = intel_scu_ipc_iowrite8(PMIC_USBPHYCTRL,
+				PMIC_USBPHYCTRL_D0);
+		if (retval)
+			otg_err(otg, "Fail to de-assert USBRST#\n");
+	}
 
 	/* Don't let phy go to suspend mode, which
 	 * will cause FS/LS devices enum failed in host mode.
