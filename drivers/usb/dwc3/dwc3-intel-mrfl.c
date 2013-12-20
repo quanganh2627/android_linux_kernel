@@ -285,10 +285,15 @@ int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 {
 	u32 gctl;
 	int retval;
+	struct intel_dwc_otg_pdata *data;
+
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
 
 	/* Init a_bus_drop callback */
 	otg->usb2_phy.a_bus_drop = dwc_a_bus_drop;
 	otg->usb2_phy.vbus_state = VBUS_ENABLED;
+	/* Get usb2 phy type */
+	otg->usb2_phy.intf = data->usb2_phy_type;
 
 	otg_info(otg, "De-assert USBRST# to enable PHY\n");
 	retval = intel_scu_ipc_iowrite8(PMIC_USBPHYCTRL,
