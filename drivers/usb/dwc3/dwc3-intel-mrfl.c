@@ -58,6 +58,17 @@ static int is_utmi_phy(struct dwc_otg2 *otg)
 	return otg->usb2_phy.intf == USB2_PHY_UTMI;
 }
 
+void dwc3_switch_mode(struct dwc_otg2 *otg, u32 mode)
+{
+	u32 reg;
+
+	reg = otg_read(otg, GCTL);
+	reg &= ~(GCTL_PRT_CAP_DIR_OTG << GCTL_PRT_CAP_DIR_SHIFT);
+	reg |= mode << GCTL_PRT_CAP_DIR_SHIFT;
+	otg_write(otg, GCTL, reg);
+}
+
+
 static int is_hybridvp(struct dwc_otg2 *otg)
 {
 	struct intel_dwc_otg_pdata *data;
@@ -291,7 +302,6 @@ static void set_sus_phy(struct dwc_otg2 *otg, int bit)
 
 int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 {
-	u32 gctl;
 	int retval;
 	struct intel_dwc_otg_pdata *data;
 
@@ -326,9 +336,8 @@ int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 	otg_dbg(otg, "\n");
 	otg_write(otg, OEVTEN, 0);
 	otg_write(otg, OCTL, 0);
-	gctl = otg_read(otg, GCTL);
-	gctl |= GCTL_PRT_CAP_DIR_OTG << GCTL_PRT_CAP_DIR_SHIFT;
-	otg_write(otg, GCTL, gctl);
+
+	dwc3_switch_mode(otg, GCTL_PRT_CAP_DIR_OTG);
 
 	return 0;
 }
@@ -548,11 +557,8 @@ int dwc3_intel_b_idle(struct dwc_otg2 *otg)
 	otg_write(otg, OEVT, tmp);
 	otg_write(otg, OCTL, OCTL_PERI_MODE);
 
-	/* Force config to device mode as default */
-	gctl = otg_read(otg, GCTL);
-	gctl &= ~GCTL_PRT_CAP_DIR;
-	gctl |= GCTL_PRT_CAP_DIR_DEV << GCTL_PRT_CAP_DIR_SHIFT;
-	otg_write(otg, GCTL, gctl);
+	/* Force config to otg mode as default. */
+	dwc3_switch_mode(otg, GCTL_PRT_CAP_DIR_OTG);
 
 	if (!is_hybridvp(otg)) {
 		dwc_otg_charger_hwdet(false);
@@ -1035,6 +1041,8 @@ done:
 
 int dwc3_intel_prepare_start_host(struct dwc_otg2 *otg)
 {
+	dwc3_switch_mode(otg, GCTL_PRT_CAP_DIR_HOST);
+
 	if (!is_hybridvp(otg)) {
 		enable_usb_phy(otg, true);
 		usb2phy_eye_optimization(otg);

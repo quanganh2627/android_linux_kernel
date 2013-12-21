@@ -252,6 +252,8 @@ int dwc3_start_peripheral(struct usb_gadget *g)
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	if (dwc->gadget_driver && dwc->soft_connected) {
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		dwc3_core_init(dwc);
 		spin_lock_irqsave(&dwc->lock, flags);
@@ -397,6 +399,8 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 	}
 
 	if (is_on) {
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+
 		/* Per dwc3 databook 2.40a section 8.1.9, re-connection
 		 * should follow steps described section 8.1.1 power on
 		 * or soft reset.
@@ -429,6 +433,8 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 		dwc3_gadget_keep_conn(dwc, 0);
 		ret = dwc3_gadget_run_stop(dwc, 0);
 		dwc3_gadget_disable_irq(dwc);
+
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
 	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
@@ -589,7 +595,6 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 	wake_lock_init(&_dev_data->wake_lock,
 			WAKE_LOCK_SUSPEND, "dwc_wake_lock");
 
-	dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 	ret = dwc3_gadget_init(dwc);
 	if (ret) {
 		dev_err(dev, "failed to initialize gadget\n");
