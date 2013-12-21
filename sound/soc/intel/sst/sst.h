@@ -342,6 +342,8 @@ struct sst_debugfs {
 	int			runtime_pm_status;
 	void __iomem            *ssp[SST_MAX_SSP_PORTS];
 	void __iomem            *dma_reg[SST_MAX_DMA];
+	unsigned char get_params_data[1024];
+	ssize_t get_params_len;
 };
 
 struct lpe_log_buf_hdr {

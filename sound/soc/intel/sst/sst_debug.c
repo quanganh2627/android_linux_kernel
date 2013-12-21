@@ -647,7 +647,10 @@ static ssize_t sst_debug_readme_read(struct file *file, char __user *user_buf,
 		"9. cat fw_ssp_reg,This will dump the ssp register contents\n"
 		"10. cat fw_dma_reg,This will dump the dma register contents\n"
 		"11. ddr_imr_dump interface provides mmap support to get the imr dump,\n"
-		"this buffer will have data only after the recovery is triggered\n";
+		"this buffer will have data only after the recovery is triggered\n"
+		"12. ipc usage:\n"
+		"\t ipc file works only in binary mode. The ipc format is <IPC hdr><dsp hdr><payload>.\n"
+		"\t drv_id in the ipc header will be overwritten with unique driver id in the driver\n";
 
 	char *readme = NULL;
 	const char *buf2 = NULL;
@@ -1127,6 +1130,112 @@ static const struct file_operations sst_debug_ddr_imr_dump = {
 	.mmap = sst_debug_ddr_imr_dump_mmap,
 };
 
+static ssize_t sst_debug_ipc_write(struct file *file,
+		const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct intel_sst_drv *ctx = (struct intel_sst_drv *)file->private_data;
+	unsigned char *buf;
+	struct sst_block *block = NULL;
+	struct ipc_dsp_hdr *dsp_hdr;
+	struct ipc_post *msg = NULL;
+	int ret, res_rqd, msg_id, drv_id;
+	u32 low_payload;
+
+	if (count > 1024)
+		return -EINVAL;
+
+	ret = is_fw_running(ctx);
+	if (ret)
+		return ret;
+
+	buf = kzalloc((sizeof(unsigned char) * (count)), GFP_KERNEL);
+	if (!buf) {
+		ret = -ENOMEM;
+		goto put_pm_runtime;
+	}
+	if (copy_from_user(buf, user_buf, count)) {
+		ret = -EFAULT;
+		goto free_mem;
+	}
+
+	if (sst_create_ipc_msg(&msg, true)) {
+		ret = -ENOMEM;
+		goto free_mem;
+	}
+
+	msg->mrfld_header.full = *((u64 *)buf);
+	pr_debug("ipc hdr: %llx\n", msg->mrfld_header.full);
+
+	/* Override the drv id with unique drv id */
+	drv_id = sst_assign_pvt_id(ctx);
+	msg->mrfld_header.p.header_high.part.drv_id = drv_id;
+
+	res_rqd = msg->mrfld_header.p.header_high.part.res_rqd;
+	msg_id = msg->mrfld_header.p.header_high.part.msg_id;
+	pr_debug("res_rqd: %d, msg_id: %d, drv_id: %d\n",
+					res_rqd, msg_id, drv_id);
+	if (res_rqd) {
+		block = sst_create_block(ctx, msg_id, drv_id);
+		if (block == NULL) {
+			ret = -ENOMEM;
+			kfree(msg);
+			goto free_mem;
+		}
+	}
+
+	dsp_hdr = (struct ipc_dsp_hdr *)(buf + 8);
+	pr_debug("dsp hdr: %llx\n", *((u64 *)(dsp_hdr)));
+	low_payload = msg->mrfld_header.p.header_low_payload;
+	if (low_payload > (1024 - sizeof(union ipc_header_mrfld))) {
+		pr_err("Invalid low payload length: %x\n", low_payload);
+		ret = -EINVAL;
+		kfree(msg);
+		goto free_block;
+	}
+
+	memcpy(msg->mailbox_data, (buf+(sizeof(union ipc_header_mrfld))),
+			low_payload);
+	sst_add_to_dispatch_list_and_post(ctx, msg);
+	if (res_rqd) {
+		ret = sst_wait_timeout(ctx, block);
+		if (ret) {
+			pr_err("%s: fw returned err %d\n", __func__, ret);
+			goto free_block;
+		}
+
+		if (msg_id == IPC_GET_PARAMS) {
+			unsigned char *r = block->data;
+			memcpy(ctx->debugfs.get_params_data, r, dsp_hdr->length);
+			ctx->debugfs.get_params_len = dsp_hdr->length;
+		}
+
+	}
+	ret = count;
+free_block:
+	if (res_rqd)
+		sst_free_block(sst_drv_ctx, block);
+free_mem:
+	kfree(buf);
+put_pm_runtime:
+	sst_pm_runtime_put(ctx);
+	return ret;
+}
+
+static ssize_t sst_debug_ipc_read(struct file *file,
+		char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct intel_sst_drv *ctx = (struct intel_sst_drv *)file->private_data;
+	return simple_read_from_buffer(user_buf, count, ppos,
+			ctx->debugfs.get_params_data,
+			ctx->debugfs.get_params_len);
+}
+
+static const struct file_operations sst_debug_ipc_ops = {
+	.open = simple_open,
+	.write = sst_debug_ipc_write,
+	.read = sst_debug_ipc_read,
+};
+
 struct sst_debug {
 	const char *name;
 	const struct file_operations *fops;
@@ -1163,6 +1272,7 @@ static const struct sst_debug mrfld_dbg_entries[] = {
 	{"fw_ssp_reg", &sst_debug_ssp_reg, 0400},
 	{"fw_dma_reg", &sst_debug_dma_reg, 0400},
 	{"ddr_imr_dump", &sst_debug_ddr_imr_dump, 0400},
+	{"ipc", &sst_debug_ipc_ops, 0400},
 };
 
 void sst_debugfs_create_files(struct intel_sst_drv *sst,
