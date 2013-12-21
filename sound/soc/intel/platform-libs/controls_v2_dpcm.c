@@ -245,6 +245,35 @@ static int sst_mux_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int sst_mode_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct soc_enum *e = (void *)kcontrol->private_value;
+	unsigned int max = e->max - 1;
+
+	ucontrol->value.enumerated.item[0] = sst_reg_read(sst, e->reg, e->shift_l, max);
+	return 0;
+}
+
+static int sst_mode_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct soc_enum *e = (void *)kcontrol->private_value;
+	unsigned int max = e->max - 1;
+	unsigned int val;
+
+	if (ucontrol->value.enumerated.item[0] > e->max - 1)
+		return -EINVAL;
+
+	val = sst_reg_write(sst, e->reg, e->shift_l, max, ucontrol->value.enumerated.item[0]);
+	pr_debug("%s: reg[%d] - %#x\n", __func__, e->reg, val);
+	return 0;
+}
+
 static void sst_send_algo_cmd(struct sst_data *sst,
 			      struct sst_algo_control *bc)
 {
@@ -723,7 +752,7 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	struct sst_ids *ids = w->priv;
 	static int ssp_active[SSP_CODEC + 1];
-	bool is_bt;
+	bool is_bt, is_wideband;
 	unsigned int ssp_id = ids->ssp_id;
 
 	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
@@ -735,7 +764,7 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 
 	if (ssp_id == SSP_FM) {
 		/* switch to BT if the mux is set */
-		is_bt = get_mux_state(sst, SST_MUX_REG, 0);
+		is_bt = get_mux_state(sst, SST_MUX_REG, SST_BT_FM_MUX_SHIFT);
 		ssp_id = is_bt ? SSP_BT : SSP_FM;
 	}
 
@@ -765,6 +794,11 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 	cmd.ssp_protocol = 0;
 	cmd.start_delay = 0;
 
+	if (ssp_id == SSP_BT) {
+		is_wideband = get_mux_state(sst, SST_MUX_REG, SST_BT_MODE_SHIFT);
+		if (is_wideband)
+			cmd.frame_sync_frequency = 1;
+	}
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 			      SST_TASK_SBA, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
@@ -782,6 +816,7 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 {
 	struct sst_cmd_set_speech_path cmd;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+	bool is_wideband;
 
 	pr_debug("%s: widget=%s\n", __func__, w->name);
 	if (SND_SOC_DAPM_EVENT_ON(event))
@@ -796,9 +831,12 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 	cmd.header.length = sizeof(struct sst_cmd_set_speech_path)
 				- sizeof(struct sst_dsp_header);
 	cmd.config.sample_length = 0;
-	/* TODO: allow to be modified for WB */
-	cmd.config.rate = 0;
+	cmd.config.rate = 0;		/* 8 khz */
 	cmd.config.format = 0;
+
+	is_wideband = get_mux_state(sst, SST_MUX_REG, SST_VOICE_MODE_SHIFT);
+	if (is_wideband)
+		cmd.config.rate = 1;	/* 16 khz */
 
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 			      SST_TASK_SBA, 0, &cmd,
@@ -955,7 +993,7 @@ static const char * const sst_bt_fm_texts[] = {
 };
 
 static const struct snd_kcontrol_new sst_bt_fm_mux =
-	SST_SSP_MUX_CTL("ssp1", 0, SST_MUX_REG, 0, sst_bt_fm_texts,
+	SST_SSP_MUX_CTL("ssp1", 0, SST_MUX_REG, SST_BT_FM_MUX_SHIFT, sst_bt_fm_texts,
 			sst_mux_get, sst_mux_put);
 
 static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
@@ -1176,6 +1214,17 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"modem_out", NULL, "VBTimer"},
 	{"bt_fm_in", NULL, "VBTimer"},
 	{"bt_fm_out", NULL, "VBTimer"},
+};
+
+static const char * const sst_nb_wb_texts[] = {
+	"narrowband", "wideband",
+};
+
+static const struct snd_kcontrol_new sst_mux_controls[] = {
+	SST_SSP_MUX_CTL("domain voice mode", 0, SST_MUX_REG, SST_VOICE_MODE_SHIFT, sst_nb_wb_texts,
+			sst_mode_get, sst_mode_put),
+	SST_SSP_MUX_CTL("domain bt mode", 0, SST_MUX_REG, SST_BT_MODE_SHIFT, sst_nb_wb_texts,
+			sst_mode_get, sst_mode_put),
 };
 
 static const char * const slot_names[] = {
@@ -1605,6 +1654,8 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 			ARRAY_SIZE(sst_algo_controls));
 	snd_soc_add_platform_controls(platform, sst_slot_controls,
 			ARRAY_SIZE(sst_slot_controls));
+	snd_soc_add_platform_controls(platform, sst_mux_controls,
+			ARRAY_SIZE(sst_mux_controls));
 	snd_soc_add_platform_controls(platform, sst_debug_controls,
 			ARRAY_SIZE(sst_debug_controls));
 
