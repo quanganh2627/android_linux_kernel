@@ -21,7 +21,6 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
-#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
@@ -31,8 +30,6 @@
 #include <asm/intel_mid_powerbtn.h>
 #include <asm/intel_scu_pmic.h>
 #include <asm/intel_mid_rpmsg.h>
-#include <asm/intel-mid.h>
-#include <linux/workqueue.h>
 
 #define DRIVER_NAME "msic_power_btn"
 
@@ -43,8 +40,6 @@ struct mid_pb_priv {
 	u16 pb_level;
 	u16 irq_lvl1_mask;
 	bool irq_ack;
-	struct workqueue_struct *workq;
-	struct work_struct pb_work;
 };
 
 static inline int pb_clear_bits(u16 addr, u8 mask)
@@ -65,15 +60,8 @@ static irqreturn_t mid_pb_isr(int irq, void *dev_id)
 
 	if (pbstat & priv->pb_level)
 		pr_info("[%s] power button released\n", priv->input->name);
-	else {
+	else
 		pr_info("[%s] power button pressed\n", priv->input->name);
-		/* MOOR A1 PMIC Silicon bug:
-		 * powerbtn release event will not be generated.
-		 * [WA]: polling the pb status.
-		 */
-		if (priv->workq)
-			queue_work(priv->workq, &priv->pb_work);
-	}
 
 	return IRQ_WAKE_THREAD;
 }
@@ -88,30 +76,6 @@ static irqreturn_t mid_pb_threaded_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void pb_polling_stat_work(struct work_struct *work)
-{
-	int ret;
-	u8 pbstat = 0;
-	struct mid_pb_priv *priv =
-		container_of(work, struct mid_pb_priv, pb_work);
-
-	do {
-		ret = intel_scu_ipc_ioread8(SCOVE_PB_STAT_REG, &pbstat);
-		msleep(20);
-	} while (!ret && !(pbstat & priv->pb_level));
-
-	if (ret) {
-		dev_err(&priv->input->dev, "polling PB_STAT failed\n");
-		return;
-	}
-
-	input_event(priv->input, EV_KEY, KEY_POWER, !(pbstat & priv->pb_level));
-	input_sync(priv->input);
-
-	pr_info("[%s] power button released (polling mode)\n",
-						priv->input->name);
-}
-
 static int mid_pb_probe(struct platform_device *pdev)
 {
 	struct input_dev *input;
@@ -119,7 +83,6 @@ static int mid_pb_probe(struct platform_device *pdev)
 	int irq;
 	int ret;
 	struct intel_msic_power_btn_platform_data *pdata;
-	u8 chip_id;
 
 	if (pdev == NULL)
 		return -ENODEV;
@@ -157,35 +120,10 @@ static int mid_pb_probe(struct platform_device *pdev)
 
 	input_set_capability(input, EV_KEY, KEY_POWER);
 
-	priv->pb_level = pdata->pb_level;
-	priv->irq_lvl1_mask = pdata->irq_lvl1_mask;
-
-	INIT_WORK(&priv->pb_work, pb_polling_stat_work);
-
-	/* MOOR A1 PMIC powerbutton hold time workaround */
-	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
-		ret = intel_scu_ipc_ioread8(SCOVE_CHIP_ID, &chip_id);
-		if (ret) {
-			dev_err(&pdev->dev, "Read Shadycove chip ID failed\n");
-			goto fail;
-		}
-
-		/* A1 - Major revision: A, minor revision: 1 */
-		if ((chip_id & SCOVE_CHIP_ID_REV_MASK) == 0x1) {
-			priv->workq =
-				create_singlethread_workqueue(pdev->name);
-			if (priv->workq == NULL) {
-				ret = -ENOMEM;
-				goto fail;
-			}
-
-		}
-	}
-
 	priv->pb_stat = ioremap(pdata->pbstat, MSIC_PB_LEN);
 	if (!priv->pb_stat) {
 		ret = -ENOMEM;
-		goto out_destroyworkq;
+		goto fail;
 	}
 
 	ret = input_register_device(input);
@@ -194,6 +132,9 @@ static int mid_pb_probe(struct platform_device *pdev)
 			"unable to register input dev, error %d\n", ret);
 		goto out_iounmap;
 	}
+
+	priv->pb_level = pdata->pb_level;
+	priv->irq_lvl1_mask = pdata->irq_lvl1_mask;
 
 	/* Unmask the PBIRQ and MPBIRQ on Tangier */
 	if (pdata->irq_ack) {
@@ -225,9 +166,6 @@ out_unregister_input:
 	input = NULL;
 out_iounmap:
 	iounmap(priv->pb_stat);
-out_destroyworkq:
-	if (priv->workq)
-		destroy_workqueue(priv->workq);
 fail:
 	platform_set_drvdata(pdev, NULL);
 	input_free_device(input);
@@ -241,10 +179,6 @@ static int mid_pb_remove(struct platform_device *pdev)
 
 	iounmap(priv->pb_stat);
 	free_irq(priv->irq, priv);
-
-	if (priv->workq)
-		destroy_workqueue(priv->workq);
-
 	platform_set_drvdata(pdev, NULL);
 	input_unregister_device(priv->input);
 	kfree(priv);

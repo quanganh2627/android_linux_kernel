@@ -16,8 +16,5 @@ struct intel_msic_power_btn_platform_data {
 
 #define SCOVE_PBIRQ		0x1002
 #define SCOVE_PBIRQMASK		0x100d
-#define SCOVE_PB_STAT_REG	0x1027
-#define SCOVE_CHIP_ID		0x1000
-#define SCOVE_CHIP_ID_REV_MASK	0x3F
 
 #endif
