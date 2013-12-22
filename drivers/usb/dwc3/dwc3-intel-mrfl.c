@@ -1093,9 +1093,21 @@ int dwc3_intel_suspend(struct dwc_otg2 *otg)
 int dwc3_intel_resume(struct dwc_otg2 *otg)
 {
 	struct pci_dev *pci_dev;
+	u32 data;
 
 	if (!otg)
 		return 0;
+
+	/* This is one SCU WA. SCU should set GUSB2PHYCFG0
+	 * bit 4 for ULPI setting. But SCU haven't do that.
+	 * So do WA first until SCU fix.
+	 */
+	data = otg_read(otg, GUSB2PHYCFG0);
+	if (is_utmi_phy(otg))
+		data &= ~(1 << 4);
+	else
+		data |= (1 << 4);
+	otg_write(otg, GUSB2PHYCFG0, data);
 
 	pci_dev = to_pci_dev(otg->dev);
 
