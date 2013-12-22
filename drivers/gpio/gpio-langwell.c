@@ -38,6 +38,7 @@
 #include <asm/intel-mid.h>
 #include <xen/events.h>
 #include <linux/irqdomain.h>
+#include <asm/intel-mid.h>
 #include <asm/intel_scu_flis.h>
 #include "gpiodebug.h"
 
@@ -45,7 +46,7 @@
 #define IRQ_TYPE_LEVEL	(1 << 1)
 
 #define TANGIER_I2C_FLIS_START	0x1D00
-#define TANGIER_I2C_FLIS_END	0x1D34
+#define TANGIER_I2C_FLIS_END	0x1D3C
 
 /*
  * Langwell chip has 64 pins and thus there are 2 32bit registers to control
@@ -110,7 +111,7 @@ struct gpio_flis_pair {
  * of some key gpio pins, the offset of other gpios can be calculated
  * from the table.
  */
-static struct gpio_flis_pair gpio_flis_mapping_table[] = {
+static struct gpio_flis_pair gpio_flis_tng_mapping_table[] = {
 	{ 0,	0x2900 },
 	{ 12,	0x2544 },
 	{ 14,	0x0958 },
@@ -140,6 +141,35 @@ static struct gpio_flis_pair gpio_flis_mapping_table[] = {
 	{ 190,	0x2D50 },
 };
 
+static struct gpio_flis_pair gpio_flis_ann_mapping_table[] = {
+	{ 0,	0x2900 },
+	{ 12,	0x2154 },
+	{ 14,	0x2540 },
+	{ 16,	0x2930 },
+	{ 17,	0x1D18 },
+	{ 19,	0x1D08 },
+	{ 23,	0x1D20 },
+	{ 31,	-EINVAL }, /* No GPIO 31 in pin list */
+	{ 32,	0x1508 },
+	{ 44,	0x3500 },
+	{ 64,	0x312C },
+	{ 68,	0x2934 },
+	{ 70,	0x1500 },
+	{ 72,	-EINVAL }, /* No GPIO 73-76 in pin list */
+	{ 77,	0x0D00 },
+	{ 97,	0x2130 },
+	{ 98,	-EINVAL }, /* No GPIO 98-101 in pin list */
+	{ 102,	0x1910 },
+	{ 120,	0x1900 },
+	{ 124,	0x2100 },
+	{ 136,	-EINVAL }, /* No GPIO 136-153 in pin list */
+	{ 154,	0x2134 },
+	{ 162,	0x2548 },
+	{ 164,	0x3914 },
+	{ 176,	0x2500 },
+
+};
+
 /*
  * In new version of FW for Merrifield, I2C FLIS register can not
  * be written directly but go though a IPC way which is sleepable,
@@ -156,20 +186,28 @@ static u32 get_flis_offset_by_gpio(int gpio)
 {
 	int i;
 	int start;
-	u32 offset = -EINVAL;
+	u32 offset = -EINVAL, size;
+	struct gpio_flis_pair *gpio_flis_map;
 
-	for (i = 0; i < ARRAY_SIZE(gpio_flis_mapping_table) - 1; i++) {
-		if (gpio >= gpio_flis_mapping_table[i].gpio
-			&& gpio < gpio_flis_mapping_table[i + 1].gpio)
+	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) {
+		size = ARRAY_SIZE(gpio_flis_tng_mapping_table);
+		gpio_flis_map = gpio_flis_tng_mapping_table;
+	} else if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
+		size = ARRAY_SIZE(gpio_flis_ann_mapping_table);
+		gpio_flis_map = gpio_flis_ann_mapping_table;
+	} else
+		return -EINVAL;
+
+	for (i = 0; i < size - 1; i++) {
+		if (gpio >= gpio_flis_map[i].gpio
+			&& gpio < gpio_flis_map[i + 1].gpio)
 			break;
 	}
 
-	start = gpio_flis_mapping_table[i].gpio;
+	start = gpio_flis_map[i].gpio;
 
-	if (gpio_flis_mapping_table[i].offset != -EINVAL) {
-		offset = gpio_flis_mapping_table[i].offset
-				+ (gpio - start) * 4;
-	}
+	if (gpio_flis_map[i].offset != -EINVAL)
+		offset = gpio_flis_map[i].offset + (gpio - start) * 4;
 
 	return offset;
 }
