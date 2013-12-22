@@ -187,7 +187,8 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pr1_pdata = {
 					/* disable opticharge*/
 						0x02, 0x87,
 						0x03, 0xED,
-						0x04, 0xB8,
+				/* enable Auto recharge, Turbo charge+ */
+						0x04, 0x3D,
 						0x05, 0x05,
 				/* enable APSD interrupt along with others */
 						0x06, 0x06,
@@ -200,8 +201,6 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pr1_pdata = {
 						0x0C, 0xBF,
 						0x0D, 0xF4,
 						0x10, 0x40,
-				/* disable suspend as charging didnot start */
-						0x30, 0x40,
 						0x31, 0x01,
 					},
 };

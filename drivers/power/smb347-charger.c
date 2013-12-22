@@ -633,6 +633,7 @@ static int smb347_charging_set(struct smb347_charger *smb, bool enable)
 		else
 			ret &= ~CMD_A_CHG_ENABLED;
 
+		ret |= CMD_A_FORCE_FCC;
 		ret = smb347_write(smb, CMD_A, ret);
 	}
 out:
