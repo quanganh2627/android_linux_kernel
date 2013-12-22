@@ -514,7 +514,7 @@ int shady_cove_get_id(struct dwc_otg2 *otg)
 	 * 61.2k to 74.8kΩ: ACA-B detected
 	 * 32.85k to 40.15kΩ: ACA-C detected
 	 * else: Unknown detected */
-	do_div(rid, 1000UL);
+	rid /= 1000;
 
 	if ((rid > 111500) && (rid < 136400))
 		return RID_A;
