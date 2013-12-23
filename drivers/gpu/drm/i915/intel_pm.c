@@ -26,6 +26,7 @@
  */
 
 #include <linux/cpufreq.h>
+#include <linux/mfd/intel_mid_pmic.h>
 #include "i915_drv.h"
 #include "intel_drv.h"
 #include "../../../platform/x86/intel_ips.h"
@@ -5895,6 +5896,11 @@ void intel_aux_display_runtime_put(struct drm_i915_private *dev_priv)
 	hsw_enable_package_c8(dev_priv);
 }
 
+static int set_vhdmi_state(u8 value)
+{
+	return intel_mid_pmic_writeb(VHDMICNT, value);
+}
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void display_early_suspend(struct early_suspend *h)
 {
@@ -5906,6 +5912,12 @@ static void display_early_suspend(struct early_suspend *h)
 	if (ret)
 		DRM_ERROR("Display suspend failure\n");
 	else {
+		ret = set_vhdmi_state(VHDMI_OFF);
+		if (ret) {
+			dev_err(&dev_priv->bridge_dev->dev,
+					"Power gate HDMI failed\n");
+		}
+
 		dev_priv->early_suspended = true;
 		DRM_DEBUG_PM("Early suspend finished\n");
 	}
@@ -5917,6 +5929,13 @@ static void display_late_resume(struct early_suspend *h)
 	struct drm_i915_private *dev_priv = gdev->dev_private;
 	int ret;
 	DRM_DEBUG_PM("Late Resume called\n");
+	/* VHDMI power switch */
+	ret = set_vhdmi_state(VHDMI_ON);
+	if (ret) {
+		dev_err(&dev_priv->bridge_dev->dev,
+			"Power on VHDMI failed\n");
+	}
+
 	ret = display_runtime_resume(drm_dev);
 	if (ret)
 		DRM_ERROR("Display Resume failure\n");
