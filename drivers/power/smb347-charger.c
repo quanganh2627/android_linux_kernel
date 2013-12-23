@@ -2431,8 +2431,13 @@ static int smb347_remove(struct i2c_client *client)
 
 static void smb347_shutdown(struct i2c_client *client)
 {
+	struct smb347_charger *smb = i2c_get_clientdata(client);
+
 	if (client->irq > 0)
 		disable_irq(client->irq);
+
+	if (smb->drive_vbus)
+		smb347_otg_disable(smb);
 
 	return;
 }
