@@ -3633,7 +3633,10 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 	if (crtc->invert_dimensions)
 		swap(hdisplay, vdisplay);
 
+	mutex_lock(&dev->mode_config.mutex);
 	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+		if (connector->encoder == NULL)
+			continue;
 		if (connector->encoder->crtc == crtc) {
 			int i;
 			for (i = 0; i < connector->properties.count; i++) {
@@ -3658,6 +3661,7 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 			break;
 		}
 	}
+	mutex_unlock(&dev->mode_config.mutex);
 
 	if ((hdisplay > fb->width ||
 	    vdisplay > fb->height ||
