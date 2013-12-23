@@ -457,6 +457,11 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 
 	if (sdhci_acpi_flag(c, SDHCI_ACPI_SD_CD) &&
 			c->cd_gpio != -ENODEV) {
+		/*
+		 * WORKAROUND, can be removed when GPIO_CD
+		 * set to GPIO mode by default
+		 */
+		lnw_gpio_set_alt(c->cd_gpio, 0);
 		if (mmc_gpio_request_cd(host->mmc, c->cd_gpio))
 			c->use_runtime_pm = false;
 	}
