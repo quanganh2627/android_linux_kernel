@@ -851,8 +851,10 @@ bool drm_mode_equal(const struct drm_display_mode *mode1, const struct drm_displ
 	} else if (mode1->clock != mode2->clock)
 		return false;
 
+#if defined(CONFIG_DRM_I915)
 	if (mode1->picture_aspect_ratio != mode2->picture_aspect_ratio)
 		return false;
+#endif
 
 	return drm_mode_equal_no_clocks(mode1, mode2);
 }

@@ -99,7 +99,9 @@ struct drm_mode_modeinfo {
 
 	__u32 flags;
 	__u32 type;
+#if defined(CONFIG_DRM_I915)
 	__u32 picture_aspect_ratio;
+#endif
 	char name[DRM_DISPLAY_MODE_LEN];
 };
 

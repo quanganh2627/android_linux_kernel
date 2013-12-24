@@ -1279,7 +1279,9 @@ static void drm_crtc_convert_to_umode(struct drm_mode_modeinfo *out,
 	out->vrefresh = in->vrefresh;
 	out->flags = in->flags;
 	out->type = in->type;
+#if defined(CONFIG_DRM_I915)
 	out->picture_aspect_ratio = in->picture_aspect_ratio;
+#endif
 	strncpy(out->name, in->name, DRM_DISPLAY_MODE_LEN);
 	out->name[DRM_DISPLAY_MODE_LEN-1] = 0;
 }
@@ -1315,7 +1317,9 @@ static int drm_crtc_convert_umode(struct drm_display_mode *out,
 	out->vrefresh = in->vrefresh;
 	out->flags = in->flags;
 	out->type = in->type;
+#if defined(CONFIG_DRM_I915)
 	out->picture_aspect_ratio = in->picture_aspect_ratio;
+#endif
 	strncpy(out->name, in->name, DRM_DISPLAY_MODE_LEN);
 	out->name[DRM_DISPLAY_MODE_LEN-1] = 0;
 
