@@ -555,7 +555,6 @@ int dwc3_intel_b_idle(struct dwc_otg2 *otg)
 	otg_write(otg, OEVTEN, 0);
 	tmp = otg_read(otg, OEVT);
 	otg_write(otg, OEVT, tmp);
-	otg_write(otg, OCTL, OCTL_PERI_MODE);
 
 	/* Force config to otg mode as default. */
 	dwc3_switch_mode(otg, GCTL_PRT_CAP_DIR_OTG);
