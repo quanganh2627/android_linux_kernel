@@ -13,6 +13,7 @@
 #include <linux/pm_runtime.h>
 #include <asm/intel-mid.h>
 #include <linux/usb/xhci-ush-hsic-pci.h>
+#include <linux/usb/hcd.h>
 
 static struct ush_hsic_pdata hsic_pdata = {
 	.has_modem = 0,
@@ -65,15 +66,48 @@ DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BYT_USH,
 #define PCI_USH_SSCFG1_D3	BIT(28)
 #define PCI_USH_SSCFG1_SUS	BIT(30)
 
+#define PCI_USH_OP_OFFSET	0x80
+#define PCI_USH_OP_PORTSC_OFFSET	0x400
+#define PCI_USH_OP_PORTSC_CCS	BIT(0)
+#define PCI_USH_MAX_PORTS	4
+
 static void quirk_byt_ush_suspend(struct pci_dev *dev)
 {
+	struct usb_hcd	*hcd;
+	u32	portsc;
 	u32	value;
+	int	port_index = 0;
+	int	usb_attached = 0;
 
 	dev_dbg(&dev->dev, "USH suspend quirk\n");
+
+	hcd = pci_get_drvdata(dev);
+	if (!hcd)
+		return;
+
+	/* Check if anything attached on USB ports,
+	 * FIXME: may need to check HSIC ports */
+	while (port_index < PCI_USH_MAX_PORTS) {
+		portsc = readl(hcd->regs + PCI_USH_OP_OFFSET +
+				PCI_USH_OP_PORTSC_OFFSET +
+				port_index * 0x10);
+		if (portsc & PCI_USH_OP_PORTSC_CCS) {
+			pr_info("XHCI: port %d, portsc 0x%x\n",
+				port_index, portsc);
+			usb_attached = 1;
+			break;
+		}
+		port_index++;
+	}
+
 	pci_read_config_dword(dev, PCI_USH_SSCFG1, &value);
 
-	/* set SSCFG1 BIT 28 and 30 before enter D3hot */
-	value |= (PCI_USH_SSCFG1_D3 | PCI_USH_SSCFG1_SUS);
+	/* set SSCFG1 BIT 28 and 30 before enter D3hot
+	 * if USB attached, then we can not turn off SUS */
+	if (usb_attached)
+		value |= PCI_USH_SSCFG1_D3;
+	else
+		value |= (PCI_USH_SSCFG1_D3 | PCI_USH_SSCFG1_SUS);
 	pci_write_config_dword(dev, PCI_USH_SSCFG1, value);
 
 	pci_read_config_dword(dev, PCI_USH_SSCFG1, &value);
