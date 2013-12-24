@@ -683,8 +683,9 @@ static int dwc3_intel_notify_charger_type(struct dwc_otg2 *otg,
 	unsigned long flags;
 
 	if (!charger_detect_enable(otg) &&
-		(otg->charging_cap.chrg_type !=
-		POWER_SUPPLY_CHARGER_TYPE_USB_SDP))
+		((otg->charging_cap.chrg_type !=
+		POWER_SUPPLY_CHARGER_TYPE_USB_SDP) ||
+		 event == POWER_SUPPLY_CHARGER_EVENT_DISCONNECT))
 		return 0;
 
 	if (event > POWER_SUPPLY_CHARGER_EVENT_DISCONNECT) {
@@ -988,6 +989,13 @@ static int dwc3_intel_handle_notification(struct notifier_block *nb,
 		state = NOTIFY_OK;
 		break;
 	case USB_EVENT_VBUS:
+		/* WA for EM driver which should not sent VBUS event
+		 * if UTMI PHY selected. */
+		if (!charger_detect_enable(otg)) {
+			state = NOTIFY_OK;
+			goto done;
+		}
+
 		if (*(int *)data) {
 			otg->otg_events |= OEVT_B_DEV_SES_VLD_DET_EVNT;
 			otg->otg_events &= ~OEVT_A_DEV_SESS_END_DET_EVNT;
@@ -1003,10 +1011,24 @@ static int dwc3_intel_handle_notification(struct notifier_block *nb,
 			goto done;
 		}
 		cap = (struct power_supply_cable_props *)data;
+		/* Do WA for EM driver which should only send ACA-DOCK */
+		if (cap->chrg_type == POWER_SUPPLY_CHARGER_TYPE_USB_ACA)
+			if (dwc3_intel_get_id(otg) == RID_A)
+				cap->chrg_type = POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK;
+
 		if (!(cap->chrg_type & valid_chrg_type)) {
 			otg_err(otg, "Invalid charger type!\n");
 			state = NOTIFY_BAD;
+			goto done;
 		}
+
+		/* Ignore the events which send by USB driver itself. */
+		if (cap->chrg_evt == POWER_SUPPLY_CHARGER_EVENT_CONNECT)
+			if (cap_record.chrg_type == POWER_SUPPLY_CHARGER_TYPE_USB_SDP) {
+				state = NOTIFY_DONE;
+				goto done;
+			}
+
 		if (cap->chrg_evt == POWER_SUPPLY_CHARGER_EVENT_CONNECT) {
 			otg->otg_events |= OEVT_B_DEV_SES_VLD_DET_EVNT;
 			otg->otg_events &= ~OEVT_A_DEV_SESS_END_DET_EVNT;
@@ -1031,8 +1053,8 @@ static int dwc3_intel_handle_notification(struct notifier_block *nb,
 		state = NOTIFY_DONE;
 	}
 
-done:
 	dwc3_wakeup_otg_thread(otg);
+done:
 	spin_unlock_irqrestore(&otg->lock, flags);
 
 	return state;
