@@ -617,28 +617,67 @@ static ssize_t sst_debug_readme_read(struct file *file, char __user *user_buf,
 		"if logs are enabled.\n"
 		"2. Write to shim register using 'echo <addr> <value> > shim_dump'.\n"
 		"Valid address range is between 0x00 to 0x80 in increments of 8.\n"
-		"3. Enable input clock by 'echo enable > osc_clk0'.\n"
-		"This prevents the input OSC clock from switching off till it is disabled by\n"
-		"'echo disable > osc_clk0'. The status of the clock indicated who are using it.\n"
-		"4. lpe_log_enable usage:\n"
-		"	echo <dbg_type> <module_id> <log_level> > lpe_log_enable.\n"
-		"5. echo 1 > fw_clear_context , This sets the flag to skip the context restore\n"
-		"6. echo 1 > fw_clear_cache , This sets the flag to clear the cached copy of firmware\n"
-		"7. echo 1 > fw_reset_state ,This sets the fw state to uninit\n"
-		"8. echo memcpy > fw_dwnld_mode, This will set the firmware download mode to memcpy\n"
-		"9. echo lli > fw_dwnld_mode, This will set the firmware download mode to\n"
+		"3. echo 1 > fw_clear_context , This sets the flag to skip the context restore\n"
+		"4. echo 1 > fw_clear_cache , This sets the flag to clear the cached copy of firmware\n"
+		"5. echo 1 > fw_reset_state ,This sets the fw state to uninit\n"
+		"6. echo memcpy > fw_dwnld_mode, This will set the firmware download mode to memcpy\n"
+		"   echo lli > fw_dwnld_mode, This will set the firmware download mode to\n"
 					"dma lli mode\n"
-		"10. echo dma > fw_dwnld_mode, This will set the firmware download mode to\n"
+		"   echo dma > fw_dwnld_mode, This will set the firmware download mode to\n"
 					"dma single block mode\n"
-		"11. cat fw_ssp_reg,This will dump the ssp register contents\n"
-		"12. cat fw_dma_reg,This will dump the dma register contents\n"
-		"13. iram_dump,dram_dump & ddr_imr_dump, interfaces provide mmap support to\n"
-		"get the iram and dram dump these, buffers will have data only\n"
+		"7. iram_dump, dram_dump, interfaces provide mmap support to\n"
+		"get the iram and dram dump, these buffers will have data only\n"
 		"after the recovery is triggered\n";
 
+	const char *ctp_buf =
+		"8. Enable input clock by 'echo enable > osc_clk0'.\n"
+		"This prevents the input OSC clock from switching off till it is disabled by\n"
+		"'echo disable > osc_clk0'. The status of the clock indicated who are using it.\n"
+		"9. lpe_log_enable usage:\n"
+		"	echo <dbg_type> <module_id> <log_level> > lpe_log_enable.\n"
+		"10. cat fw_ssp_reg,This will dump the ssp register contents\n"
+		"11. cat fw_dma_reg,This will dump the dma register contents\n";
 
-	return simple_read_from_buffer(user_buf, count, ppos,
-			buf, strlen(buf));
+	const char *mrfld_buf =
+		"8. lpe_log_enable usage:\n"
+		"	echo <dbg_type> <module_id> <log_level> > lpe_log_enable.\n"
+		"9. cat fw_ssp_reg,This will dump the ssp register contents\n"
+		"10. cat fw_dma_reg,This will dump the dma register contents\n"
+		"11. ddr_imr_dump interface provides mmap support to get the imr dump,\n"
+		"this buffer will have data only after the recovery is triggered\n";
+
+	char *readme = NULL;
+	const char *buf2 = NULL;
+	int size, ret = 0;
+
+	switch (sst_drv_ctx->pci_id) {
+	case SST_CLV_PCI_ID:
+		size = strlen(buf) + strlen(ctp_buf) + 2;
+		buf2 = ctp_buf;
+		break;
+	case SST_MRFLD_PCI_ID:
+		size = strlen(buf) + strlen(mrfld_buf) + 2;
+		buf2 = mrfld_buf;
+		break;
+	default:
+		size = strlen(buf) + 1;
+	};
+
+	readme = kmalloc(size, GFP_KERNEL);
+	if (readme == NULL) {
+		pr_err("%s: no memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (buf2)
+		sprintf(readme, "%s%s\n", buf, buf2);
+	else
+		sprintf(readme, "%s\n", buf);
+
+	ret = simple_read_from_buffer(user_buf, count, ppos,
+			readme, strlen(readme));
+	kfree(readme);
+	return ret;
 }
 
 static const struct file_operations sst_debug_readme_ops = {
@@ -1097,6 +1136,7 @@ static const struct sst_debug sst_common_dbg_entries[] = {
 	{"dram_dump", &sst_debug_dram_dump, 0400},
 	{"sram_ia_lpe_mailbox", &sst_debug_sram_ia_lpe_mbox_ops, 0400},
 	{"sram_lpe_ia_mailbox", &sst_debug_sram_lpe_ia_mbox_ops, 0400},
+	{"README", &sst_debug_readme_ops, 0400},
 };
 
 static const struct sst_debug ctp_dbg_entries[] = {
@@ -1163,12 +1203,6 @@ void sst_debugfs_init(struct intel_sst_drv *sst)
 	if (debug)
 		sst_debugfs_create_files(sst, debug, size);
 
-	/* README file for user help */
-	if (!debugfs_create_file("README", 0400, sst->debugfs.root,
-				sst, &sst_debug_readme_ops)) {
-		pr_err("Failed to create README file\n");
-		return;
-	}
 }
 
 void sst_debugfs_exit(struct intel_sst_drv *sst)
