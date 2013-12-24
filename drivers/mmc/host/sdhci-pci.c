@@ -1933,11 +1933,22 @@ static int sdhci_gpio_buf_check(struct sdhci_host *host, unsigned int clk)
 	struct sdhci_pci_slot *slot = sdhci_priv(host);
 
 	if (slot->data && slot->data->flis_check)
-		ret = slot->data->flis_check(host, clk);
+		ret = slot->data->flis_check(slot->data->flis_addr,
+					host->clock, clk);
 
 	return ret;
 }
 
+static int sdhci_gpio_buf_dump(struct sdhci_host *host)
+{
+	int ret = -ENOSYS;
+	struct sdhci_pci_slot *slot = sdhci_priv(host);
+
+	if (slot->data && slot->data->flis_dump)
+		ret = slot->data->flis_dump(slot->data->flis_addr);
+
+	return ret;
+}
 static const struct sdhci_ops sdhci_pci_ops = {
 	.enable_dma	= sdhci_pci_enable_dma,
 	.platform_bus_width	= sdhci_pci_bus_width,
@@ -1948,6 +1959,7 @@ static const struct sdhci_ops sdhci_pci_ops = {
 	.platform_reset_exit = sdhci_platform_reset_exit,
 	.get_tuning_count = sdhci_pci_get_tuning_count,
 	.gpio_buf_check = sdhci_gpio_buf_check,
+	.gpio_buf_dump = sdhci_gpio_buf_dump,
 };
 
 /*****************************************************************************\

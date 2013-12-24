@@ -2626,6 +2626,9 @@ static void sdhci_timeout_timer(unsigned long data)
 			"interrupt.\n", mmc_hostname(host->mmc));
 		sdhci_dumpregs(host);
 
+		if (host->ops->gpio_buf_dump)
+			host->ops->gpio_buf_dump(host);
+
 		if (host->rte_addr)
 			dump_rte_apic_reg(host, host->rte_addr);
 
@@ -4542,6 +4545,10 @@ int sdhci_add_host(struct sdhci_host *host)
 #ifdef CONFIG_MMC_DEBUG
 	sdhci_dumpregs(host);
 #endif
+
+	/* dump eMMC flis setting for debug */
+	if (host->ops->gpio_buf_dump)
+		host->ops->gpio_buf_dump(host);
 
 #ifdef SDHCI_USE_LEDS_CLASS
 	if (mmc->caps2 & MMC_CAP2_LED_SUPPORT) {

@@ -934,6 +934,9 @@ static int mmc_blk_reset(struct mmc_blk_data *md, struct mmc_host *host,
 {
 	int err;
 
+	pr_err("%s: mmc_blk_reset: md->reset_done (0x%x), type (0x%x)\n",
+		md->disk->disk_name, md->reset_done, type);
+
 	if (md->reset_done & type)
 		return -EEXIST;
 

@@ -5,6 +5,7 @@ struct pci_dev;
 
 struct sdhci_pci_data {
 	struct pci_dev	*pdev;
+	void __iomem *flis_addr; /* eMMC0 FLIS registers start address */
 	int		slotno;
 	int		rst_n_gpio; /* Set to -EINVAL if unused */
 	int		cd_gpio;    /* Set to -EINVAL if unused */
@@ -16,7 +17,9 @@ struct sdhci_pci_data {
 	int		(*power_up)(void *data);
 	void		(*register_embedded_control)(void *dev_id,
 			   void (*virtual_cd)(void *dev_id, int card_present));
-	int		(*flis_check)(void *data, unsigned int clk);
+	int		(*flis_check)(void *data, unsigned int host_clk,
+				unsigned int clk);
+	int		(*flis_dump)(void *data);
 };
 
 /* Some Pre-Silicon platform not support all SDHCI HCs of the SoC */
