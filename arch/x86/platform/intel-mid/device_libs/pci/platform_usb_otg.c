@@ -95,6 +95,7 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 			dwc_otg_pdata.gpio_cs = 54;
 			dwc_otg_pdata.gpio_reset = 144;
 			dwc_otg_pdata.ti_phy_vs1 = 0x7f;
+			dwc_otg_pdata.sdp_charging = 1;
 		} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2) ||
 			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2)) {
 			dwc_otg_pdata.gpio_cs = 54;
