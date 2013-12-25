@@ -54,7 +54,7 @@ int mei_start(struct mei_device *dev)
 {
 	mutex_lock(&dev->device_lock);
 
-	/* acknowledge interrupt and stop interupts */
+	/* acknowledge interrupt and stop interrupts */
 	mei_clear_interrupts(dev);
 
 	mei_hw_config(dev);
@@ -96,7 +96,7 @@ err:
 EXPORT_SYMBOL_GPL(mei_start);
 
 /**
- * mei_cancel_work. Cancel backround mei backround jobs
+ * mei_cancel_work. Cancel mei background jobs
  *
  * @dev: the device structure
  */

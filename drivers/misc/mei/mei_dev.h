@@ -60,7 +60,7 @@ extern const uuid_le mei_amthif_guid;
  * that can be opened to the driver.
  *
  * Limit to 255: 256 Total Clients
- * minus internal client for MEI Bus Messags
+ * minus internal client for MEI Bus Messages
  */
 #define  MEI_MAX_OPEN_HANDLE_COUNT (MEI_CLIENTS_MAX - 1)
 
@@ -175,7 +175,7 @@ struct mei_cl_cb {
 	struct file *file_object;
 };
 
-/* MEI client instance carried as file->pirvate_data*/
+/* MEI client instance carried as file->private_data*/
 struct mei_cl {
 	struct list_head link;
 	struct mei_device *dev;

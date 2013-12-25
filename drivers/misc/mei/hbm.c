@@ -85,12 +85,12 @@ void mei_hbm_cl_hdr(struct mei_cl *cl, u8 hbm_cmd, void *buf, size_t len)
 }
 
 /**
- * same_disconn_addr - tells if they have the same address
+ * mei_hbm_cl_addr_equal - tells if they have the same address
  *
- * @file: private data of the file object.
- * @disconn: disconnection request.
+ * @cl: - client
+ * @buf: buffer with cl header
  *
- * returns true if addres are same
+ * returns true if addresses are the same
  */
 static inline
 bool mei_hbm_cl_addr_equal(struct mei_cl *cl, void *buf)
@@ -270,7 +270,7 @@ static int mei_hbm_prop_req(struct mei_device *dev)
 }
 
 /**
- * mei_hbm_stop_req_prepare - perpare stop request message
+ * mei_hbm_stop_req_prepare - prepare stop request message
  *
  * @dev - mei device
  * @mei_hdr - mei message header
@@ -291,7 +291,7 @@ static void mei_hbm_stop_req_prepare(struct mei_device *dev,
 }
 
 /**
- * mei_hbm_cl_flow_control_req - sends flow control requst.
+ * mei_hbm_cl_flow_control_req - sends flow control request.
  *
  * @dev: the device structure
  * @cl: client info
@@ -453,7 +453,7 @@ int mei_hbm_cl_connect_req(struct mei_device *dev, struct mei_cl *cl)
 }
 
 /**
- * mei_hbm_cl_connect_res - connect resposne from the ME
+ * mei_hbm_cl_connect_res - connect response from the ME
  *
  * @dev: the device structure
  * @rs: connect response bus message
@@ -507,8 +507,8 @@ static void mei_hbm_cl_connect_res(struct mei_device *dev,
 
 
 /**
- * mei_hbm_fw_disconnect_req - disconnect request initiated by me
- *  host sends disoconnect response
+ * mei_hbm_fw_disconnect_req - disconnect request initiated by ME firmware
+ *  host sends disconnect response
  *
  * @dev: the device structure.
  * @disconnect_req: disconnect request bus message from the me
@@ -689,7 +689,7 @@ void mei_hbm_dispatch(struct mei_device *dev, struct mei_msg_hdr *hdr)
 				mei_hbm_me_cl_allocate(dev);
 				dev->hbm_state = MEI_HBM_CLIENT_PROPERTIES;
 
-				/* first property reqeust */
+				/* first property request */
 				mei_hbm_prop_req(dev);
 		} else {
 			dev_err(&dev->pdev->dev, "reset: unexpected enumeration response hbm.\n");
