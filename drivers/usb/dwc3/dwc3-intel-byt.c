@@ -615,6 +615,14 @@ static int dwc3_intel_byt_notify_charger_type(struct dwc_otg2 *otg,
 	if (!charger_detect_enable(otg) && !sdp_charging(otg))
 		return 0;
 
+	/* If OTG driver doesn't do charger detection, then no need
+	 * to do notification on charger removal events */
+	if (!charger_detect_enable(otg) &&
+		(event == POWER_SUPPLY_CHARGER_EVENT_DISCONNECT)) {
+		otg_err(otg, "%s: disconnect ignore!\n", __func__);
+		return -EINVAL;
+	}
+
 	if (event > POWER_SUPPLY_CHARGER_EVENT_DISCONNECT) {
 		otg_err(otg,
 		"%s: Invalid power_supply_charger_event!\n", __func__);
