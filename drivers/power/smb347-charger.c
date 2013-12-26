@@ -549,6 +549,7 @@ static void smb347_enable_termination(struct smb347_charger *smb,
 {
 	int ret;
 
+	mutex_lock(&smb->lock);
 	ret = smb347_set_writable(smb, true);
 	if (ret < 0) {
 		dev_warn(&smb->client->dev, "i2c error %d", ret);
@@ -575,6 +576,7 @@ err_term:
 	ret = smb347_set_writable(smb, false);
 	if (ret < 0)
 		dev_warn(&smb->client->dev, "i2c error %d", ret);
+	mutex_unlock(&smb->lock);
 
 }
 
@@ -594,17 +596,20 @@ static int smb347_set_otg_reg_ctrl(struct smb347_charger *smb)
 	int ret;
 
 	if (smb->pdata->detect_chg) {
+		mutex_lock(&smb->lock);
 		smb347_set_writable(smb, true);
 		ret = smb347_read(smb, CFG_OTHER);
 		if (ret < 0)
 			goto err_reg_ctrl;
 		ret |= CFG_OTHER_RID_ENABLED_OTG_I2C;
 		ret = smb347_write(smb, CFG_OTHER, ret);
-	} else
+		smb347_set_writable(smb, false);
+		mutex_unlock(&smb->lock);
+	} else {
 		return 0;
+	}
 
 err_reg_ctrl:
-	smb347_set_writable(smb, false);
 	return ret;
 
 
@@ -1101,9 +1106,10 @@ static int sm347_reload_setting(struct smb347_charger *smb)
 
 	mdelay(5);
 
+	mutex_lock(&smb->lock);
 	ret = smb347_set_writable(smb, true);
 	if (ret < 0)
-		return ret;
+		goto err_reload;
 
 	loop_count = MAXSMB347_CONFIG_DATA_SIZE / 2;
 
@@ -1122,8 +1128,9 @@ static int sm347_reload_setting(struct smb347_charger *smb)
 
 	smb347_write(smb, CMD_B, CMD_B_MODE_HC);
 	ret = smb347_set_writable(smb, false);
-	if (ret < 0)
-		return ret;
+
+err_reload:
+	mutex_unlock(&smb->lock);
 	return ret;
 }
 
@@ -1558,6 +1565,7 @@ static int smb347_irq_init(struct smb347_charger *smb)
 		goto fail_gpio;
 	}
 
+	mutex_lock(&smb->lock);
 	ret = smb347_set_writable(smb, true);
 	if (ret < 0)
 		goto fail_irq;
@@ -1584,10 +1592,12 @@ static int smb347_irq_init(struct smb347_charger *smb)
 	smb347_set_writable(smb, false);
 	smb->client->irq = irq;
 	enable_irq_wake(smb->client->irq);
+	mutex_unlock(&smb->lock);
 	return 0;
 
 fail_readonly:
 	smb347_set_writable(smb, false);
+	mutex_unlock(&smb->lock);
 fail_irq:
 	free_irq(irq, smb);
 fail_gpio:
@@ -1645,6 +1655,7 @@ static int smb347_set_cc(struct smb347_charger *smb, int cc)
 	int ret;
 	int smb_cc;
 
+	mutex_lock(&smb->lock);
 	ret = smb347_set_writable(smb, true);
 	if (ret < 0)
 		goto err_cc;
@@ -1671,10 +1682,12 @@ static int smb347_set_cc(struct smb347_charger *smb, int cc)
 		goto err_cc;
 
 	ret = smb347_set_writable(smb, false);
+	mutex_unlock(&smb->lock);
 	return 0;
 
 err_cc:
 	ret = smb347_set_writable(smb, false);
+	mutex_unlock(&smb->lock);
 	dev_info(&smb->client->dev, "%s:error writing to i2c", __func__);
 	return ret;
 }
@@ -1684,6 +1697,7 @@ static int smb347_set_inlmt(struct smb347_charger *smb, int inlmt)
 	int ret;
 	int smb_inlmt;
 
+	mutex_lock(&smb->lock);
 	ret = smb347_set_writable(smb, true);
 	if (ret < 0)
 		goto err_inlmt;
@@ -1710,10 +1724,12 @@ static int smb347_set_inlmt(struct smb347_charger *smb, int inlmt)
 		goto err_inlmt;
 
 	ret = smb347_set_writable(smb, false);
+	mutex_unlock(&smb->lock);
 	return 0;
 
 err_inlmt:
 	ret = smb347_set_writable(smb, false);
+	mutex_unlock(&smb->lock);
 	dev_info(&smb->client->dev, "%s:error writing to i2c", __func__);
 	return ret;
 }
@@ -1723,6 +1739,7 @@ static int smb347_set_cv(struct smb347_charger *smb, int cv)
 	int ret;
 	int smb_cv;
 
+	mutex_lock(&smb->lock);
 	ret = smb347_set_writable(smb, true);
 	if (ret < 0)
 		goto err_cv;
@@ -1748,10 +1765,12 @@ static int smb347_set_cv(struct smb347_charger *smb, int cv)
 		goto err_cv;
 
 	ret = smb347_set_writable(smb, false);
+	mutex_unlock(&smb->lock);
 	return 0;
 
 err_cv:
 	ret = smb347_set_writable(smb, false);
+	mutex_unlock(&smb->lock);
 	dev_info(&smb->client->dev, "%s:error writing to i2c", __func__);
 	return ret;
 }
@@ -1761,6 +1780,7 @@ static int smb347_set_iterm(struct smb347_charger *smb, int iterm)
 	int ret;
 	int smb_iterm;
 
+	mutex_lock(&smb->lock);
 	ret = smb347_set_writable(smb, true);
 	if (ret < 0)
 		goto err_iterm;
@@ -1786,11 +1806,13 @@ static int smb347_set_iterm(struct smb347_charger *smb, int iterm)
 		goto err_iterm;
 
 	ret = smb347_set_writable(smb, false);
+	mutex_unlock(&smb->lock);
 	return 0;
 
 err_iterm:
 	ret = smb347_set_writable(smb, false);
 	dev_info(&smb->client->dev, "%s:error writing to i2c", __func__);
+	mutex_unlock(&smb->lock);
 	return ret;
 }
 
