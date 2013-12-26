@@ -1388,6 +1388,7 @@ typedef struct drm_i915_private {
 	unsigned int cck_freq;
 
 	struct workqueue_struct *wq;
+	struct workqueue_struct *hpdwq;
 	struct workqueue_struct *flipwq;
 	struct workqueue_struct *rpswq;
 

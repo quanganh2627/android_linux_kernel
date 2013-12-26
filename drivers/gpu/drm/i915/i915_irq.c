@@ -1260,7 +1260,7 @@ static inline void intel_hpd_irq_handler(struct drm_device *dev,
 		dev_priv->display.hpd_irq_setup(dev);
 	spin_unlock(&dev_priv->irq_lock);
 
-	queue_work(dev_priv->wq,
+	queue_work(dev_priv->hpdwq,
 		   &dev_priv->hotplug_work);
 }
 
@@ -1573,7 +1573,7 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 		DRM_DEBUG_DRIVER("hotplug event received, stat 0x%08x\n",
 							hotplug_status);
 		if (hotplug_status & HOTPLUG_INT_STATUS_I915)
-			queue_work(dev_priv->wq, &dev_priv->hotplug_work);
+			queue_work(dev_priv->hpdwq, &dev_priv->hotplug_work);
 
 		ret = IRQ_HANDLED;
 	}
