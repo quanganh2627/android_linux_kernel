@@ -501,7 +501,8 @@ static int coretemp_interrupt(__u64 msr_val)
 static void core_threshold_work_fn(struct work_struct *work)
 {
 	u32 eax, edx;
-	int thresh, event, t0, t1, temp;
+	int t0, t1, temp;
+	int event = -1, thresh = -1;
 	char *thermal_event[5];
 	bool notify = false;
 	unsigned int cpu = smp_processor_id();
@@ -551,7 +552,6 @@ static void core_threshold_work_fn(struct work_struct *work)
 	rdmsr_on_cpu(cpu, MSR_IA32_THERM_INTERRUPT, &eax, &edx);
 	t0 = tdata->tjmax - ((eax & THERM_MASK_THRESHOLD0) >> THERM_SHIFT_THRESHOLD0) * 1000;
 	t1 = tdata->tjmax - ((eax & THERM_MASK_THRESHOLD1) >> THERM_SHIFT_THRESHOLD1) * 1000;
-
 
 	if (!notify) {
 		pr_debug("Thermal Event: Sensor: Core %u, cur_temp: %d,\
