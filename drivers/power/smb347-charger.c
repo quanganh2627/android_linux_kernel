@@ -2291,19 +2291,13 @@ static int smb347_probe(struct i2c_client *client,
 
 	wake_lock_init(&smb->wakelock, WAKE_LOCK_SUSPEND, "smb_wakelock");
 
-	/*
-	 * Interrupt pin is optional. If it is connected, we setup the
-	 * interrupt support here.
-	 */
-	if (pdata->irq_gpio >= 0) {
-		ret = smb347_irq_init(smb);
-		if (ret < 0) {
-			dev_warn(dev, "failed to initialize IRQ: %d\n", ret);
-			dev_warn(dev, "disabling IRQ support\n");
-		}
-	}
 
 	smb347_dev = smb;
+
+	INIT_DELAYED_WORK(&smb->chg_upd_worker, smb347_chg_upd_worker);
+#ifdef CONFIG_POWER_SUPPLY_CHARGER
+	INIT_DELAYED_WORK(&smb->full_worker, smb347_full_worker);
+#endif
 
 	if (smb->pdata->use_mains) {
 		smb->mains.name = "smb34x-ac_charger";
@@ -2364,17 +2358,29 @@ static int smb347_probe(struct i2c_client *client,
 		goto psy_reg4_failed;
 	}
 
+	/*
+	 * Interrupt pin is optional. If it is connected, we setup the
+	 * interrupt support here.
+	 */
+	if (pdata->irq_gpio >= 0) {
+		ret = smb347_irq_init(smb);
+		if (ret < 0) {
+			dev_warn(dev, "failed to initialize IRQ: %d\n", ret);
+			dev_warn(dev, "disabling IRQ support\n");
+			goto psy_irq_failed;
+		}
+	}
+
 	if (smb->pdata->detect_chg)
 		smb34x_update_charger_type(smb);
-#ifdef CONFIG_POWER_SUPPLY_CHARGER
-	INIT_DELAYED_WORK(&smb->full_worker, smb347_full_worker);
-#endif
-	INIT_DELAYED_WORK(&smb->chg_upd_worker, smb347_chg_upd_worker);
+
 	smb->running = true;
 	smb->dentry = debugfs_create_file("smb347-regs", S_IRUSR, NULL, smb,
 					  &smb347_debugfs_fops);
 	return 0;
 
+psy_irq_failed:
+	extcon_dev_unregister(smb->edev);
 psy_reg4_failed:
 	if (smb->pdata->show_battery)
 		power_supply_unregister(&smb->battery);
@@ -2385,8 +2391,8 @@ psy_reg2_failed:
 	if (smb->pdata->use_mains)
 		power_supply_unregister(&smb->mains);
 psy_reg1_failed:
-	if (client->irq > 0)
-		free_irq(client->irq, smb);
+	wake_lock_destroy(&smb->wakelock);
+	smb347_dev = NULL;
 	return ret;
 }
 
@@ -2426,6 +2432,7 @@ static int smb347_remove(struct i2c_client *client)
 		power_supply_unregister(&smb->usb);
 	if (smb->pdata->use_mains)
 		power_supply_unregister(&smb->mains);
+	wake_lock_destroy(&smb->wakelock);
 	return 0;
 }
 
