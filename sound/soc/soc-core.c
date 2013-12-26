@@ -1443,8 +1443,14 @@ static int soc_probe_link_dais(struct snd_soc_card *card, int num, int order)
 						codec2codec_close_delayed_work);
 
 			/* link the DAI widgets */
-			play_w = codec_dai->playback_widget;
-			capture_w = cpu_dai->capture_widget;
+			if (!dai_link->dsp_loopback) {
+				play_w = codec_dai->playback_widget;
+				capture_w = cpu_dai->capture_widget;
+			} else {
+				play_w = codec_dai->playback_widget;
+				capture_w = cpu_dai->playback_widget;
+			}
+
 			if (play_w && capture_w) {
 				ret = snd_soc_dapm_new_pcm(card, dai_link->params,
 						   capture_w, play_w);
@@ -1455,8 +1461,14 @@ static int soc_probe_link_dais(struct snd_soc_card *card, int num, int order)
 				}
 			}
 
-			play_w = cpu_dai->playback_widget;
-			capture_w = codec_dai->capture_widget;
+			if (!dai_link->dsp_loopback) {
+				play_w = cpu_dai->playback_widget;
+				capture_w = codec_dai->capture_widget;
+			} else {
+				play_w = cpu_dai->capture_widget;
+				capture_w = codec_dai->capture_widget;
+			}
+
 			if (play_w && capture_w) {
 				ret = snd_soc_dapm_new_pcm(card, dai_link->params,
 						   capture_w, play_w);
