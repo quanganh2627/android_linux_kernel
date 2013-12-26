@@ -659,10 +659,10 @@ static int sst_cdev_tstamp(unsigned int str_id, struct snd_compr_tstamp *tstamp)
 	tstamp->pcm_io_frames = div_u64(fw_tstamp.hardware_counter,
 			(u64)((stream->num_ch) * SST_GET_BYTES_PER_SAMPLE(24)));
 	tstamp->sampling_rate = fw_tstamp.sampling_frequency;
-	pr_debug("PCM  = %lu\n", tstamp->pcm_io_frames);
-	pr_debug("Pointer Query on strid = %d  copied_total %d, decodec %ld\n",
+	pr_debug("PCM  = %u\n", tstamp->pcm_io_frames);
+	pr_debug("Pointer Query on strid = %d  copied_total %d, decodec %d\n",
 		str_id, tstamp->copied_total, tstamp->pcm_frames);
-	pr_debug("rendered %ld\n", tstamp->pcm_io_frames);
+	pr_debug("rendered %d\n", tstamp->pcm_io_frames);
 	return 0;
 }
 
