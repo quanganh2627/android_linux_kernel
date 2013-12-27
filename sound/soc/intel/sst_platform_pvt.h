@@ -79,6 +79,10 @@ int sst_send_pipe_gains(struct snd_soc_dai *dai, int stream, int mute);
 
 unsigned int sst_soc_read(struct snd_soc_platform *platform, unsigned int reg);
 int sst_soc_write(struct snd_soc_platform *platform, unsigned int reg, unsigned int val);
+unsigned int sst_reg_read(struct sst_data *sst, unsigned int reg,
+			  unsigned int shift, unsigned int max);
+unsigned int sst_reg_write(struct sst_data *sst, unsigned int reg,
+			   unsigned int shift, unsigned int max, unsigned int val);
 
 int sst_algo_int_ctl_info(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_info *uinfo);

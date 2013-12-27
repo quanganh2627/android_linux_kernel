@@ -90,6 +90,26 @@ int sst_soc_write(struct snd_soc_platform *platform,
 	return 0;
 }
 
+unsigned int sst_reg_read(struct sst_data *sst, unsigned int reg,
+			  unsigned int shift, unsigned int max)
+{
+	unsigned int mask = (1 << fls(max)) - 1;
+
+	return (sst->widget[reg] >> shift) & mask;
+}
+
+unsigned int sst_reg_write(struct sst_data *sst, unsigned int reg,
+			   unsigned int shift, unsigned int max, unsigned int val)
+{
+	unsigned int mask = (1 << fls(max)) - 1;
+
+	val &= mask;
+	val <<= shift;
+	sst->widget[reg] &= ~(mask << shift);
+	sst->widget[reg] |= val;
+	return val;
+}
+
 int sst_mix_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -98,56 +118,40 @@ int sst_mix_put(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(widget->platform);
-	unsigned int reg = mc->reg;
-	unsigned int shift = mc->shift;
-	int max = mc->max;
-	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int mask = (1 << fls(mc->max)) - 1;
 	unsigned int val;
 	int connect;
 	struct snd_soc_dapm_update update;
 
 	pr_debug("%s called set %ld for %s\n", __func__,
 			ucontrol->value.integer.value[0], widget->name);
-
-	val = (ucontrol->value.integer.value[0] & mask);
+	val = sst_reg_write(sst, mc->reg, mc->shift, mc->max, ucontrol->value.integer.value[0]);
 	connect = !!val;
-
-	if (ucontrol->value.integer.value[0])
-		sst->widget[reg] |= (val << shift);
-	else
-		sst->widget[reg] &= ~(mask << shift);
 
 	widget->value = val;
 	update.kcontrol = kcontrol;
 	update.widget = widget;
-	update.reg = reg;
-	update.mask = sst->widget[reg];
-	update.val = sst->widget[reg];
+	update.reg = mc->reg;
+	update.mask = mask;
+	update.val = val;
+
 	widget->dapm->update = &update;
-
 	snd_soc_dapm_mixer_update_power(widget, kcontrol, connect);
-
 	widget->dapm->update = NULL;
 	return 0;
 }
 
 int sst_mix_get(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
+		struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
 	struct snd_soc_dapm_widget *w = wlist->widgets[0];
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
-	unsigned int reg = mc->reg;
-	unsigned int shift = mc->shift;
-	int max = mc->max;
-	unsigned int mask = (1 << fls(max)) - 1;
 
 	pr_debug("%s called for %s\n", __func__, w->name);
-
-	ucontrol->value.integer.value[0] = (sst->widget[reg]>>shift) & mask;
-
+	ucontrol->value.integer.value[0] = !!sst_reg_read(sst, mc->reg, mc->shift, mc->max);
 	return 0;
 }
 
