@@ -66,7 +66,6 @@ i915_dpst_enable_hist_interrupt(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 blm_hist_ctl;
-	unsigned long irqflags;
 
 	dev_priv->dpst.enabled = true;
 	dev_priv->dpst.blc_adjustment = DPST_MAX_FACTOR;
@@ -91,9 +90,6 @@ i915_dpst_enable_hist_interrupt(struct drm_device *dev)
 	I915_WRITE(BLC_HIST_GUARD,
 			I915_READ(BLC_HIST_GUARD) | HISTOGRAM_INTERRUPT_ENABLE);
 
-	spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
-	i915_enable_pipestat(dev_priv, 0, PIPE_DPST_EVENT_ENABLE);
-	spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
 	return 0;
 }
 
@@ -102,7 +98,6 @@ i915_dpst_disable_hist_interrupt(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 blm_hist_guard, blm_hist_ctl;
-	unsigned long irqflags;
 
 	dev_priv->dpst.enabled = false;
 	dev_priv->dpst.blc_adjustment = DPST_MAX_FACTOR;
@@ -119,10 +114,6 @@ i915_dpst_disable_hist_interrupt(struct drm_device *dev)
 	blm_hist_ctl &= ~IE_HISTOGRAM_ENABLE;
 	blm_hist_ctl &= ~IE_MOD_TABLE_ENABLE;
 	I915_WRITE(BLC_HIST_CTL, blm_hist_ctl);
-
-	spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
-	i915_disable_pipestat(dev_priv, 0, PIPE_DPST_EVENT_ENABLE);
-	spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
 
 	/* Setting blc level to what it would be without dpst adjustment */
 	intel_panel_actually_set_backlight(dev,
