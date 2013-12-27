@@ -1234,7 +1234,6 @@ static inline void print_lib_info(struct snd_sst_lib_download_info *resp)
 static int sst_download_library(const struct firmware *fw_lib,
 				struct snd_sst_lib_download_info *lib)
 {
-	unsigned long irq_flags;
 	int ret_val = 0;
 
 	/* send IPC message and wait */
@@ -1260,10 +1259,7 @@ static int sst_download_library(const struct firmware *fw_lib,
 	/*str_type.pvt_id = pvt_id;*/
 	memcpy(msg->mailbox_data, &msg->header, sizeof(u32));
 	memcpy(msg->mailbox_data + sizeof(u32), &str_type, sizeof(str_type));
-	spin_lock_irqsave(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	list_add_tail(&msg->node, &sst_drv_ctx->ipc_dispatch_list);
-	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	sst_drv_ctx->ops->post_message(&sst_drv_ctx->ipc_post_msg_wq);
+	sst_add_to_dispatch_list_and_post(sst_drv_ctx, msg);
 	retval = sst_wait_timeout(sst_drv_ctx, block);
 	if (block->data) {
 		struct snd_sst_str_type *str_type =
@@ -1346,10 +1342,7 @@ send_ipc:
 	lib->pvt_id = pvt_id;
 	memcpy(msg->mailbox_data, &msg->header, sizeof(u32));
 	memcpy(msg->mailbox_data + sizeof(u32), lib, sizeof(*lib));
-	spin_lock_irqsave(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	list_add_tail(&msg->node, &sst_drv_ctx->ipc_dispatch_list);
-	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	sst_drv_ctx->ops->post_message(&sst_drv_ctx->ipc_post_msg_wq);
+	sst_add_to_dispatch_list_and_post(sst_drv_ctx, msg);
 	pr_debug("Waiting for FW response Download complete\n");
 	retval = sst_wait_timeout(sst_drv_ctx, block);
 	sst_drv_ctx->sst_state = SST_FW_RUNNING;

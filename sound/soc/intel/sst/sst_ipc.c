@@ -105,24 +105,6 @@ int sst_free_block(struct intel_sst_drv *ctx, struct sst_block *freed)
 	return -EINVAL;
 }
 
-/**
- * sst_send_ipc_msg_nowait - send ipc msg for algorithm parameters
- *		and returns immediately without waiting for reply
- *
- * @msg: post msg pointer
- *
- * This function is called to send ipc msg
- */
-int sst_send_ipc_msg_nowait(struct ipc_post **msg)
-{
-	unsigned long irq_flags;
-	spin_lock_irqsave(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	list_add_tail(&(*msg)->node, &sst_drv_ctx->ipc_dispatch_list);
-	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	sst_drv_ctx->ops->post_message(&sst_drv_ctx->ipc_post_msg_wq);
-	return  0;
-}
-
 /*
  * sst_send_runtime_param - send runtime param to SST
  *
@@ -148,7 +130,8 @@ static int sst_send_runtime_param(struct snd_sst_runtime_params *params)
 	memcpy(msg->mailbox_data + sizeof(u32) + sizeof(*params)
 			- sizeof(params->addr),
 			params->addr, params->size);
-	return sst_send_ipc_msg_nowait(&msg);
+	sst_add_to_dispatch_list_and_post(sst_drv_ctx, msg);
+	return 0;
 }
 
 void sst_post_message_mrfld(struct work_struct *work)
@@ -402,6 +385,7 @@ out:
 	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
 	kfree(msg->mailbox_data);
 	kfree(msg);
+
 	return retval;
 }
 

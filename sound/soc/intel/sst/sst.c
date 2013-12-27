@@ -304,7 +304,6 @@ static int sst_save_dsp_context_v2(struct intel_sst_drv *sst)
 {
 	unsigned int pvt_id;
 	struct ipc_post *msg = NULL;
-	unsigned long irq_flags;
 	struct ipc_dsp_hdr dsp_hdr;
 	struct sst_block *block;
 
@@ -323,10 +322,7 @@ static int sst_save_dsp_context_v2(struct intel_sst_drv *sst)
 	sst_fill_header_dsp(&dsp_hdr, IPC_PREP_D3, PIPE_RSVD, pvt_id);
 	memcpy(msg->mailbox_data, &dsp_hdr, sizeof(dsp_hdr));
 
-	spin_lock_irqsave(&sst->ipc_spin_lock, irq_flags);
-	list_add_tail(&msg->node, &sst->ipc_dispatch_list);
-	spin_unlock_irqrestore(&sst->ipc_spin_lock, irq_flags);
-	sst->ops->post_message(&sst->ipc_post_msg_wq);
+	sst_add_to_dispatch_list_and_post(sst, msg);
 	/*wait for reply*/
 	if (sst_wait_timeout(sst, block)) {
 		pr_err("sst: err fw context save timeout  ...\n");
@@ -353,7 +349,6 @@ static int sst_save_dsp_context(struct intel_sst_drv *sst)
 	struct snd_sst_ctxt_params fw_context;
 	unsigned int pvt_id;
 	struct ipc_post *msg = NULL;
-	unsigned long irq_flags;
 	struct sst_block *block;
 	pr_debug("%s: Enter\n", __func__);
 
@@ -371,10 +366,7 @@ static int sst_save_dsp_context(struct intel_sst_drv *sst)
 	memcpy(msg->mailbox_data, &msg->header, sizeof(u32));
 	memcpy(msg->mailbox_data + sizeof(u32),
 				&fw_context, sizeof(fw_context));
-	spin_lock_irqsave(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	list_add_tail(&msg->node, &sst_drv_ctx->ipc_dispatch_list);
-	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	sst_drv_ctx->ops->post_message(&sst_drv_ctx->ipc_post_msg_wq);
+	sst_add_to_dispatch_list_and_post(sst, msg);
 	/*wait for reply*/
 	if (sst_wait_timeout(sst_drv_ctx, block))
 		pr_err("sst: err fw context save timeout  ...\n");
@@ -1116,7 +1108,6 @@ static void sst_do_shutdown(struct intel_sst_drv *ctx)
 {
 	int retval = 0;
 	unsigned int pvt_id;
-	unsigned long irq_flags;
 	struct ipc_post *msg = NULL;
 	struct sst_block *block = NULL;
 
@@ -1141,10 +1132,7 @@ static void sst_do_shutdown(struct intel_sst_drv *ctx)
 		return;
 	}
 	sst_fill_header(&msg->header, IPC_IA_PREPARE_SHUTDOWN, 0, pvt_id);
-	spin_lock_irqsave(&ctx->ipc_spin_lock, irq_flags);
-	list_add_tail(&msg->node, &ctx->ipc_dispatch_list);
-	spin_unlock_irqrestore(&ctx->ipc_spin_lock, irq_flags);
-	sst_drv_ctx->ops->post_message(&ctx->ipc_post_msg_wq);
+	sst_add_to_dispatch_list_and_post(ctx, msg);
 	sst_wait_timeout(ctx, block);
 	sst_free_block(ctx, block);
 }

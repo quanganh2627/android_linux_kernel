@@ -55,7 +55,6 @@ void sst_restore_fw_context(void)
 	struct snd_sst_ctxt_params fw_context;
 	struct ipc_post *msg = NULL;
 	int retval = 0;
-	unsigned long irq_flags;
 	struct sst_block *block;
 
 	/* Skip the context restore, when fw_clear_context is set */
@@ -88,10 +87,7 @@ void sst_restore_fw_context(void)
 	memcpy(msg->mailbox_data, &msg->header, sizeof(u32));
 	memcpy(msg->mailbox_data + sizeof(u32),
 				&fw_context, sizeof(fw_context));
-	spin_lock_irqsave(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	list_add_tail(&msg->node, &sst_drv_ctx->ipc_dispatch_list);
-	spin_unlock_irqrestore(&sst_drv_ctx->ipc_spin_lock, irq_flags);
-	sst_drv_ctx->ops->post_message(&sst_drv_ctx->ipc_post_msg_wq);
+	sst_add_to_dispatch_list_and_post(sst_drv_ctx, msg);
 	retval = sst_wait_timeout(sst_drv_ctx, block);
 	sst_free_block(sst_drv_ctx, block);
 	if (retval)
@@ -164,7 +160,8 @@ static int sst_send_algo_param(struct snd_ppp_params *algo_params)
 	offset += header_size;
 	memcpy(msg->mailbox_data + offset , algo_params->params,
 			algo_params->size);
-	return sst_send_ipc_msg_nowait(&msg);
+	sst_add_to_dispatch_list_and_post(sst_drv_ctx, msg);
+	return 0;
 }
 
 static int sst_send_lpe_mixer_algo_params(void)

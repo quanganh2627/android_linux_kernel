@@ -662,7 +662,6 @@ int intel_sst_remove_compress(struct intel_sst_drv *sst);
 void sst_cdev_fragment_elapsed(int str_id);
 int vibra_pwm_configure(unsigned int enable);
 int sst_send_sync_msg(int ipc, int str_id);
-int sst_send_ipc_msg_nowait(struct ipc_post **msg);
 int sst_get_num_channel(struct snd_sst_params *str_param);
 int sst_get_wdsize(struct snd_sst_params *str_param);
 int sst_get_sfreq(struct snd_sst_params *str_param);
@@ -928,5 +927,15 @@ static inline u32 relocate_imr_addr_mrfld(u32 base_addr)
 	/* relocate the base */
 	base_addr = MRFLD_FW_VIRTUAL_BASE + (base_addr % (512 * 1024 * 1024));
 	return base_addr;
+}
+
+static inline void sst_add_to_dispatch_list_and_post(struct intel_sst_drv *sst,
+						struct ipc_post *msg)
+{
+	unsigned long irq_flags;
+	spin_lock_irqsave(&sst->ipc_spin_lock, irq_flags);
+	list_add_tail(&msg->node, &sst->ipc_dispatch_list);
+	spin_unlock_irqrestore(&sst->ipc_spin_lock, irq_flags);
+	sst->ops->post_message(&sst->ipc_post_msg_wq);
 }
 #endif
