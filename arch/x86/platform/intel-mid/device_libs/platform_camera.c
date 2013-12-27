@@ -130,7 +130,7 @@ static struct camera_device_table cht_rvp_cam_table[] = {
 			&intel_register_i2c_camera_device}
 	}, {
 		{SFI_DEV_TYPE_I2C, 4, 0x3C, 0x0, 0x0, "ap1302"},
-		{"ov2722", SFI_DEV_TYPE_I2C, 0, &ap1302_platform_data,
+		{"ap1302", SFI_DEV_TYPE_I2C, 0, &ap1302_platform_data,
 			&intel_register_i2c_camera_device}
 	}, {
 		{SFI_DEV_TYPE_I2C, 1, 0x53, 0x0, 0x0, "lm3554"},
@@ -364,6 +364,9 @@ static void atomisp_unregister_acpi_devices(struct atomisp_platform_data *pdata)
 		"2-0053",	/* byt-crv2 lm3554*/
 		"2-0010",	/* imx1xx driver*/
 		"2-0036",	/* ov2722 driver*/
+		"2-0010",	/* CHT OV5693 */
+		"4-003c",	/* CHT AP1302 */
+		"1-0053",	/* CHT lm3554 */
 #if 0
 		"INTCF0B:00",	/* From ACPI ov2722 */
 		"INTCF1A:00",	/* From ACPI imx175 */
