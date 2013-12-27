@@ -946,6 +946,10 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 				xhci_dbg(xhci, "Invalide test case!\n");
 				goto error;
 			}
+			/* prevent controller enters Low power state in Test mode.
+			 * some controller will exit Test mode once enter low power
+			 * mode */
+			pm_runtime_get(hcd->self.controller);
 			temp = xhci_readl(xhci, status_reg);
 			temp |= selector << 28;
 			xhci_writel(xhci, temp, status_reg);
