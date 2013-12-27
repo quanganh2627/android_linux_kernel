@@ -710,7 +710,7 @@ static ssize_t hsic_reenumeration_delay_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(reenumeration_delay, S_IRUGO | S_IWUSR | S_IROTH | S_IWOTH,
+static DEVICE_ATTR(reenumeration_delay, S_IRUGO | S_IWUSR,
 		hsic_reenumeration_delay_show,
 		 hsic_reenumeration_delay_store);
 
@@ -725,7 +725,7 @@ static ssize_t hsic_host_resume_store(struct device *dev,
 	return -EINVAL;
 }
 
-static DEVICE_ATTR(host_resume, S_IWUSR | S_IWOTH,
+static DEVICE_ATTR(host_resume, S_IWUSR,
 		NULL, hsic_host_resume_store);
 
 static ssize_t hsic_port_enable_show(struct device *dev,
@@ -842,7 +842,7 @@ static ssize_t hsic_port_inactivityDuration_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(L2_inactivityDuration, S_IRUGO | S_IWUSR | S_IROTH | S_IWOTH,
+static DEVICE_ATTR(L2_inactivityDuration, S_IRUGO | S_IWUSR,
 		hsic_port_inactivityDuration_show,
 		 hsic_port_inactivityDuration_store);
 
@@ -934,7 +934,7 @@ static ssize_t hsic_bus_inactivityDuration_store(struct device *dev,
 }
 
 static DEVICE_ATTR(bus_inactivityDuration,
-		S_IRUGO | S_IWUSR | S_IROTH | S_IWOTH,
+		S_IRUGO | S_IWUSR,
 		hsic_bus_inactivityDuration_show,
 		 hsic_bus_inactivityDuration_store);
 
@@ -982,7 +982,7 @@ static ssize_t hsic_remoteWakeup_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(remoteWakeup, S_IRUGO | S_IWUSR | S_IROTH | S_IWOTH,
+static DEVICE_ATTR(remoteWakeup, S_IRUGO | S_IWUSR,
 		hsic_remoteWakeup_show, hsic_remoteWakeup_store);
 
 static int create_device_files()
