@@ -359,6 +359,10 @@ static int enable_usb_phy(struct dwc_otg2 *otg, bool on_off)
 {
 	int ret;
 
+	/* UTMI phy have no power control so far. So can't disable it. */
+	if (is_utmi_phy(otg))
+		return 0;
+
 	if (on_off) {
 		ret = intel_scu_ipc_update_register(PMIC_VLDOCNT,
 				0xff, PMIC_VLDOCNT_VUSBPHYEN);
