@@ -1119,6 +1119,17 @@ int dwc3_intel_resume(struct dwc_otg2 *otg)
 	if (!otg)
 		return 0;
 
+	/* After resume from D0i3cold. The UTMI PHY D+ drive issue
+	 * reproduced due to all setting be reseted. So switch to OTG
+	 * mode avoid D+ drive too early.
+	 */
+	if (otg->state == DWC_STATE_B_IDLE &&
+			is_utmi_phy(otg)) {
+		otg_write(otg, OEVTEN, 0);
+		otg_write(otg, OCTL, 0);
+		dwc3_switch_mode(otg, GCTL_PRT_CAP_DIR_OTG);
+	}
+
 	/* This is one SCU WA. SCU should set GUSB2PHYCFG0
 	 * bit 4 for ULPI setting. But SCU haven't do that.
 	 * So do WA first until SCU fix.
