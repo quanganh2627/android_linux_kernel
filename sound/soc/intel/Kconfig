@@ -64,6 +64,23 @@ config SND_MRFLD_MACHINE
           Say Y if you have such a device
           If unsure select "N".
 
+config SND_MOOR_MACHINE
+	tristate "SOC Machine Audio driver for Intel Moorefield MID platform"
+	depends on INTEL_SCU_IPC && X86
+	select SND_SOC_WM8994
+	select MFD_CORE
+	select MFD_WM8994
+	select REGULATOR_WM8994
+	select SND_SST_PLATFORM
+	select SND_SST_MACHINE
+	select SND_INTEL_SST
+	select SND_EFFECTS_OFFLOAD
+	default n
+	help
+	  This adds support for ASoC machine driver for Intel(R) MID Moorefield platform
+          used as alsa device in audio substream in Intel(R) MID devices
+          Say Y if you have such a device
+          If unsure select "N".
 
 config SND_BYT_MACHINE
 	tristate "SOC Machine Audio driver for Intel Baytrail MID platform"

@@ -28,6 +28,9 @@ else
 	obj-$(CONFIG_SND_MRFLD_MACHINE) += snd-merr-saltbay-lm49453.o snd-merr-saltbay-wm8958.o
 endif
 
+# Moorefield board
+obj-$(CONFIG_SND_MOOR_MACHINE) += snd-merr-saltbay-wm8958.o
+
 # Baytrail board
 snd-byt-bl-rt5642-objs := byt_bl_rt5642.o
 snd-byt-cr-aic3100-objs := byt_cr_aic3100.o
