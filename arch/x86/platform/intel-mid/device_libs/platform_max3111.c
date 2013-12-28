@@ -40,7 +40,10 @@ void __init *max3111_platform_data(void *info)
 		return &max3110_pdata;
 	}
 
-	if (INTEL_MID_BOARD(1, PHONE, MRFL)) {
+	if (INTEL_MID_BOARD(1, PHONE, MOFD)) {
+		spi_info->controller_data = &chip;
+		spi_info->bus_num = FORCE_SPI_BUS_NUM;
+	} else if (INTEL_MID_BOARD(1, PHONE, MRFL)) {
 		spi_info->controller_data = &chip;
 		spi_info->bus_num = FORCE_SPI_BUS_NUM;
 
