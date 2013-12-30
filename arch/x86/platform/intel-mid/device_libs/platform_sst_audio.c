@@ -163,6 +163,12 @@ static void set_byt_platform_config(void)
 	sst_platform_pdata.strm_map_size =  ARRAY_SIZE(byt_bl_strm_map);
 }
 
+static void set_cht_platform_config(void)
+{
+	sst_platform_pdata.pdev_strm_map = mrfld_strm_map;
+	sst_platform_pdata.strm_map_size = ARRAY_SIZE(mrfld_strm_map);
+}
+
 static void set_mrfld_platform_config(void)
 {
 	sst_platform_pdata.pdev_strm_map = mrfld_strm_map;
@@ -185,6 +191,8 @@ static void  populate_platform_data(void)
 			(INTEL_MID_BOARD(1, PHONE, MOFD)) ||
 			(INTEL_MID_BOARD(1, TABLET, MOFD))) {
 		set_mrfld_platform_config();
+	} else if ((INTEL_MID_BOARD(1, TABLET, CHT))) {
+		set_cht_platform_config();
 	} else {
 		pr_warn("Board not Supported\n");
 	}
