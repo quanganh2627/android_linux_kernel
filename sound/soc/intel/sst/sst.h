@@ -480,6 +480,7 @@ struct sst_vtsv_cache {
  */
 struct intel_sst_drv {
 	int			sst_state;
+	int			irq_num;
 	unsigned int		pci_id;
 	bool			use_32bit_ops;
 	void __iomem		*ddr;
