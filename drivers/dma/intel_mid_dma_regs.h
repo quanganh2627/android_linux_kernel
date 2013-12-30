@@ -54,7 +54,6 @@
 #define DMA_CH_SIZE		0x58
 #define DMA_FIFO_SIZE 0x100080
 
-
 /*CH X REG = (DMA_CH_SIZE)*CH_NO + REG*/
 #define SAR			0x00 /* Source Address Register*/
 #define DAR			0x08 /* Destination Address Register*/

@@ -47,6 +47,7 @@
 #define INTEL_BYT_LPIO1_DMAC_ID		0x0F06
 #define INTEL_BYT_LPIO2_DMAC_ID		0x0F40
 #define INTEL_BYT_DMAC0_ID		0x0F28
+#define INTEL_CHT_DMAC0_ID             0x22A8
 #define INTEL_CHT_LPIO1_DMAC_ID		0x2286
 #define INTEL_CHT_LPIO2_DMAC_ID		0x22C0
 
@@ -2152,6 +2153,19 @@ struct intel_mid_dma_probe_info dma_byt1_info = {
 	.pdma_ops = &v1_dma_ops,
 };
 
+
+struct intel_mid_dma_probe_info dma_cht_info = {
+	.max_chan = 4,
+	.ch_base = 4,
+	.block_size = 131071,
+	.pimr_mask = 0x00FF0000,
+	.pimr_base = 0, /* get base addr from device table */
+	.dword_trf = 0,
+	.pimr_offset = 0x10,
+	.pci_id = INTEL_CHT_DMAC0_ID,
+	.pdma_ops = &v2_dma_ops,
+};
+
 struct intel_mid_dma_probe_info dma_cht1_info = {
 	.max_chan = 6,
 	.ch_base = 0,
@@ -2214,6 +2228,7 @@ static const struct acpi_device_id dma_acpi_ids[] = {
 	{ "INTL9C60", (kernel_ulong_t)&dma_byt1_info },
 	{ "80862286", (kernel_ulong_t)&dma_cht1_info },
 	{ "808622C0", (kernel_ulong_t)&dma_cht2_info },
+	{ "ADMA22A8", (kernel_ulong_t)&dma_cht_info },
 	{ },
 };
 

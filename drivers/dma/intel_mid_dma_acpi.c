@@ -59,6 +59,7 @@ struct device *intel_mid_get_acpi_dma(const char *hid)
 }
 EXPORT_SYMBOL_GPL(intel_mid_get_acpi_dma);
 
+#if IS_ENABLED(CONFIG_ACPI)
 static int mid_get_and_map_rsrc(void **dest, struct platform_device *pdev,
 				unsigned int num)
 {
@@ -163,11 +164,14 @@ static int mid_platform_get_resources(const char *hid,
 		return mid_platform_get_resources_fdk(mid_device, pdev);
 	if (!strncmp(hid, "ADMA0F28", 8))
 		return mid_platform_get_resources_edk2(mid_device, pdev);
-	else
+	else if ((!strncmp(hid, "ADMA22A8", 8))) {
+		return mid_platform_get_resources_edk2(mid_device, pdev);
+	} else {
+		pr_err("Invalid device id..\n");
 		return -EINVAL;
+	}
 }
 
-#if IS_ENABLED(CONFIG_ACPI)
 int dma_acpi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
