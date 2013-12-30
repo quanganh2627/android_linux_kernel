@@ -189,7 +189,7 @@ static int find_adc_code(uint16_t val)
  *
  * Can sleep
  */
-static int adc_to_temp(int direct, uint16_t adc_val, unsigned long *tp)
+static int adc_to_temp(int direct, uint16_t adc_val, long *tp)
 {
 	int x0, x1, y0, y1;
 	int nr, dr;		/* Numerator & Denominator */
