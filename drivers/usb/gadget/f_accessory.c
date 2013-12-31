@@ -38,6 +38,7 @@
 #include <linux/usb.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/f_accessory.h>
+#include <linux/compat.h>
 
 #define BULK_BUFFER_SIZE    16384
 #define ACC_STRING_SIZE     256
@@ -713,6 +714,13 @@ static long acc_ioctl(struct file *fp, unsigned code, unsigned long value)
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long acc_compat_ioctl(struct file *fp, unsigned code, unsigned long value)
+{
+	return acc_ioctl(fp, code, (unsigned long) compat_ptr(value));
+}
+#endif
+
 static int acc_open(struct inode *ip, struct file *fp)
 {
 	printk(KERN_INFO "acc_open\n");
@@ -739,6 +747,9 @@ static const struct file_operations acc_fops = {
 	.read = acc_read,
 	.write = acc_write,
 	.unlocked_ioctl = acc_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = acc_compat_ioctl,
+#endif
 	.open = acc_open,
 	.release = acc_release,
 };
