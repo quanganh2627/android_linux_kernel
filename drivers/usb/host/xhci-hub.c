@@ -1240,6 +1240,10 @@ int xhci_bus_resume(struct usb_hcd *hcd)
 				xhci_set_link_state(xhci, port_array,
 						port_index, XDEV_RESUME);
 
+				/* need 1ms delay between access to USB2 PORTSC
+				 * and USB3 PORTSC to avoid Fabric Error.
+				 * */
+				mdelay(1);
 				spin_unlock_irqrestore(&xhci->lock, flags);
 				msleep(20);
 				spin_lock_irqsave(&xhci->lock, flags);
