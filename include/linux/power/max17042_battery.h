@@ -86,6 +86,7 @@ struct max17042_platform_data {
 	bool soc_intr_mode_enabled;
 	bool reset_chip;
 	bool valid_battery;
+	bool en_vmax_intr;
 	int technology;
 	int fg_algo_model; /* maxim chip algorithm model */
 	char battid[BATTID_LEN + 1];

@@ -59,6 +59,7 @@
 
 /* Vmax disabled, Vmin disabled */
 #define VOLT_DEF_MAX_MIN_THRLD  0xFF00
+
 /* Vmax disabled, Vmin set to 3300mV */
 #define VOLT_MIN_THRLD_ENBL	0xFFA5
 
@@ -252,6 +253,11 @@ enum max170xx_chip_type {MAX17042, MAX17050};
 
 #define VBATT_MAX 4200000	/* 4200mV */
 #define VBATT_MIN 3400000	/* 3400mV */
+
+#define VBATT_MIN_OFFSET	100 /* 100mV from VMMIN */
+#define VBATT_MAX_OFFSET	50 /* 50mV from VMAX */
+#define VALERT_VOLT_OFFSET	20 /* each bit corresponds to 20mV */
+
 /* default fuel gauge cell data for debug purpose only */
 static uint16_t cell_char_tbl[] = {
 	/* Data to be written from 0x80h */
@@ -1558,6 +1564,7 @@ static int max17042_get_batt_health(void)
 {
 	struct max17042_chip *chip = i2c_get_clientdata(max17042_client);
 	int vavg, temp, ret;
+	int stat;
 
 	if (!chip->pdata->valid_battery) {
 		dev_err(&chip->client->dev, "Invalid battery detected");
@@ -1577,6 +1584,12 @@ static int max17042_get_batt_health(void)
 		return POWER_SUPPLY_HEALTH_OVERHEAT;
 	}
 
+	stat = max17042_read_reg(chip->client, MAX17042_STATUS);
+	if (stat < 0) {
+		dev_err(&chip->client->dev, "error reading status register");
+		return POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
+	}
+
 	ret = max17042_read_reg(chip->client, MAX17042_AvgVCELL);
 	if (ret < 0) {
 		dev_err(&chip->client->dev, "Vavg read fail:%d", ret);
@@ -1590,6 +1603,11 @@ static int max17042_get_batt_health(void)
 		return POWER_SUPPLY_HEALTH_DEAD;
 	}
 	if (vavg > chip->pdata->volt_max_lim) {
+		dev_info(&chip->client->dev,
+			"Battery Over Voltage condition Detected:%d\n", vavg);
+		return POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+	}
+	if (stat & STATUS_VMX_BIT) {
 		dev_info(&chip->client->dev,
 			"Battery Over Voltage condition Detected:%d\n", vavg);
 		return POWER_SUPPLY_HEALTH_OVERVOLTAGE;
@@ -1860,7 +1878,7 @@ static void configure_interrupts(struct max17042_chip *chip)
 {
 	int ret;
 	unsigned int edge_type;
-	int temp_threshold;
+	int vmax, vmin, reg_val;
 
 	/* set SOC-alert threshold sholds to lowest value */
 	max17042_write_reg(chip->client, MAX17042_SALRT_Th,
@@ -1879,8 +1897,16 @@ static void configure_interrupts(struct max17042_chip *chip)
 					CONFIG_TSTICKY_BIT_SET, 0);
 
 	/* Setting V-alrt threshold register to default values */
-	max17042_write_reg(chip->client, MAX17042_VALRT_Th,
+	if (chip->pdata->en_vmax_intr) {
+		vmax = chip->pdata->volt_max_lim + VBATT_MAX_OFFSET;
+		vmin = chip->pdata->volt_min_lim - VBATT_MIN_OFFSET;
+		reg_val = ((vmax / VALERT_VOLT_OFFSET) << 8) |
+				(vmin / VALERT_VOLT_OFFSET);
+		max17042_write_reg(chip->client, MAX17042_VALRT_Th, reg_val);
+	} else {
+		max17042_write_reg(chip->client, MAX17042_VALRT_Th,
 					VOLT_DEF_MAX_MIN_THRLD);
+	}
 
 	/* Setting T-alrt threshold register to default values */
 	max17042_write_reg(chip->client, MAX17042_TALRT_Th,
@@ -2185,11 +2211,23 @@ static int max17042_suspend(struct device *dev)
 static int max17042_resume(struct device *dev)
 {
 	struct max17042_chip *chip = dev_get_drvdata(dev);
+	int vmax, vmin, reg_val;
 
 	if (chip->client->irq > 0) {
 		/* Setting V-alrt threshold register to default values */
-		max17042_write_reg(chip->client, MAX17042_VALRT_Th,
+		if (chip->pdata->en_vmax_intr) {
+			vmax = chip->pdata->volt_max_lim +
+					VBATT_MAX_OFFSET;
+			vmin = chip->pdata->volt_min_lim -
+					VBATT_MIN_OFFSET;
+			reg_val = ((vmax / VALERT_VOLT_OFFSET) << 8) |
+					(vmin / VALERT_VOLT_OFFSET);
+			max17042_write_reg(chip->client, MAX17042_VALRT_Th,
+						reg_val);
+		} else {
+			max17042_write_reg(chip->client, MAX17042_VALRT_Th,
 					VOLT_DEF_MAX_MIN_THRLD);
+		}
 		/* set SOC-alert threshold sholds to lowest value */
 		max17042_write_reg(chip->client, MAX17042_SALRT_Th,
 					SOC_DEF_MAX_MIN3_THRLD);

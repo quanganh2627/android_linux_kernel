@@ -420,7 +420,7 @@ static void init_callbacks(struct max17042_platform_data *pdata)
 			pdata->temp_max_lim = 55;
 		}
 		pdata->volt_min_lim = 3400;
-		pdata->volt_max_lim = 4400;
+		pdata->volt_max_lim = 4350;
 	}
 
 	pdata->reset_i2c_lines = max17042_i2c_reset_workaround;
@@ -507,6 +507,7 @@ static void init_platform_params(struct max17042_platform_data *pdata)
 			pdata->enable_current_sense = false;
 			pdata->valid_battery = false;
 		}
+		pdata->en_vmax_intr = true;
 		pdata->file_sys_storage_enabled = 1;
 		pdata->soc_intr_mode_enabled = true;
 		snprintf(pdata->model_name, (MODEL_NAME_LEN + 1),
