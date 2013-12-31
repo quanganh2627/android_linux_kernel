@@ -434,6 +434,11 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 		ret = dwc3_gadget_run_stop(dwc, 0);
 		dwc3_gadget_disable_irq(dwc);
 
+		/* Clear all OTG events which will confuse host and
+		 * make enumeration failed after pullup with on.
+		 */
+		dwc3_writel(dwc->regs, OCTL, 0);
+		dwc3_writel(dwc->regs, OEVTEN, 0);
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
 	}
 
