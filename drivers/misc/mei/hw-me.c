@@ -119,7 +119,7 @@ static void mei_me_hw_config(struct mei_device *dev)
  *   to the mei power gating state
  *
  * @hw -  me hardware
- * returns: MEI_PG_OFF if alivenss is on and MEI_PG_ON otherwise
+ * returns: MEI_PG_OFF if aliveness is on and MEI_PG_ON otherwise
  */
 static inline enum mei_pg_state mei_me_pg_state(struct mei_device *dev)
 {

@@ -790,7 +790,7 @@ int mei_cl_irq_write_complete(struct mei_cl *cl, struct mei_cl_cb *cb,
 	}
 
 	if (!mei_hbuf_acquire(dev)) {
-		cl_dbg(dev, cl, "Cannot aquire the host buffer: not sending.\n");
+		cl_dbg(dev, cl, "Cannot acquire the host buffer: not sending.\n");
 		return 0;
 	}
 
@@ -903,7 +903,7 @@ int mei_cl_write(struct mei_cl *cl, struct mei_cl_cb *cb, bool blocking)
 	}
 
 	if (!mei_hbuf_acquire(dev)) {
-		cl_dbg(dev, cl, "Cannot aquire the host buffer: not sending.\n");
+		cl_dbg(dev, cl, "Cannot acquire the host buffer: not sending.\n");
 		rets = buf->size;
 		goto out;
 	}

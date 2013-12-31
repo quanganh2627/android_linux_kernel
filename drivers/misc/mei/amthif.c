@@ -471,7 +471,7 @@ int mei_amthif_irq_write_complete(struct mei_cl *cl, struct mei_cl_cb *cb,
 	}
 
 	if (!mei_hbuf_acquire(dev)) {
-		cl_dbg(dev, cl, "Cannot aquire the host buffer: not sending.\n");
+		cl_dbg(dev, cl, "Cannot acquire the host buffer: not sending.\n");
 		return 0;
 	}
 

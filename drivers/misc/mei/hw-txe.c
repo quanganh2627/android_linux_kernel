@@ -280,7 +280,7 @@ int mei_txe_aliveness_set_sync(struct mei_device *dev, u32 req)
  *   to the mei power gating state
  *
  * @dev: the device structure
- * returns: MEI_PG_OFF if alivenss is on and MEI_PG_ON otherwise
+ * returns: MEI_PG_OFF if aliveness is on and MEI_PG_ON otherwise
  */
 static inline enum mei_pg_state mei_txe_pg_state(struct mei_device *dev)
 {
