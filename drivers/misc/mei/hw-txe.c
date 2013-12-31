@@ -567,7 +567,7 @@ static int mei_txe_write(struct mei_device *dev,
 	dev_dbg(&dev->pdev->dev, MEI_HDR_FMT, MEI_HDR_PRM(header));
 
 	if ((length + sizeof(struct mei_msg_hdr)) > PAYLOAD_SIZE) {
-		dev_err(&dev->pdev->dev, "write lenght exceeded = %ld > %d\n",
+		dev_err(&dev->pdev->dev, "write length exceeded = %ld > %d\n",
 			length + sizeof(struct mei_msg_hdr), PAYLOAD_SIZE);
 		return -ERANGE;
 	}
@@ -1036,7 +1036,7 @@ struct mei_device *mei_txe_dev_init(struct pci_dev *pdev)
  * mei_txe_setup_satt2 - SATT2 configuration for DMA support.
  *
  * @dev:   the device structure
- * @addr:  phyiscal address start of the range
+ * @addr:  physical address start of the range
  * @range: physical range size
  */
 int mei_txe_setup_satt2(struct mei_device *dev, phys_addr_t addr, u32 range)
@@ -1055,7 +1055,7 @@ int mei_txe_setup_satt2(struct mei_device *dev, phys_addr_t addr, u32 range)
 	if (lo32 & 0xF)
 		return -EINVAL;
 
-	/* SATT range has to be 4Bytes algined */
+	/* SATT range has to be 4Bytes aligned */
 	if (range & 0x4)
 		return -EINVAL;
 

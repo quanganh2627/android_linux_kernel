@@ -43,7 +43,7 @@ static ssize_t mei_dbgfs_read_meclients(struct file *fp, char __user *ubuf,
 
 	mutex_lock(&dev->device_lock);
 
-	/*  if the driver is not enabled the list won't b consitent */
+	/*  if the driver is not enabled the list won't be consistent */
 	if (dev->dev_state != MEI_DEV_ENABLED)
 		goto out;
 

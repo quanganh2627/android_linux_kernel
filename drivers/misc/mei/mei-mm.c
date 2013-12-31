@@ -129,7 +129,7 @@ out:
 	return 0;
 }
 /**
- * mei_mm_alloc - destributing memory chunk to Sec Application (shim library)
+ * mei_mm_alloc - distributing memory chunk to Sec Application (shim library)
  *
  * @file: pointer to file structure
  * @cmd: ioctl command
@@ -395,7 +395,7 @@ struct mei_mm_device *mei_mm_init(struct device *dev, void *vaddr,
 	ret = misc_register(&mdev->dev);
 	if (ret) {
 		kzfree(mdev);
-		dev_err(dev, "cant't register misc device.\n") ;
+		dev_err(dev, "can't register misc device.\n");
 		return ERR_PTR(ret);
 	}
 

@@ -163,7 +163,7 @@ static int mei_alloc_dma(struct mei_device *dev)
 	if (hw->pool_size == 0)
 		return 0;
 
-	/*  Limmit pools size to satt max range */
+	/*  Limit pools size to satt max range */
 	hw->pool_size = min_t(size_t, hw->pool_size, SATT_RANGE_MAX);
 
 	hw->pool_vaddr = dma_alloc_coherent(&dev->pdev->dev, hw->pool_size,
