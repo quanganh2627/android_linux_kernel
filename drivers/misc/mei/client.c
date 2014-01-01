@@ -423,7 +423,7 @@ int mei_cl_disconnect(struct mei_cl *cl)
 		return 0;
 
 	rets = pm_runtime_get(&dev->pdev->dev);
-	if (IS_ERR_VALUE(rets) && rets != -EINPROGRESS) {
+	if (rets < 0 && rets != -EINPROGRESS) {
 		pm_runtime_put_noidle(&dev->pdev->dev);
 		cl_err(dev, cl, "rpm: get failed %d\n", rets);
 		return rets;
@@ -535,7 +535,7 @@ int mei_cl_connect(struct mei_cl *cl, struct file *file)
 	dev = cl->dev;
 
 	rets = pm_runtime_get(&dev->pdev->dev);
-	if (IS_ERR_VALUE(rets) && rets != -EINPROGRESS) {
+	if (rets < 0 && rets != -EINPROGRESS) {
 		pm_runtime_put_noidle(&dev->pdev->dev);
 		cl_err(dev, cl, "rpm: get failed %d\n", rets);
 		return rets;
@@ -699,7 +699,7 @@ int mei_cl_read_start(struct mei_cl *cl, size_t length)
 	}
 
 	rets = pm_runtime_get(&dev->pdev->dev);
-	if (IS_ERR_VALUE(rets) && rets != -EINPROGRESS) {
+	if (rets < 0 && rets != -EINPROGRESS) {
 		pm_runtime_put_noidle(&dev->pdev->dev);
 		cl_err(dev, cl, "rpm: get failed %d\n", rets);
 		return rets;
@@ -871,7 +871,7 @@ int mei_cl_write(struct mei_cl *cl, struct mei_cl_cb *cb, bool blocking)
 	cl_dbg(dev, cl, "size=%d\n", buf->size);
 
 	rets = pm_runtime_get(&dev->pdev->dev);
-	if (IS_ERR_VALUE(rets) && rets != -EINPROGRESS) {
+	if (rets < 0 && rets != -EINPROGRESS) {
 		pm_runtime_put_noidle(&dev->pdev->dev);
 		cl_err(dev, cl, "rpm: get failed %d\n", rets);
 		return rets;
