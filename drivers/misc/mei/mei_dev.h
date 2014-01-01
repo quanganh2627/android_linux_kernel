@@ -56,6 +56,11 @@ extern const uuid_le mei_amthif_guid;
 #define MEI_CLIENTS_MAX 256
 
 /*
+ * maximum number of consecutive resets
+ */
+#define MEI_MAX_CONSEC_RESET  3
+
+/*
  * Number of File descriptors/handles
  * that can be opened to the driver.
  *
@@ -349,6 +354,7 @@ enum mei_pg_state {
 /**
  * struct mei_device -  MEI private device struct
 
+ * @reset_count - limits the number of consecutive resets
  * @hbm_state - state of host bus message protocol
  *
  * @pg_event     - power gating event
@@ -394,6 +400,7 @@ struct mei_device {
 	/*
 	 * mei device  states
 	 */
+	unsigned long reset_count;
 	enum mei_dev_state dev_state;
 	enum mei_hbm_state hbm_state;
 	u16 init_clients_timer;
