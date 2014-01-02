@@ -1042,6 +1042,64 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long mtp_compat_ioctl(struct file *fp, unsigned code, unsigned long value)
+{
+
+	code = (code == MTP_SEND_FILE_32) ? MTP_SEND_FILE :
+		(code == MTP_RECEIVE_FILE_32) ? MTP_RECEIVE_FILE :
+		(code == MTP_SEND_EVENT_32) ? MTP_SEND_EVENT : MTP_SEND_FILE_WITH_HEADER;
+
+	switch (code) {
+	case MTP_SEND_FILE:
+	case MTP_RECEIVE_FILE:
+	case MTP_SEND_FILE_WITH_HEADER:
+	{
+		struct mtp_file_range __user *mfr64;
+		struct mtp_file_range_32 __user *mfr32;
+		compat_int_t	fd;
+		compat_s64	temp;
+		u16		command;
+		u32		id;
+
+		mfr32 = (struct mtp_file_range_32 __user *)value;
+		mfr64 = compat_alloc_user_space(sizeof(*mfr64));
+		if (get_user(fd, &mfr32->fd) || put_user(fd, &mfr64->fd) ||
+			get_user(temp, &mfr32->offset) || put_user(temp, &mfr64->offset) ||
+			get_user(temp, &mfr32->length) || put_user(temp, &mfr64->length) ||
+			get_user(command, &mfr32->command) || put_user(command, &mfr64->command) ||
+			get_user(id, &mfr32->transaction_id) || put_user(id, &mfr64->transaction_id))
+				return -EFAULT;
+		/* copy mfr64 to value */
+		value = (void __user *)mfr64;
+
+		break;
+	}
+	case MTP_SEND_EVENT:
+	{
+		struct mtp_event	__user *event64;
+		struct mtp_event_32	__user *event32;
+		__u32			udata;
+		u32			length;
+
+		event32 = (struct mtp_event_32 __user *)value;
+		event64 = compat_alloc_user_space(sizeof(*event64));
+
+		if (get_user(length, &event32->length) ||
+			put_user(length, &event64->length) ||
+			get_user(udata, &event32->compat_data) ||
+			put_user(compat_ptr(udata), &event64->data))
+			return -EFAULT;
+		/* copy event pointer to value */
+		value = (void __user *) event64;
+		break;
+	}
+	}
+
+	return mtp_ioctl(fp, code, (unsigned long) compat_ptr(value));
+}
+#endif
+
 static int mtp_open(struct inode *ip, struct file *fp)
 {
 	printk(KERN_INFO "mtp_open\n");
@@ -1070,6 +1128,9 @@ static const struct file_operations mtp_fops = {
 	.read = mtp_read,
 	.write = mtp_write,
 	.unlocked_ioctl = mtp_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = mtp_compat_ioctl,
+#endif
 	.open = mtp_open,
 	.release = mtp_release,
 };
