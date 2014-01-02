@@ -2340,7 +2340,11 @@ static int __init max17042_init(void)
 {
 	return i2c_add_driver(&max17042_i2c_driver);
 }
+#ifdef CONFIG_ACPI
 late_initcall(max17042_init);
+#else
+module_init(max17042_init);
+#endif
 
 static void __exit max17042_exit(void)
 {
