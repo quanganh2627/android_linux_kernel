@@ -243,6 +243,7 @@
 
 #define CFG_PIN_DEFAULT_CFG		0x7E
 #define SMB34X_FULL_WORK_JIFFIES		(30*HZ)
+#define SMB34X_TEMP_WORK_JIFFIES		(30*HZ)
 #define SMB34X_CHG_UPD_JIFFIES  (HZ)
 
 #define RETRY_WRITE			3
@@ -297,6 +298,7 @@ struct smb347_charger {
 	struct power_supply	usb;
 	struct power_supply	battery;
 	struct delayed_work     chg_upd_worker;
+	struct delayed_work	temp_upd_worker;
 	bool			mains_online;
 	bool			usb_online;
 	bool			charging_enabled;
@@ -1061,6 +1063,43 @@ static void smb347_chg_upd_worker(struct work_struct *work)
 	smb34x_update_charger_type(smb);
 }
 
+static void smb347_temp_upd_worker(struct work_struct *work)
+{
+	struct smb347_charger *smb =
+		container_of(work, struct smb347_charger,
+						temp_upd_worker.work);
+	int stat_c, irqstat_e, irqstat_a;
+	int chg_status, ov_uv_stat, temp_stat;
+
+	dev_info(&smb->client->dev, "%s", __func__);
+	stat_c = smb347_read(smb, STAT_C);
+	if (stat_c < 0)
+		goto err_upd;
+
+	irqstat_e = smb347_read(smb, IRQSTAT_E);
+	if (irqstat_e < 0)
+		goto err_upd;
+
+	irqstat_a = smb347_read(smb, IRQSTAT_A);
+	if (irqstat_a < 0)
+		goto err_upd;
+
+	chg_status = (stat_c & STAT_C_CHG_MASK) >> STAT_C_CHG_SHIFT;
+	ov_uv_stat = irqstat_e & (SMB349_IRQSTAT_E_DCIN_UV_STAT |
+				SMB349_IRQSTAT_E_DCIN_OV_STAT);
+	temp_stat = irqstat_a &
+			(IRQSTAT_A_HOT_HARD_STAT|IRQSTAT_A_COLD_HARD_STAT);
+
+	/* status = not charging, no uv, ov status, hard temp stat */
+	if (!chg_status && !ov_uv_stat && temp_stat)
+		power_supply_changed(&smb->usb);
+	else
+		return;
+err_upd:
+	schedule_delayed_work(&smb->temp_upd_worker,
+						SMB34X_TEMP_WORK_JIFFIES);
+}
+
 static void smb347_otg_work(struct work_struct *work)
 {
 	struct smb347_charger *smb =
@@ -1336,9 +1375,8 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 	}
 
 	if (irqstat_a & (IRQSTAT_A_HOT_HARD_IRQ|IRQSTAT_A_COLD_HARD_IRQ)) {
-		dev_info(&smb->client->dev, "exterme temperature interrupt");
-		if (smb->pdata->use_usb)
-			power_supply_changed(&smb->usb);
+		dev_info(&smb->client->dev, "extreme temperature interrupt");
+		schedule_delayed_work(&smb->temp_upd_worker, 0);
 	}
 
 	if (irqstat_b & IRQSTAT_B_BATOVP_IRQ) {
@@ -2336,6 +2374,7 @@ static int smb347_probe(struct i2c_client *client,
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
 	INIT_DELAYED_WORK(&smb->full_worker, smb347_full_worker);
 #endif
+	INIT_DELAYED_WORK(&smb->temp_upd_worker, smb347_temp_upd_worker);
 
 	if (smb->pdata->use_mains) {
 		smb->mains.name = "smb34x-ac_charger";
