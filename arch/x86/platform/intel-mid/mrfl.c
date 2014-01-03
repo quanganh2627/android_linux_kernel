@@ -88,7 +88,7 @@ static unsigned long __init tangier_calibrate_tsc(void)
 		pr_debug("bus_freq = 0x%x\n", bus_freq);
 
 		if (bus_freq == 0)
-			fsb = FSB_FREQ_100SKU;
+			fsb = FSB_FREQ_83SKU;
 		else if (bus_freq == 1)
 			fsb = FSB_FREQ_100SKU;
 		else if (bus_freq == 2)
