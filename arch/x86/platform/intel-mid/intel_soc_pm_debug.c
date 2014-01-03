@@ -1606,20 +1606,12 @@ static int ignore_add_open(struct inode *inode, struct file *file)
 static ssize_t ignore_add_write(struct file *file,
 		     const char __user *userbuf, size_t count, loff_t *ppos)
 {
-	char buf[32];
 	int res;
-	int buf_size = min(count, sizeof(buf)-1);
 	int sub_sys_pos, sub_sys_index;
 	u32 lss, local_ignore_lss[4];
 	u32 pm_cmd_val;
 
-	if (copy_from_user(buf, userbuf, buf_size))
-		return -EFAULT;
-
-	buf[buf_size] = 0;
-
-	res = kstrtou32(buf, 10, &lss);
-
+	res = kstrtou32_from_user(userbuf, count, 0, &lss);
 	if (res)
 		return -EINVAL;
 
@@ -1653,7 +1645,7 @@ static ssize_t ignore_add_write(struct file *file,
 	memcpy(mid_pmu_cxt->ignore_lss, local_ignore_lss, (sizeof(u32)*4));
 	up(&mid_pmu_cxt->scu_ready_sem);
 
-	return buf_size;
+	return count;
 }
 
 static const struct file_operations ignore_add_ops = {
@@ -1672,20 +1664,12 @@ static int ignore_remove_open(struct inode *inode, struct file *file)
 static ssize_t ignore_remove_write(struct file *file,
 		     const char __user *userbuf, size_t count, loff_t *ppos)
 {
-	char buf[32];
 	int res;
-	int buf_size = min(count, sizeof(buf)-1);
 	int sub_sys_pos, sub_sys_index;
 	u32 lss, local_ignore_lss[4];
 	u32 pm_cmd_val;
 
-	if (copy_from_user(buf, userbuf, buf_size))
-		return -EFAULT;
-
-	buf[buf_size] = 0;
-
-	res = kstrtou32(buf, 10, &lss);
-
+	res = kstrtou32_from_user(userbuf, count, 0, &lss);
 	if (res)
 		return -EINVAL;
 
@@ -1719,7 +1703,7 @@ static ssize_t ignore_remove_write(struct file *file,
 	memcpy(mid_pmu_cxt->ignore_lss, local_ignore_lss, (sizeof(u32)*4));
 	up(&mid_pmu_cxt->scu_ready_sem);
 
-	return buf_size;
+	return count;
 }
 
 static const struct file_operations ignore_remove_ops = {
@@ -1760,10 +1744,8 @@ static int pmu_sync_d0ix_open(struct inode *inode, struct file *file)
 static ssize_t pmu_sync_d0ix_write(struct file *file,
 		     const char __user *userbuf, size_t count, loff_t *ppos)
 {
-	char buf[32];
 	int res, i;
 	bool send_cmd;
-	int buf_size = min(count, sizeof(buf)-1);
 	u32 lss, local_os_sss[4];
 	int sub_sys_pos, sub_sys_index;
 	u32 pm_cmd_val;
@@ -1771,14 +1753,7 @@ static ssize_t pmu_sync_d0ix_write(struct file *file,
 
 	struct pmu_ss_states cur_pmsss;
 
-
-	if (copy_from_user(buf, userbuf, buf_size))
-		return -EFAULT;
-
-	buf[buf_size] = 0;
-
-	res = kstrtou32(buf, 10, &lss);
-
+	res = kstrtou32_from_user(userbuf, count, 0, &lss);
 	if (res)
 		return -EINVAL;
 
@@ -1860,7 +1835,7 @@ static ssize_t pmu_sync_d0ix_write(struct file *file,
 unlock:
 	up(&mid_pmu_cxt->scu_ready_sem);
 
-	return buf_size;
+	return count;
 }
 
 static const struct file_operations pmu_sync_d0ix_ops = {
@@ -1896,20 +1871,12 @@ static int pmu_force_d0ix_open(struct inode *inode, struct file *file)
 static ssize_t pmu_force_d0i3_write(struct file *file,
 		     const char __user *userbuf, size_t count, loff_t *ppos)
 {
-	char buf[32];
 	int res;
-	int buf_size = min(count, sizeof(buf)-1);
 	u32 lss, local_os_sss[4];
 	int sub_sys_pos, sub_sys_index;
 	u32 pm_cmd_val;
 
-	if (copy_from_user(buf, userbuf, buf_size))
-		return -EFAULT;
-
-	buf[buf_size] = 0;
-
-	res = kstrtou32(buf, 10, &lss);
-
+	res = kstrtou32_from_user(userbuf, count, 0, &lss);
 	if (res)
 		return -EINVAL;
 
@@ -1938,7 +1905,7 @@ static ssize_t pmu_force_d0i3_write(struct file *file,
 
 	up(&mid_pmu_cxt->scu_ready_sem);
 
-	return buf_size;
+	return count;
 }
 
 static const struct file_operations pmu_force_d0i3_ops = {
@@ -1952,20 +1919,12 @@ static const struct file_operations pmu_force_d0i3_ops = {
 static ssize_t pmu_force_d0i0_write(struct file *file,
 		     const char __user *userbuf, size_t count, loff_t *ppos)
 {
-	char buf[32];
 	int res;
-	int buf_size = min(count, sizeof(buf)-1);
 	u32 lss, local_os_sss[4];
 	int sub_sys_pos, sub_sys_index;
 	u32 pm_cmd_val;
 
-	if (copy_from_user(buf, userbuf, buf_size))
-		return -EFAULT;
-
-	buf[buf_size] = 0;
-
-	res = kstrtou32(buf, 10, &lss);
-
+	res = kstrtou32_from_user(userbuf, count, 0, &lss);
 	if (res)
 		return -EINVAL;
 
@@ -1994,7 +1953,7 @@ static ssize_t pmu_force_d0i0_write(struct file *file,
 
 	up(&mid_pmu_cxt->scu_ready_sem);
 
-	return buf_size;
+	return count;
 }
 
 static const struct file_operations pmu_force_d0i0_ops = {
@@ -2025,18 +1984,10 @@ static int cstate_ignore_add_open(struct inode *inode, struct file *file)
 static ssize_t cstate_ignore_add_write(struct file *file,
 		     const char __user *userbuf, size_t count, loff_t *ppos)
 {
-	char buf[32];
 	int res;
 	int cstate;
-	int buf_size = min(count, sizeof(buf)-1);
 
-	if (copy_from_user(buf, userbuf, buf_size))
-		return -EFAULT;
-
-	buf[buf_size] = 0;
-
-	res = kstrtou32(buf, 10, &cstate);
-
+	res = kstrtou32_from_user(userbuf, count, 0, &cstate);
 	if (res)
 		return -EINVAL;
 
@@ -2097,7 +2048,7 @@ static ssize_t cstate_ignore_add_write(struct file *file,
 				(cstate_exit_latency[max_cstate_allowed]-1));
 	}
 
-	return buf_size;
+	return count;
 }
 
 static const struct file_operations cstate_ignore_add_ops = {
@@ -2129,18 +2080,9 @@ static int cstate_ignore_remove_open(struct inode *inode, struct file *file)
 static ssize_t cstate_ignore_remove_write(struct file *file,
 		     const char __user *userbuf, size_t count, loff_t *ppos)
 {
-	char buf[32];
 	int res;
 	int cstate;
-	int buf_size = min(count, sizeof(buf)-1);
-
-	if (copy_from_user(buf, userbuf, buf_size))
-		return -EFAULT;
-
-	buf[buf_size] = 0;
-
-	res = kstrtou32(buf, 10, &cstate);
-
+	res = kstrtou32_from_user(userbuf, count, 0, &cstate);
 	if (res)
 		return -EINVAL;
 
@@ -2214,7 +2156,7 @@ static ssize_t cstate_ignore_remove_write(struct file *file,
 				(cstate_exit_latency[max_cstate_allowed]-1));
 	}
 
-	return buf_size;
+	return count;
 }
 
 static const struct file_operations cstate_ignore_remove_ops = {
@@ -2239,18 +2181,10 @@ static int s3_ctrl_open(struct inode *inode, struct file *file)
 static ssize_t s3_ctrl_write(struct file *file,
 		     const char __user *userbuf, size_t count, loff_t *ppos)
 {
-	char buf[32];
 	int res;
 	int local_s3_ctrl;
-	int buf_size = min(count, sizeof(buf)-1);
 
-	if (copy_from_user(buf, userbuf, buf_size))
-		return -EFAULT;
-
-	buf[buf_size] = 0;
-
-	res = kstrtou32(buf, 10, &local_s3_ctrl);
-
+	res = kstrtou32_from_user(userbuf, count, 0, &local_s3_ctrl);
 	if (res)
 		return -EINVAL;
 
@@ -2261,7 +2195,7 @@ static ssize_t s3_ctrl_write(struct file *file,
 	else
 		__pm_stay_awake(mid_pmu_cxt->pmu_wake_lock);
 
-	return buf_size;
+	return count;
 }
 
 static const struct file_operations s3_ctrl_ops = {
