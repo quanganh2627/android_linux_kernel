@@ -1284,11 +1284,6 @@ static int aic31xx_codec_probe(struct snd_soc_codec *codec)
 	int ret = 0;
 	struct aic31xx_priv *aic31xx;
 
-	if (codec == NULL) {
-		dev_err(codec->dev, "codec pointer is NULL.\n");
-		return -EINVAL;
-	}
-
 	aic31xx = snd_soc_codec_get_drvdata(codec);
 	codec->control_data = aic31xx->regmap;
 
