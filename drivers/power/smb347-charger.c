@@ -245,6 +245,9 @@
 #define SMB34X_FULL_WORK_JIFFIES		(30*HZ)
 #define SMB34X_CHG_UPD_JIFFIES  (HZ)
 
+#define RETRY_WRITE			3
+#define RETRY_READ			3
+
 #define SMB34X_EXTCON_SDP		"CHARGER_USB_SDP"
 #define SMB34X_EXTCON_DCP		"CHARGER_USB_DCP"
 #define SMB34X_EXTCON_CDP		"CHARGER_USB_CDP"
@@ -338,23 +341,35 @@ static int sm347_reload_setting(struct smb347_charger *smb);
 
 static int smb347_read(struct smb347_charger *smb, u8 reg)
 {
-	int ret;
+	int ret, i;
 
-	ret = i2c_smbus_read_byte_data(smb->client, reg);
-	if (ret < 0)
-		dev_warn(&smb->client->dev, "failed to read reg 0x%x: %d\n",
-			 reg, ret);
+	for (i = 0; i < RETRY_READ; i++) {
+		ret = i2c_smbus_read_byte_data(smb->client, reg);
+		if (ret < 0) {
+			dev_warn(&smb->client->dev,
+				"failed to read reg 0x%x: %d\n", reg, ret);
+			mdelay(1);
+			continue;
+		} else
+			break;
+	}
 	return ret;
 }
 
 static int smb347_write(struct smb347_charger *smb, u8 reg, u8 val)
 {
-	int ret;
+	int ret, i;
 
-	ret = i2c_smbus_write_byte_data(smb->client, reg, val);
-	if (ret < 0)
-		dev_warn(&smb->client->dev, "failed to write reg 0x%x: %d\n",
-			 reg, ret);
+	for (i = 0; i < RETRY_WRITE; i++) {
+		ret = i2c_smbus_write_byte_data(smb->client, reg, val);
+		if (ret < 0) {
+			dev_warn(&smb->client->dev,
+			"failed to write reg 0x%x: %d\n", reg, ret);
+			mdelay(1);
+			continue;
+		} else
+			break;
+	}
 	return ret;
 }
 
@@ -1396,6 +1411,7 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 			SMB349_IRQSTAT_E_DCIN_OV_IRQ |
 			SMB349_IRQSTAT_E_DCIN_OV_STAT)) {
 		if (smb347_update_status(smb) > 0) {
+			smb347_update_online(smb);
 			/*
 			 * In SMB349 chip the charging is not starting
 			 * immediately after charger connect. We have to
