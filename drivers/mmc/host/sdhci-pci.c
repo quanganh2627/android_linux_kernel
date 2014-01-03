@@ -886,7 +886,8 @@ static int intel_moor_emmc_probe_slot(struct sdhci_pci_slot *slot)
 	sdhci_alloc_panic_host(slot->host);
 
 	slot->host->mmc->caps2 |= MMC_CAP2_POLL_R1B_BUSY |
-				MMC_CAP2_INIT_CARD_SYNC;
+				MMC_CAP2_INIT_CARD_SYNC |
+				MMC_CAP2_CACHE_CTRL;
 
 	/* Enable HS200 and HS400 */
 	slot->host->mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
