@@ -9721,6 +9721,13 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 			dev_priv->display.crtc_disable(&intel_crtc->base);
 	}
 
+	/* DO it only once */
+	if (IS_VALLEYVIEW(dev))
+		if (dev_priv->pfi_credit) {
+			program_pfi_credits(dev_priv, true);
+			dev_priv->pfi_credit = false;
+		}
+
 	/* crtc->mode is already used by the ->mode_set callbacks, hence we need
 	 * to set it here already despite that we pass it down the callchain.
 	 */
@@ -10344,6 +10351,8 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 		}
 	}
 
+	program_pfi_credits(dev_priv, false);
+
 	dev_priv->s0ixstat = false;
 	drm_modeset_unlock_all(dev);
 	i915_rpm_put_disp(dev);
@@ -10357,6 +10366,7 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 
 	i915_rpm_get_disp(dev);
 
+
 	/* Re-detect hot pluggable displays */
 	i915_simulate_hpd(dev, true);
 
@@ -10365,6 +10375,7 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	/* KMS EnterVT equivalent */
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
 		drm_modeset_lock_all(dev);
+		program_pfi_credits(dev_priv, true);
 		intel_modeset_setup_hw_state(dev, true);
 		drm_modeset_unlock_all(dev);
 		/*

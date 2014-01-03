@@ -344,6 +344,8 @@
 #define   PIPE_CONTROL_DEPTH_CACHE_FLUSH		(1<<0)
 #define   PIPE_CONTROL_GLOBAL_GTT (1<<2) /* in addr dword */
 
+#define GCI_CONTROL	(dev_priv->info->display_mmio_offset + 0x650C)
+
 /*
  * Commands used only by the command parser
  */

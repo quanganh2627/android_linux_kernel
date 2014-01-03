@@ -1816,6 +1816,8 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 
 	i915_setup_sysfs(dev);
 
+	dev_priv->pfi_credit = true;
+
 	if (INTEL_INFO(dev)->num_pipes) {
 		/* Must be done after probing outputs */
 		intel_opregion_init(dev);
