@@ -27,7 +27,6 @@
 #define NR_RETRY_CNT		3
 
 static struct i2c_client *i2c_bcntl;
-static DEFINE_MUTEX(lock);
 
 static int bcntl_write_reg8(struct i2c_client *client, u8 reg, u8 value)
 {
@@ -70,7 +69,6 @@ int intel_bytcr_boost_enable(void)
 	if (!i2c_bcntl)
 		return -EAGAIN;
 
-	mutex_lock(&lock);
 	ret = bcntl_read_reg8(i2c_bcntl, BYT_CR_BCNTL_REG);
 	if (ret < 0)
 		goto i2c_err;
@@ -79,7 +77,6 @@ int intel_bytcr_boost_enable(void)
 	ret = bcntl_write_reg8(i2c_bcntl, BYT_CR_BCNTL_REG, val);
 
 i2c_err:
-	mutex_unlock(&lock);
 	return ret;
 }
 EXPORT_SYMBOL(intel_bytcr_boost_enable);
@@ -91,7 +88,6 @@ int intel_bytcr_boost_disable(void)
 	if (!i2c_bcntl)
 		return -EAGAIN;
 
-	mutex_lock(&lock);
 	ret = bcntl_read_reg8(i2c_bcntl, BYT_CR_BCNTL_REG);
 	if (ret < 0)
 		goto i2c_err;
@@ -100,7 +96,6 @@ int intel_bytcr_boost_disable(void)
 	ret = bcntl_write_reg8(i2c_bcntl, BYT_CR_BCNTL_REG, val);
 
 i2c_err:
-	mutex_unlock(&lock);
 	return ret;
 }
 EXPORT_SYMBOL(intel_bytcr_boost_disable);
