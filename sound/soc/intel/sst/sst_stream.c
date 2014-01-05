@@ -163,8 +163,13 @@ int sst_alloc_stream_mrfld(char *params, struct sst_block *block)
 	sst_drv_ctx->streams[str_id].num_ch = num_ch;
 
 	pvt_id = sst_assign_pvt_id(sst_drv_ctx);
-	alloc_param.ts = sst_drv_ctx->mailbox_add + sst_drv_ctx->tstamp +
-			 (str_id * sizeof(fw_tstamp));
+	if (sst_drv_ctx->info.lpe_viewpt_rqd)
+		alloc_param.ts = sst_drv_ctx->info.mailbox_start +
+			sst_drv_ctx->tstamp + (str_id * sizeof(fw_tstamp));
+	else
+		alloc_param.ts = sst_drv_ctx->mailbox_add +
+			sst_drv_ctx->tstamp + (str_id * sizeof(fw_tstamp));
+
 	pr_debug("alloc tstamp location = 0x%x\n", alloc_param.ts);
 	pr_debug("assigned pipe id 0x%x to task %d\n", pipe_id, task_id);
 
@@ -222,7 +227,6 @@ int sst_start_stream(int str_id)
 		return -ENOMEM;
 
 	if (!sst_drv_ctx->use_32bit_ops) {
-		pr_debug("start mrfld");
 		pvt_id = sst_assign_pvt_id(sst_drv_ctx);
 		pr_debug("pvt_id = %d, pipe id = %d, task = %d\n",
 			 pvt_id, str_info->pipe_id, str_info->task_id);

@@ -120,8 +120,28 @@ static const struct sst_info byt_fwparse_info = {
 	.imr_start	= SST_BYT_IMR_VIRT_START,
 	.imr_end	= SST_BYT_IMR_VIRT_END,
 	.imr_use	= true,
+	.mailbox_start	= SST_BYT_MBOX_PHY_ADDR,
 	.num_probes	= 0,
-	.dma_addr_ia_viewpt = false,
+	.lpe_viewpt_rqd  = true,
+};
+
+
+static const struct sst_info cht_fwparse_info = {
+	.use_elf	= true,
+	.max_streams	= MAX_NUM_STREAMS_MRFLD,
+	.dma_max_len	= SST_MAX_DMA_LEN_MRFLD,
+	.iram_start	= SST_BYT_IRAM_PHY_START,
+	.iram_end	= SST_BYT_IRAM_PHY_END,
+	.iram_use	= true,
+	.dram_start	= SST_BYT_DRAM_PHY_START,
+	.dram_end	= SST_BYT_DRAM_PHY_END,
+	.dram_use	= true,
+	.imr_start	= SST_BYT_IMR_VIRT_START,
+	.imr_end	= SST_BYT_IMR_VIRT_END,
+	.imr_use	= true,
+	.mailbox_start	= SST_BYT_MBOX_PHY_ADDR,
+	.num_probes	= 0,
+	.lpe_viewpt_rqd = true,
 };
 
 static const struct sst_ipc_info byt_ipc_info = {
@@ -136,6 +156,21 @@ static const struct sst_lib_dnld_info  byt_lib_dnld_info = {
 	.mod_table_offset   = BYT_FW_MOD_TABLE_OFFSET,
 	.mod_table_size     = BYT_FW_MOD_TABLE_SIZE,
 	.mod_ddr_dnld       = true,
+};
+
+static const struct sst_ipc_info cht_ipc_info = {
+	.use_32bit_ops = false,
+	.ipc_offset = 0,
+	.mbox_recv_off = 0x400,
+};
+
+struct sst_platform_info cht_platform_data = {
+	.probe_data = &cht_fwparse_info,
+	.ssp_data = NULL,
+	.bdata = NULL,
+	.pdata = NULL,
+	.ipc_info = &cht_ipc_info,
+	.lib_info = NULL,
 };
 
 struct sst_platform_info byt_rvp_platform_data = {
@@ -260,7 +295,7 @@ static int sst_platform_get_resources_fdk(struct intel_sst_drv *ctx,
 		return -EIO;
 	}
 	/* reassign physical address to LPE viewpoint address */
-	ctx->mailbox_add = SST_BYT_MBOX_PHY_ADDR;
+	ctx->mailbox_add = sst_drv_ctx->info.mailbox_start;
 
 	/* Get iram/iccm addr from platform resource table */
 	rsrc = platform_get_resource(pdev, IORESOURCE_MEM, 3);
@@ -409,13 +444,22 @@ static int sst_platform_get_resources_edk(struct intel_sst_drv *ctx,
 static int sst_platform_get_resources(const char *hid,
 		struct intel_sst_drv *ctx, struct platform_device *pdev)
 {
-	if (!strncmp(hid, "LPE0F281", 8))
+	if (!strncmp(hid, "LPE0F281", 8)) {
+		ctx->pci_id = SST_BYT_PCI_ID;
 		return sst_platform_get_resources_fdk(ctx, pdev);
-	if (!strncmp(hid, "80860F28", 8))
+	}
+	if (!strncmp(hid, "808622A8", 8)) {
+		ctx->pci_id = SST_CHT_PCI_ID;
+		/*FIXME: will be fixed in UEFI patch*/
+		return 0;
+	}
+	if (!strncmp(hid, "80860F28", 8)) {
+		ctx->pci_id = SST_BYT_PCI_ID;
 		return sst_platform_get_resources_edk(ctx, pdev);
-	else if (!strncmp(hid, "LPE0F28", 7))
+	} else if (!strncmp(hid, "LPE0F28", 7)) {
+		ctx->pci_id = SST_BYT_PCI_ID;
 		return sst_platform_get_resources_fdk(ctx, pdev);
-	else
+	} else
 		return -EINVAL;
 }
 
@@ -447,8 +491,10 @@ int sst_acpi_probe(struct platform_device *pdev)
 	ctx = sst_drv_ctx;
 	ctx->dev = dev;
 	ctx->hid = hid;
-	ctx->pci_id = SST_BYT_PCI_ID;
 
+	ret = sst_platform_get_resources(hid, ctx, pdev);
+	if (ret)
+		return ret;
 	/* need to save shim registers in BYT */
 	ctx->shim_regs64 = devm_kzalloc(dev, sizeof(*ctx->shim_regs64),
 					GFP_KERNEL);
@@ -487,10 +533,6 @@ int sst_acpi_probe(struct platform_device *pdev)
 		struct stream_info *stream = &ctx->streams[i];
 		mutex_init(&stream->lock);
 	}
-
-	ret = sst_platform_get_resources(hid, ctx, pdev);
-	if (ret)
-		goto do_free_wq;
 
 	/*Register LPE Control as misc driver*/
 	ret = misc_register(&lpe_ctrl);

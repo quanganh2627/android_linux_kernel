@@ -51,6 +51,8 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 	{ "ADMA0F28", 0 },
 	{ "VIB8601", 0 },
 	{ "BYTEC001", 0 },
+	/* Cherrytrail Audio device*/
+	{ "808622A8", 0 },
 	{ }
 };
 

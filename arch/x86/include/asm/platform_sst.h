@@ -54,8 +54,9 @@ struct sst_info {
 	u32 imr_start;
 	u32 imr_end;
 	bool imr_use;
+	u32 mailbox_start;
 	bool use_elf;
-	bool dma_addr_ia_viewpt;
+	bool lpe_viewpt_rqd;
 	unsigned int max_streams;
 	u32 dma_max_len;
 	u8 num_probes;

@@ -337,9 +337,12 @@ static int sst_save_dsp_context_v2(struct intel_sst_drv *sst)
 	}
 
 	/* all good, so lets copy the fw */
-	sst_save_fw_rams(sst);
-	sst->context.saved = 0;
-	pr_debug("fw context saved  ...\n");
+	/*FIXME: remove the PCI id check for CHT, when the functionality is enabled*/
+	if (sst->pci_id != SST_CHT_PCI_ID) {
+		sst_save_fw_rams(sst);
+		sst->context.saved = 0;
+		pr_debug("fw context saved  ...\n");
+	}
 	sst_free_block(sst, block);
 	return 0;
 }
@@ -434,6 +437,7 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 	switch (sst->pci_id) {
 	case SST_MRFLD_PCI_ID:
 	case PCI_DEVICE_ID_INTEL_SST_MOOR:
+	case SST_CHT_PCI_ID:
 		sst->tstamp = SST_TIME_STAMP_MRFLD;
 		sst->ops = &mrfld_ops;
 		return 0;
@@ -1014,7 +1018,7 @@ static int intel_sst_runtime_suspend(struct device *dev)
 	sst_set_fw_state_locked(ctx, SST_SUSPENDED);
 
 	flush_workqueue(ctx->post_msg_wq);
-	if (ctx->pci_id == SST_BYT_PCI_ID) {
+	if (ctx->pci_id == SST_BYT_PCI_ID || ctx->pci_id == SST_CHT_PCI_ID) {
 		/* save the shim registers because PMC doesn't save state */
 		sst_save_shim64(ctx, ctx->shim, ctx->shim_regs64);
 	}
@@ -1029,7 +1033,7 @@ static int intel_sst_runtime_resume(struct device *dev)
 
 	pr_debug("runtime_resume called\n");
 
-	if (ctx->pci_id == SST_BYT_PCI_ID) {
+	if (ctx->pci_id == SST_BYT_PCI_ID || ctx->pci_id == SST_CHT_PCI_ID) {
 		/* wait for device power up a/c to PCI spec */
 		usleep_range(10000, 11000);
 		sst_restore_shim64(ctx, ctx->shim, ctx->shim_regs64);
@@ -1210,6 +1214,7 @@ static const struct acpi_device_id sst_acpi_ids[] = {
 	{ "LPE0F28",  (kernel_ulong_t) &byt_rvp_platform_data },
 	{ "LPE0F281", (kernel_ulong_t) &byt_ffrd8_platform_data },
 	{ "80860F28", (kernel_ulong_t) &byt_ffrd8_platform_data },
+	{ "808622A8", (kernel_ulong_t) &cht_platform_data },
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, sst_acpi_ids);

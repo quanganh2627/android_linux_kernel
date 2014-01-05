@@ -204,9 +204,9 @@ void intel_sst_set_bypass_mfld(bool set)
 	mutex_unlock(&sst_drv_ctx->csr_lock);
 
 }
-#define SST_CALC_DMA_DSTN(dma_addr_ia_viewpt, ia_viewpt_addr, elf_paddr, \
-			lpe_viewpt_addr) ((dma_addr_ia_viewpt) ? \
-		(ia_viewpt_addr + elf_paddr - lpe_viewpt_addr) : elf_paddr)
+#define SST_CALC_DMA_DSTN(lpe_viewpt_rqd, ia_viewpt_addr, elf_paddr, \
+			lpe_viewpt_addr) ((lpe_viewpt_rqd) ? \
+		elf_paddr : (ia_viewpt_addr + elf_paddr - lpe_viewpt_addr))
 
 static int sst_fill_dstn(struct intel_sst_drv *sst, struct sst_info info,
 			Elf32_Phdr *pr, void **dstn, unsigned int *dstn_phys, int *mem_type)
@@ -219,7 +219,7 @@ static int sst_fill_dstn(struct intel_sst_drv *sst, struct sst_info info,
 		if (data_size)
 			pr->p_filesz += 4 - data_size;
 		*dstn = sst->iram + (pr->p_paddr - info.iram_start);
-		*dstn_phys = SST_CALC_DMA_DSTN(info.dma_addr_ia_viewpt,
+		*dstn_phys = SST_CALC_DMA_DSTN(info.lpe_viewpt_rqd,
 				sst->iram_base, pr->p_paddr, info.iram_start);
 		*mem_type = 1;
 	}
@@ -228,7 +228,7 @@ static int sst_fill_dstn(struct intel_sst_drv *sst, struct sst_info info,
 	    (pr->p_paddr < info.iram_end)) {
 
 		*dstn = sst->iram + (pr->p_paddr - info.iram_start);
-		*dstn_phys = SST_CALC_DMA_DSTN(info.dma_addr_ia_viewpt,
+		*dstn_phys = SST_CALC_DMA_DSTN(info.lpe_viewpt_rqd,
 				sst->iram_base, pr->p_paddr, info.iram_start);
 		*mem_type = 1;
 	}
@@ -237,7 +237,7 @@ static int sst_fill_dstn(struct intel_sst_drv *sst, struct sst_info info,
 		 (pr->p_paddr < info.dram_end)) {
 
 		*dstn = sst->dram + (pr->p_paddr - info.dram_start);
-		*dstn_phys = SST_CALC_DMA_DSTN(info.dma_addr_ia_viewpt,
+		*dstn_phys = SST_CALC_DMA_DSTN(info.lpe_viewpt_rqd,
 				sst->dram_base, pr->p_paddr, info.dram_start);
 		*mem_type = 1;
 	} else if ((pr->p_paddr >= info.imr_start) &&
@@ -278,7 +278,7 @@ static void sst_fill_info(struct intel_sst_drv *sst,
 		info->imr_end = relocate_imr_addr_mrfld(sst->ddr_end);
 	}
 
-	info->dma_addr_ia_viewpt = sst->info.dma_addr_ia_viewpt;
+	info->lpe_viewpt_rqd = sst->info.lpe_viewpt_rqd;
 	info->dma_max_len = sst->info.dma_max_len;
 	pr_debug("%s: dma_max_len 0x%x", __func__, info->dma_max_len);
 }
@@ -504,7 +504,8 @@ static int sst_alloc_dma_chan(struct sst_dma *dma)
 	else if (sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)
 		dmac = pci_get_device(PCI_VENDOR_ID_INTEL,
 			      PCI_DEVICE_ID_INTEL_AUDIO_DMAC0_MOOR, NULL);
-	else if (sst_drv_ctx->pci_id == SST_BYT_PCI_ID) {
+	else if (sst_drv_ctx->pci_id == SST_BYT_PCI_ID ||
+			sst_drv_ctx->pci_id == SST_CHT_PCI_ID) {
 		hid = sst_drv_ctx->hid;
 		if (!strncmp(hid, "LPE0F281", 8))
 			dma->dev = intel_mid_get_acpi_dma("DMA0F28");
@@ -513,6 +514,7 @@ static int sst_alloc_dma_chan(struct sst_dma *dma)
 		else if (!strncmp(hid, "LPE0F28", 7))
 			dma->dev = intel_mid_get_acpi_dma("DMA0F28");
 	}
+
 	if (!dmac && !dma->dev) {
 		pr_err("Can't find DMAC\n");
 		return -ENODEV;
@@ -585,9 +587,11 @@ static int sst_dma_firmware(struct sst_dma *dma, struct sst_sg_list *sg_list)
 	/* BY default PIMR is unsmasked
 	 * FW gets unmaksed dma intr too, so mask it for FW to execute on mrfld
 	 */
+	/*FIXME: Need to check if this workaround is valid for CHT*/
 	if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID ||
 	    sst_drv_ctx->pci_id == SST_BYT_PCI_ID ||
-	    sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)
+	    sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR ||
+			sst_drv_ctx->pci_id == SST_CHT_PCI_ID)
 		sst_shim_write(sst_drv_ctx->shim, SST_PIMR, 0xFFFF0034);
 
 	if (sst_drv_ctx->use_lli) {

@@ -81,6 +81,7 @@ static ssize_t sst_debug_shim_read(struct file *file, char __user *user_buf,
 		case SST_MRFLD_PCI_ID:
 		case PCI_DEVICE_ID_INTEL_SST_MOOR:
 		case SST_BYT_PCI_ID:
+		case SST_CHT_PCI_ID:
 			val = sst_shim_read64(drv->shim, addr);
 			break;
 		}

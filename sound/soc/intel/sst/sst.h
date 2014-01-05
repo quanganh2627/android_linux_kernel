@@ -43,6 +43,7 @@
 #define SST_CLV_PCI_ID	0x08E7
 #define SST_MRFLD_PCI_ID 0x119A
 #define SST_BYT_PCI_ID  0x0F28
+#define SST_CHT_PCI_ID 0x22A8
 
 #define PCI_ID_LENGTH 4
 #define SST_SUSPEND_DELAY 2000
@@ -565,6 +566,7 @@ struct intel_sst_drv {
 extern struct intel_sst_drv *sst_drv_ctx;
 extern struct sst_platform_info byt_rvp_platform_data;
 extern struct sst_platform_info byt_ffrd8_platform_data;
+extern struct sst_platform_info cht_platform_data;
 
 /* misc definitions */
 #define FW_DWNL_ID 0xFF
