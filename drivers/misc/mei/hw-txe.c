@@ -514,7 +514,7 @@ static int mei_txe_readiness_wait(struct mei_device *dev)
 	mutex_unlock(&dev->device_lock);
 	err = wait_event_interruptible_timeout(dev->wait_hw_ready,
 			dev->recvd_hw_ready,
-			msecs_to_jiffies(SEC_READY_WAIT_TIMEOUT));
+			msecs_to_jiffies(SEC_RESET_WAIT_TIMEOUT));
 	mutex_lock(&dev->device_lock);
 	if (!err && !dev->recvd_hw_ready) {
 		dev_dbg(&dev->pdev->dev,
@@ -695,7 +695,7 @@ static int mei_txe_hw_reset(struct mei_device *dev, bool intr_enable)
 		if (mei_txe_aliveness_poll(dev, aliveness_req) < 0) {
 			dev_err(&dev->pdev->dev,
 				"wait for aliveness settle failed ... bailing out\n");
-			return -ENODEV;
+			return -EIO;
 		}
 
 
@@ -708,7 +708,7 @@ static int mei_txe_hw_reset(struct mei_device *dev, bool intr_enable)
 		if (mei_txe_aliveness_poll(dev, 0) < 0) {
 			dev_err(&dev->pdev->dev,
 				"wait for aliveness failed ... bailing out\n");
-			return -ENODEV;
+			return -EIO;
 		}
 	}
 
