@@ -166,6 +166,7 @@ struct devs_id __initconst device_ids[] = {
 	{"synaptics_3202", SFI_DEV_TYPE_I2C, 0, &rmi4_platform_data, NULL},
 	{"syn_3400_cgs", SFI_DEV_TYPE_I2C, 0, &rmi4_platform_data, NULL},
 	{"syn_3400_igzo", SFI_DEV_TYPE_I2C, 0, &rmi4_platform_data, NULL},
+	{"synaptics_3402", SFI_DEV_TYPE_I2C, 0, &rmi4_platform_data, NULL},
 
 	/* I2C devices*/
 	{"max17042", SFI_DEV_TYPE_I2C, 1, &max17042_platform_data, NULL},
