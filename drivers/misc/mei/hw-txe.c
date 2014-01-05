@@ -903,10 +903,7 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 			dev->recvd_hw_ready = true;
 		} else {
 			dev->recvd_hw_ready = false;
-			if (dev->dev_state != MEI_DEV_RESETTING &&
-			    dev->dev_state != MEI_DEV_INITIALIZING &&
-			    dev->dev_state != MEI_DEV_POWER_UP &&
-			    dev->dev_state != MEI_DEV_POWER_DOWN) {
+			if (dev->dev_state != MEI_DEV_RESETTING) {
 
 				dev_warn(&dev->pdev->dev, "FW not ready: resetting.\n");
 				schedule_work(&dev->reset_work);
@@ -942,7 +939,7 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 
 		/* Read from TXE */
 		rets = mei_irq_read_handler(dev, &complete_list, &slots);
-		if (rets) {
+		if (rets && dev->dev_state != MEI_DEV_RESETTING) {
 			dev_err(&dev->pdev->dev,
 				"mei_irq_read_handler ret = %d.\n", rets);
 

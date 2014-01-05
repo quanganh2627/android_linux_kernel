@@ -456,11 +456,7 @@ static int mei_txe_pci_resume(struct device *device)
 		return err;
 	}
 
-	mutex_lock(&dev->device_lock);
-
-	dev->dev_state = MEI_DEV_POWER_UP;
-	mei_reset(dev, true);
-	mutex_unlock(&dev->device_lock);
+	err = mei_restart(dev);
 
 	return err;
 }
