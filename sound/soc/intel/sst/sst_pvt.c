@@ -314,6 +314,8 @@ void sst_do_recovery(struct intel_sst_drv *sst)
 	struct ipc_post *m, *_m;
 	unsigned long irq_flags;
 
+	pr_err("sst_do_recovery....\n");
+
 	dump_stack();
 	dump_sst_shim(sst);
 
@@ -323,10 +325,26 @@ void sst_do_recovery(struct intel_sst_drv *sst)
 
 	spin_lock_irqsave(&sst->ipc_spin_lock, irq_flags);
 	if (list_empty(&sst->ipc_dispatch_list))
-		pr_err("List is Empty\n");
+		pr_err("ipc_dispatch_list is Empty\n");
 	spin_unlock_irqrestore(&sst->ipc_spin_lock, irq_flags);
-	list_for_each_entry_safe(m, _m, &sst->ipc_dispatch_list, node)
-		pr_err("pending msg header %#x\n", m->header.full);
+	list_for_each_entry_safe(m, _m, &sst->ipc_dispatch_list, node) {
+		pr_err("ipc-dispatch: pending msg header %#x\n", m->header.full);
+		list_del(&m->node);
+		kfree(m->mailbox_data);
+		kfree(m);
+	}
+
+	spin_lock_irqsave(&sst->rx_msg_lock, irq_flags);
+	if (list_empty(&sst->rx_list))
+		pr_err("rx msg list is empty\n");
+	spin_unlock_irqrestore(&sst->rx_msg_lock, irq_flags);
+
+	list_for_each_entry_safe(m, _m, &sst->rx_list, node) {
+		pr_err("rx: pending msg header %#x\n", m->header.full);
+		list_del(&m->node);
+		kfree(m->mailbox_data);
+		kfree(m);
+	}
 }
 
 /*
