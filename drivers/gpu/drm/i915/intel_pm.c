@@ -5896,12 +5896,12 @@ void intel_aux_display_runtime_put(struct drm_i915_private *dev_priv)
 	hsw_enable_package_c8(dev_priv);
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static int set_vhdmi_state(u8 value)
 {
 	return intel_mid_pmic_writeb(VHDMICNT, value);
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void display_early_suspend(struct early_suspend *h)
 {
 	struct drm_device *drm_dev = gdev;
