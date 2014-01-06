@@ -81,7 +81,6 @@ struct byt_mc_private {
 	int hs_det_poll_intrvl;
 	int hs_det_retry;
 	bool process_button_events;
-	int tristate_buffer_gpio;
 };
 
 static int byt_hs_detection(void);
@@ -732,7 +731,6 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 			 byt_check_hs_button_release_status);
 	INIT_DELAYED_WORK(&drv->hs_button_en_work, byt_enable_hs_button_events);
 	mutex_init(&drv->jack_mlock);
-	drv->tristate_buffer_gpio = -1;
 
 	/* register the soc card */
 	snd_soc_card_byt.dev = &pdev->dev;
