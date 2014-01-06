@@ -13,6 +13,10 @@
 #ifndef _LINUX_EARLY_SUSPEND_SYSFS_H
 #define _LINUX_EARLY_SUSPEND_SYSFS_H
 
+#define EARLY_SUSPEND_STATUS_LEN 1
+#define EARLY_SUSPEND_ON  "1"
+#define EARLY_SUSPEND_OFF "0"
+
 int register_early_suspend_device(struct device *dev);
 void unregister_early_suspend_device(struct device *dev);
 #endif
