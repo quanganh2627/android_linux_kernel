@@ -57,6 +57,7 @@ out:
 	kfree(effect);
 	return retval;
 }
+EXPORT_SYMBOL_GPL(snd_ctl_effect_create);
 
 int snd_ctl_effect_destroy(struct snd_card *card, void *arg)
 {
@@ -77,6 +78,7 @@ out:
 	kfree(effect);
 	return retval;
 }
+EXPORT_SYMBOL_GPL(snd_ctl_effect_destroy);
 
 int snd_ctl_effect_set_params(struct snd_card *card, void *arg)
 {
@@ -114,6 +116,7 @@ out:
 	kfree(params);
 	return retval;
 }
+EXPORT_SYMBOL_GPL(snd_ctl_effect_set_params);
 
 int snd_ctl_effect_get_params(struct snd_card *card, void *arg)
 {
@@ -173,6 +176,7 @@ free_out:
 	kfree(outparams);
 	return retval;
 }
+EXPORT_SYMBOL_GPL(snd_ctl_effect_get_params);
 
 int snd_ctl_effect_query_num_effects(struct snd_card *card, void *arg)
 {
@@ -189,6 +193,7 @@ int snd_ctl_effect_query_num_effects(struct snd_card *card, void *arg)
 out:
 	return retval;
 }
+EXPORT_SYMBOL_GPL(snd_ctl_effect_query_num_effects);
 
 int snd_ctl_effect_query_effect_caps(struct snd_card *card, void *arg)
 {
@@ -242,6 +247,7 @@ out:
 	kfree(caps);
 	return retval;
 }
+EXPORT_SYMBOL_GPL(snd_ctl_effect_query_effect_caps);
 
 /**
  * snd_effect_register - register compressed device
