@@ -254,7 +254,8 @@ static ssize_t gpio_conf_write(struct file *filp, const char __user *ubuf,
 	for (i = cnt - 1; i > 0 && isspace(buf[i]); i--)
 		buf[i] = 0;
 
-	kstrtoul(start, 16, &value);
+	if (kstrtouint(start, 16, &value))
+		return -EINVAL;
 
 	if (debug->ops->set_conf_reg)
 		debug->ops->set_conf_reg(debug, gpio, value);

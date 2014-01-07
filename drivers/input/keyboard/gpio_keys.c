@@ -434,7 +434,7 @@ static void gpio_keys_gpio_timer(unsigned long _data)
 static irqreturn_t gpio_keys_gpio_isr(int irq, void *dev_id)
 {
 	struct gpio_button_data *bdata = dev_id;
-	struct gpio_keys_button *button;
+	const struct gpio_keys_button *button;
 	struct input_dev *input;
 	unsigned int type;
 	int state;
