@@ -753,8 +753,8 @@ int sst_format_vtsv_message(struct intel_sst_drv *ctx,
 	struct snd_sst_vtsv_info vinfo;
 	struct ipc_post *msg;
 
-	BUG_ON((unsigned long)ctx->vcache.file1_in_mem & 0xffffffff00000000);
-	BUG_ON((unsigned long)ctx->vcache.file2_in_mem & 0xffffffff00000000);
+	BUG_ON((unsigned long)(ctx->vcache.file1_in_mem) & 0xffffffff00000000ULL);
+	BUG_ON((unsigned long)(ctx->vcache.file2_in_mem) & 0xffffffff00000000ULL);
 
 	vinfo.vfiles[0].addr = (u32)((unsigned long)ctx->vcache.file1_in_mem
 				& 0xffffffff);
