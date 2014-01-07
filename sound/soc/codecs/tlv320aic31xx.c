@@ -181,6 +181,9 @@ static const struct snd_kcontrol_new aic31xx_snd_controls[] = {
 	/* HP Analog Gain Volume Control */
 	SOC_DOUBLE_R_TLV("HP Analog Gain", AIC31XX_LANALOGHPL,
 			AIC31XX_RANALOGHPR, 0, 0x7F, 1, hp_vol_tlv),
+	/* ADC MUTE */
+	SOC_SINGLE("ADC mute", AIC31XX_ADCFGA,
+			 7, 2, 0),
 };
 
 static const struct snd_kcontrol_new aic311x_snd_controls[] = {
