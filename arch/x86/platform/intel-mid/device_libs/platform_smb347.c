@@ -295,7 +295,7 @@ bool smb347_is_valid_batid(void)
 		 * between 0x40 to 0x60. This is workaround to check
 		 * the valid batid with actual battery.
 		 */
-		if ((val >= 0x30 && val <= 0x60)
+		if ((val <= 0x60)
 			|| (val > BYT_FFD8_PR1_BATID_LL
 			&& val < BYT_FFD8_PR1_BATID_UL))
 			is_valid = true;

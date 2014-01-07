@@ -422,7 +422,9 @@ static bool max17042_is_valid_batid(void)
 {
 	bool ret = true;
 #ifdef CONFIG_CHARGER_SMB347
-	ret = smb347_is_valid_batid();
+	 if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
+		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1))
+		ret = smb347_is_valid_batid();
 #endif
 	return ret;
 }
