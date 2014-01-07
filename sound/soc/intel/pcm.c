@@ -902,10 +902,10 @@ static int sst_soc_probe(struct snd_soc_platform *platform)
 		ret = sst_dsp_init_v2_dpcm(platform);
 #else
 		ret = sst_dsp_init(platform);
+#endif
 		if (ret)
 			return ret;
 		ret = snd_soc_register_effect(platform->card, &effects_ops);
-#endif
 	}
 	if (INTEL_MID_BOARD(1, TABLET, CHT)) {
 		ret = sst_dsp_init(platform);
