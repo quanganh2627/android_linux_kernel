@@ -215,10 +215,11 @@ static __init int add_rtc_cmos(void)
 		return 0;
 
 	/* Intel MID platforms don't have ioport rtc
-	 * except Tangier platform, which doesn't have vRTC
+	 * except Tangier & Anniedale platform, which doesn't have vRTC
 	 */
 	if (intel_mid_identify_cpu() &&
-	    intel_mid_identify_cpu() != INTEL_MID_CPU_CHIP_TANGIER)
+	    intel_mid_identify_cpu() != INTEL_MID_CPU_CHIP_TANGIER &&
+	    intel_mid_identify_cpu() != INTEL_MID_CPU_CHIP_ANNIEDALE)
 		return -ENODEV;
 
 	ret = handle_mrfl_dev_ioapic(RTC_IRQ);
