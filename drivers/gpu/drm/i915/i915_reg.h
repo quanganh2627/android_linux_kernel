@@ -3215,6 +3215,8 @@ EDP_PSR_SW_TIMER
 #define   PIPECONF_INTERLACE_MASK_HSW	(3 << 21)
 #define   PIPECONF_DISP_OVERLAY_OFF     (1 << 19)
 #define   PIPECONF_CURSOR_OFF           (1 << 18)
+
+#define   PANEL_A_ACTIVE_MASK  0x00000fff
 /* Note that pre-gen3 does not support interlaced display directly. Panel
  * fitting must be disabled on pre-ilk for interlaced. */
 #define   PIPECONF_PROGRESSIVE			(0 << 21)

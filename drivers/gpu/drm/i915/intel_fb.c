@@ -297,6 +297,9 @@ void intel_fb_restore_mode(struct drm_device *dev)
 	int ret;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+	if (dev->is_booting)
+		return;
+
 	if (INTEL_INFO(dev)->num_pipes == 0)
 		return;
 
