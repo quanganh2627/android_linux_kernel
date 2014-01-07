@@ -40,6 +40,7 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include "../../codecs/tlv320aic31xx.h"
+#include "../ssp/mid_ssp.h"
 
 #define BYT_PLAT_CLK_3_HZ	25000000
 
@@ -60,6 +61,16 @@
 /* 0 = 25MHz from crystal, 1 = 19.2MHz from PLL */
 #define PLAT_CLK_FREQ_XTAL	0
 
+/*
+ * For BT SCO 1 slot of 16 bits is used
+ * to transfer mono 16 bits PCM samples
+ */
+#define SSP_PERIOD_MAX             (1024*2)
+#define SSP_PERIOD_MIN             2
+#define BYT_SSP_BT_SLOT_NB_SLOT    1
+#define BYT_SSP_BT_SLOT_WIDTH      16
+#define BYT_SSP_BT_SLOT_RX_MASK    1
+#define BYT_SSP_BT_SLOT_TX_MASK    1
 
 struct byt_mc_private {
 	struct snd_soc_jack jack;
@@ -93,6 +104,28 @@ static struct snd_soc_jack_gpio hs_gpio = {
 		.jack_status_check	= byt_hs_detection,
 };
 
+static struct snd_pcm_hardware BYT_CR_COMMS_BT_hw_param = {
+	.info = (SNDRV_PCM_INFO_INTERLEAVED |
+		SNDRV_PCM_INFO_DOUBLE |
+		SNDRV_PCM_INFO_PAUSE |
+		SNDRV_PCM_INFO_RESUME |
+		SNDRV_PCM_INFO_MMAP |
+		SNDRV_PCM_INFO_MMAP_VALID |
+		SNDRV_PCM_INFO_BATCH |
+		SNDRV_PCM_INFO_SYNC_START),
+	.formats = (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_U16_LE),
+	.rates = (SNDRV_PCM_RATE_8000),
+	.rate_min = 8000,
+	.rate_max = 8000,
+	.channels_min = 1,
+	.channels_max = 1,
+	.buffer_bytes_max = (320*1024),
+	.period_bytes_min = 32,
+	.period_bytes_max = (320*1024),
+	.periods_min = SSP_PERIOD_MIN,
+	.periods_max = SSP_PERIOD_MAX,
+	.fifo_size = 0,
+};
 
 static inline void byt_force_enable_pin(struct snd_soc_codec *codec,
 			 const char *bias_widget, bool enable)
@@ -583,6 +616,114 @@ static int byt_set_bias_level(struct snd_soc_card *card,
 	return 0;
 }
 
+static int byt_comms_dai_link_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_pcm_runtime *str_runtime;
+
+	str_runtime = substream->runtime;
+
+	WARN(!substream->pcm, "BYT Comms Machine: ERROR NULL substream->pcm\n");
+
+	if (!substream->pcm)
+		return -EINVAL;
+
+	/* set the runtime hw parameter with local snd_pcm_hardware struct */
+	str_runtime->hw = BYT_CR_COMMS_BT_hw_param;
+
+	return snd_pcm_hw_constraint_integer(str_runtime,
+					 SNDRV_PCM_HW_PARAM_PERIODS);
+}
+
+static int byt_comms_dai_link_hw_params(struct snd_pcm_substream *substream,
+					struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+
+	int ret = 0;
+	unsigned int tx_mask, rx_mask;
+	unsigned int nb_slot = 0;
+	unsigned int slot_width = 0;
+	unsigned int tristate_offset = 0;
+
+	/*
+	 * set cpu DAI configuration
+	 * frame_format = PSP_FORMAT
+	 * ssp_serial_clk_mode = SSP_CLK_MODE_1
+	 * ssp_frmsync_pol_bit = SSP_FRMS_ACTIVE_HIGH
+	 */
+	ret = snd_soc_dai_set_fmt(cpu_dai,
+				  SND_SOC_DAIFMT_I2S |
+				  SSP_DAI_SCMODE_1 |
+				  SND_SOC_DAIFMT_NB_NF |
+				  SND_SOC_DAIFMT_CBM_CFM);
+
+	if (ret < 0) {
+		pr_err("BYT Comms Machine: Set FMT Fails %d\n",
+			ret);
+		return ret;
+	}
+
+	/*
+	 * BT SCO SSP Config
+	 * ssp_active_tx_slots_map = 0x01
+	 * ssp_active_rx_slots_map = 0x01
+	 * frame_rate_divider_control = 1
+	 * data_size = 16
+	 * tristate = 1
+	 * ssp_frmsync_timing_bit = 0
+	 * (NEXT_FRMS_ASS_AFTER_END_OF_T4)
+	 * ssp_frmsync_timing_bit = 1
+	 * (NEXT_FRMS_ASS_WITH_LSB_PREVIOUS_FRM)
+	 */
+	nb_slot = BYT_SSP_BT_SLOT_NB_SLOT;
+	slot_width = BYT_SSP_BT_SLOT_WIDTH;
+	tx_mask = BYT_SSP_BT_SLOT_TX_MASK;
+	rx_mask = BYT_SSP_BT_SLOT_RX_MASK;
+
+	tristate_offset = BIT(TRISTATE_BIT);
+
+	ret = snd_soc_dai_set_tdm_slot(cpu_dai, tx_mask,
+				   rx_mask, nb_slot, slot_width);
+
+	if (ret < 0) {
+		pr_err("BYT Comms Machine:  Set TDM Slot Fails %d\n", ret);
+		return ret;
+	}
+
+	ret = snd_soc_dai_set_tristate(cpu_dai, tristate_offset);
+	if (ret < 0) {
+		pr_err("BYT Comms Machine: Set Tristate Fails %d\n", ret);
+		return ret;
+	}
+
+	pr_debug("BYT Comms Machine: slot_width = %d\n",
+	     slot_width);
+	pr_debug("BYT Comms Machine: tx_mask = %d\n",
+	     tx_mask);
+	pr_debug("BYT Comms Machine: rx_mask = %d\n",
+	     rx_mask);
+	pr_debug("BYT Comms Machine: tristate_offset = %d\n",
+	     tristate_offset);
+
+	return 0;
+}
+
+static int byt_comms_dai_link_prepare(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+
+	pr_debug("%s substream->runtime->rate %d\n",
+		__func__,
+		substream->runtime->rate);
+
+	/* select clock source (if master) */
+	/* BT_VOIP: CPU DAI is master */
+	return snd_soc_dai_set_sysclk(cpu_dai, SSP_CLK_ONCHIP,
+				substream->runtime->rate, 0);
+}
+
 static int byt_init(struct snd_soc_pcm_runtime *runtime)
 {
 	int ret;
@@ -649,6 +790,12 @@ static struct snd_soc_compr_ops byt_compr_ops = {
 	.set_params = byt_compr_set_params,
 };
 
+static struct snd_soc_ops byt_comms_dai_link_ops = {
+	.startup = byt_comms_dai_link_startup,
+	.hw_params = byt_comms_dai_link_hw_params,
+	.prepare = byt_comms_dai_link_prepare,
+};
+
 static struct snd_soc_dai_link byt_dailink[] = {
 	[BYT_CR_AUD_AIF1] = {
 		.name = "Baytrail Audio",
@@ -673,7 +820,16 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.ignore_suspend = 1,
 		.compr_ops = &byt_compr_ops,
 	},
-
+	[BYT_CR_COMMS_BT] = {
+		.name = "Baytrail Comms BT SCO",
+		.stream_name = "BYT_BTSCO",
+		.cpu_dai_name = SSP_BT_DAI_NAME,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.platform_name = "mid-ssp-dai",
+		.init = NULL,
+		.ops = &byt_comms_dai_link_ops,
+	},
 };
 
 #ifdef CONFIG_PM_SLEEP
