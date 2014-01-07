@@ -585,6 +585,7 @@ struct intel_sst_ops {
 	void (*restore_dsp_context) (void);
 	int (*alloc_stream) (char *params, struct sst_block *block);
 	void (*post_download)(struct intel_sst_drv *sst);
+	void (*do_recovery)(struct intel_sst_drv *sst);
 };
 
 int sst_alloc_stream(char *params, struct sst_block *block);
@@ -673,6 +674,9 @@ int sst_acpi_remove(struct platform_device *pdev);
 void sst_save_shim64(struct intel_sst_drv *ctx, void __iomem *shim,
 		     struct sst_shim_regs64 *shim_regs);
 int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx);
+
+void sst_do_recovery_mrfld(struct intel_sst_drv *sst);
+void sst_do_recovery(struct intel_sst_drv *sst);
 
 static inline int sst_pm_runtime_put(struct intel_sst_drv *sst_drv)
 {
