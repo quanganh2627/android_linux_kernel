@@ -256,20 +256,6 @@ int intel_configure_dsi_pll(struct intel_dsi *intel_dsi,
 	return 0;
 }
 
-static void band_gap_reset(struct drm_i915_private *dev_priv)
-{
-	mutex_lock(&dev_priv->dpio_lock);
-
-	intel_flisdsi_write32(dev_priv, 0x08, 0x0001);
-	intel_flisdsi_write32(dev_priv, 0x0F, 0x0005);
-	intel_flisdsi_write32(dev_priv, 0x0F, 0x0025);
-	udelay(150);
-	intel_flisdsi_write32(dev_priv, 0x0F, 0x0000);
-	intel_flisdsi_write32(dev_priv, 0x08, 0x0000);
-
-	mutex_unlock(&dev_priv->dpio_lock);
-}
-
 int intel_enable_dsi_pll(struct intel_dsi *intel_dsi)
 {
 	struct drm_encoder *encoder = &(intel_dsi->base.base);
@@ -285,7 +271,10 @@ int intel_enable_dsi_pll(struct intel_dsi *intel_dsi)
 		mode = &intel_crtc->config.requested_mode;
 
 	DRM_DEBUG_KMS("\n");
-	band_gap_reset(dev_priv);
+	if ((I915_READ(PIPECONF(PIPE_A)) & PIPECONF_DSI_PLL_LOCKED)) {
+		DRM_DEBUG_KMS("DSI PLL Already locked\n");
+		return 0;
+	}
 
 	mutex_lock(&dev_priv->dpio_lock);
 	intel_configure_dsi_pll(intel_dsi, mode);

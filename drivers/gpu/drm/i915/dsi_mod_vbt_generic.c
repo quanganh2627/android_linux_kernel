@@ -222,7 +222,7 @@ bool generic_init(struct intel_dsi_device *dsi)
 	DRM_DEBUG_KMS("\n");
 
 	intel_dsi->channel = 0;
-	intel_dsi->eot_disable = mipi_config->eot_disabled ? 0 : 1;
+	intel_dsi->eotp_pkt = mipi_config->eot_disabled ? 0 : 1;
 	intel_dsi->lane_count = mipi_config->lane_cnt + 1;
 	intel_dsi->pixel_format = mipi_config->videomode_color_format << 7;
 
@@ -413,7 +413,7 @@ bool generic_init(struct intel_dsi_device *dsi)
 			intel_dsi->clk_lp_to_hs_count << 16 |
 			intel_dsi->clk_hs_to_lp_count);
 
-	DRM_DEBUG_KMS("EOT %s\n", intel_dsi->eot_disable ?
+	DRM_DEBUG_KMS("EOT %s\n", intel_dsi->eotp_pkt ?
 						"ENABLED" : "DISABLED");
 	DRM_DEBUG_KMS("DSI Frequency %d\n", intel_dsi->dsi_clock_freq);
 	DRM_DEBUG_KMS("Mode %s\n", intel_dsi->operation_mode ?

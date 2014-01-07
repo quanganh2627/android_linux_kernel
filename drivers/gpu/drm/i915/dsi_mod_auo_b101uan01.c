@@ -72,7 +72,7 @@ bool b101uan01_init(struct intel_dsi_device *dsi)
 	intel_dsi->hs = true;
 	intel_dsi->channel = 0;
 	intel_dsi->lane_count = 4;
-	intel_dsi->eot_disable = 1;
+	intel_dsi->eotp_pkt = 0;
 	intel_dsi->video_mode_type = DSI_VIDEO_NBURST_SPULSE;
 	intel_dsi->pixel_format = VID_MODE_FORMAT_RGB888;
 	intel_dsi->port_bits = 0;

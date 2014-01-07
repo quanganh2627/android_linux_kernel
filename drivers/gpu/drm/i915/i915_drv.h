@@ -1559,6 +1559,7 @@ typedef struct drm_i915_private {
 	bool is_hdmi;
 	u16 is_mipi;
 	u16 mipi_panel_id;
+	u16 mipi_fw;
 
 	unsigned int fwlogo_size;
 	unsigned int fwlogo_offset;

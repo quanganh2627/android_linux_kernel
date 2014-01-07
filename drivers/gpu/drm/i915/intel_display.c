@@ -2176,7 +2176,6 @@ int i915_set_plane_180_rotation(struct drm_device *dev, void *data,
 		}
 
 		crtc = obj_to_crtc(obj);
-		DRM_DEBUG_DRIVER("[CRTC:%d]\n", crtc->base.id);
 		intel_crtc = to_intel_crtc(crtc);
 		intel_crtc->rotate180 = (rotation->rotate & 0x1) ?
 							true : false;
@@ -4018,9 +4017,15 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	if (!is_dsi)
 		vlv_enable_pll(intel_crtc);
 
-	for_each_encoder_on_crtc(dev, crtc, encoder)
-		if (encoder->pre_enable)
-			encoder->pre_enable(encoder);
+	for_each_encoder_on_crtc(dev, crtc, encoder) {
+		if (encoder->type != INTEL_OUTPUT_DSI) {
+			if (encoder->pre_enable)
+				encoder->pre_enable(encoder);
+		} else {
+			/* For DSI recommended to enable PORT before plane and pipe */
+			encoder->enable(encoder);
+		}
+	}
 
 	i9xx_pfit_enable(intel_crtc);
 
@@ -4033,8 +4038,11 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 
 	intel_update_fbc(dev);
 
-	for_each_encoder_on_crtc(dev, crtc, encoder)
-		encoder->enable(encoder);
+	for_each_encoder_on_crtc(dev, crtc, encoder) {
+		if (encoder->type != INTEL_OUTPUT_DSI)
+			/* For DSI already enabled above */
+			encoder->enable(encoder);
+	}
 }
 
 static void i9xx_crtc_enable(struct drm_crtc *crtc)
@@ -4145,14 +4153,6 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 
 	if (!intel_pipe_has_type(crtc, INTEL_OUTPUT_DSI))
 		i9xx_disable_pll(dev_priv, pipe);
-	else {
-		for_each_encoder_on_crtc(dev, crtc, encoder) {
-			if (encoder->type == INTEL_OUTPUT_DSI) {
-				intel_dsi_clear_device_ready(encoder);
-				break;
-			}
-		}
-	}
 
 	intel_crtc->active = false;
 	if (dev_priv->s0ixstat == true)
@@ -4228,10 +4228,18 @@ void intel_crtc_update_dpms(struct drm_crtc *crtc)
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_encoder *intel_encoder;
+	struct drm_encoder *drm_encoder = NULL;
+	struct drm_encoder_helper_funcs *encoder_funcs = NULL;
 	bool enable = false;
 
-	for_each_encoder_on_crtc(dev, crtc, intel_encoder)
+	for_each_encoder_on_crtc(dev, crtc, intel_encoder) {
 		enable |= intel_encoder->connectors_active;
+		if (enable && intel_encoder->type == INTEL_OUTPUT_DSI) {
+			drm_encoder = &intel_encoder->base;
+			encoder_funcs = drm_encoder->helper_private;
+			encoder_funcs->dpms(drm_encoder, DRM_MODE_DPMS_ON);
+		}
+	}
 
 	if (enable)
 		dev_priv->display.crtc_enable(crtc);
@@ -7075,6 +7083,10 @@ static int intel_crtc_mode_set(struct drm_crtc *crtc,
 			encoder->base.base.id,
 			drm_get_encoder_name(&encoder->base),
 			mode->base.id, mode->name);
+
+		if (encoder->type == INTEL_OUTPUT_DSI)
+			encoder->pre_enable(encoder);
+
 		encoder->mode_set(encoder);
 	}
 
@@ -11436,6 +11448,14 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 			      drm_get_encoder_name(&encoder->base),
 			      encoder->base.crtc ? "enabled" : "disabled",
 			      pipe);
+		if ((encoder->type == INTEL_OUTPUT_DSI) && encoder->base.crtc) {
+			/* DSI will be enabled by IAFW; set a flag for this case
+			 * so that during sanitize process we do not apply DPMS
+			 * on DSI. Enable the flag to indicate that MIPI was
+			 * initialized by IAFW
+			 */
+			dev_priv->mipi_fw = 1;
+		}
 	}
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list,
