@@ -645,6 +645,7 @@ parse_mipi(struct drm_i915_private *dev_priv, struct bdb_header *bdb)
 	 */
 	config = &start->config[panel_type];
 	pps = (struct mipi_pps_data *) &start->config[MAX_MIPI_CONFIGURATIONS];
+	pps = &pps[panel_type];
 
 	/*
 	 * store as of now full data. Trim when we realise all is not needed

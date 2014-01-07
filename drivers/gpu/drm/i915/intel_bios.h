@@ -685,8 +685,8 @@ struct mipi_config {
 	u32 lp_byte_clk_val;
 
 	/*  4 byte Dphy Params */
-	u32 prepare_cnt:5;
-	u32 rsvd8:3;
+	u32 prepare_cnt:6;
+	u32 rsvd8:2;
 	u32 clk_zero_cnt:8;
 	u32 trail_cnt:5;
 	u32 rsvd9:3;
