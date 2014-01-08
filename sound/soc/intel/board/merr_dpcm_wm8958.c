@@ -840,6 +840,18 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 		.playback_count = 8,
 		.capture_count = 8,
 	},
+	[MERR_DPCM_CAPTURE] = {
+		.name = "Merrifield Capture Port",
+		.stream_name = "Saltbay Capture",
+		.cpu_dai_name = "Capture-cpu-dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.platform_name = "sst-platform",
+		.init = mrfld_8958_init,
+		.ignore_suspend = 1,
+		.dynamic = 1,
+		.ops = &mrfld_8958_ops,
+	},
 	/* CODEC<->CODEC link */
 	{
 		.name = "Merrifield Codec-Loop Port",

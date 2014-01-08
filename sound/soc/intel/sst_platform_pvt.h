@@ -49,6 +49,7 @@ extern struct sst_device *sst_dsp;
 #define SST_CODEC_TYPE_PCM	1
 
 #define SST_HEADSET_DAI		"Headset-cpu-dai"
+#define SST_CAPTURE_DAI		"Capture-cpu-dai"
 #define SST_SPEAKER_DAI		"Speaker-cpu-dai"
 #define SST_VOICE_DAI		"Voice-cpu-dai"
 #define SST_VIRTUAL_DAI		"Virtual-cpu-dai"
