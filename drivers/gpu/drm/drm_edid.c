@@ -2529,11 +2529,14 @@ do_cea_modes (struct drm_connector *connector, u8 *db, u8 len)
 			newmode = drm_mode_duplicate(dev,
 					&edid_cea_modes[cea_mode]);
 #if defined(CONFIG_DRM_I915)
-			list_for_each_entry_safe(cur_mode, t,
-				&connector->probed_modes, head) {
-				if (cur_mode->picture_aspect_ratio)
-					continue;
-				drm_add_aspect_cea_mode(cur_mode, newmode);
+			if (newmode) {
+				list_for_each_entry_safe(cur_mode, t,
+					&connector->probed_modes, head) {
+					if (cur_mode->picture_aspect_ratio)
+						continue;
+					drm_add_aspect_cea_mode(cur_mode,
+						newmode);
+				}
 			}
 #endif
 			if (newmode) {
