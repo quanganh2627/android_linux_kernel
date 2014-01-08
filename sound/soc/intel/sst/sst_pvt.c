@@ -258,6 +258,34 @@ static void sst_dump_lists(struct intel_sst_drv *sst)
 	spin_unlock_irqrestore(&sst->rx_msg_lock, irq_flags);
 }
 
+/* num_dwords: should be multiple of 4 */
+static void dump_buffer_fromio(void __iomem *from,
+				     unsigned int num_dwords)
+{
+	int i;
+	u32 val[4];
+
+	if (num_dwords % 4) {
+		pr_err("%s: num_dwords %d not multiple of 4\n",
+				__func__, num_dwords);
+		return;
+	}
+
+	pr_err("****** Start *******\n");
+	pr_err("Dump %d dwords, from location %p\n", num_dwords, from);
+
+	for (i = 0; i < num_dwords; ) {
+		val[0] = ioread32(from + (i++ * 4));
+		val[1] = ioread32(from + (i++ * 4));
+		val[2] = ioread32(from + (i++ * 4));
+		val[3] = ioread32(from + (i++ * 4));
+		pr_err("%.8x %.8x %.8x %.8x\n", val[0], val[1], val[2], val[3]);
+	}
+	pr_err("****** End *********\n\n\n");
+}
+
+#define SRAM_OFFSET_MRFLD	0xc00
+#define NUM_DWORDS		256
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 {
 	char iram_event[30], dram_event[30], ddr_imr_event[65];
@@ -281,6 +309,12 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	dump_stack();
 	dump_sst_shim(sst);
 	reset_sst_shim(sst);
+
+	/* dump mailbox and sram */
+	pr_err("Dumping Mailbox...\n");
+	dump_buffer_fromio(sst->mailbox, NUM_DWORDS);
+	pr_err("Dumping SRAM...\n");
+	dump_buffer_fromio(sst->mailbox + SRAM_OFFSET_MRFLD, NUM_DWORDS);
 
 	if (sst_drv_ctx->ops->set_bypass) {
 
