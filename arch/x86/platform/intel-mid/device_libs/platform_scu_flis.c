@@ -486,6 +486,7 @@ static int __init intel_scu_flis_init(void)
 		flis_pdata.pin_t = ctp_pin_table;
 		flis_pdata.pin_num = CTP_PIN_NUM;
 		flis_pdata.mmio_flis_t = NULL;
+		flis_pdata.shim_access = true;
 	} else if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
 		INTEL_MID_BOARD(1, PHONE, MOFD) ||
 		INTEL_MID_BOARD(1, TABLET, MOFD)) {

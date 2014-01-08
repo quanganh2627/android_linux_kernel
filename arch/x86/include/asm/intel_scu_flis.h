@@ -561,6 +561,7 @@ struct intel_scu_flis_platform_data {
 	u32 flis_base;
 	u32 flis_len;
 	struct pin_mmio_flis_t *mmio_flis_t;
+	bool shim_access;
 };
 
 #define OPS_STR_LEN 10

@@ -48,6 +48,7 @@ struct intel_scu_flis_info {
 	int initialized;
 	void *flis_base;
 	u32 flis_paddr;
+	bool shim_access;
 };
 
 static struct intel_scu_flis_info flis_info;
@@ -104,8 +105,12 @@ EXPORT_SYMBOL(set_flis_value);
 /* directly write to flis address */
 int intel_scu_ipc_write_shim(u32 data, u32 flis_addr, u32 offset)
 {
+	struct intel_scu_flis_info *isfi = &flis_info;
 	int ret;
 	u32 ipc_wbuf[3];
+
+	if (!isfi->shim_access)
+		return -EINVAL;
 
 	/* offset 0xff means the flis is reserved, just return 0*/
 	if (offset == 0xFF)
@@ -128,8 +133,12 @@ EXPORT_SYMBOL(intel_scu_ipc_write_shim);
 /* directly read from flis address */
 int intel_scu_ipc_read_shim(u32 *data, u32 flis_addr, u32 offset)
 {
+	struct intel_scu_flis_info *isfi = &flis_info;
 	int ret;
 	u32 ipc_wbuf[2];
+
+	if (!isfi->shim_access)
+		return -EINVAL;
 
 	/* offset 0xff means the flis is reserved, just return 0 */
 	if (offset == 0xFF)
@@ -150,8 +159,12 @@ EXPORT_SYMBOL(intel_scu_ipc_read_shim);
 
 int intel_scu_ipc_update_shim(u32 data, u32 mask, u32 flis_addr, u32 offset)
 {
+	struct intel_scu_flis_info *isfi = &flis_info;
 	u32 tmp = 0;
 	int ret;
+
+	if (!isfi->shim_access)
+		return -EINVAL;
 
 	ret = intel_scu_ipc_read_shim(&tmp, flis_addr, offset);
 	if (ret) {
@@ -603,6 +616,7 @@ static int scu_flis_probe(struct platform_device *pdev)
 
 	isfi->pin_t = pdata->pin_t;
 	isfi->pin_num = pdata->pin_num;
+	isfi->shim_access = pdata->shim_access;
 	isfi->mmio_flis_t = pdata->mmio_flis_t;
 	if (pdata->mmio_flis_t && pdata->flis_base) {
 		isfi->flis_paddr = pdata->flis_base;
