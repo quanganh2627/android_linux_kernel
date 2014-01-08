@@ -171,23 +171,25 @@ static int dsi_vc_send_long(struct intel_dsi *intel_dsi, int channel,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
 	enum pipe pipe = intel_crtc->pipe;
-	u32 data_reg;
+	u32 data_reg, ctrl_reg, ctrl;
 	int i, j, n;
-	u32 mask;
+	u32 mask = 0;
 
 	DRM_DEBUG_KMS("channel %d, data_type %d, len %04x\n",
 		      channel, data_type, len);
 
 	if (intel_dsi->hs) {
 		data_reg = MIPI_HS_GEN_DATA(pipe);
-		mask = HS_DATA_FIFO_FULL;
+		ctrl_reg = MIPI_HS_GEN_CTRL(pipe);
+		mask |= HS_CTRL_FIFO_EMPTY | HS_DATA_FIFO_EMPTY;
 	} else {
 		data_reg = MIPI_LP_GEN_DATA(pipe);
-		mask = LP_DATA_FIFO_FULL;
+		ctrl_reg = MIPI_LP_GEN_CTRL(pipe);
+		mask |= LP_CTRL_FIFO_EMPTY | LP_DATA_FIFO_EMPTY;
 	}
 
-	if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) & mask) == 0, 50))
-		DRM_ERROR("Timeout waiting for HS/LP DATA FIFO !full\n");
+	if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) & mask) == mask, 50))
+		DRM_ERROR("Timeout waiting for FIFO to be Empty\n");
 
 	for (i = 0; i < len; i += n) {
 		u32 val = 0;
@@ -201,7 +203,12 @@ static int dsi_vc_send_long(struct intel_dsi *intel_dsi, int channel,
 		 * dwords, then wait for not set, then continue. */
 	}
 
-	return dsi_vc_send_short(intel_dsi, channel, data_type, len);
+	ctrl = len << LONG_PACKET_WORD_COUNT_SHIFT;
+	ctrl |= channel << VIRTUAL_CHANNEL_SHIFT;
+	ctrl |= data_type << DATA_TYPE_SHIFT;
+
+	I915_WRITE(ctrl_reg, ctrl);
+	return 0;
 }
 
 static int dsi_vc_write_common(struct intel_dsi *intel_dsi,
