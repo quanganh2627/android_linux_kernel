@@ -21,7 +21,6 @@
 
 #include "mei_dev.h"
 #include "hbm.h"
-#include "hw-me.h"
 
 /**
  * mei_hbm_me_cl_allocate - allocates storage for me clients
