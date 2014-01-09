@@ -1797,6 +1797,16 @@ static int pmu_init(void)
 	 */
 	update_all_lss_states(&pmu_config);
 
+	/* In MOFD LSS 16 is used by PTI and LSS 15 is used by DFX
+	 * and should not be powered down during init
+	 */
+	if (platform_is(INTEL_ATOM_MOORFLD)) {
+		pmu_config.pmu2_states[0] &=
+			~SSMSK(D0I3_MASK, 15);
+		pmu_config.pmu2_states[1] &=
+			~SSMSK(D0I3_MASK, 0);
+	}
+
 	status = pmu_issue_interactive_command(&pmu_config, false,
 						false);
 	if (status != PMU_SUCCESS) {
