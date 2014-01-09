@@ -25,6 +25,7 @@
 
 #include <linux/leds.h>
 
+#include <linux/mmc/core.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
@@ -1675,7 +1676,8 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		 */
 		if ((host->flags & SDHCI_NEEDS_RETUNING) &&
 		    !(present_state & (SDHCI_DOING_WRITE | SDHCI_DOING_READ)) &&
-			mrq->cmd->opcode != MMC_SEND_STATUS) {
+		    (mmc_cmd_type(mrq->cmd) == MMC_CMD_ADTC) &&
+		    (mrq->cmd->opcode != MMC_SEND_STATUS)) {
 			if (mmc->card) {
 				if ((mmc->card->ext_csd.part_config & 0x07) ==
 					EXT_CSD_PART_CONFIG_ACC_RPMB)
