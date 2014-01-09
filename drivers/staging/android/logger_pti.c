@@ -96,7 +96,7 @@ static void logger_pti_exit(void *cb_data)
  * @cb_data:  callback data for the plug-in (in our case it is a pointer
  *            to the pti_plugin structure
  */
-static void logger_pti_write_seg(unsigned char *buf, unsigned int len,
+static void logger_pti_write_seg(void *buf, unsigned int len,
 				 bool from_usr, bool som, bool eom,
 				 void *cb_data)
 {
@@ -117,7 +117,7 @@ static void logger_pti_write_seg(unsigned char *buf, unsigned int len,
 		tmp_buf = buf;
 
 	pti_plugin = (struct pti_plugin *)cb_data;
-	pti_writedata(pti_plugin->mc, buf, len, eom);
+	pti_writedata(pti_plugin->mc, (u8 *)buf, len, eom);
 }
 
 /**

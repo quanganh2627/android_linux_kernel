@@ -90,7 +90,7 @@ struct logger_plugin {
 		       unsigned int /* length */,
 		       bool /* from user ? */,
 		       void * /* callback data */);
-	void (*write_seg) (unsigned char * /* msg segment to write */,
+	void (*write_seg) (void * /* msg segment to write */,
 			   unsigned int /* length */,
 			   bool /* from user ? */,
 			   bool /* start of msg ? */,

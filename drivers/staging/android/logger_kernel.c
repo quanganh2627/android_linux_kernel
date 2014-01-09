@@ -117,7 +117,7 @@ static void flush_to_bottom_log(struct logger_log *log,
 
 	/* send this segment's payload to the plugins */
 	list_for_each_entry(plugin, &log->plugins, list)
-		plugin->write_seg(buf,
+		plugin->write_seg((void *)buf,
 				  header.len - sizeof(extendedtag) - 1,
 				  false, /* not from user */
 				  true,  /* start of msg */
