@@ -362,15 +362,12 @@ int get_pin_flis(unsigned int name, enum flis_param_t param, u32 *val)
 
 		switch (param) {
 		case PULL:
-			pos = 4;
 			mask = PULL_MASK;
 			break;
 		case MUX:
-			pos = 12;
 			mask = MUX_MASK;
 			break;
 		case OPEN_DRAIN:
-			pos = 21;
 			mask = OPEN_DRAIN_MASK;
 			break;
 		default:
@@ -378,7 +375,7 @@ int get_pin_flis(unsigned int name, enum flis_param_t param, u32 *val)
 			return -EINVAL;
 		}
 
-		*val = (old_val & mask) >> pos;
+		*val = (old_val & mask);
 
 	} else
 		return -EINVAL;
