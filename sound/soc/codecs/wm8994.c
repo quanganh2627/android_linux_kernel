@@ -4618,6 +4618,7 @@ static int wm8994_suspend(struct device *dev)
 	struct wm8994 *control = wm8994->wm8994;
 	struct snd_soc_codec *codec = wm8994->hubs.codec;
 	unsigned int reg;
+	int ret;
 
 
 	/* Drop down to power saving mode when system is suspended */
@@ -4637,6 +4638,12 @@ static int wm8994_suspend(struct device *dev)
 
 			dev_dbg(codec->dev, "Disable interrupt...\n");
 			snd_soc_write(codec, WM8994_INTERRUPT_CONTROL, 0x01);
+
+			ret = regcache_sync_region(wm8994->wm8994->regmap,
+					WM8994_INTERRUPT_CONTROL,
+					WM8994_INTERRUPT_CONTROL);
+			if (ret != 0)
+				dev_err(dev, "Failed to sync register: %d\n", ret);
 			synchronize_irq(control->irq);
 
 			dev_dbg(codec->dev, "Disable MIC Detection!!!\n");
