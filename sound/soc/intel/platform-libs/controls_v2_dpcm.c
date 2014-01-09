@@ -297,7 +297,6 @@ static void sst_send_algo_cmd(struct sst_data *sst,
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_SET_PARAMS, SST_FLAG_BLOCKED,
 			      bc->task_id, 0, cmd, len);
 	kfree(cmd);
-
 }
 
 static void sst_find_and_send_pipe_algo(struct snd_soc_platform *platform,
@@ -932,6 +931,56 @@ static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int sst_tone_generator_event(struct snd_soc_dapm_widget *w,
+				    struct snd_kcontrol *k, int event)
+{
+	struct sst_cmd_tone_stop cmd;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+	struct sst_ids *ids = w->priv;
+
+	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
+	/* in case of tone generator, the params are combined with the ON cmd */
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		int len;
+		struct module *algo;
+		struct sst_algo_control *bc;
+		struct sst_cmd_set_params *cmd;
+
+		algo = list_first_entry(&ids->algo_list, struct module, node);
+		if (algo == NULL)
+			return -EINVAL;
+		bc = (void *)algo->kctl->private_value;
+		len = sizeof(cmd->dst) + sizeof(cmd->command_id) + bc->max;
+
+		cmd = kzalloc(len, GFP_KERNEL);
+		if (cmd == NULL) {
+			pr_err("Failed to send cmd, kzalloc failed\n");
+			return -ENOMEM;
+		}
+
+		SST_FILL_DESTINATION(2, cmd->dst, bc->pipe_id, bc->module_id);
+		cmd->command_id = bc->cmd_id;
+		memcpy(cmd->params, bc->params, bc->max);
+
+		sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
+				      bc->task_id, 0, cmd, len);
+		kfree(cmd);
+		sst_set_pipe_gain(ids, sst, 0);
+	} else {
+		SST_FILL_DESTINATION(2, cmd.header.dst,
+				     SST_PATH_INDEX_RESERVED, SST_MODULE_ID_TONE_GEN);
+
+		cmd.header.command_id = SBA_VB_STOP_TONE;
+		cmd.header.length = sizeof(struct sst_cmd_tone_stop)
+					 - sizeof(struct sst_dsp_header);
+		cmd.switch_state = SST_SWITCH_OFF;
+		sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
+				      SST_TASK_SBA, 0, &cmd,
+				      sizeof(cmd.header) + cmd.header.length);
+	}
+	return 0;
+}
+
 static int sst_send_probe_cmd(struct sst_data *sst, u16 probe_pipe_id,
 			      int mode, int switch_state,
 			      const struct sst_probe_config *probe_cfg)
@@ -1001,6 +1050,10 @@ int sst_dpcm_probe_send(struct snd_soc_platform *platform, u16 probe_pipe_id,
 
 static const struct snd_kcontrol_new sst_mix_sw_aware =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 0, 1, 0,
+		sst_mix_get, sst_mix_put);
+
+static const struct snd_kcontrol_new sst_mix_sw_tone_gen =
+	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 1, 1, 0,
 		sst_mix_get, sst_mix_put);
 
 static const char * const sst_bt_fm_texts[] = {
@@ -1169,9 +1222,10 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_PATH_MEDIA_LOOP_OUTPUT("media_loop1_out", SST_TASK_SBA, SST_SWM_OUT_MEDIA_LOOP1, SST_FMT_MONO, sst_set_media_loop),
 	SST_PATH_MEDIA_LOOP_OUTPUT("media_loop2_out", SST_TASK_SBA, SST_SWM_OUT_MEDIA_LOOP2, SST_FMT_STEREO, sst_set_media_loop),
 
+	SST_PATH_INPUT("tone_in", SST_TASK_SBA, SST_SWM_IN_TONE, sst_tone_generator_event),
+
 	/* TODO: need to send command */
 	SST_PATH_INPUT("sidetone_in", SST_TASK_SBA, SST_SWM_IN_SIDETONE, NULL),
-	SST_PATH_INPUT("tone_in", SST_TASK_SBA, SST_SWM_IN_TONE, NULL),
 	SST_PATH_INPUT("bt_in", SST_TASK_SBA, SST_SWM_IN_BT, NULL),
 	SST_PATH_INPUT("fm_in", SST_TASK_SBA, SST_SWM_IN_FM, NULL),
 	SST_PATH_OUTPUT("bt_out", SST_TASK_SBA, SST_SWM_OUT_BT, NULL),
@@ -1238,6 +1292,7 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SWITCH("aware_out aware 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_aware),
 	SND_SOC_DAPM_MUX("ssp1_out mux 0", SND_SOC_NOPM, 0, 0, &sst_bt_fm_mux),
+	SND_SOC_DAPM_SWITCH("tone_in tone_generator 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_tone_gen),
 
 	SND_SOC_DAPM_SUPPLY("VBTimer", SND_SOC_NOPM, 0, 0,
 			    sst_vb_trigger_event,
@@ -1330,7 +1385,10 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"rxspeech_out", NULL, "rxspeech_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("rxspeech_out mix 0"),
 
-	/* TODO: add Tone inputs */
+	{"tone_in", NULL, "tone_in tone_generator 0"},
+	{"tone_in tone_generator 0", "switch", "tone"},
+
+	/* TODO: add sidetone inputs */
 	/* TODO: add Low Latency stream support */
 
 	{"Headset Capture", NULL, "VBTimer"},
@@ -1343,6 +1401,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"modem_out", NULL, "VBTimer"},
 	{"bt_fm_in", NULL, "VBTimer"},
 	{"bt_fm_out", NULL, "VBTimer"},
+	{"tone", NULL, "VBTimer"},
 };
 
 static const char * const sst_nb_wb_texts[] = {
@@ -1600,6 +1659,10 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_GMM),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "glc", 18, SST_MODULE_ID_GLC,
 		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_GLC),
+
+	/* Tone Generator */
+	SST_ALGO_KCONTROL_BYTES("tone_in", "tone_generator", 116, SST_MODULE_ID_TONE_GEN,
+		SST_PATH_INDEX_RESERVED, 0, SST_TASK_SBA, SBA_VB_START_TONE),
 };
 
 static const struct snd_kcontrol_new sst_debug_controls[] = {

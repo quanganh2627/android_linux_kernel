@@ -401,6 +401,8 @@ enum sst_cmd {
 	FBA_VB_ANA		= 37,
 	FBA_VB_SET_FIR		= 38,
 	FBA_VB_SET_IIR		= 39,
+	SBA_VB_START_TONE	= 41,
+	SBA_VB_STOP_TONE	= 42,
 	FBA_VB_AEC		= 47,
 	FBA_VB_NR_UL		= 48,
 	FBA_VB_AGC		= 49,
@@ -580,6 +582,11 @@ struct sst_cmd_sba_set_media_loop_map {
 	u16	switch_state;
 	union	sba_media_loop_params param;
 	u16	map;
+} __packed;
+
+struct sst_cmd_tone_stop {
+	struct	sst_dsp_header header;
+	u16	switch_state;
 } __packed;
 
 enum sst_ssp_mode {
