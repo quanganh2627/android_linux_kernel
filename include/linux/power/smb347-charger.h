@@ -86,7 +86,7 @@ enum smb347_otg_control {
  * factory programmed default will be used. For soft/hard temperature
  * values, pass in %SMB347_TEMP_USE_DEFAULT instead.
  */
-#define  MAXSMB34x_CONFIG_REG		18
+#define  MAXSMB34x_CONFIG_REG		20
 #define  MAXSMB347_CONFIG_DATA_SIZE	(MAXSMB34x_CONFIG_REG*2)
 
 struct smb347_charger_platform_data {

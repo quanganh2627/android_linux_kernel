@@ -1170,14 +1170,11 @@ static int sm347_reload_setting(struct smb347_charger *smb)
 	/*
 	 * Program the platform specific configuration values to the device
 	 */
-	for (i = 0; i < loop_count; i++) {
+	for (i = 0; (i < loop_count) &&
+		(smb->pdata->char_config_regs[reg_offset] != 0xff); i++) {
 		smb347_write(smb, smb->pdata->char_config_regs[reg_offset],
 			smb->pdata->char_config_regs[reg_offset+1]);
 		reg_offset += 2;
-		/* check if we reached the end of valid row */
-		if ((i < loop_count - 1) &&
-			(smb->pdata->char_config_regs[reg_offset] == 0x0))
-			break;
 	}
 
 	smb347_write(smb, CMD_B, CMD_B_MODE_HC);
@@ -1218,26 +1215,23 @@ static void smb347_usb_otg_enable(struct usb_phy *phy)
 
 static int smb347_hw_init(struct smb347_charger *smb)
 {
-	int ret, loopCount, i;
-	int regOffset = 0;
+	int ret, loop_count, i;
+	int reg_offset = 0;
 
 	ret = smb347_set_writable(smb, true);
 	if (ret < 0)
 		return ret;
 
-	loopCount = MAXSMB347_CONFIG_DATA_SIZE / 2;
+	loop_count = MAXSMB347_CONFIG_DATA_SIZE / 2;
 
 	/*
 	 * Program the platform specific configuration values to the device
 	 */
-	for (i = 0; i < loopCount; i++) {
-		smb347_write(smb, smb->pdata->char_config_regs[regOffset],
-			smb->pdata->char_config_regs[regOffset+1]);
-		regOffset += 2;
-		/* check if we reached the end of valid row */
-		if ((i < loopCount - 1) &&
-			(smb->pdata->char_config_regs[regOffset] == 0x0))
-			break;
+	for (i = 0; (i < loop_count) &&
+		(smb->pdata->char_config_regs[reg_offset] != 0xff); i++) {
+		smb347_write(smb, smb->pdata->char_config_regs[reg_offset],
+			smb->pdata->char_config_regs[reg_offset+1]);
+		reg_offset += 2;
 	}
 
 	switch (smb->pdata->otg_control) {
