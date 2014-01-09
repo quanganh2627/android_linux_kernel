@@ -37,6 +37,30 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 
+#define HDMI_GEN_THRESHOLD	5
+#define LIVE_STATUS_SLEEP_MS 300
+#define HDMI_UEVENT_MAX_LENGTH 20
+#define HDMI_EDID_DETAILED_TIMINGS 4
+
+#define ls_to_connector_status(live_status)	\
+	(live_status ? connector_status_connected	\
+	: connector_status_disconnected)
+
+#define connector_status_to_ls(live_status)	\
+	(live_status ? connector_status_connected	\
+		: connector_status_disconnected)
+
+/* CEA Mode 4 - 1280x720@60Hz */
+struct drm_display_mode hdmi_fallback_mode = {
+	DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER,
+	74250,
+	1280, 1390, 1430, 1650, 0,
+	720, 725, 730, 750, 0,
+	DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC,
+	HDMI_PICTURE_ASPECT_16_9),
+	.vrefresh = 60
+};
+
 static struct drm_device *intel_hdmi_to_dev(struct intel_hdmi *intel_hdmi)
 {
 	return hdmi_to_dig_port(intel_hdmi)->base.base.dev;
@@ -991,7 +1015,21 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 	return true;
 }
 
-static int hdmi_live_status(struct drm_device *dev,
+void intel_hdmi_reset(struct drm_connector *connector)
+{
+	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
+	struct drm_i915_private *dev_priv = connector->dev->dev_private;
+
+	/* Clean previous detects and modes */
+	dev_priv->is_hdmi = false;
+	intel_hdmi->edid_mode_count = 0;
+	intel_cleanup_modes(connector);
+	kfree(intel_hdmi->edid);
+	intel_hdmi->edid = NULL;
+	connector->status = connector_status_disconnected;
+}
+
+static bool vlv_hdmi_live_status(struct drm_device *dev,
 			struct intel_hdmi *intel_hdmi)
 {
 	uint32_t bit;
@@ -1015,23 +1053,218 @@ static int hdmi_live_status(struct drm_device *dev,
 	}
 
 	/* Return results in trems of connector */
-	return ((I915_READ(PORT_HOTPLUG_STAT) & bit) ?
-		connector_status_connected : connector_status_disconnected);
+	return I915_READ(PORT_HOTPLUG_STAT) & bit;
 }
 
-void intel_hdmi_reset(struct drm_connector *connector)
+
+/*
+intel_hdmi_live_status: detect live status of HDMI
+if device is gen 6 and above, read the live status reg
+else, do not block the detection, return true
+*/
+static bool intel_hdmi_live_status(struct drm_connector *connector)
 {
+	struct drm_device *dev = connector->dev;
 	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
-	struct drm_i915_private *dev_priv = connector->dev->dev_private;
 
-	/* Clean previous detects and modes */
-	dev_priv->is_hdmi = false;
-	intel_hdmi->edid_mode_count = 0;
-	intel_cleanup_modes(connector);
-	kfree(intel_hdmi->edid);
-	intel_hdmi->edid = NULL;
-	connector->status = connector_status_disconnected;
+	if (INTEL_INFO(dev)->gen > HDMI_GEN_THRESHOLD) {
+		/* Todo: Implement for other Gen 5+ archs*/
+		if (IS_VALLEYVIEW(dev))
+			return vlv_hdmi_live_status(dev, intel_hdmi);
+	}
+
+	return true;
 }
+
+/*
+intel_hdmi_send_uevent: inform usespace
+about an event
+*/
+void intel_hdmi_send_uevent(struct drm_device *dev, char *uevent)
+{
+	char *envp[] = {uevent, NULL};
+	/* Notify usp the change */
+	kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_CHANGE, envp);
+}
+
+/*
+intel_hdmi_get_detailed_mode: try to get the preferred mode from EDID
+Take out the preferred mode from EDID detailed mode blocks.
+If preferred mode cant meet the expectation, get other detailed mode.
+If nothing works out of detailed modes, give a fallback mode.
+Note: This function rejects interlaced modes
+*/
+struct drm_display_mode *
+intel_hdmi_get_detailed_mode(struct drm_device *dev, struct edid *edid)
+{
+	u8 count = 0;
+	struct drm_display_mode *detailed_mode = NULL;
+	struct detailed_timing *timing = NULL;
+	struct detailed_pixel_timing *pt = NULL;
+
+	/* Read the detailed timing block, process it */
+	do {
+		timing = &edid->detailed_timings[count];
+		pt = &timing->data.pixel_data;
+	} while ((++count < HDMI_EDID_DETAILED_TIMINGS) &&
+		(pt->misc & DRM_EDID_PT_INTERLACED));
+
+	if (count != HDMI_EDID_DETAILED_TIMINGS) {
+		detailed_mode = drm_mode_detailed(dev, edid, timing, 0);
+		if (detailed_mode)
+			goto END;
+	}
+
+	/* All detailed modes are interlaced, go to fallback mode 1280x720 */
+	detailed_mode = &hdmi_fallback_mode;
+END:
+	return detailed_mode;
+}
+
+/*
+intel_hdmi_self_dpms:
+Call encoder DPMS and CRTC DPMS if required
+*/
+void intel_hdmi_self_dpms(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_encoder *encoder = NULL;
+	struct drm_encoder_helper_funcs *encoder_funcs = NULL;
+	struct drm_crtc_helper_funcs *crtc_funcs = NULL;
+
+	if (drm_helper_choose_crtc_dpms(crtc)) {
+		list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+			if (encoder->crtc != crtc)
+				continue;
+
+			/* Encoder DPMS */
+			encoder_funcs = encoder->helper_private;
+			if (encoder_funcs->dpms)
+				(*encoder_funcs->dpms) (encoder,
+					drm_helper_choose_encoder_dpms(encoder));
+		}
+
+		/* CRTC DPMS */
+		crtc_funcs = crtc->helper_private;
+		if (crtc_funcs->dpms) {
+			(*crtc_funcs->dpms) (crtc,
+				drm_helper_choose_crtc_dpms(crtc));
+		}
+	}
+}
+
+/*
+intel_hdmi_self_modeset: do a modset on hdmi. Take out the
+preferred mode from EDID and do a modeset.
+This function should be called only when the modeset cant be initiated
+from userspace.
+*/
+bool intel_hdmi_self_modeset(struct drm_connector *connector,
+		struct edid *new_edid)
+{
+	bool ret = false;
+	struct drm_crtc *crtc = NULL;
+	struct drm_display_mode *mode = NULL;
+	struct drm_device *dev = connector->dev;
+	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
+
+	mode = intel_hdmi_get_detailed_mode(dev, new_edid);
+	if (!mode || !intel_hdmi) {
+		DRM_ERROR("In intel_hdmi_self_modeset, invalid params\n");
+		return false;
+	}
+
+	DRM_DEBUG_DRIVER("Self modeset\n");
+
+	intel_hdmi->has_hdmi_sink = drm_detect_hdmi_monitor(new_edid);
+	intel_hdmi->has_audio = drm_detect_monitor_audio(new_edid);
+
+	/* Search for CRTC driving HDMI */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		/* Do a modeset */
+		if (intel_pipe_has_type(crtc, INTEL_OUTPUT_HDMI)) {
+			ret = drm_crtc_helper_set_mode(crtc, mode,
+					crtc->x, crtc->y, crtc->fb);
+			if (!ret) {
+				DRM_ERROR("self modeset failed\n");
+				return ret;
+			}
+
+			intel_hdmi_self_dpms(crtc);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+struct edid *intel_hdmi_get_edid(struct drm_connector *connector)
+{
+	bool is_hdmi = false;
+	bool was_hdmi = false;
+	bool current_state = false;
+
+	struct edid *new_edid = NULL;
+	struct i2c_adapter *adapter = NULL;
+	struct drm_device *dev = connector->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
+
+	if (!intel_hdmi) {
+		DRM_ERROR("Invalid input to get hdmi\n");
+		return NULL;
+	}
+
+	msleep(LIVE_STATUS_SLEEP_MS);
+	current_state = intel_hdmi_live_status(connector);
+
+	/* Read EDID only if live status permits */
+	if (!current_state) {
+		DRM_DEBUG_DRIVER("Live status down, no EDID");
+		return NULL;
+	}
+
+	/* Live status up, read the EDID over DDC */
+	adapter = intel_gmbus_get_adapter(dev_priv,
+				intel_hdmi->ddc_bus);
+	if (!adapter) {
+		DRM_ERROR("Get_hdmi cant get adapter\n");
+		return NULL;
+	}
+
+	new_edid = drm_get_edid(connector, adapter);
+	if (!new_edid) {
+		DRM_ERROR("Get_hdmi cant read edid\n");
+		return NULL;
+	}
+
+	DRM_DEBUG_KMS("Live status up, got EDID");
+
+	/*
+	If the mode of operation changed from HDMI->DVI or DVI->HDMI
+	while we were handling the detect, DRM layer will not send a uevent, as
+	there is no change detected in connector status. This can happen during
+	automation or complaince testing. Do a self modeset in kernel to operate
+	in proper mode of operation and set the AVI infoframes and inform userspace
+	*/
+	if (connector->status == ls_to_connector_status(current_state)) {
+		was_hdmi = drm_detect_hdmi_monitor(intel_hdmi->edid);
+		is_hdmi = drm_detect_hdmi_monitor(new_edid);
+		if (is_hdmi != was_hdmi) {
+			if (!intel_hdmi_self_modeset(connector, new_edid))
+				DRM_ERROR("Self modeset failed\n");
+
+			DRM_DEBUG_KMS("Self modeset done");
+			/* Cleanup and Inform userspace about this */
+			intel_hdmi_reset(connector);
+			intel_hdmi_send_uevent(connector->dev,
+				"HDMI-Changed");
+		}
+	}
+
+	return new_edid;
+}
+
 
 static enum drm_connector_status
 intel_hdmi_detect(struct drm_connector *connector, bool force)
@@ -1052,24 +1285,15 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	if (force && dev_priv->is_hdmi)
 		return connector->status;
 
-	/* Suppress spurious IRQ, if current status is same as live status*/
-	status = hdmi_live_status(dev, intel_hdmi);
-	if (connector->status == status)
-		return connector->status;
-
 	dev_priv->is_hdmi = false;
 	intel_hdmi->has_hdmi_sink = false;
 	intel_hdmi->has_audio = false;
 	intel_hdmi->rgb_quant_range_selectable = false;
 
-	/* Read EDID only if live status permits */
-	if (status == connector_status_connected) {
-		edid = drm_get_edid(connector,
-			intel_gmbus_get_adapter(dev_priv,
-					intel_hdmi->ddc_bus));
-	}
-
+	/* Read live status, get EDID if connected */
+	edid = intel_hdmi_get_edid(connector);
 	if (edid) {
+		status = connector_status_connected;
 		if (edid->input & DRM_EDID_INPUT_DIGITAL) {
 			dev_priv->is_hdmi = true;
 			if (intel_hdmi->force_audio != HDMI_AUDIO_OFF_DVI)
@@ -1085,7 +1309,7 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 			intel_hdmi->edid = edid;
 			connector->display_info.raw_edid = (char *)edid;
 		} else {
-			DRM_ERROR("\nEDID not in digital form ?");
+			DRM_ERROR("EDID not in digital form ?\n");
 			return status;
 		}
 	} else {
@@ -1096,24 +1320,7 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		connector->display_info.raw_edid = NULL;
 	}
 
-/* Not needed.
- * ToDo: Handle Max fifo scenario differently
- */
-#if 0
-	/* Disable CRTC on HDMI hot un-plug */
-	if (status == connector_status_disconnected) {
-		if (intel_encoder->base.crtc) {
-			struct drm_crtc *crtc = intel_encoder->base.crtc;
-			struct drm_device *dev = crtc->dev;
-			connector->encoder = NULL;
-			drm_helper_disable_unused_functions(dev);
-
-			/* Enable Max Fifo on HDMI hot un-plg */
-			if (is_maxfifo_needed(dev_priv))
-				I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
-		}
-	}
-#endif
+	/* ToDo: Handle Max fifo scenario */
 	/* Inform Audio */
 	if ((status == connector_status_connected)
 			&& (status != i915_hdmi_state)) {

@@ -169,5 +169,6 @@ extern void drm_kms_helper_hotplug_event(struct drm_device *dev);
 
 extern void drm_kms_helper_poll_disable(struct drm_device *dev);
 extern void drm_kms_helper_poll_enable(struct drm_device *dev);
-
+extern int drm_helper_choose_encoder_dpms(struct drm_encoder *encoder);
+extern int drm_helper_choose_crtc_dpms(struct drm_crtc *crtc);
 #endif

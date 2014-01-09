@@ -832,7 +832,7 @@ fail:
 }
 EXPORT_SYMBOL(drm_crtc_helper_set_config);
 
-static int drm_helper_choose_encoder_dpms(struct drm_encoder *encoder)
+int drm_helper_choose_encoder_dpms(struct drm_encoder *encoder)
 {
 	int dpms = DRM_MODE_DPMS_OFF;
 	struct drm_connector *connector;
@@ -844,8 +844,9 @@ static int drm_helper_choose_encoder_dpms(struct drm_encoder *encoder)
 				dpms = connector->dpms;
 	return dpms;
 }
+EXPORT_SYMBOL(drm_helper_choose_encoder_dpms);
 
-static int drm_helper_choose_crtc_dpms(struct drm_crtc *crtc)
+int drm_helper_choose_crtc_dpms(struct drm_crtc *crtc)
 {
 	int dpms = DRM_MODE_DPMS_OFF;
 	struct drm_connector *connector;
@@ -857,6 +858,7 @@ static int drm_helper_choose_crtc_dpms(struct drm_crtc *crtc)
 				dpms = connector->dpms;
 	return dpms;
 }
+EXPORT_SYMBOL(drm_helper_choose_crtc_dpms);
 
 /**
  * drm_helper_connector_dpms() - connector dpms helper implementation
