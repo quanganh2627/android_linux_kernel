@@ -1424,6 +1424,10 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 		if (irqstat_d & IRQSTAT_D_CHARGE_TIMEOUT_STAT)
 			dev_info(&smb->client->dev,
 				"[Charge Timeout]:charging stopped\n");
+
+		/* Restart charging once timeout has happened */
+		smb347_charging_set(smb, false);
+		smb347_charging_set(smb, true);
 		if (smb->pdata->show_battery)
 			power_supply_changed(&smb->battery);
 		ret = IRQ_HANDLED;
