@@ -17,9 +17,13 @@
  *
  */
 
+#include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/intel_crystal_cove_pmic.h>
 #include <linux/regulator/machine.h>
+
+/* 3P3SX regulator controlled over gpio */
+#define GPIO_3P3SX_EN	151
 
 /***********V2P85S REGUATOR platform data*************/
 static struct regulator_consumer_supply v2p85s_consumer[] = {
@@ -60,7 +64,6 @@ static struct regulator_init_data v2p85sx_data = {
 		.name = "v2p85sx",
 		.min_uV			= 2900000,
 		.max_uV			= 2900000,
-		.apply_uV		= 1,
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
 	},
@@ -84,13 +87,21 @@ static struct platform_device v2p85sx_device = {
 
 /***********V3P3S REGUATOR platform data*************/
 static struct regulator_consumer_supply v3p3s_consumer[] = {
+	/* Add consumer list here like below..
+	 * REGULATOR_SUPPLY("usbregu", "usbreg0"),
+	 */
 };
+
+static struct pmic_regulator_gpio_en v3p3s_gpio_data = {
+	.gpio = GPIO_3P3SX_EN,
+	.init_gpio_state = GPIOF_OUT_INIT_HIGH,
+};
+
 static struct regulator_init_data v3p3s_data = {
 	.constraints = {
 		.name = "v3p3s",
 		.min_uV			= 3332000,
 		.max_uV			= 3332000,
-		.apply_uV		= 1,
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
 	},
@@ -103,7 +114,9 @@ static struct intel_pmic_info v3p3s_info = {
 	.init_data  = &v3p3s_data,
 	.table_len  = ARRAY_SIZE(V3P3S_VSEL_TABLE),
 	.table      = V3P3S_VSEL_TABLE,
+	.en_pin	=  &v3p3s_gpio_data,
 };
+
 static struct platform_device v3p3s_device = {
 	.name = "intel_regulator",
 	.id = V3P3S,
@@ -120,7 +133,6 @@ static struct regulator_init_data v1p8s_data = {
 		.name = "v1p8s",
 		.min_uV			= 1817000,
 		.max_uV			= 1817000,
-		.apply_uV		= 1,
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
 	},
@@ -150,7 +162,6 @@ static struct regulator_init_data vsys_s_data = {
 		.name = "vsys_s",
 		.min_uV			= 4200000,
 		.max_uV			= 4200000,
-		.apply_uV		= 1,
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
 	},

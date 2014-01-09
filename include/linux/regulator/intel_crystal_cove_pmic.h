@@ -66,6 +66,11 @@ static const u16 VSYS_S_VSEL_TABLE[] = {
 	4200,
 };
 
+struct pmic_regulator_gpio_en {
+	int gpio;
+	int init_gpio_state;
+};
+
 /**
  * intel_pmic_info - platform data for intel pmic
  * @pmic_reg: pmic register that is to be used for this VR
@@ -73,6 +78,7 @@ static const u16 VSYS_S_VSEL_TABLE[] = {
 struct intel_pmic_info {
 	struct regulator_init_data *init_data;
 	struct regulator_dev *intel_pmic_rdev;
+	struct pmic_regulator_gpio_en *en_pin;
 	const u16 *table;
 	u16 pmic_reg;
 	u8 table_len;

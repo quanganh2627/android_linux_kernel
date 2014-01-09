@@ -18,6 +18,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/intel_crystal_cove_pmic.h>
@@ -37,8 +38,11 @@
 #define ON			1
 #define OFF			0
 
-const u16 reg_addr_offset[] = {};
-const u8 initial_state[] = {};
+const u16 reg_addr_offset[] = {
+	V2P85SCNT_ADDR, V2P85SXCNT_ADDR, V3P3SCNT_ADDR,
+	V1P8SCNT_ADDR, VSYS_SCNT_ADDR
+};
+const u8 initial_state[] = {1, 1, 1, 1, 1};
 
 static ATOMIC_NOTIFIER_HEAD(vrf_notifier);
 
@@ -289,7 +293,7 @@ static struct regulator_desc intel_pmic_desc[] = {
 		.owner = THIS_MODULE,
 	},
 	{
-		.name = "v1p8ss",
+		.name = "v1p8s",
 		.id = V1P8S,
 		.ops = &intel_pmic_ops_voltage_notchangeable,
 		.n_voltages = ARRAY_SIZE(V1P8S_VSEL_TABLE),
@@ -323,6 +327,12 @@ static int crystal_cove_pmic_probe(struct platform_device *pdev)
 
 	if (i == (ARRAY_SIZE(reg_addr_offset)))
 		return -EINVAL;
+
+	/* set the initial setting for the gpio */
+	if (pdata->en_pin) {
+		config.ena_gpio = pdata->en_pin->gpio;
+		config.ena_gpio_flags = pdata->en_pin->init_gpio_state;
+	}
 
 	config.dev = &pdev->dev;
 	config.init_data = pdata->init_data;
