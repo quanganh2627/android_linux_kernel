@@ -225,28 +225,12 @@ static void byt_check_hs_insert_status(struct work_struct *work)
 {
 	struct snd_soc_jack_gpio *gpio = &hs_gpio;
 	struct snd_soc_jack *jack = gpio->jack;
-	struct snd_soc_codec *codec = jack->codec;
 	struct byt_mc_private *ctx =
 		 container_of(work, struct byt_mc_private, hs_insert_work.work);
 	int jack_type = 0;
 
 	mutex_lock(&ctx->jack_mlock);
 	pr_debug("Enter:%s", __func__);
-
-	/* TODO: Switch to MCLK instead of internal clock once
-		 Jack connect interrupt is raised
-		 This is because with internal clock headset
-		 is getting detected as headphone. Need to check
-		 with TI guys whether this is limitation. Side
-		 effect of this is that 25MHz MCLK will remain
-		 ON if headset is inserted and removed without
-		 playback or capture done after insertion
-	*/
-	vlv2_plat_configure_clock(VLV2_PLAT_CLK_AUDIO,
-			PLAT_CLK_FORCE_ON);
-	pr_debug("Platform clk turned ON\n");
-	snd_soc_codec_set_sysclk(codec, AIC31XX_MCLK,
-			0, AIC31XX_FREQ_25000000, SND_SOC_CLOCK_IN);
 
 	jack_type = byt_check_jack_type();
 
