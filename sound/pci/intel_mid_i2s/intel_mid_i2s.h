@@ -35,6 +35,9 @@
  */
 #define DRIVER_NAME "I2S SSP Driver"
 
+#define ACPI_DMA_EDK "ADMA0F28"
+#define ACPI_DMA_FDK "DMA0F28"
+
 /* Moorestone */
 #define MRST_SSP0_DEVICE_ID     0x0815
 #define MRST_LPE_DMA_DEVICE_ID  0x0814

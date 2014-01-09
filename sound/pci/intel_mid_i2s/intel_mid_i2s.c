@@ -3418,9 +3418,9 @@ int i2s_acpi_probe(struct platform_device *platdev)
 	if (!strncmp(hid, "SSPC0000", 8))
 		drv_data->paddr = 0xFF2a0000;
 	if (!strncmp(hid, "SSPM0000", 8))
-		drv_data->paddr = 0xFF2a1000;
-	if (!strncmp(hid, "SSPB0000", 8))
 		drv_data->paddr = 0xFF2a2000;
+	if (!strncmp(hid, "SSPB0000", 8))
+		drv_data->paddr = 0xFF2a1000;
 
 	/* unmasking the SSPx IRQ to IA */
 	if (drv_data->device_instance == 0)
@@ -3440,7 +3440,19 @@ int i2s_acpi_probe(struct platform_device *platdev)
 
 	pr_info("SSP I2S driver : Probe for HID=%s usage is %d\n",
 			hid, drv_data->usage);
-	drv_data->dmacdev = intel_mid_get_acpi_dma("ADMA0F28");
+
+	/* Get DMA enumeration UEFI */
+	drv_data->dmacdev = intel_mid_get_acpi_dma(ACPI_DMA_EDK);
+	/* if no DMA of UEFI, use FDK name */
+	if (drv_data->dmacdev == NULL)
+		drv_data->dmacdev = intel_mid_get_acpi_dma(ACPI_DMA_FDK);
+	if (drv_data->dmacdev == NULL) {
+		WARN(drv_data->dmacdev == NULL,
+		"SSP I2S Driver : unable to get DMA of SSP Device\n");
+		status = -ENODEV;
+		goto acpi_probe_err1;
+	}
+
 	pr_info("SSP I2S driver : dmac1 dmadev found = %p\n",
 			drv_data->dmacdev);
 
