@@ -322,6 +322,7 @@ void aic31xx_btn_press_intr_enable(struct snd_soc_codec *codec,
 #define AIC31XX_HSDETECT				0xC3
 #define AIC31XX_HS_MASK					(0b01100000)
 #define AIC31XX_HP_MASK					(0b00100000)
+#define AIC31XX_JACK_DEBOUCE_MASK			(0b00011100)
 #define AIC31XX_ADCSETUP				0xD1
 #define AIC31XX_ADCFGA				0xD2
 #define AIC31XX_ADCMUTE_MASK			0x80

@@ -131,7 +131,6 @@ static SOC_ENUM_SINGLE_DECL(asilin_enum, AIC31XX_DACSETUP, 4, asilin_text);
 /*ASI right*/
 static SOC_ENUM_SINGLE_DECL(asirin_enum, AIC31XX_DACSETUP, 2, asirin_text);
 
-
 static const DECLARE_TLV_DB_SCALE(dac_vol_tlv, -6350, 50, 0);
 static const DECLARE_TLV_DB_SCALE(adc_fgain_tlv, 0, 10, 0);
 static const DECLARE_TLV_DB_SCALE(adc_cgain_tlv, -2000, 50, 0);
@@ -1020,9 +1019,21 @@ static int aic31xx_set_sysclk(struct snd_soc_codec *codec,
 	if (clk_id == AIC31XX_MCLK) {
 		snd_soc_update_bits(codec, AIC31XX_TIMERCLOCK,
 			 AIC31XX_CLKSEL_MASK, AIC31XX_CLKSEL_MASK);
+		/* Debounce time depends on input clock. Set
+		 * debounce time for external clock, since we
+		 * are switching to external clock.
+		 */
+		snd_soc_update_bits(codec, AIC31XX_HSDETECT,
+				AIC31XX_JACK_DEBOUCE_MASK, 0x0);
 	} else if (clk_id == AIC31XX_INTERNALCLOCK) {
 		snd_soc_update_bits(codec, AIC31XX_TIMERCLOCK,
 			AIC31XX_CLKSEL_MASK, 0x0);
+		/* Debounce time depends on input clock. Set
+		 * debounce time for internal clock, since we
+		 * are switching to internal clock.
+		 */
+		snd_soc_update_bits(codec, AIC31XX_HSDETECT,
+				AIC31XX_JACK_DEBOUCE_MASK, 0x14);
 	} else {
 		dev_err(codec->dev, "Wrong clock src\n");
 		return -EINVAL;
@@ -1311,6 +1322,16 @@ static int aic31xx_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, AIC31XX_INT1CTRL,
 			AIC31XX_BUTTONPRESSDET_MASK,
 			AIC31XX_BUTTONPRESSDET_MASK);
+	/* Program codec to use internal clock */
+	snd_soc_update_bits(codec, AIC31XX_TIMERCLOCK,
+			AIC31XX_CLKSEL_MASK, 0x0);
+
+	/* Debounce time depends on input clock. Set
+	 * debounce time for internal clock, since at
+	 * start we will be working with internal clock
+	 */
+	snd_soc_update_bits(codec, AIC31XX_HSDETECT,
+			AIC31XX_JACK_DEBOUCE_MASK, 0x14);
 
 	/*Reconfiguring CM to band gap mode*/
 	snd_soc_update_bits(codec, AIC31XX_HPPOP, 0xff, 0xAE);
