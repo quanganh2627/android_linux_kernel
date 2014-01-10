@@ -33,6 +33,7 @@
 #include <asm/intel_scu_ipc.h>
 #include <asm/intel_mid_rpmsg.h>
 #include <asm/intel-mid.h>
+#include <asm/msr.h>
 
 /* Medfield & Cloverview firmware update.
  * The flow and communication between IA and SCU has changed for
@@ -883,6 +884,8 @@ static ssize_t fw_version_show(struct kobject *kobj,
 #define INTE_SCU_IPC_CHAABI_FW_REVISION_EXT_MAJ_REG    6
 #define INTE_SCU_IPC_MIA_FW_REVISION_EXT_MIN_REG       8
 #define INTE_SCU_IPC_MIA_FW_REVISION_EXT_MAJ_REG       10
+#define INTE_PUNIT_FW_REVISION_EXT_MIN_REG             12
+#define INTE_PUNIT_FW_REVISION_EXT_MAJ_REG             14
 
 #define INTE_SCU_FW_OFFS	0
 #define INTE_SCU_FW_EXT_OFFS	1
@@ -975,6 +978,11 @@ static void read_ifwi_version(void)
 				INTE_SCU_IPC_MIA_FW_REVISION_EXT_MAJ_REG,
 				INTE_SCU_IPC_MIA_FW_REVISION_EXT_MIN_REG);
 		pr_info("mIA Version: %s\n", version.mia);
+
+		format_rev_4_digit(version, INTE_SCU_FW_EXT_OFFS, version.punit,
+				INTE_PUNIT_FW_REVISION_EXT_MAJ_REG,
+				INTE_PUNIT_FW_REVISION_EXT_MIN_REG);
+		pr_info("PUnit Version: %s\n", version.punit);
 	} else {
 		format_rev_2_digit(version, version.ifwi,
 				INTE_SCU_IPC_FW_REVISION_MAJ_REG,
@@ -1009,9 +1017,12 @@ static void read_ifwi_version(void)
 	return;
 }
 
+#define MSR_PUNIT_VERSION_ADDR 0x667
+
 static int fw_version_info(void)
 {
 	int ret;
+	u32 low, high;
 
 	memset(fw_version_raw_data, 0, FW_VERSION_MAX_SIZE);
 
@@ -1030,6 +1041,11 @@ static int fw_version_info(void)
 			cur_err("Error getting fw version");
 			return -EINVAL;
 		}
+		/* PUnit version is not availabe in SMIP, we get it with a
+		   machine-specific register read */
+		rdmsr(MSR_PUNIT_VERSION_ADDR, low, high);
+		*(u32 *)(fw_version_raw_data + FW_VERSION_SIZE +
+				INTE_PUNIT_FW_REVISION_EXT_MIN_REG) = low;
 	}
 
 	read_ifwi_version();
@@ -1051,12 +1067,12 @@ static ssize_t sys_version_show(struct kobject *kobj,
 			return snprintf(buf, PAGE_SIZE, "%s\n",
 					version.scu_bs);
 	} else {
-		if (strcmp(attr->attr.name, "punit_version") == 0)
-			return snprintf(buf, PAGE_SIZE, "%s\n", version.punit);
 		if (strcmp(attr->attr.name, "supp_ia32fw_version") == 0)
 			return snprintf(buf, PAGE_SIZE, "%s\n", version.supp_ia32fw);
 	}
 
+	if (strcmp(attr->attr.name, "punit_version") == 0)
+		return snprintf(buf, PAGE_SIZE, "%s\n", version.punit);
 	if (strcmp(attr->attr.name, "ifwi_version") == 0)
 		return snprintf(buf, PAGE_SIZE, "%s\n", version.ifwi);
 	if (strcmp(attr->attr.name, "scu_version") == 0)
