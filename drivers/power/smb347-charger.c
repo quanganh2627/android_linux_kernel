@@ -1375,6 +1375,8 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 
 	if (irqstat_b & IRQSTAT_B_BATOVP_IRQ) {
 		dev_info(&smb->client->dev, "BATOVP interrupt");
+		/* Reset charging in case of battery OV */
+		smb347_charging_set(smb, false);
 		if (smb->pdata->use_usb)
 			power_supply_changed(&smb->usb);
 	}
