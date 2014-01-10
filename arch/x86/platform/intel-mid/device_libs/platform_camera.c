@@ -51,6 +51,9 @@ const struct intel_v4l2_subdev_id v4l2_ids[] = {
 	{"lm3554", LED_FLASH, -1},
 	{"lm3559", LED_FLASH, -1},
 	{"lm3560", LED_FLASH, -1},
+	{"xactor_a", RAW_CAMERA, ATOMISP_CAMERA_PORT_PRIMARY},
+	{"xactor_b", RAW_CAMERA, ATOMISP_CAMERA_PORT_SECONDARY},
+	{"xactor_c", RAW_CAMERA, ATOMISP_CAMERA_PORT_TERTIARY},
 	{},
 };
 
