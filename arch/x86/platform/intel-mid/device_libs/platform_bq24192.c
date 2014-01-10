@@ -346,7 +346,7 @@ static void platform_init_battery_threshold(u8 total_temp_range,
 	 struct platform_batt_profile *batt_profile)
 {
 	int ret;
-	u8 validate_smip_data[4];
+	u8 validate_smip_data[4] = {0};
 	bool fpo_override_bit = false;
 
 	pr_debug("%s:%d:\n", __func__, __LINE__);
