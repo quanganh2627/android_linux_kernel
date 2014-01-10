@@ -328,7 +328,7 @@ struct mmc_host {
 #define MMC_CAP2_LED_SUPPORT	(1 << 18)	/* led support */
 #define MMC_CAP2_PWCTRL_POWER	(1 << 19)	/* power control card power */
 #define MMC_CAP2_FIXED_NCRC	(1 << 20)	/* fixed NCRC */
-#define MMC_CAP2_HS200_WA	(1 << 21)	/* WA: 100MHz clock in HS200 */
+#define MMC_CAP2_HS200_DIS	(1 << 21)	/* HS200 can be disabled */
 #define MMC_CAP2_HS400_1_8V_DDR	(1 << 22)	/* support HS400 */
 #define MMC_CAP2_HS400_1_2V_DDR	(1 << 23)	/* support HS400 */
 #define MMC_CAP2_HS400		(MMC_CAP2_HS400_1_8V_DDR | \
