@@ -371,7 +371,7 @@ static u32 intel_panel_get_max_backlight(struct drm_device *dev)
 	u32 max;
 
 	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi)
-		return 0xFF;
+		return 100;
 
 	max = i915_read_blc_pwm_ctl(dev);
 
@@ -513,6 +513,8 @@ void intel_panel_actually_set_backlight(struct drm_device *dev, u32 level)
 void intel_panel_actually_set_mipi_backlight(struct drm_device *dev, u32 level)
 {
 #ifdef CONFIG_CRYSTAL_COVE
+	u32 max = intel_panel_get_max_backlight(dev);
+
 	if (BYT_CR_CONFIG) {
 		/* FixMe: if level is zero still a pulse is observed consuming
 		power. To fix this issue if requested level is zero then
@@ -520,7 +522,7 @@ void intel_panel_actually_set_mipi_backlight(struct drm_device *dev, u32 level)
 		lpio_bl_write_bits(0, LPIO_PWM_CTRL, (0xff - level), 0xFF);
 		lpio_bl_update(0, LPIO_PWM_CTRL);
 	} else
-		intel_mid_pmic_writeb(0x4E, level);
+		intel_mid_pmic_writeb(0x4E, level*0xff/max);
 #else
 	DRM_ERROR("Non PMIC MIPI Backlight control is not supported yet\n");
 #endif
