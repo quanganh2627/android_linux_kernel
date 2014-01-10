@@ -27,7 +27,7 @@
 #include <linux/device.h>
 #include <linux/uaccess.h>
 #include <linux/delay.h>
-#include <linux/semaphore.h>
+#include <linux/spinlock.h>
 #include <linux/suspend.h>
 #include <linux/time.h>
 #include <linux/intel_mid_pm.h>
@@ -173,7 +173,7 @@ struct pmc_dev {
 	u32 __iomem *func_dis;
 	u32 __iomem *func_dis2;
 	struct pci_dev const *pdev;
-	struct semaphore nc_ready_lock;
+	spinlock_t nc_ready_lock;
 	u32 state_residency[STATE_MAX];
 	u32 state_resi_offset[STATE_MAX];
 	u32 residency_total;
@@ -237,13 +237,13 @@ static int pmc_wait_for_nc_pmcmd_complete(int verify_mask,
 					(verify_mask & status_mask))
 				break;
 			else
-				usleep_range(10, 20);
+				udelay(10);
 		} else if (state_type == ISLAND_UP) {
 			if ((~pwr_sts & status_mask)  ==
 					(~verify_mask & status_mask))
 				break;
 			else
-				usleep_range(10, 20);
+				udelay(10);
 		}
 
 		count++;
@@ -260,13 +260,12 @@ static int pmc_wait_for_nc_pmcmd_complete(int verify_mask,
 int pmc_nc_get_power_state(int islands, int reg)
 {
 	int pwr_sts, i, lss, ret = 0;
+	unsigned long flags;
 
 	if (unlikely(!pmc))
 		return -EAGAIN;
 
-	might_sleep();
-
-	down(&pmc->nc_ready_lock);
+	spin_lock_irqsave(&pmc->nc_ready_lock, flags);
 
 	pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, reg);
 	if (reg != PWRGT_STATUS)
@@ -280,7 +279,7 @@ int pmc_nc_get_power_state(int islands, int reg)
 		}
 	}
 
-	up(&pmc->nc_ready_lock);
+	spin_unlock_irqrestore(&pmc->nc_ready_lock, flags);
 
 	return ret;
 }
@@ -293,13 +292,12 @@ int pmc_nc_set_power_state(int islands, int state_type, int reg)
 	int i, lss, mask;
 	int ret = 0;
 	int status_mask = 0;
+	unsigned long flags;
 
 	if (unlikely(!pmc))
 		return -EAGAIN;
 
-	might_sleep();
-
-	down(&pmc->nc_ready_lock);
+	spin_lock_irqsave(&pmc->nc_ready_lock, flags);
 
 	pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, reg);
 	pwr_mask = pwr_sts;
@@ -326,7 +324,7 @@ int pmc_nc_set_power_state(int islands, int state_type, int reg)
 	ret = pmc_wait_for_nc_pmcmd_complete(pwr_mask,
 				status_mask, state_type, reg);
 
-	up(&pmc->nc_ready_lock);
+	spin_unlock_irqrestore(&pmc->nc_ready_lock, flags);
 
 	return ret;
 }
@@ -712,7 +710,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 
 	suspend_set_ops(&pmc_suspend_ops);
 
-	sema_init(&pmc_cxt->nc_ready_lock, 1);
+	spin_lock_init(&pmc->nc_ready_lock);
 
 	pci_set_drvdata(pdev, pmc_cxt);
 
