@@ -130,9 +130,13 @@ MODULE_PARM_DESC(s0ix,
  * preventing back to back S3/S0ix. IGNORE the PCI_DO transtion
  * for such devices.
  */
-static inline bool pmu_power_down_lss_without_driver(int sub_sys_index,
-					int sub_sys_pos, pci_power_t state)
+static inline bool pmu_power_down_lss_without_driver(int index,
+			int sub_sys_index, int sub_sys_pos, pci_power_t state)
 {
+	/* Ignore NC devices */
+	if (index < PMU1_MAX_DEVS)
+		return false;
+
 	/* Only ignore D0i0 */
 	if (state != PCI_D0)
 		return false;
@@ -608,7 +612,8 @@ static bool is_display_subclass(unsigned int sub_class)
 	if ((sub_class == 0x0 &&
 		(platform_is(INTEL_ATOM_MFLD) ||
 		platform_is(INTEL_ATOM_CLV))) ||
-		(sub_class == 0x80 && platform_is(INTEL_ATOM_MRFLD)))
+		(sub_class == 0x80 && (platform_is(INTEL_ATOM_MRFLD)
+				|| platform_is(INTEL_ATOM_MOORFLD))))
 		return true;
 
 	return false;
@@ -739,7 +744,8 @@ static void pmu_enumerate(void)
 	unsigned int base_class;
 
 	for_each_pci_dev(pdev) {
-		if (platform_is(INTEL_ATOM_MRFLD) &&
+		if ((platform_is(INTEL_ATOM_MRFLD) ||
+			platform_is(INTEL_ATOM_MOORFLD)) &&
 			pdev->device == MID_MRFL_HDMI_DRV_DEV_ID)
 			continue;
 
@@ -827,7 +833,8 @@ static bool update_nc_device_states(int i, pci_power_t state)
 				 platform_is(INTEL_ATOM_CLV)) {
 			islands = APM_ISP_ISLAND | APM_IPH_ISLAND;
 			reg = APM_REG_TYPE;
-		} else if (platform_is(INTEL_ATOM_MRFLD)) {
+		} else if (platform_is(INTEL_ATOM_MRFLD) ||
+				platform_is(INTEL_ATOM_MOORFLD)) {
 			islands = TNG_ISP_ISLAND;
 			reg = ISP_SS_PM0;
 		} else
@@ -1392,7 +1399,7 @@ int __ref pmu_pci_set_power_state(struct pci_dev *pdev, pci_power_t state)
 		goto unlock;
 
 	/* Ignore D0i0 requests for LSS that have no drivers */
-	if (pmu_power_down_lss_without_driver(sub_sys_index,
+	if (pmu_power_down_lss_without_driver(i, sub_sys_index,
 						sub_sys_pos, state))
 		goto unlock;
 
@@ -1409,7 +1416,7 @@ int __ref pmu_pci_set_power_state(struct pci_dev *pdev, pci_power_t state)
 	}
 
 	/* Ignore HDMI HPD driver d0ix on LSS 0 on MRFLD */
-	if (platform_is(INTEL_ATOM_MRFLD) &&
+	if ((platform_is(INTEL_ATOM_MRFLD) || platform_is(INTEL_ATOM_MOORFLD)) &&
 			pdev->device == MID_MRFL_HDMI_DRV_DEV_ID)
 			goto unlock;
 
@@ -1940,7 +1947,8 @@ mid_pmu_probe(struct pci_dev *dev, const struct pci_device_id *pci_id)
 	 * a wake lock here. Else S3 will be triggered on display
 	 * time out and platform will hang
 	 */
-	if (platform_is(INTEL_ATOM_MRFLD) && !enable_s3)
+	if ((platform_is(INTEL_ATOM_MRFLD) || platform_is(INTEL_ATOM_MOORFLD))
+								 && !enable_s3)
 		__pm_stay_awake(mid_pmu_cxt->pmu_wake_lock);
 #endif
 #ifdef CONFIG_XEN
