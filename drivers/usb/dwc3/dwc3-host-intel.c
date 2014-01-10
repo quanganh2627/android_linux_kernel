@@ -39,25 +39,6 @@ static int dwc3_start_host(struct usb_hcd *hcd);
 static int dwc3_stop_host(struct usb_hcd *hcd);
 static struct platform_driver dwc3_xhci_driver;
 
-static void xhci_dwc3_quirks(struct device *dev, struct xhci_hcd *xhci)
-{
-	/*
-	 * As of now platform drivers don't provide MSI support so we ensure
-	 * here that the generic code does not try to make a pci_dev from our
-	 * dev struct in order to setup MSI
-	 *
-	 * Synopsys DWC3 controller will generate PLC when link transfer to
-	 * compliance/loopback mode.
-	 */
-	xhci->quirks |= XHCI_PLAT | XHCI_COMP_PLC_QUIRK;
-}
-
-/* called during probe() after chip reset completes */
-static int xhci_dwc3_setup(struct usb_hcd *hcd)
-{
-	return xhci_gen_setup(hcd, xhci_dwc3_quirks);
-}
-
 static int xhci_dwc_bus_resume(struct usb_hcd *hcd)
 {
 	int ret;
@@ -83,7 +64,7 @@ static const struct hc_driver xhci_dwc_hc_driver = {
 	/*
 	 * basic lifecycle operations
 	 */
-	.reset =		xhci_dwc3_setup,
+	.reset =		xhci_plat_setup,
 	.start =		xhci_run,
 	.stop =			xhci_stop,
 	.shutdown =		xhci_shutdown,
