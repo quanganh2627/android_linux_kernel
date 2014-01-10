@@ -400,7 +400,7 @@ static int sst_gain_ctl_info(struct snd_kcontrol *kcontrol,
 }
 
 static void sst_send_gain_cmd(struct sst_data *sst, struct sst_gain_value *gv,
-			      u16 task_id, u16 loc_id, int mute)
+			      u16 task_id, u16 loc_id, u16 module_id, int mute)
 {
 	struct sst_cmd_set_gain_dual cmd;
 	pr_debug("%s", __func__);
@@ -417,7 +417,7 @@ static void sst_send_gain_cmd(struct sst_data *sst, struct sst_gain_value *gv,
 		cmd.cell_gains[0].cell_gain_right = gv->r_gain;
 	}
 	SST_FILL_DESTINATION(2, cmd.cell_gains[0].dest,
-			     loc_id, SST_MODULE_ID_GAIN_CELL);
+			     loc_id, module_id);
 	cmd.cell_gains[0].gain_time_constant = gv->ramp_duration;
 
 	cmd.header.length = sizeof(struct sst_cmd_set_gain_dual)
@@ -483,7 +483,7 @@ static int sst_gain_put(struct snd_kcontrol *kcontrol,
 	};
 
 	if (mc->w && mc->w->power)
-		sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id, 0);
+		sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id, mc->module_id, 0);
 	return 0;
 }
 
@@ -552,7 +552,7 @@ static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst, int mut
 		mc = (void *)kctl->private_value;
 		gv = mc->gain_val;
 
-		sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id, mute);
+		sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id, mc->module_id, mute);
 	}
 }
 
