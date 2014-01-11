@@ -60,6 +60,7 @@ obj-$(CONFIG_REGULATOR_PMIC_BASIN_COVE) += pmic_basin_cove.o
 obj-$(CONFIG_REGULATOR_CRYSTAL_COVE) += pmic_crystal_cove.o
 obj-$(CONFIG_REGULATOR_CRYSTAL_COVE_PLUS) += pmic_crystal_cove_plus.o
 obj-$(CONFIG_REGULATOR_WHISKEY_COVE) += pmic_whiskey_cove.o
+obj-$(CONFIG_REGULATOR_PMIC_SHADY_COVE) += pmic_shady_cove.o
 obj-$(CONFIG_REGULATOR_RC5T583)  += rc5t583-regulator.o
 obj-$(CONFIG_REGULATOR_S2MPS11) += s2mps11.o
 obj-$(CONFIG_REGULATOR_S5M8767) += s5m8767.o
