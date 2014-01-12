@@ -353,7 +353,8 @@ static int sdhci_acpi_sd_probe_slot(struct platform_device *pdev)
 }
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sd = {
-	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
+		SDHCI_QUIRK2_SDR104_BROKEN,
 	.caps2   = MMC_CAP2_FIXED_NCRC,
 	.flags   = SDHCI_ACPI_SD_CD | SDHCI_ACPI_RUNTIME_PM,
 	.probe_slot	= sdhci_acpi_sd_probe_slot,

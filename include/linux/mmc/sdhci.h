@@ -104,6 +104,8 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_BROKEN_AUTO_CMD23			(1<<16)
 /* HC Reg High Speed must be set later than HC2 Reg 1.8v Signaling Enable */
 #define SDHCI_QUIRK2_HIGH_SPEED_SET_LATE		(1<<17)
+/* SDR104 broken */
+#define SDHCI_QUIRK2_SDR104_BROKEN			(1<<18)
 /* to allow mmc_detect to detach the bus */
 #define SDHCI_QUIRK2_DISABLE_MMC_CAP_NONREMOVABLE	(1<<19)
 /* avoid detect/rescan/poweoff operations on suspend/resume. */
