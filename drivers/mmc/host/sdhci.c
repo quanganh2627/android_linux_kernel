@@ -2104,6 +2104,11 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 		}
 		/* Wait for 5ms */
 		usleep_range(5000, 5500);
+		if (host->ops->set_io_voltage) {
+			ret = host->ops->set_io_voltage(host, false);
+			if (ret)
+				return ret;
+		}
 
 		/* 3.3V regulator output should be stable within 5 ms */
 		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
@@ -2137,6 +2142,11 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 
 		/* Wait for 5ms */
 		usleep_range(5000, 5500);
+		if (host->ops->set_io_voltage) {
+			ret = host->ops->set_io_voltage(host, true);
+			if (ret)
+				return ret;
+		}
 
 		/* 1.8V regulator output should be stable within 5 ms */
 		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);

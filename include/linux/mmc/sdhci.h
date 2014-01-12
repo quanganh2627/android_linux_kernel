@@ -18,6 +18,7 @@
 #include <linux/mmc/host.h>
 
 struct sdhci_host {
+	void __iomem *gpiobase;
 	/* Data set by hardware interface driver */
 	const char *hw_name;	/* Hardware bus name */
 

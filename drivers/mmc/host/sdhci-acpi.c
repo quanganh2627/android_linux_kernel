@@ -50,6 +50,13 @@
 
 #include "sdhci.h"
 
+#define INTEL_CHT_GPIO_SOUTHEAST	0xfed98000
+#define INTEL_CHT_GPIO_LEN		0x2000
+#define INTEL_CHV_RCOMP_CTRL	0x1180
+#define INTEL_CHV_RCOMP_CONF	0x1194
+#define INTEL_CHV_RCOMP_VAL	0x118c
+#define INTEL_CHV_RCOMP_SET	0x1190
+
 enum {
 	SDHCI_ACPI_SD_CD	= BIT(0),
 	SDHCI_ACPI_RUNTIME_PM	= BIT(1),
@@ -202,11 +209,60 @@ static void  sdhci_acpi_platform_reset_exit(struct sdhci_host *host, u8 mask)
 	}
 }
 
+/* CHT A0 workaround */
+static int sdhci_intel_chv_set_io_vol(struct sdhci_host *host, bool to_1p8)
+{
+	void __iomem *ioaddr = host->gpiobase;
+	u32 value, config = 0;
+	u8 slew;
+	u8 pstrength, nstrength;
+
+	if (!ioaddr)
+		return 0;
+
+	/* read RCOMP control to set bit31 */
+	value = readl(ioaddr + INTEL_CHV_RCOMP_CTRL);
+	value |= 0x80000000;
+	writel(value, ioaddr + INTEL_CHV_RCOMP_CTRL);
+
+	/* set RCOMP family config reg 1p8_enable */
+	value = readl(ioaddr + INTEL_CHV_RCOMP_CONF);
+	if (to_1p8)
+		value |= 0x200000;
+	else
+		value &= ~0x200000;
+	writel(value, ioaddr + INTEL_CHV_RCOMP_CONF);
+	udelay(100);
+
+	/* read RCOMP value */
+	value = readl(ioaddr + INTEL_CHV_RCOMP_VAL);
+	slew = (value >> 16) & 0xff;
+	pstrength = (value >> 8) & 0xff;
+	nstrength = value & 0xff;
+
+	/* read family config value */
+	config |= slew | (nstrength << 16) | (pstrength << 24) | 0x300;
+	writel(config, ioaddr + INTEL_CHV_RCOMP_SET);
+
+	return 0;
+}
+
+static int sdhci_acpi_set_io_vol(struct sdhci_host *host, bool to_1p8)
+{
+	unsigned int cpu;
+
+	if (sdhci_intel_host(&cpu) && (cpu == INTEL_CHV_CPU))
+		return sdhci_intel_chv_set_io_vol(host, to_1p8);
+
+	return 0;
+}
+
 static const struct sdhci_ops sdhci_acpi_ops_dflt = {
 	.enable_dma = sdhci_acpi_enable_dma,
 	.power_up_host	= sdhci_acpi_power_up_host,
 	.get_tuning_count = sdhci_acpi_get_tuning_count,
 	.platform_reset_exit = sdhci_acpi_platform_reset_exit,
+	.set_io_voltage	= sdhci_acpi_set_io_vol,
 };
 
 static const struct sdhci_ops sdhci_acpi_ops_int = {
@@ -298,6 +354,7 @@ static int sdhci_acpi_sd_probe_slot(struct platform_device *pdev)
 	struct sdhci_host *host;
 	int sd_1p8_en, sd_pwr_en;
 	int err;
+	unsigned int cpu;
 
 	if (!c || !c->host || !c->slot)
 		return 0;
@@ -348,6 +405,14 @@ static int sdhci_acpi_sd_probe_slot(struct platform_device *pdev)
 	if (INTEL_MID_BOARD(2, TABLET, BYT, BLB, PRO) ||
 			INTEL_MID_BOARD(2, TABLET, BYT, BLB, ENG))
 		host->quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
+
+	/*
+	 * CHT A0 workaround
+	 */
+	if (sdhci_intel_host(&cpu) && (cpu == INTEL_CHV_CPU)) {
+		host->gpiobase = ioremap_nocache(INTEL_CHT_GPIO_SOUTHEAST,
+				INTEL_CHT_GPIO_LEN);
+	}
 
 	return 0;
 }
