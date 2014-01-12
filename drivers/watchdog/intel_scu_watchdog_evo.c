@@ -1424,8 +1424,7 @@ static struct rpmsg_driver watchdog_rpmsg = {
 
 static int __init watchdog_rpmsg_init(void)
 {
-	if ((intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) ||
-		(intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE))
+	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER)
 		return register_rpmsg_driver(&watchdog_rpmsg);
 	else {
 		pr_err("%s: watchdog driver: bad platform\n", __func__);

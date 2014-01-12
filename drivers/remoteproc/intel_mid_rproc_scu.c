@@ -210,8 +210,7 @@ int scu_ipc_rpmsg_handle(void *rx_buf, void *tx_buf, u32 *r_len, u32 *s_len)
 		tmp_msg->status = scu_ipc_command(tx_msg);
 		break;
 	case RP_SET_WATCHDOG:
-		if ((intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) ||
-			(intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE))
+		if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER)
 			tmp_msg->status = scu_ipc_raw_command(tx_msg);
 		else
 			tmp_msg->status = scu_ipc_command(tx_msg);
