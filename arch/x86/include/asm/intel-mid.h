@@ -172,7 +172,7 @@ extern enum intel_mid_timer_options intel_mid_timer_options;
  */
 #define FSB_FREQ_83SKU	83200
 #define FSB_FREQ_100SKU	99840
-#define FSB_FREQ_133SKU	133000
+#define FSB_FREQ_133SKU	133120
 
 #define FSB_FREQ_167SKU	167000
 #define FSB_FREQ_200SKU	200000
