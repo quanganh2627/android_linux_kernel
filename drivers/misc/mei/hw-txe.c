@@ -959,10 +959,9 @@ irqreturn_t mei_txe_irq_thread_handler(int irq, void *dev_id)
 		}
 
 		rets = mei_irq_write_handler(dev, &complete_list);
-		if (rets) {
+		if (rets)
 			dev_err(&dev->pdev->dev,
 				"mei_irq_write_handler ret = %d.\n", rets);
-		}
 	}
 
 
