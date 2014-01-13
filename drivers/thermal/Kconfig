@@ -223,4 +223,13 @@ config DEBUG_THERMAL
 	  Saying Y here will expose extra sysfs nodes under
 	  /sys/class/thermal/thermal_zoneX/
 
+config INTEL_MOOR_THERMAL
+	tristate "Thermal driver for Intel Moorefield platform"
+	depends on THERMAL && IIO && IIO_BASINCOVE_GPADC
+	help
+	  Say Y here to enable thermal driver on Intel Moorefield platform.
+
+	  To load this driver as a module, select M here. The module
+	  will be called "moor_thermal"
+
 endif
