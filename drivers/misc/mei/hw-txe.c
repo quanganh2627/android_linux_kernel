@@ -417,14 +417,31 @@ static bool mei_txe_pending_interrupts(struct mei_device *dev)
 	return ret;
 }
 
+/**
+ * mei_txe_input_payload_write - write a dword to the host buffer
+ *	at offset idx
+ *
+ * @dev: the device structure
+ * @idx: index in the host buffer
+ * @value: value
+ */
 static void mei_txe_input_payload_write(struct mei_device *dev,
-			unsigned long index, u32 value)
+			unsigned long idx, u32 value)
 {
 	struct mei_txe_hw *hw = to_txe_hw(dev);
 	mei_txe_sec_reg_write(hw, SEC_IPC_INPUT_PAYLOAD_REG +
-			(index * sizeof(u32)), value);
+			(idx * sizeof(u32)), value);
 }
 
+/**
+ * mei_txe_out_data_read - read a dword from the device buffer
+ *	at offset idx
+ *
+ * @dev: the device structure
+ * @idx: index in the device buffer
+ *
+ * returns: register value at index
+ */
 static u32 mei_txe_out_data_read(const struct mei_device *dev,
 					unsigned long idx)
 {
@@ -506,6 +523,11 @@ static inline bool mei_txe_host_is_ready(struct mei_device *dev)
 	return !!(reg & HICR_SEC_IPC_READINESS_HOST_RDY);
 }
 
+/**
+ * mei_txe_readiness_wait - wait till readiness settles
+ *
+ * @dev: the device structure
+ */
 static int mei_txe_readiness_wait(struct mei_device *dev)
 {
 	int err;
@@ -526,6 +548,12 @@ static int mei_txe_readiness_wait(struct mei_device *dev)
 	return 0;
 }
 
+/**
+ *  mei_txe_hw_config - configure hardware at the start
+ *	of the device. This happens only at the probe time
+ *
+ * @dev: the device structure
+ */
 static void mei_txe_hw_config(struct mei_device *dev)
 {
 
@@ -726,6 +754,11 @@ static int mei_txe_hw_reset(struct mei_device *dev, bool intr_enable)
 	return 0;
 }
 
+/**
+ * mei_txe_hw_start - start the hardware after reset
+ *
+ * @dev: the device structure
+ */
 static int mei_txe_hw_start(struct mei_device *dev)
 {
 	struct mei_txe_hw *hw = to_txe_hw(dev);
@@ -786,7 +819,13 @@ static int mei_txe_hw_start(struct mei_device *dev)
 	return 0;
 }
 
-
+/**
+ * mei_txe_check_and_ack_intrs - translate multi BAR interrupt into
+ *  single bitmask and acknowledge the interrupts
+ *
+ * @dev: the device structure
+ * @do_ack: acknowledge interrupts
+ */
 static bool mei_txe_check_and_ack_intrs(struct mei_device *dev, bool do_ack)
 {
 	struct mei_txe_hw *hw = to_txe_hw(dev);
@@ -854,8 +893,7 @@ irqreturn_t mei_txe_irq_quick_handler(int irq, void *dev_id)
 
 
 /**
- * mei_interrupt_thread_handler - function called after ISR to handle the interrupt
- * processing.
+ * mei_txe_irq_thread_handler - txe interrupt thread
  *
  * @irq: The irq number
  * @dev_id: pointer to the device structure
@@ -1006,6 +1044,13 @@ static const struct mei_hw_ops mei_txe_hw_ops = {
 
 };
 
+/**
+ * mei_txe_dev_init - allocates and initializes txe hardware specific structure
+ *
+ * @pdev - pci device
+ * returns struct mei_device * on success or NULL;
+ *
+ */
 struct mei_device *mei_txe_dev_init(struct pci_dev *pdev)
 {
 	struct mei_device *dev;
