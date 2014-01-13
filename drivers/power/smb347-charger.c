@@ -1289,6 +1289,24 @@ fail:
 	return ret;
 }
 
+static int smb347_hw_uninit(struct smb347_charger *smb)
+{
+	if (smb->otg) {
+		struct smb347_otg_event *evt, *tmp;
+
+		usb_unregister_notifier(smb->otg, &smb->otg_nb);
+		smb347_otg_disable(smb);
+		usb_put_phy(smb->otg);
+
+		/* Clear all the queued events. */
+		flush_work_sync(&smb->otg_work);
+		list_for_each_entry_safe(evt, tmp, &smb->otg_queue, node) {
+			list_del(&evt->node);
+			kfree(evt);
+		}
+	}
+}
+
 static irqreturn_t smb347_interrupt(int irq, void *data)
 {
 	struct smb347_charger *smb = data;
@@ -2468,6 +2486,7 @@ psy_reg2_failed:
 	if (smb->pdata->use_mains)
 		power_supply_unregister(&smb->mains);
 psy_reg1_failed:
+	smb347_hw_uninit(smb);
 	wake_lock_destroy(&smb->wakelock);
 	smb347_dev = NULL;
 	return ret;
@@ -2488,20 +2507,7 @@ static int smb347_remove(struct i2c_client *client)
 		gpio_free(smb->pdata->irq_gpio);
 	}
 
-	if (smb->otg) {
-		struct smb347_otg_event *evt, *tmp;
-
-		usb_unregister_notifier(smb->otg, &smb->otg_nb);
-		smb347_otg_disable(smb);
-		usb_put_phy(smb->otg);
-
-		/* Clear all the queued events. */
-		flush_work_sync(&smb->otg_work);
-		list_for_each_entry_safe(evt, tmp, &smb->otg_queue, node) {
-			list_del(&evt->node);
-			kfree(evt);
-		}
-	}
+	smb347_hw_uninit(smb);
 	extcon_dev_unregister(smb->edev);
 	if (smb->pdata->show_battery)
 		power_supply_unregister(&smb->battery);
