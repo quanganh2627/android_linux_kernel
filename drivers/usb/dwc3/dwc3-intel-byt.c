@@ -308,6 +308,26 @@ static void dwc_otg_suspend_discon_work(struct work_struct *work)
 	spin_unlock_irqrestore(&otg->lock, flags);
 }
 
+static int dwc3_intel_byt_get_id_status(struct usb_phy *x, void *data)
+{
+	struct intel_dwc_otg_pdata *pdata;
+	struct dwc_otg2 *otg = dwc3_get_otg();
+
+	if (!x)
+		return -ENODEV;
+
+	if (!data)
+		return -EINVAL;
+
+	if (otg && otg->otg_data) {
+		pdata = (struct intel_dwc_otg_pdata *)otg->otg_data;
+		*(int *)data = pdata->id;
+	} else
+		return -ENODEV;
+
+	return 0;
+}
+
 int dwc3_intel_byt_platform_init(struct dwc_otg2 *otg)
 {
 	struct intel_dwc_otg_pdata *data;
@@ -316,6 +336,8 @@ int dwc3_intel_byt_platform_init(struct dwc_otg2 *otg)
 	int retval;
 
 	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+
+	otg->usb2_phy.get_id_status = dwc3_intel_byt_get_id_status;
 
 	if (data)
 		INIT_DELAYED_WORK(&data->suspend_discon_work,
