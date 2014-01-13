@@ -78,7 +78,6 @@ void sst_restore_fw_context(void)
 		return;
 	}
 
-	sst_drv_ctx->sst_state = SST_FW_CTXT_RESTORE;
 	sst_fill_header(&msg->header, IPC_IA_SET_FW_CTXT, 1, 0);
 
 	msg->header.part.data = sizeof(fw_context) + sizeof(u32);
