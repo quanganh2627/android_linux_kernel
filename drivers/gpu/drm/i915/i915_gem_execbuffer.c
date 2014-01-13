@@ -727,6 +727,7 @@ i915_gem_execbuffer_reserve(struct intel_ring_buffer *ring,
 			struct drm_i915_gem_exec_object2 *entry = obj->exec_entry;
 			bool need_fence, need_mappable;
 			u32 obj_offset;
+			struct i915_vma *vma_tmp;
 
 			if (!i915_gem_obj_bound(obj, vm))
 				continue;
@@ -741,11 +742,22 @@ i915_gem_execbuffer_reserve(struct intel_ring_buffer *ring,
 			WARN_ON((need_mappable || need_fence) &&
 				!i915_is_ggtt(vm));
 
+			vma_tmp = i915_gem_obj_to_vma(obj, vm);
+			/*
+			 * Added this NULL check on the returned vma pointer
+			 * to avoid klocwork warning, otherwise it is not
+			 * really needed, as we already have an indirect check
+			 * for it through the i915_gem_obj_bound function
+			 */
+			WARN_ON(vma_tmp == NULL);
+			if (vma_tmp == NULL)
+				continue;
+
 			if ((entry->alignment &&
 			     obj_offset & (entry->alignment - 1)) ||
 			    (need_mappable && !obj->map_and_fenceable) ||
 			    (obj->gt_old_ro != obj->gt_ro))
-				ret = i915_vma_unbind(i915_gem_obj_to_vma(obj, vm));
+				ret = i915_vma_unbind(vma_tmp);
 			else
 				ret = i915_gem_execbuffer_reserve_object(obj, ring, vm, need_relocs);
 			if (ret)

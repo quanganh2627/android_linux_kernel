@@ -2863,6 +2863,7 @@ i915_gem_object_ggtt_unbind(struct drm_i915_gem_object *obj)
 {
 	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
 	struct i915_address_space *ggtt = &dev_priv->gtt.base;
+	struct i915_vma *vma_tmp;
 
 	if (!i915_gem_obj_ggtt_bound(obj))
 		return 0;
@@ -2872,7 +2873,18 @@ i915_gem_object_ggtt_unbind(struct drm_i915_gem_object *obj)
 
 	BUG_ON(obj->pages == NULL);
 
-	return i915_vma_unbind(i915_gem_obj_to_vma(obj, ggtt));
+	vma_tmp = i915_gem_obj_to_vma(obj, ggtt);
+	/*
+	 * Added this NULL check on the returned vma pointer
+	 * to avoid klocwork warning, otherwise it is not
+	 * really needed, as we already have an indirect check
+	 * for it through the i915_gem_obj_bound function
+	 */
+	WARN_ON(vma_tmp == NULL);
+	if (vma_tmp == NULL)
+		return 0;
+
+	return i915_vma_unbind(vma_tmp);
 }
 
 int i915_gpu_idle(struct drm_device *dev)

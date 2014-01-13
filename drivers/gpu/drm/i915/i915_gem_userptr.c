@@ -318,7 +318,7 @@ i915_gem_userptr_ioctl(struct drm_device *dev,
 		drm_gem_object_release(&obj->gem.base);
 		dev_priv->mm.object_count--;
 		dev_priv->mm.object_memory -= obj->gem.base.size;
-		kfree(obj);
+		i915_gem_object_free(&obj->gem);
 		return ret;
 	}
 
@@ -328,7 +328,7 @@ i915_gem_userptr_ioctl(struct drm_device *dev,
 		drm_gem_object_release(&obj->gem.base);
 		dev_priv->mm.object_count--;
 		dev_priv->mm.object_memory -= obj->gem.base.size;
-		kfree(obj);
+		i915_gem_object_free(&obj->gem);
 		return ret;
 	}
 
