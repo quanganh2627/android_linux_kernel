@@ -752,9 +752,10 @@ static void intel_hdmi_mode_set(struct intel_encoder *encoder)
 			val =  PFIT_ENABLE | (crtc->pipe <<
 				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
 		DRM_DEBUG_DRIVER("pfit val = %x", val);
-
 		I915_WRITE(PFIT_CONTROL, val);
-	}
+		crtc->base.panning_en = true;
+	} else
+		crtc->base.panning_en = false;
 
 	I915_WRITE(intel_hdmi->hdmi_reg, hdmi_val);
 	POSTING_READ(intel_hdmi->hdmi_reg);
@@ -836,22 +837,6 @@ static void intel_enable_hdmi(struct intel_encoder *encoder)
 
 	I915_WRITE(intel_hdmi->hdmi_reg, temp);
 	POSTING_READ(intel_hdmi->hdmi_reg);
-
-	if (intel_hdmi->pfit) {
-		u32 val = 0;
-		if (intel_hdmi->pfit == AUTOSCALE)
-			val =  PFIT_ENABLE | (intel_crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
-		if (intel_hdmi->pfit == PILLARBOX)
-			val =  PFIT_ENABLE | (intel_crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
-		else if (intel_hdmi->pfit == LETTERBOX)
-			val =  PFIT_ENABLE | (intel_crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
-		DRM_DEBUG_DRIVER("pfit val = %x", val);
-
-		I915_WRITE(PFIT_CONTROL, val);
-	}
 
 	/* HW workaround, need to write this twice for issue that may result
 	 * in first write getting masked.

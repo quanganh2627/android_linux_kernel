@@ -943,7 +943,9 @@ static void intel_dp_mode_set(struct intel_encoder *encoder)
 				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
 		DRM_DEBUG_DRIVER("pfit val = %x", val);
 		I915_WRITE(PFIT_CONTROL, val);
-	 }
+		crtc->base.panning_en = true;
+	 } else
+		crtc->base.panning_en = false;
 
 	intel_dp_init_link_config(intel_dp);
 

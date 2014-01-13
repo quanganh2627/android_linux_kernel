@@ -10429,6 +10429,8 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->primary_alpha = false;
 	intel_crtc->sprite0_alpha = true;
 	intel_crtc->sprite1_alpha = true;
+
+	intel_crtc->base.panning_en = false;
 }
 
 int intel_get_pipe_from_crtc_id(struct drm_device *dev, void *data,
