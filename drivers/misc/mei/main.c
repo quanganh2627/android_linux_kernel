@@ -219,11 +219,13 @@ static ssize_t mei_read(struct file *file, char __user *ubuf,
 		}
 		/* Offset needs to be cleaned for contiguous reads*/
 		if (cb->buf_idx == 0 && *offset > 0) {
-			dev_dbg(&dev->pdev->dev, "idx = 0 offset = %lld\n", (unsigned long long)*offset);
+			dev_dbg(&dev->pdev->dev, "idx = 0 offset = %lld\n",
+					(unsigned long long)*offset);
 			*offset = 0;
 		}
 	} else if (*offset > 0) {
-		dev_dbg(&dev->pdev->dev, "offset = %lld\n", (unsigned long long)*offset);
+		dev_dbg(&dev->pdev->dev, "offset = %lld\n",
+					(unsigned long long)*offset);
 		*offset = 0;
 	}
 
