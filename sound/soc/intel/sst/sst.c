@@ -532,6 +532,8 @@ int sst_request_firmware_async(struct intel_sst_drv *ctx)
 			ctx->pci_id, ".bin");
 	pr_debug("Requesting FW %s now...\n", ctx->firmware_name);
 
+	trace_sst_fw_download("Request firmware async", ctx->sst_state);
+
 	ret = request_firmware_nowait(THIS_MODULE, 1, ctx->firmware_name,
 			ctx->dev, GFP_KERNEL, ctx, sst_firmware_load_cb);
 	if (ret)

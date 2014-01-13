@@ -98,6 +98,26 @@ TRACE_EVENT(sst_ipc_mailbox,
 
 );
 
+TRACE_EVENT(sst_fw_download,
+
+	TP_PROTO(const char *msg, int fw_state),
+
+	TP_ARGS(msg, fw_state),
+
+	TP_STRUCT__entry(
+		__string(info_msg, msg)
+		__field(unsigned int,   fw_state)
+	),
+
+	TP_fast_assign(
+		__assign_str(info_msg, msg);
+		__entry->fw_state = fw_state;
+	),
+
+	TP_printk("\t%s\tFW state = %d", __get_str(info_msg),
+				(unsigned int)__entry->fw_state)
+);
+
 #endif /* _TRACE_SST_H */
 
 /* This part must be outside protection */

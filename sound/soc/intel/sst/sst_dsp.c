@@ -42,6 +42,7 @@
 #include "../sst_platform.h"
 #include "../platform_ipc_v2.h"
 #include "sst.h"
+#include "sst_trace.h"
 
 #ifndef CONFIG_X86_64
 #define MEMCPY_TOIO memcpy_toio
@@ -1177,6 +1178,7 @@ void sst_firmware_load_cb(const struct firmware *fw, void *context)
 		goto exit;
 
 	pr_debug("Request Fw completed\n");
+	trace_sst_fw_download("End of FW request", ctx->sst_state);
 
 	if (ctx->info.use_elf == true)
 		ret = sst_validate_elf(fw, false);
@@ -1196,6 +1198,7 @@ void sst_firmware_load_cb(const struct firmware *fw, void *context)
 	pr_debug("phys: %lx", (unsigned long)virt_to_phys(ctx->fw_in_mem));
 	memcpy(ctx->fw_in_mem, fw->data, fw->size);
 
+	trace_sst_fw_download("Start FW parsing", ctx->sst_state);
 	if (ctx->use_dma) {
 		if (ctx->info.use_elf == true)
 			ret = sst_parse_elf_fw_dma(ctx, ctx->fw_in_mem,
@@ -1211,6 +1214,7 @@ void sst_firmware_load_cb(const struct firmware *fw, void *context)
 			ret = sst_parse_fw_memcpy(ctx->fw_in_mem, fw->size,
 							&ctx->memcpy_list);
 	}
+	trace_sst_fw_download("End FW parsing", ctx->sst_state);
 	if (ret) {
 		kfree(ctx->fw_in_mem);
 		ctx->fw_in_mem = NULL;
@@ -1250,6 +1254,7 @@ static int sst_request_fw(struct intel_sst_drv *sst)
 		pr_err("request fw failed %d\n", retval);
 		return retval;
 	}
+	trace_sst_fw_download("End of FW request", sst->sst_state);
 	if (sst->info.use_elf == true)
 		retval = sst_validate_elf(fw, false);
 	if (retval != 0) {
@@ -1265,7 +1270,7 @@ static int sst_request_fw(struct intel_sst_drv *sst)
 	pr_debug("copied fw to %p", sst->fw_in_mem);
 	pr_debug("phys: %lx", (unsigned long)virt_to_phys(sst->fw_in_mem));
 	memcpy(sst->fw_in_mem, fw->data, fw->size);
-
+	trace_sst_fw_download("Start FW parsing", sst->sst_state);
 	if (sst->use_dma) {
 		if (sst->info.use_elf == true)
 			retval = sst_parse_elf_fw_dma(sst, sst->fw_in_mem,
@@ -1281,6 +1286,7 @@ static int sst_request_fw(struct intel_sst_drv *sst)
 			retval = sst_parse_fw_memcpy(sst->fw_in_mem, fw->size,
 							&sst->memcpy_list);
 	}
+	trace_sst_fw_download("End FW parsing", sst->sst_state);
 	if (retval) {
 		kfree(sst->fw_in_mem);
 		sst->fw_in_mem = NULL;
@@ -1541,6 +1547,8 @@ int sst_load_fw(void)
 			pr_err("sst : wait for FW to be downloaded\n");
 			return -EBUSY;
 		} else {
+			trace_sst_fw_download("Req FW sent in check device",
+						sst_drv_ctx->sst_state);
 			pr_debug("sst: FW not in memory retry to download\n");
 			ret_val = sst_request_fw(sst_drv_ctx);
 			if (ret_val)
@@ -1560,6 +1568,7 @@ int sst_load_fw(void)
 	if (ret_val)
 		goto restore;
 
+	trace_sst_fw_download("Start FW copy", sst_drv_ctx->sst_state);
 	if (sst_drv_ctx->use_dma) {
 		ret_val = sst_do_dma(&sst_drv_ctx->fw_sg_list);
 		if (ret_val) {
@@ -1570,16 +1579,21 @@ int sst_load_fw(void)
 		sst_do_memcpy(&sst_drv_ctx->memcpy_list);
 	}
 
+	trace_sst_fw_download("Post download for Lib start",
+			sst_drv_ctx->sst_state);
 	/* Write the DRAM/DCCM config before enabling FW */
 	if (sst_drv_ctx->ops->post_download)
 		sst_drv_ctx->ops->post_download(sst_drv_ctx);
-
+	trace_sst_fw_download("Post download for Lib end",
+			sst_drv_ctx->sst_state);
 	sst_drv_ctx->sst_state = SST_FW_LOADED;
 
 	/* bring sst out of reset */
 	ret_val = sst_drv_ctx->ops->start();
 	if (ret_val)
 		goto restore;
+	trace_sst_fw_download("DSP reset done",
+			sst_drv_ctx->sst_state);
 
 	ret_val = sst_wait_timeout(sst_drv_ctx, block);
 	if (ret_val) {
