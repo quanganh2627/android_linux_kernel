@@ -1016,6 +1016,11 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		.y2 = crtc->mode.vdisplay,
 	};
 	struct intel_unpin_work *work = NULL;
+
+	/* Avoid update plane operation if shutdown is in progress */
+	if (dev_priv->pm.shutdown_in_progress)
+		return -EINVAL;
+
 	if (event == NULL)
 		intel_enable_primary(crtc);
 	else
