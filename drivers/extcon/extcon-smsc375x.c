@@ -103,6 +103,7 @@ struct smsc375x_chip {
 	struct i2c_client	*client;
 	struct smsc375x_pdata	*pdata;
 	struct usb_phy		*otg;
+	struct work_struct	otg_work;
 	struct notifier_block	id_nb;
 	bool			id_short;
 	struct extcon_specific_cable_nb cable_obj;
@@ -313,6 +314,24 @@ static irqreturn_t smsc375x_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void smsc375x_otg_event_worker(struct work_struct *work)
+{
+	struct smsc375x_chip *chip =
+	    container_of(work, struct smsc375x_chip, otg_work);
+	int ret;
+
+	pm_runtime_get_sync(&chip->client->dev);
+
+	if (chip->id_short)
+		ret = chip->pdata->enable_vbus();
+	else
+		ret = chip->pdata->disable_vbus();
+	if (ret < 0)
+		dev_warn(&chip->client->dev, "id vbus control failed\n");
+
+	pm_runtime_put_sync(&chip->client->dev);
+}
+
 static int smsc375x_handle_otg_notification(struct notifier_block *nb,
 				   unsigned long event, void *param)
 {
@@ -335,15 +354,11 @@ static int smsc375x_handle_otg_notification(struct notifier_block *nb,
 		 * in case of ID short(*id = 0)
 		 * enable vbus else disable vbus.
 		 */
-		if (*val) {
+		if (*val)
 			chip->id_short = false;
-			ret = chip->pdata->disable_vbus();
-		} else {
+		else
 			chip->id_short = true;
-			ret = chip->pdata->enable_vbus();
-		}
-		if (ret < 0)
-			dev_warn(&chip->client->dev, "id vbus control failed\n");
+		schedule_work(&chip->otg_work);
 		break;
 	case USB_EVENT_ENUMERATED:
 		/*
@@ -452,7 +467,7 @@ static int smsc375x_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
 	struct smsc375x_chip *chip;
-	int ret = 0;
+	int ret = 0, id_val = -1;
 
 	chip = kzalloc(sizeof(struct smsc375x_chip), GFP_KERNEL);
 	if (!chip) {
@@ -498,6 +513,7 @@ static int smsc375x_probe(struct i2c_client *client,
 		goto otg_reg_failed;
 	}
 
+	INIT_WORK(&chip->otg_work, smsc375x_otg_event_worker);
 	chip->id_nb.notifier_call = smsc375x_handle_otg_notification;
 	ret = usb_register_notifier(chip->otg, &chip->id_nb);
 	if (ret) {
@@ -510,9 +526,22 @@ static int smsc375x_probe(struct i2c_client *client,
 	if (ret)
 		goto intr_reg_failed;
 
-	smsc375x_detect_dev(chip);
-
 	chip_ptr = chip;
+
+	if (chip->otg->get_id_status) {
+		ret = chip->otg->get_id_status(chip->otg, &id_val);
+		if (ret < 0) {
+			dev_warn(&client->dev,
+				"otg get ID status failed:%d\n", ret);
+			ret = 0;
+		}
+	}
+
+	if (!id_val && !chip->id_short)
+		atomic_notifier_call_chain(&chip->otg->notifier,
+						USB_EVENT_ID, &id_val);
+	else
+		smsc375x_detect_dev(chip);
 
 	/* Init Runtime PM State */
 	pm_runtime_put_noidle(&chip->client->dev);
