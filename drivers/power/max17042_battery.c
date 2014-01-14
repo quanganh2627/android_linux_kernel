@@ -1602,7 +1602,7 @@ static int max17042_get_batt_health(void)
 			"Low Battery condition Detected:%d\n", vavg);
 		return POWER_SUPPLY_HEALTH_DEAD;
 	}
-	if (vavg > chip->pdata->volt_max_lim) {
+	if (vavg > chip->pdata->volt_max_lim + VBATT_MAX_OFFSET) {
 		dev_info(&chip->client->dev,
 			"Battery Over Voltage condition Detected:%d\n", vavg);
 		return POWER_SUPPLY_HEALTH_OVERVOLTAGE;
