@@ -216,10 +216,6 @@ static inline int get_ps_int_property(struct power_supply *psy,
 #define THROTTLE_CC_VALUE(psy, state)\
 		(((psy->throttle_states)+state)->throttle_val)
 
-#define IS_CHARGING_CAN_BE_ENABLED(psy) \
-	((CURRENT_THROTTLE_ACTION(psy) != PSY_THROTTLE_DISABLE_CHARGER) &&\
-	(CURRENT_THROTTLE_ACTION(psy) != PSY_THROTTLE_DISABLE_CHARGING) &&\
-	(INLMT(psy) >= 100))
 #define IS_CHARGER_CAN_BE_ENABLED(psy) \
 	(CURRENT_THROTTLE_ACTION(psy) != PSY_THROTTLE_DISABLE_CHARGER)
 

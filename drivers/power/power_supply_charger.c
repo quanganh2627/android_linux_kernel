@@ -248,6 +248,22 @@ static void init_charger_cables(struct charger_cable *cable_lst, int count)
 
 }
 
+static inline int is_charging_can_be_enabled(struct power_supply *psy)
+{
+	int health;
+
+	health = HEALTH(psy);
+	if (IS_BATTERY(psy)) {
+		return (health == POWER_SUPPLY_HEALTH_GOOD) ||
+				(health == POWER_SUPPLY_HEALTH_DEAD);
+	} else {
+		return
+	((CURRENT_THROTTLE_ACTION(psy) != PSY_THROTTLE_DISABLE_CHARGER) &&
+	(CURRENT_THROTTLE_ACTION(psy) != PSY_THROTTLE_DISABLE_CHARGING) &&
+	(INLMT(psy) >= 100) && (health == POWER_SUPPLY_HEALTH_GOOD));
+	}
+}
+
 static inline void get_cur_chrgr_prop(struct power_supply *psy,
 				      struct charger_props *chrgr_prop)
 {
@@ -573,7 +589,7 @@ static int get_battery_status(struct power_supply *psy)
 		if (IS_PRESENT(chrgr_lst[cnt]))
 			status = POWER_SUPPLY_STATUS_NOT_CHARGING;
 
-		if (IS_CHARGING_CAN_BE_ENABLED(chrgr_lst[cnt]) &&
+		if (is_charging_can_be_enabled(chrgr_lst[cnt]) &&
 				(IS_HEALTH_GOOD(chrgr_lst[cnt]))) {
 			health = HEALTH(psy);
 			if ((health == POWER_SUPPLY_HEALTH_GOOD) ||
@@ -718,7 +734,8 @@ static inline void enable_supplied_by_charging
 	while (cnt--) {
 		if (!IS_PRESENT(chrgr_lst[cnt]))
 			continue;
-		if (is_enable && IS_CHARGING_CAN_BE_ENABLED(chrgr_lst[cnt])) {
+		if (is_enable && is_charging_can_be_enabled(chrgr_lst[cnt]) &&
+				is_charging_can_be_enabled(psy)) {
 			enable_charging(chrgr_lst[cnt]);
 			wait_for_charging_enabled(chrgr_lst[cnt]);
 		} else
@@ -751,7 +768,7 @@ static void __power_supply_trigger_charging_handler(struct power_supply *psy)
 					if (trigger_algo(psb)) {
 						disable_charging(psy);
 						break;
-					} else if (IS_CHARGING_CAN_BE_ENABLED
+					} else if (is_charging_can_be_enabled
 								(psy)) {
 						enable_charging(psy);
 						wait_for_charging_enabled(psy);
