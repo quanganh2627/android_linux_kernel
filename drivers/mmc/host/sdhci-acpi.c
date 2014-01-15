@@ -290,12 +290,11 @@ static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sdio = {
 	.probe_slot	= sdhci_acpi_sdio_probe_slot,
 };
 
-#define BYT_SD_1P8_EN	40
-#define BYT_SD_PWR_EN	41
 static int sdhci_acpi_sd_probe_slot(struct platform_device *pdev)
 {
 	struct sdhci_acpi_host *c = platform_get_drvdata(pdev);
 	struct sdhci_host *host;
+	int sd_1p8_en, sd_pwr_en;
 	int err;
 
 	if (!c || !c->host || !c->slot)
@@ -317,23 +316,25 @@ static int sdhci_acpi_sd_probe_slot(struct platform_device *pdev)
 	/* change the GPIO pin to GPIO mode */
 	if (host->quirks2 & SDHCI_QUIRK2_POWER_PIN_GPIO_MODE) {
 		/* change to GPIO mode */
-		lnw_gpio_set_alt(BYT_SD_PWR_EN, 0);
-		err = gpio_request(BYT_SD_PWR_EN, "sd_pwr_en");
+		sd_1p8_en = acpi_get_gpio_by_index(&pdev->dev, 2, NULL);
+		sd_pwr_en = acpi_get_gpio_by_index(&pdev->dev, 3, NULL);
+		lnw_gpio_set_alt(sd_pwr_en, 0);
+		err = gpio_request(sd_pwr_en, "sd_pwr_en");
 		if (err)
 			return -ENODEV;
-		host->gpio_pwr_en = BYT_SD_PWR_EN;
+		host->gpio_pwr_en = sd_pwr_en;
 		/* disable the power by default */
 		gpio_direction_output(host->gpio_pwr_en, 0);
 		gpio_set_value(host->gpio_pwr_en, 1);
 
 		/* change to GPIO mode */
-		lnw_gpio_set_alt(BYT_SD_1P8_EN, 0);
-		err = gpio_request(BYT_SD_1P8_EN, "sd_1p8_en");
+		lnw_gpio_set_alt(sd_1p8_en, 0);
+		err = gpio_request(sd_1p8_en, "sd_1p8_en");
 		if (err) {
 			gpio_free(host->gpio_pwr_en);
 			return -ENODEV;
 		}
-		host->gpio_1p8_en = BYT_SD_1P8_EN;
+		host->gpio_1p8_en = sd_1p8_en;
 		/* 3.3v signaling by default */
 		gpio_direction_output(host->gpio_1p8_en, 0);
 		gpio_set_value(host->gpio_1p8_en, 0);
