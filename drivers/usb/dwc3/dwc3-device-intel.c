@@ -405,12 +405,14 @@ static int dwc3_device_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	mutex_lock(&_dev_data->mutex);
 
-	if (dwc->soft_connected == is_on)
+	spin_lock_irqsave(&dwc->lock, flags);
+	if (dwc->soft_connected == is_on) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		goto done;
+	}
 
 	dwc->soft_connected = is_on;
 
-	spin_lock_irqsave(&dwc->lock, flags);
 	if (dwc->pm_state == PM_DISCONNECTED) {
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		goto done;

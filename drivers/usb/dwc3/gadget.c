@@ -1424,6 +1424,12 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 		return -ESHUTDOWN;
 	}
 
+	if (!dwc->soft_connected) {
+		dev_dbg(dwc->dev, "request %p queued when pullup is disabled\n",
+				request);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -ESHUTDOWN;
+	}
 	dev_vdbg(dwc->dev, "queing request %p to %s length %d\n",
 			request, ep->name, request->length);
 
