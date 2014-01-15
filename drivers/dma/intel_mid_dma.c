@@ -1500,7 +1500,7 @@ static void dma_tasklet(unsigned long data)
 {
 	struct middma_device *mid = NULL;
 	struct intel_mid_dma_chan *midc = NULL;
-	u32 status, raw_tfr, raw_block;
+	u32 status, raw_tfr, raw_block, raw_err;
 	int i;
 	mid = (struct middma_device *)data;
 	if (mid == NULL) {
@@ -1578,7 +1578,8 @@ static void dma_tasklet(unsigned long data)
 		spin_unlock_bh(&midc->lock);
 	}
 
-	status = ioread32(mid->dma_base + RAW_ERR);
+	raw_err = ioread32(mid->dma_base + RAW_ERR);
+	status = raw_err & mid->intr_mask;
 	pr_debug("MDMA:raw error status:%#x\n", status);
 	while (status) {
 		/*err interrupt*/
