@@ -328,6 +328,25 @@ static int dwc3_intel_byt_get_id_status(struct usb_phy *x, void *data)
 	return 0;
 }
 
+static int dwc3_byt_phy_init(struct usb_phy *x)
+{
+	struct dwc_otg2 *otg = container_of(x, struct dwc_otg2, usb2_phy);
+	struct intel_dwc_otg_pdata *data = otg->otg_data;
+
+	if (!data || !data->gpio_cs || !data->gpio_reset)
+		return -EINVAL;
+
+	gpio_direction_output(data->gpio_cs, 1);
+	udelay(200);
+
+	gpio_direction_output(data->gpio_reset, 0);
+	udelay(200);
+	gpio_set_value(data->gpio_reset, 1);
+	mdelay(30);
+
+	return 0;
+}
+
 int dwc3_intel_byt_platform_init(struct dwc_otg2 *otg)
 {
 	struct intel_dwc_otg_pdata *data;
@@ -338,6 +357,7 @@ int dwc3_intel_byt_platform_init(struct dwc_otg2 *otg)
 	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
 
 	otg->usb2_phy.get_id_status = dwc3_intel_byt_get_id_status;
+	otg->usb2_phy.init = dwc3_byt_phy_init;
 
 	if (data)
 		INIT_DELAYED_WORK(&data->suspend_discon_work,
