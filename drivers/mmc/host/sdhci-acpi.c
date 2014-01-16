@@ -81,6 +81,7 @@ struct sdhci_acpi_host {
 	const struct sdhci_acpi_slot	*slot;
 	struct platform_device		*pdev;
 	bool				use_runtime_pm;
+	unsigned int			autosuspend_delay;
 	int				cd_gpio;
 };
 
@@ -249,6 +250,24 @@ static int sdhci_acpi_emmc_probe_slot(struct platform_device *pdev)
 	return 0;
 }
 
+
+static int sdhci_acpi_sdio_probe_slot(struct platform_device *pdev)
+{
+	struct sdhci_acpi_host *c = platform_get_drvdata(pdev);
+
+	if (!c)
+		return 0;
+
+	if (INTEL_MID_BOARDV1(PHONE, BYT) ||
+			 INTEL_MID_BOARDV1(TABLET, BYT)) {
+		/* increase the auto suspend delay for SDIO to be 500ms */
+		c->autosuspend_delay = 500;
+	}
+
+	return 0;
+}
+
+
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
 	.quirks2 = SDHCI_QUIRK2_CARD_CD_DELAY | SDHCI_QUIRK2_WAIT_FOR_IDLE |
 		SDHCI_QUIRK2_PRESET_VALUE_BROKEN | SDHCI_QUIRK2_TUNING_POLL,
@@ -268,6 +287,7 @@ static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sdio = {
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
 	.pm_caps = MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ |
 		MMC_PM_WAKE_SDIO_IRQ,
+	.probe_slot	= sdhci_acpi_sdio_probe_slot,
 };
 
 #define BYT_SD_1P8_EN	40
@@ -436,6 +456,7 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 	c->pdev = pdev;
 	c->use_runtime_pm = sdhci_acpi_flag(c, SDHCI_ACPI_RUNTIME_PM);
 	c->cd_gpio = -ENODEV;
+	c->autosuspend_delay = 0;
 
 	platform_set_drvdata(pdev, c);
 
@@ -505,7 +526,10 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 	if (c->use_runtime_pm) {
 		pm_runtime_set_active(dev);
 		pm_suspend_ignore_children(dev, 1);
-		pm_runtime_set_autosuspend_delay(dev, 50);
+		if (c->autosuspend_delay)
+			pm_runtime_set_autosuspend_delay(dev, c->autosuspend_delay);
+		else
+			pm_runtime_set_autosuspend_delay(dev, 50);
 		pm_runtime_use_autosuspend(dev);
 		pm_runtime_enable(dev);
 	}
