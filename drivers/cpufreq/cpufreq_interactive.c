@@ -569,10 +569,6 @@ static int cpufreq_interactive_speedchange_task(void *data)
 	cpumask_t tmp_mask;
 	unsigned long flags;
 	struct cpufreq_interactive_cpuinfo *pcpu;
-	#ifdef CONFIG_ACPI
-	struct cpufreq_interactive_cpuinfo *pkcpu;
-	unsigned int k;
-	#endif
 	while (1) {
 		set_current_state(TASK_INTERRUPTIBLE);
 		spin_lock_irqsave(&speedchange_cpumask_lock, flags);
@@ -612,15 +608,6 @@ static int cpufreq_interactive_speedchange_task(void *data)
 				if (pjcpu->target_freq > max_freq)
 					max_freq = pjcpu->target_freq;
 			}
-			#ifdef CONFIG_ACPI
-			if (pcpu->policy->shared_type ==
-						CPUFREQ_SHARED_TYPE_ALL) {
-				for_each_cpu(k, pcpu->policy->cpus) {
-					pkcpu = &per_cpu(cpuinfo, k);
-					pkcpu->target_freq = max_freq;
-				}
-			}
-			#endif
 			if (max_freq != pcpu->policy->cur)
 				__cpufreq_driver_target(pcpu->policy,
 							max_freq,
