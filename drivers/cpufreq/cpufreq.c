@@ -873,6 +873,8 @@ static int cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 	 * CPU because it is in the same boat. */
 	policy = cpufreq_cpu_get(cpu);
 	if (unlikely(policy)) {
+		/* according present policy to align all the cpus frequencies */
+		cpufreq_driver->target(policy, policy->cur, CPUFREQ_RELATION_H);
 		cpufreq_cpu_put(policy);
 		return 0;
 	}
