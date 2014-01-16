@@ -2104,11 +2104,14 @@ static int mid_suspend_enter(suspend_state_t state)
 	if (state != PM_SUSPEND_MEM)
 		return -EINVAL;
 
-	/* one last check before entering standby */
-	if (pmu_ops->check_nc_sc_status) {
-		if (!(pmu_ops->check_nc_sc_status())) {
-			trace_printk("Device d0ix status check failed! Aborting Standby entry!\n");
-			WARN_ON(1);
+	/*FIXME:: On MOFD target mask is incorrect, hence avoid check for MOFD*/
+	if (!platform_is(INTEL_ATOM_MOORFLD)) {
+		/* one last check before entering standby */
+		if (pmu_ops->check_nc_sc_status) {
+			if (!(pmu_ops->check_nc_sc_status())) {
+				trace_printk("Device d0ix status check failed! Aborting Standby entry!\n");
+				WARN_ON(1);
+			}
 		}
 	}
 
