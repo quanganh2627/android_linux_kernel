@@ -1921,7 +1921,7 @@ static int intel_mid_dma_probe(struct pci_dev *pdev,
 	struct middma_device *device;
 	u32 base_addr, bar_size;
 	struct intel_mid_dma_probe_info *info;
-	int err;
+	int err = -EINVAL;
 
 	pr_debug("MDMA: probe for %x\n", pdev->device);
 	info = (void *)id->driver_data;
