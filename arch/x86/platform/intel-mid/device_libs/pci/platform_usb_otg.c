@@ -59,6 +59,14 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 			dwc_otg_pdata.pmic_type = SHADY_COVE;
 			dwc_otg_pdata.charger_detect_enable = 0;
 			dwc_otg_pdata.usb2_phy_type = get_usb2_phy_type();
+
+			/* [WA] SRAM caching ioremap not functional for MOFD (Bug 165464).
+			 * Hence hard-coding USBSPECOVERRIDE temporarily.
+			 */
+			/* dwc_otg_pdata.charging_compliance =
+				dwc_otg_get_usbspecoverride();*/
+			dwc_otg_pdata.charging_compliance = 1;
+
 			if (dwc_otg_pdata.usb2_phy_type == USB2_PHY_ULPI)
 				dwc_otg_pdata.charger_detect_enable = 1;
 
