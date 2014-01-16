@@ -345,7 +345,7 @@ int mcd_get_config_ver(char *mdm_name, int mid_cpu)
 	ssize_t i = 0;
 
 	if (strstr(mdm_name, "CONF"))
-		strncpy(config_name, mdm_name, SFI_NAME_LEN);
+		strncpy(config_name, mdm_name, SFI_NAME_LEN - 1);
 	else {
 		memset(config_name, 0, SFI_NAME_LEN);
 		for (i = 0; i < ARRAY_SIZE(cfg_assoc_tbl); i++) {
@@ -353,6 +353,8 @@ int mcd_get_config_ver(char *mdm_name, int mid_cpu)
 					&& (cfg_assoc_tbl[i].cpu_type == mid_cpu)) {
 				strncpy(config_name, cfg_assoc_tbl[i].cfg_name,
 						SFI_NAME_LEN);
+				/* Null terminate config_name to please KW */
+				config_name[SFI_NAME_LEN - 1] = '\0';
 				break;
 			}
 		}
