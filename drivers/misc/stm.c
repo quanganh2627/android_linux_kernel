@@ -33,13 +33,16 @@
 #include <linux/sdm.h>
 
 #include "stm.h"
+#include <asm/intel-mid.h>
 #include <asm/intel_soc_debug.h>
 #include "../usb/dwc3/core.h"
 
 /* STM Registers */
 #define STM_CTRL		0x0000
 #define STM_USB3DBGGTHR		0x0008
-#define STM_MASMSK		0x0010
+#define STM_MASMSK0		0x0010
+#define STM_MASMSK1		0x0018
+#define STM_USBTO		0x0020
 #define STM_CHMSK		0x0080
 #define STM_AGTBAR0		0x00C0
 #define STM_AGTBAR1		0x0140
@@ -257,9 +260,23 @@ static int stm_xfer_start(void)
 {
 	struct stm_dev *stm = _dev_stm;
 	struct stm_ctrl *stm_ctrl;
+	u32 reg_word;
 
 	if (!stm)
 		return -ENODEV;
+
+	/* REVERTME : filter PUNIT and SCU MasterID when switching to USB */
+	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
+		pr_info("%s\n REVERTME : filter PUNIT and SCU MasterID\n", __func__);
+		reg_word = stm_readl(stm->stm_ioaddr, (u32)STM_MASMSK1);
+		reg_word |= 0x28;
+		stm_writel(stm->stm_ioaddr, (u32)STM_MASMSK1, reg_word);
+
+		pr_info("%s\n REVERTME : USBTO\n", __func__);
+		reg_word = stm_readl(stm->stm_ioaddr, (u32)STM_USBTO);
+		reg_word |= 0x01;
+		stm_writel(stm->stm_ioaddr, (u32)STM_USBTO, reg_word);
+	}
 
 	stm_ctrl = &stm->stm_ctrl_hwreg;
 	stm_ctrl->reg_word = stm_readl(stm->stm_ioaddr, (u32)STM_CTRL);
