@@ -146,23 +146,27 @@ static struct gpio_flis_pair gpio_flis_ann_mapping_table[] = {
 	{ 17,	0x1D18 },
 	{ 19,	0x1D08 },
 	{ 23,	0x1D20 },
-	{ 31,	-EINVAL }, /* No GPIO 31 in pin list */
+	{ 31,	0x111C },
 	{ 32,	0x1508 },
 	{ 44,	0x3500 },
 	{ 64,	0x312C },
 	{ 68,	0x2934 },
 	{ 70,	0x1500 },
-	{ 72,	-EINVAL }, /* No GPIO 73-76 in pin list */
+	{ 72,	0x3D00 },
 	{ 77,	0x0D00 },
 	{ 87,   0x0D2C },
 	{ 88,   0x0D28 },
 	{ 89,   0x0D30 },
 	{ 97,	0x2130 },
-	{ 98,	-EINVAL }, /* No GPIO 98-101 in pin list */
+	{ 98,	0x2D18 },
+	{ 99,	-EINVAL }, /* No GPIO 99-100 in pin list */
+	{ 101,	0x0500 },
 	{ 102,	0x1910 },
 	{ 120,	0x1900 },
 	{ 124,	0x2100 },
-	{ 136,	-EINVAL }, /* No GPIO 136-153 in pin list */
+	{ 136,	0x0504 },
+	{ 137,  0x2D00 },
+	{ 143,  0x0508 },
 	{ 154,	0x2134 },
 	{ 162,	0x2548 },
 	{ 164,	0x3D14 },
