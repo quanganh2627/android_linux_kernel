@@ -458,8 +458,8 @@ static ssize_t sst_sysfs_set_recovery(struct device *dev,
 
 	if (val == 1) {
 		if (!atomic_read(&ctx->pm_usage_count)) {
-			pr_debug("%s: set sst state to uninit...\n", __func__);
-			sst_set_fw_state_locked(ctx, SST_UN_INIT);
+			pr_debug("%s: set sst state to RESET...\n", __func__);
+			sst_set_fw_state_locked(ctx, SST_RESET);
 		} else {
 			pr_err("%s: not setting sst state... %d\n", __func__,
 					atomic_read(&ctx->pm_usage_count));
@@ -737,7 +737,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 		}
 	}
 
-	sst_set_fw_state_locked(sst_drv_ctx, SST_UN_INIT);
+	sst_set_fw_state_locked(sst_drv_ctx, SST_RESET);
 	sst_drv_ctx->irq_num = pci->irq;
 	/* Register the ISR */
 	ret = request_threaded_irq(pci->irq, sst_drv_ctx->ops->interrupt,
@@ -882,7 +882,7 @@ static void intel_sst_remove(struct pci_dev *pci)
 	pm_runtime_forbid(sst_drv_ctx->dev);
 	unregister_sst(sst_drv_ctx->dev);
 	pci_dev_put(sst_drv_ctx->pci);
-	sst_set_fw_state_locked(sst_drv_ctx, SST_UN_INIT);
+	sst_set_fw_state_locked(sst_drv_ctx, SST_RESET);
 	misc_deregister(&lpe_ctrl);
 	free_irq(pci->irq, sst_drv_ctx);
 
@@ -970,8 +970,8 @@ static int intel_sst_runtime_suspend(struct device *dev)
 	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
 
 	pr_info("runtime_suspend called\n");
-	if (ctx->sst_state == SST_UN_INIT) {
-		pr_debug("LPE is already in UNINIT state, No action");
+	if (ctx->sst_state == SST_RESET) {
+		pr_debug("LPE is already in RESET state, No action");
 		return 0;
 	}
 	/*save fw context*/
@@ -1038,7 +1038,8 @@ static int intel_sst_runtime_resume(struct device *dev)
 		atomic_set(&ctx->fw_clear_cache, 0);
 	}
 
-	sst_set_fw_state_locked(ctx, SST_UN_INIT);
+	sst_set_fw_state_locked(ctx, SST_RESET);
+
 	return ret;
 }
 
@@ -1062,7 +1063,7 @@ static int intel_sst_runtime_idle(struct device *dev)
 	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
 
 	pr_info("runtime_idle called\n");
-	if (ctx->sst_state != SST_UN_INIT) {
+	if (ctx->sst_state != SST_RESET) {
 		pm_schedule_suspend(dev, SST_SUSPEND_DELAY);
 		return -EBUSY;
 	} else {
@@ -1081,9 +1082,9 @@ static void sst_do_shutdown(struct intel_sst_drv *ctx)
 
 	pr_debug(" %s called\n", __func__);
 	if (ctx->sst_state == SST_SUSPENDED ||
-			ctx->sst_state == SST_UN_INIT) {
+			ctx->sst_state == SST_RESET) {
 		sst_set_fw_state_locked(ctx, SST_SHUTDOWN);
-		pr_debug("sst is already in suspended/un-int state\n");
+		pr_debug("sst is already in suspended/RESET state\n");
 		return;
 	}
 	if (!ctx->use_32bit_ops)

@@ -645,7 +645,7 @@ int sst_free_stream(int str_id)
 	pr_debug("SST DBG:sst_free_stream for %d\n", str_id);
 
 	mutex_lock(&sst_drv_ctx->sst_lock);
-	if (sst_drv_ctx->sst_state == SST_UN_INIT) {
+	if (sst_drv_ctx->sst_state == SST_RESET) {
 		mutex_unlock(&sst_drv_ctx->sst_lock);
 		return -ENODEV;
 	}

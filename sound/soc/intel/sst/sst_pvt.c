@@ -364,7 +364,7 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	int env_offset = 0;
 
 	/*
-	 * setting firmware state as uninit so that the firmware will get
+	 * setting firmware state as RESET so that the firmware will get
 	 * redownloaded on next request.This is because firmare not responding
 	 * for 1 sec is equalant to some unrecoverable error of FW.
 	 */
@@ -372,7 +372,7 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	pr_err("Audio: trying to reset the dsp now\n");
 
 	mutex_lock(&sst->sst_lock);
-	sst->sst_state = SST_UN_INIT;
+	sst->sst_state = SST_RESET;
 	sst_stream_recovery(sst);
 	mutex_unlock(&sst->sst_lock);
 
@@ -479,8 +479,8 @@ int sst_wait_timeout(struct intel_sst_drv *sst_drv_ctx, struct sst_block *block)
 		if (sst_drv_ctx->sst_state == SST_FW_LOADED ||
 			sst_drv_ctx->sst_state ==  SST_START_INIT) {
 			pr_err("Can't recover as timedout while downloading the FW\n");
-			pr_err("reseting fw state to unint from %d ...\n", sst_drv_ctx->sst_state);
-			sst_drv_ctx->sst_state = SST_UN_INIT;
+			pr_err("reseting fw state to RESET from %d ...\n", sst_drv_ctx->sst_state);
+			sst_drv_ctx->sst_state = SST_RESET;
 
 			dump_sst_shim(sst_drv_ctx);
 

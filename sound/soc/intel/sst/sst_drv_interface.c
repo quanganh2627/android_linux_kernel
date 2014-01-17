@@ -387,7 +387,7 @@ int intel_sst_check_device(void)
 				atomic_read(&sst_drv_ctx->pm_usage_count));
 
 	mutex_lock(&sst_drv_ctx->sst_lock);
-	if (sst_drv_ctx->sst_state == SST_UN_INIT)
+	if (sst_drv_ctx->sst_state == SST_RESET)
 		sst_drv_ctx->sst_state = SST_START_INIT;
 
 	if (sst_drv_ctx->sst_state == SST_START_INIT ||
@@ -398,7 +398,7 @@ int intel_sst_check_device(void)
 		retval = sst_download_fw();
 		if (retval) {
 			pr_err("FW download fail %x\n", retval);
-			sst_drv_ctx->sst_state = SST_UN_INIT;
+			sst_drv_ctx->sst_state = SST_RESET;
 			mutex_unlock(&sst_drv_ctx->sst_lock);
 			sst_pm_runtime_put(sst_drv_ctx);
 			return retval;
@@ -624,7 +624,7 @@ static int sst_cdev_control(unsigned int cmd, unsigned int str_id)
 {
 	pr_debug("recieved cmd %d on stream %d\n", cmd, str_id);
 
-	if (sst_drv_ctx->sst_state == SST_UN_INIT)
+	if (sst_drv_ctx->sst_state == SST_RESET)
 		return 0;
 
 	switch (cmd) {
@@ -864,7 +864,7 @@ static int sst_device_control(int cmd, void *arg)
 {
 	int retval = 0, str_id = 0;
 
-	if (sst_drv_ctx->sst_state == SST_UN_INIT)
+	if (sst_drv_ctx->sst_state == SST_RESET)
 		return 0;
 
 	switch (cmd) {

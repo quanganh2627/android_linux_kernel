@@ -1173,7 +1173,7 @@ void sst_firmware_load_cb(const struct firmware *fw, void *context)
 		goto out;
 	}
 
-	if (sst_drv_ctx->sst_state != SST_UN_INIT ||
+	if (sst_drv_ctx->sst_state != SST_RESET ||
 			ctx->fw_in_mem != NULL)
 		goto exit;
 
@@ -1231,7 +1231,7 @@ void sst_firmware_load_cb(const struct firmware *fw, void *context)
 	sst_set_fw_state_locked(sst_drv_ctx, SST_FW_LIB_LOAD);
 	goto exit;
 out:
-	sst_set_fw_state_locked(sst_drv_ctx, SST_UN_INIT);
+	sst_set_fw_state_locked(sst_drv_ctx, SST_RESET);
 exit:
 	if (fw != NULL)
 		release_firmware(fw);

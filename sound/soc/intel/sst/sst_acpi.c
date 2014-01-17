@@ -602,7 +602,7 @@ int sst_acpi_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	register_sst(dev);
 	sst_debugfs_init(ctx);
-	sst_set_fw_state_locked(ctx, SST_UN_INIT);
+	sst_set_fw_state_locked(ctx, SST_RESET);
 	sst_save_shim64(ctx, ctx->shim, ctx->shim_regs64);
 	pr_info("%s successfully done!\n", __func__);
 	return ret;
@@ -635,7 +635,7 @@ int sst_acpi_remove(struct platform_device *pdev)
 	pm_runtime_get_noresume(ctx->dev);
 	pm_runtime_disable(ctx->dev);
 	unregister_sst(ctx->dev);
-	sst_set_fw_state_locked(ctx, SST_UN_INIT);
+	sst_set_fw_state_locked(ctx, SST_RESET);
 	misc_deregister(&lpe_ctrl);
 	kfree(ctx->runtime_param.param.addr);
 	flush_scheduled_work();

@@ -623,7 +623,7 @@ static ssize_t sst_debug_readme_read(struct file *file, char __user *user_buf,
 		"Valid address range is between 0x00 to 0x80 in increments of 8.\n"
 		"3. echo 1 > fw_clear_context , This sets the flag to skip the context restore\n"
 		"4. echo 1 > fw_clear_cache , This sets the flag to clear the cached copy of firmware\n"
-		"5. echo 1 > fw_reset_state ,This sets the fw state to uninit\n"
+		"5. echo 1 > fw_reset_state ,This sets the fw state to RESET\n"
 		"6. echo memcpy > fw_dwnld_mode, This will set the firmware download mode to memcpy\n"
 		"   echo lli > fw_dwnld_mode, This will set the firmware download mode to\n"
 					"dma lli mode\n"
@@ -837,7 +837,7 @@ static ssize_t sst_debug_fw_reset_state_write(struct file *file,
 	buf[sz] = 0;
 
 	if (!strncmp(buf, "1\n", sz))
-		sst_set_fw_state_locked(sst_drv_ctx, SST_UN_INIT);
+		sst_set_fw_state_locked(sst_drv_ctx, SST_RESET);
 	else
 		return -EINVAL;
 
@@ -877,8 +877,8 @@ static ssize_t sst_debug_dwnld_mode_write(struct file *file,
 	int sz = min(count, sizeof(buf)-1);
 
 	if (sst_drv_ctx->sst_state != SST_SUSPENDED &&
-	    sst_drv_ctx->sst_state != SST_UN_INIT) {
-		pr_err("FW should be in suspended/uninit state\n");
+	    sst_drv_ctx->sst_state != SST_RESET) {
+		pr_err("FW should be in suspended/RESET state\n");
 		return -EFAULT;
 	}
 
