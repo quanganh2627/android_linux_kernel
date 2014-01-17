@@ -415,7 +415,7 @@ static void process_fw_init(void *msg)
 
 	pr_debug("*** FW Init msg came***\n");
 	if (init->result) {
-		sst_drv_ctx->sst_state =  SST_ERROR;
+		sst_drv_ctx->sst_state =  SST_RESET;
 		pr_debug("FW Init failed, Error %x\n", init->result);
 		pr_err("FW Init failed, Error %x\n", init->result);
 		retval = init->result;
