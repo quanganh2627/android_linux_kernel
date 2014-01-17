@@ -347,6 +347,7 @@ dealloc_usb2_hcd:
 static int dwc3_stop_host(struct usb_hcd *hcd)
 {
 	int count = 0;
+	u32 data;
 	struct xhci_hcd *xhci;
 	struct usb_hcd *xhci_shared_hcd;
 
@@ -356,6 +357,11 @@ static int dwc3_stop_host(struct usb_hcd *hcd)
 	xhci = hcd_to_xhci(hcd);
 
 	pm_runtime_get_sync(hcd->self.controller);
+
+	/* Disable hibernation mode for D0i3cold. */
+	data = readl(hcd->regs + GCTL);
+	data &= ~GCTL_GBL_HIBERNATION_EN;
+	writel(data, hcd->regs + GCTL);
 
 	/* When plug out micro A cable, there will be two flows be executed.
 	 * The first one is xHCI controller get disconnect event. The
