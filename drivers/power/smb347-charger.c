@@ -427,20 +427,23 @@ static inline int smb347_force_fcc(struct smb347_charger *smb)
 
 static int smb34x_get_health(struct smb347_charger *smb)
 {
-	bool usb = 0;
-	int stat_e = 0, ret;
+	int stat_e = 0, usb;
 	int chrg_health;
 
 	if (!smb->is_smb349) {
 		chrg_health = POWER_SUPPLY_HEALTH_UNKNOWN;
 		goto end;
 	}
-
-	ret = smb347_read(smb, STAT_D);
-	if (ret < 0) {
-		dev_err(&smb->client->dev, "%s:i2c read error", __func__);
-		chrg_health = POWER_SUPPLY_HEALTH_UNKNOWN;
-		goto end;
+	if (smb->pdata->detect_chg) {
+		usb = smb347_read(smb, STAT_D);
+		if (usb < 0) {
+			dev_err(&smb->client->dev, "%s:i2c read error", __func__);
+			chrg_health = POWER_SUPPLY_HEALTH_UNKNOWN;
+			goto end;
+		}
+		usb = !smb->is_disabled && usb;
+	} else {
+		usb = !smb->is_disabled;
 	}
 
 	stat_e = smb347_read(smb, IRQSTAT_E);
@@ -450,9 +453,7 @@ static int smb34x_get_health(struct smb347_charger *smb)
 		goto end;
 	}
 
-	usb = !smb->is_disabled;
-
-	if (ret && usb) {
+	if (usb) {
 		/* charger present && charger not disabled */
 		if (stat_e & SMB349_IRQSTAT_E_DCIN_UV_STAT)
 			chrg_health = POWER_SUPPLY_HEALTH_DEAD;
