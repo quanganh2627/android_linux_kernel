@@ -965,7 +965,6 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 
 	/* Keep the voice call paths active during
 	suspend. Mark the end points ignore_suspend */
-	/*TODO: CHECK this */
 	snd_soc_dapm_ignore_suspend(dapm, "HPOL");
 	snd_soc_dapm_ignore_suspend(dapm, "HPOR");
 
@@ -973,6 +972,12 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	snd_soc_dapm_ignore_suspend(dapm, "SPOLN");
 	snd_soc_dapm_ignore_suspend(dapm, "SPORP");
 	snd_soc_dapm_ignore_suspend(dapm, "SPORN");
+	snd_soc_dapm_ignore_suspend(dapm, "AIF2 Playback");
+	snd_soc_dapm_ignore_suspend(dapm, "AIF2 Capture");
+	snd_soc_dapm_ignore_suspend(&card->dapm, "Headphone");
+	snd_soc_dapm_ignore_suspend(&card->dapm, "Headset Mic");
+	snd_soc_dapm_ignore_suspend(&card->dapm, "Ext Spk");
+	snd_soc_dapm_ignore_suspend(&card->dapm, "Int Mic");
 
 	snd_soc_dapm_enable_pin(dapm, "Headset Mic");
 	snd_soc_dapm_enable_pin(dapm, "Headphone");
