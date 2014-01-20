@@ -482,8 +482,8 @@ static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 
 	pr_debug("Enter:%s", __func__);
 
-	/* TDM 4 slot 24 bit */
-	ret = snd_soc_dai_set_tdm_slot(codec_dai, 0, 0, 4, SNDRV_PCM_FORMAT_GSM);
+	/* TDM 4 slot 24 bit set the Rx and Tx bitmask to 4 active slots as 0xF */
+	ret = snd_soc_dai_set_tdm_slot(codec_dai, 0xF, 0xF, 4, SNDRV_PCM_FORMAT_GSM);
 	if (ret < 0) {
 		pr_err("can't set codec TDM slot %d\n", ret);
 		return ret;
