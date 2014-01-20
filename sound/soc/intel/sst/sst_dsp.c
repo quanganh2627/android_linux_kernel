@@ -1170,12 +1170,14 @@ void sst_firmware_load_cb(const struct firmware *fw, void *context)
 
 	if (fw == NULL) {
 		pr_err("request fw failed\n");
-		goto out;
+		return;
 	}
+
+	mutex_lock(&sst_drv_ctx->sst_lock);
 
 	if (sst_drv_ctx->sst_state != SST_RESET ||
 			ctx->fw_in_mem != NULL)
-		goto exit;
+		goto out;
 
 	pr_debug("Request Fw completed\n");
 	trace_sst_fw_download("End of FW request", ctx->sst_state);
@@ -1220,7 +1222,6 @@ void sst_firmware_load_cb(const struct firmware *fw, void *context)
 		ctx->fw_in_mem = NULL;
 		goto out;
 	}
-
 	/* If static module download(download at boot time) is supported,
 	 * set the flag to indicate lib download is to be done
 	 */
@@ -1228,11 +1229,8 @@ void sst_firmware_load_cb(const struct firmware *fw, void *context)
 		if (ctx->pdata->lib_info->mod_ddr_dnld)
 			ctx->lib_dwnld_reqd = true;
 
-	sst_set_fw_state_locked(sst_drv_ctx, SST_FW_LIB_LOAD);
-	goto exit;
 out:
-	sst_set_fw_state_locked(sst_drv_ctx, SST_RESET);
-exit:
+	mutex_unlock(&sst_drv_ctx->sst_lock);
 	if (fw != NULL)
 		release_firmware(fw);
 }
@@ -1544,24 +1542,17 @@ int sst_load_fw(void)
 
 	pr_debug("sst_load_fw\n");
 
-	if ((sst_drv_ctx->sst_state !=  SST_START_INIT &&
-			sst_drv_ctx->sst_state !=  SST_FW_LIB_LOAD) ||
+	if (sst_drv_ctx->sst_state !=  SST_RESET ||
 			sst_drv_ctx->sst_state == SST_SHUTDOWN)
 		return -EAGAIN;
 
 	if (!sst_drv_ctx->fw_in_mem) {
-		if (sst_drv_ctx->sst_state != SST_START_INIT) {
-			/* even wake*/
-			pr_err("sst : wait for FW to be downloaded\n");
-			return -EBUSY;
-		} else {
-			trace_sst_fw_download("Req FW sent in check device",
-						sst_drv_ctx->sst_state);
-			pr_debug("sst: FW not in memory retry to download\n");
-			ret_val = sst_request_fw(sst_drv_ctx);
-			if (ret_val)
-				return ret_val;
-		}
+		trace_sst_fw_download("Req FW sent in check device",
+					sst_drv_ctx->sst_state);
+		pr_debug("sst: FW not in memory retry to download\n");
+		ret_val = sst_request_fw(sst_drv_ctx);
+		if (ret_val)
+			return ret_val;
 	}
 
 	BUG_ON(!sst_drv_ctx->fw_in_mem);

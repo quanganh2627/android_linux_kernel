@@ -61,10 +61,8 @@ extern struct intel_sst_drv *sst_drv_ctx;
 enum sst_states {
 	SST_FW_LOADING = 1,
 	SST_FW_RUNNING,
-	SST_START_INIT,
 	SST_RESET,
 	SST_SHUTDOWN,
-	SST_FW_LIB_LOAD,
 };
 
 #define SST_BLOCK_TIMEOUT	1000
