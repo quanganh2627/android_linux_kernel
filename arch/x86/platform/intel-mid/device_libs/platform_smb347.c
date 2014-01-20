@@ -190,17 +190,17 @@ static struct smb347_charger_platform_data byt_t_ffrd8_pr1_pdata = {
 					/* disable opticharge*/
 						0x02, 0x87,
 						0x03, 0xED,
-				/* enable Auto recharge, Turbo charge+ */
-						0x04, 0x3D,
-					/* disable safety timer */
-						0x05, 0x0F,
+			/* enable Auto recharge, Disable Turbo charge+ */
+						0x04, 0x38,
+					/* USB-OK stat, disable safety timer */
+						0x05, 0x4F,
 				/* enable APSD interrupt along with others */
 						0x06, 0x06,
 						0x07, 0x85,
 					/* I2C control OTG */
 						0x9, 0x80,
-					/* OTG current  500mA*/
-						0x0A, 0x47,
+				/* Switch Freq. 1.5MHz OTG current  500mA*/
+						0x0A, 0x87,
 					/* OTG interrupt settings */
 						0x0C, 0xBF,
 						0x0D, 0xF4,
