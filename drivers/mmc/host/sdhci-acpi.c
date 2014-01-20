@@ -46,6 +46,7 @@
 #include <linux/mmc/slot-gpio.h>
 
 #include <asm/spid.h>
+#include <asm/cpu_device_id.h>
 
 #include "sdhci.h"
 
@@ -82,6 +83,26 @@ struct sdhci_acpi_host {
 	bool				use_runtime_pm;
 	int				cd_gpio;
 };
+
+#define INTEL_VLV_CPU	0x37
+#define INTEL_CHV_CPU	0x30
+static const struct x86_cpu_id intel_cpus[] = {
+	{ X86_VENDOR_INTEL, 6, INTEL_VLV_CPU, X86_FEATURE_ANY, 0 },
+	{ X86_VENDOR_INTEL, 6, INTEL_CHV_CPU, X86_FEATURE_ANY, 0 },
+	{}
+};
+
+static bool sdhci_intel_host(unsigned int *cpu)
+{
+	const struct x86_cpu_id *id;
+	if (!cpu)
+		return false;
+	id = x86_match_cpu(intel_cpus);
+	if (!id)
+		return false;
+	*cpu = id->model;
+	return true;
+}
 
 static inline bool sdhci_acpi_flag(struct sdhci_acpi_host *c, unsigned int flag)
 {
@@ -200,6 +221,7 @@ static int sdhci_acpi_emmc_probe_slot(struct platform_device *pdev)
 {
 	struct sdhci_acpi_host *c = platform_get_drvdata(pdev);
 	struct sdhci_host *host;
+	unsigned int cpu;
 
 	if (!c || !c->host)
 		return 0;
@@ -209,6 +231,20 @@ static int sdhci_acpi_emmc_probe_slot(struct platform_device *pdev)
 	if (!INTEL_MID_BOARDV2(TABLET, BYT, BLB, PRO) &&
 			!INTEL_MID_BOARDV2(TABLET, BYT, BLB, ENG))
 		sdhci_alloc_panic_host(host);
+
+	if (!sdhci_intel_host(&cpu))
+		return 0;
+
+	switch (cpu) {
+	case INTEL_VLV_CPU:
+		host->mmc->qos = kzalloc(sizeof(struct pm_qos_request),
+				GFP_KERNEL);
+		pm_qos_add_request(host->mmc->qos, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
+		break;
+	default:
+		break;
+	}
 
 	return 0;
 }
