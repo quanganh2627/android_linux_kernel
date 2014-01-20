@@ -1016,24 +1016,32 @@ static int aic31xx_set_dai_pll(struct snd_soc_dai *dai,
 static int aic31xx_set_sysclk(struct snd_soc_codec *codec,
 		int clk_id, int source, unsigned int freq, int dir)
 {
+	/* Frequency required by jack detection logic when
+	 * on external clock
+	 */
+	int divider = 1;
 	if (clk_id == AIC31XX_MCLK) {
 		snd_soc_update_bits(codec, AIC31XX_TIMERCLOCK,
 			 AIC31XX_CLKSEL_MASK, AIC31XX_CLKSEL_MASK);
-		/* Debounce time depends on input clock. Set
-		 * debounce time for external clock, since we
-		 * are switching to external clock.
+
+		divider = freq / AIC31XX_REQ_TIMER_FREQ;
+		/* Added +1 to divider if divider is not exact.
+		 * This will make sure divider is always == ||
+		 * > required divider. So frequency will
+		 * round off to lower than ~1MHz
 		 */
-		snd_soc_update_bits(codec, AIC31XX_HSDETECT,
-				AIC31XX_JACK_DEBOUCE_MASK, 0x0);
+		if (freq % AIC31XX_REQ_TIMER_FREQ)
+			divider++;
+
+		snd_soc_update_bits(codec, AIC31XX_TIMERCLOCK,
+			 AIC31XX_DIVIDER_MASK, divider);
+
+		dev_dbg(codec->dev, "%s: input freq = %d divider = %d",
+		__func__, freq, divider);
+
 	} else if (clk_id == AIC31XX_INTERNALCLOCK) {
 		snd_soc_update_bits(codec, AIC31XX_TIMERCLOCK,
 			AIC31XX_CLKSEL_MASK, 0x0);
-		/* Debounce time depends on input clock. Set
-		 * debounce time for internal clock, since we
-		 * are switching to internal clock.
-		 */
-		snd_soc_update_bits(codec, AIC31XX_HSDETECT,
-				AIC31XX_JACK_DEBOUCE_MASK, 0x14);
 	} else {
 		dev_err(codec->dev, "Wrong clock src\n");
 		return -EINVAL;
