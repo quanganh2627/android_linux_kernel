@@ -35,6 +35,7 @@
 #include <asm/platform_byt_audio.h>
 #include <asm/platform_sst.h>
 #include <acpi/acpi_bus.h>
+#include <asm/spid.h>
 #include <sound/intel_sst_ioctl.h>
 #include "../sst_platform.h"
 #include "../platform_ipc_v2.h"
@@ -83,6 +84,35 @@ static const struct sst_board_config_data sst_byt_ffrd8_bdata = {
 	.platform_id = 3,
 	.board_id = 1,
 	.ihf_num_chan = 2,
+	.osc_clk_freq = 25000000,
+	.ssp_platform_data = {
+		[0] = {
+			.ssp_cfg_sst = 1,
+			.port_number = 0,
+			.is_master = 1,
+			.pack_mode = 1,
+			.num_slots_per_frame = 2,
+			.num_bits_per_slot = 24,
+			.active_tx_map = 3,
+			.active_rx_map = 3,
+			.ssp_frame_format = 3,
+			.frame_polarity = 1,
+			.serial_bitrate_clk_mode = 0,
+			.frame_sync_width = 24,
+			.dma_handshake_interface_tx = 1,
+			.dma_handshake_interface_rx = 0,
+			.network_mode = 0,
+			.start_delay = 1,
+			.ssp_base_add = SST_BYT_SSP0_PHY_ADDR,
+		},
+	},
+};
+
+static const struct sst_board_config_data sst_byt_crv2_bdata = {
+	.active_ssp_ports = 1,
+	.platform_id = 3,
+	.board_id = 1,
+	.ihf_num_chan = 1,
 	.osc_clk_freq = 25000000,
 	.ssp_platform_data = {
 		[0] = {
@@ -509,6 +539,15 @@ int sst_acpi_probe(struct platform_device *pdev)
 	ctx->pdata = sst_get_acpi_driver_data(hid);
 	if (!ctx->pdata)
 		return -EINVAL;
+	if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2)) {
+		/* BYT-CR V2 has only mono speaker, while
+		 * byt has stereo speaker, for both
+		 * HID is same, so platform data also is
+		 * same, hence overriding bdata based on spid
+		 */
+		ctx->pdata->bdata = &sst_byt_crv2_bdata;
+		pr_info("Overriding bdata for byt-crv2\n");
+	}
 
 	ctx->use_32bit_ops = ctx->pdata->ipc_info->use_32bit_ops;
 	ctx->mailbox_recv_offset = ctx->pdata->ipc_info->mbox_recv_off;
