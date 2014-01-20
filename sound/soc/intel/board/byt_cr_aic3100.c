@@ -44,8 +44,8 @@
 #define BYT_PLAT_CLK_3_HZ	25000000
 
 #define BYT_INTR_DEBOUNCE               0
-#define BYT_HS_INSERT_DET_DELAY         500
-#define BYT_HS_REMOVE_DET_DELAY         500
+#define BYT_HS_INSERT_DET_DELAY         100
+#define BYT_HS_REMOVE_DET_DELAY         100
 #define BYT_BUTTON_PRESS_DELAY          50
 #define BYT_BUTTON_RELEASE_DELAY        50
 #define BYT_HS_DET_POLL_INTRVL          100
