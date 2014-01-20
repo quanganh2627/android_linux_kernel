@@ -57,6 +57,8 @@ u32 dma_reg_off[] = {0x2C0, 0x2C8, 0x2D0, 0x2D8, 0x2E0, 0x2E8,
 		0x380, 0x388, 0x390, 0x398, 0x3A0, 0x3A8, 0x3B0, 0x3C8, 0x3D0,
 		0x3D8, 0x3E0, 0x3E8, 0x3F0, 0x3F8};
 
+static inline int is_fw_running(struct intel_sst_drv *drv);
+
 static ssize_t sst_debug_shim_read(struct file *file, char __user *user_buf,
 				   size_t count, loff_t *ppos)
 {
@@ -65,12 +67,14 @@ static ssize_t sst_debug_shim_read(struct file *file, char __user *user_buf,
 	unsigned int addr;
 	char buf[512];
 	char name[8];
-	int pos = 0;
+	int pos = 0, ret = 0;
 
 	buf[0] = 0;
-	if (drv->sst_state == SST_SUSPENDED) {
-		pr_err("FW suspended, cannot read SHIM registers\n");
-		return -EFAULT;
+
+	ret = is_fw_running(drv);
+	if (ret) {
+		pr_err("FW not running, cannot read SHIM registers\n");
+		return ret;
 	}
 
 	for (addr = SST_SHIM_BEGIN; addr <= SST_SHIM_END; addr += 8) {
@@ -104,6 +108,7 @@ static ssize_t sst_debug_shim_read(struct file *file, char __user *user_buf,
 		pos += sprintf(buf + pos, "0x%.2x: %.8llx  %s\n", addr, val, name);
 	}
 
+	sst_pm_runtime_put(drv);
 	return simple_read_from_buffer(user_buf, count, ppos,
 			buf, strlen(buf));
 }
@@ -116,16 +121,17 @@ static ssize_t sst_debug_shim_write(struct file *file,
 	char *start = buf, *end;
 	unsigned long long value;
 	unsigned long reg_addr;
-	int ret_val;
+	int ret_val = 0;
 	size_t buf_size = min(count, sizeof(buf)-1);
 
 	if (copy_from_user(buf, user_buf, buf_size))
 		return -EFAULT;
 	buf[buf_size] = 0;
 
-	if (drv->sst_state == SST_SUSPENDED) {
-		pr_err("FW suspended, cannot write SHIM registers\n");
-		return -EFAULT;
+	ret_val = is_fw_running(drv);
+	if (ret_val) {
+		pr_err("FW not running, cannot read SHIM registers\n");
+		return ret_val;
 	}
 
 	while (*start == ' ')
@@ -138,11 +144,12 @@ static ssize_t sst_debug_shim_write(struct file *file,
 	ret_val = kstrtoul(start, 16, &reg_addr);
 	if (ret_val) {
 		pr_err("kstrtoul failed, ret_val = %d\n", ret_val);
-		return ret_val;
+		goto put_pm_runtime;
 	}
 	if (!(SST_SHIM_BEGIN < reg_addr && reg_addr < SST_SHIM_END)) {
 		pr_err("invalid shim address: 0x%lx\n", reg_addr);
-		return -EINVAL;
+		ret_val = -EINVAL;
+		goto put_pm_runtime;
 	}
 
 	start = end + 1;
@@ -152,7 +159,7 @@ static ssize_t sst_debug_shim_write(struct file *file,
 	ret_val = kstrtoull(start, 16, &value);
 	if (ret_val) {
 		pr_err("kstrtoul failed, ret_val = %d\n", ret_val);
-		return ret_val;
+		goto put_pm_runtime;
 	}
 
 	pr_debug("writing shim: 0x%.2lx=0x%.8llx", reg_addr, value);
@@ -165,7 +172,11 @@ static ssize_t sst_debug_shim_write(struct file *file,
 
 	/* Userspace has been fiddling around behind the kernel's back */
 	add_taint(TAINT_USER, LOCKDEP_NOW_UNRELIABLE);
-	return buf_size;
+	ret_val = buf_size;
+
+put_pm_runtime:
+	sst_pm_runtime_put(drv);
+	return ret_val;
 }
 
 static const struct file_operations sst_debug_shim_ops = {
@@ -876,7 +887,7 @@ static ssize_t sst_debug_dwnld_mode_write(struct file *file,
 	char buf[16];
 	int sz = min(count, sizeof(buf)-1);
 
-	if (sst_drv_ctx->sst_state != SST_SUSPENDED &&
+	if (atomic_read(&sst_drv_ctx->pm_usage_count) &&
 	    sst_drv_ctx->sst_state != SST_RESET) {
 		pr_err("FW should be in suspended/RESET state\n");
 		return -EFAULT;

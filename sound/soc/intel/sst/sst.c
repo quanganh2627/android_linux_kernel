@@ -986,8 +986,8 @@ static int intel_sst_runtime_suspend(struct device *dev)
 		sst_shim_write(ctx->shim, SST_CSR, csr.full);
 	}
 
-	/* Move the SST state to Suspended */
-	sst_set_fw_state_locked(ctx, SST_SUSPENDED);
+	/* Move the SST state to Reset */
+	sst_set_fw_state_locked(ctx, SST_RESET);
 
 	flush_workqueue(ctx->post_msg_wq);
 	synchronize_irq(ctx->irq_num);
@@ -1081,8 +1081,8 @@ static void sst_do_shutdown(struct intel_sst_drv *ctx)
 	struct sst_block *block = NULL;
 
 	pr_debug(" %s called\n", __func__);
-	if (ctx->sst_state == SST_SUSPENDED ||
-			ctx->sst_state == SST_RESET) {
+	if ((atomic_read(&ctx->pm_usage_count) == 0) ||
+		ctx->sst_state == SST_RESET) {
 		sst_set_fw_state_locked(ctx, SST_SHUTDOWN);
 		pr_debug("sst is already in suspended/RESET state\n");
 		return;
