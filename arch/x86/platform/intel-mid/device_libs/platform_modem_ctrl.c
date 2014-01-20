@@ -277,11 +277,8 @@ void mcd_register_finalize(struct mcd_base_info const *info)
 			    get_gpio_by_name(cpu_data->gpio_pwr_on_name);
 			cpu_data->gpio_rst_bbn =
 			    get_gpio_by_name(cpu_data->gpio_rst_bbn_name);
-			if (info->cpu_ver == CPU_ANNIEDALE)
-				cpu_data->gpio_cdump = 162;
-			else
-				cpu_data->gpio_cdump =
-					get_gpio_by_name(cpu_data->gpio_cdump_name);
+			cpu_data->gpio_cdump =
+			    get_gpio_by_name(cpu_data->gpio_cdump_name);
 			break;
 		}
 	}
