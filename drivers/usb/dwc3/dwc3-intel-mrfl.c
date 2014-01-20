@@ -83,14 +83,18 @@ static int is_hybridvp(struct dwc_otg2 *otg)
 static void usb2phy_eye_optimization(struct dwc_otg2 *otg)
 {
 	struct usb_phy *phy;
+	struct intel_dwc_otg_pdata *data;
+
+	if (!otg || !otg->otg_data)
+		return -EINVAL;
+
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
 
 	phy = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (!phy)
 		return;
 
-	/* Set 0x7f for better quality in eye diagram
-	 * It means ZHSDRV = 0b11 and IHSTX = 0b1111*/
-	usb_phy_io_write(phy, 0x7f, TUSB1211_VENDOR_SPECIFIC1_SET);
+	usb_phy_io_write(phy, data->ulpi_eye_calibrate, TUSB1211_VENDOR_SPECIFIC1_SET);
 
 	usb_put_phy(phy);
 }
