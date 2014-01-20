@@ -509,8 +509,10 @@ static int sst_alloc_dma_chan(struct sst_dma *dma)
 		hid = sst_drv_ctx->hid;
 		if (!strncmp(hid, "LPE0F281", 8))
 			dma->dev = intel_mid_get_acpi_dma("DMA0F28");
-		if (!strncmp(hid, "80860F28", 8))
+		else if (!strncmp(hid, "80860F28", 8))
 			dma->dev = intel_mid_get_acpi_dma("ADMA0F28");
+		else if (!strncmp(hid, "808622A8", 8))
+			dma->dev = intel_mid_get_acpi_dma("ADMA22A8");
 		else if (!strncmp(hid, "LPE0F28", 7))
 			dma->dev = intel_mid_get_acpi_dma("DMA0F28");
 	}
