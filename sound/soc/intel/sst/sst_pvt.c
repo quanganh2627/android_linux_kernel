@@ -476,7 +476,7 @@ int sst_wait_timeout(struct intel_sst_drv *sst_drv_ctx, struct sst_block *block)
 		pr_err("sst: Wait timed-out condition:%#x, msg_id:%#x fw_state %#x\n",
 				block->condition, block->msg_id, sst_drv_ctx->sst_state);
 
-		if (sst_drv_ctx->sst_state == SST_FW_LOADED ||
+		if (sst_drv_ctx->sst_state == SST_FW_LOADING ||
 			sst_drv_ctx->sst_state ==  SST_START_INIT) {
 			pr_err("Can't recover as timedout while downloading the FW\n");
 			pr_err("reseting fw state to RESET from %d ...\n", sst_drv_ctx->sst_state);

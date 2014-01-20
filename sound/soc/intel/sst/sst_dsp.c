@@ -1390,8 +1390,9 @@ static int sst_download_library(const struct firmware *fw_lib,
 
 	/* downloading on success */
 	mutex_lock(&sst_drv_ctx->sst_lock);
-	sst_drv_ctx->sst_state = SST_FW_LOADED;
 	mutex_lock(&sst_drv_ctx->csr_lock);
+
+	sst_drv_ctx->sst_state = SST_FW_LOADING;
 	csr.full = readl(sst_drv_ctx->shim + SST_CSR);
 	csr.part.run_stall = 1;
 	sst_shim_write(sst_drv_ctx->shim, SST_CSR, csr.full);
@@ -1571,6 +1572,8 @@ int sst_load_fw(void)
 	/* Prevent C-states beyond C6 */
 	pm_qos_update_request(sst_drv_ctx->qos, CSTATE_EXIT_LATENCY_S0i1 - 1);
 
+	sst_drv_ctx->sst_state = SST_FW_LOADING;
+
 	ret_val = sst_drv_ctx->ops->reset();
 	if (ret_val)
 		goto restore;
@@ -1593,7 +1596,6 @@ int sst_load_fw(void)
 		sst_drv_ctx->ops->post_download(sst_drv_ctx);
 	trace_sst_fw_download("Post download for Lib end",
 			sst_drv_ctx->sst_state);
-	sst_drv_ctx->sst_state = SST_FW_LOADED;
 
 	/* bring sst out of reset */
 	ret_val = sst_drv_ctx->ops->start();
