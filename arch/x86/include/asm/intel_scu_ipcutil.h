@@ -110,6 +110,7 @@ int intel_scu_ipc_set_osc_clk0(unsigned int enable, enum clk0_mode mode);
 /* Helpers to turn on/off msic vprog1 and vprog2 */
 int intel_scu_ipc_msic_vprog1(int on);
 int intel_scu_ipc_msic_vprog2(int on);
+int intel_scu_ipc_msic_vprog3(int on);
 
 /* OSHOB-OS Handoff Buffer read */
 phys_addr_t intel_scu_ipc_get_oshob_base(void);

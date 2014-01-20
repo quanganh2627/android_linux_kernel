@@ -103,6 +103,11 @@ static int imx135_power_ctrl(struct v4l2_subdev *sd, int flag)
 	if (is_moorefield()) {
 #ifdef CONFIG_INTEL_SCU_IPC_UTIL
 		ret = intel_scu_ipc_msic_vprog1(flag);
+		if (ret) {
+			pr_err("imx135 power failed\n");
+			return ret;
+		}
+		ret = intel_scu_ipc_msic_vprog3(flag);
 #else
 		ret = -ENODEV;
 #endif

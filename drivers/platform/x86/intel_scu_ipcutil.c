@@ -412,13 +412,15 @@ EXPORT_SYMBOL_GPL(intel_scu_ipc_set_osc_clk0);
 /* Defines specific of MRFLD platform (CONFIG_X86_MRFLD). */
 #define MSIC_VPROG1_MRFLD_CTRL	0xAC
 #define MSIC_VPROG2_MRFLD_CTRL	0xAD
+#define MSIC_VPROG3_MRFLD_CTRL	0xAE
 
-#define MSIC_VPROG1_MRFLD_ON	0xC1	/* 2.80V */
-#define MSIC_VPROG2_MRFLD_ON	0xC1	/* 2.80V */
+#define MSIC_VPROG1_MRFLD_ON	0xC1	/* 2.80V and Auto mode */
+#define MSIC_VPROG2_MRFLD_ON	0xC1	/* 2.80V and Auto mode */
+#define MSIC_VPROG3_MRFLD_ON	0x01	/* 1.05V and Auto mode */
 #define MSIC_VPROG_MRFLD_OFF	0	/* OFF */
 /* End of MRFLD specific.*/
 
-/* Helpers to turn on/off msic vprog1 and vprog2 */
+/* Helpers to turn on/off msic vprog1, vprog2 and vprog3 */
 int intel_scu_ipc_msic_vprog1(int on)
 {
 	if ((oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
@@ -444,6 +446,15 @@ int intel_scu_ipc_msic_vprog2(int on)
 			on ? MSIC_VPROG2_ON : MSIC_VPROG_OFF);
 }
 EXPORT_SYMBOL_GPL(intel_scu_ipc_msic_vprog2);
+
+int intel_scu_ipc_msic_vprog3(int on)
+{
+	if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE)
+		return intel_scu_ipc_iowrite8(MSIC_VPROG3_MRFLD_CTRL,
+			on ? MSIC_VPROG3_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
+	return -ENODEV;
+}
+EXPORT_SYMBOL_GPL(intel_scu_ipc_msic_vprog3);
 
 /**
  *	scu_reg_access		-	implement register access ioctls
