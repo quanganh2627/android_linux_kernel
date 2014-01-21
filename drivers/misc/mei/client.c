@@ -1041,6 +1041,11 @@ void mei_cl_all_write_clear(struct mei_device *dev)
 		list_del(&cb->list);
 		mei_io_cb_free(cb);
 	}
+
+	list_for_each_entry_safe(cb, next, &dev->write_waiting_list.list, list) {
+		list_del(&cb->list);
+		mei_io_cb_free(cb);
+	}
 }
 
 
