@@ -784,6 +784,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 	}
 
 	sst_set_fw_state_locked(sst_drv_ctx, SST_UN_INIT);
+	sst_drv_ctx->irq_num = pci->irq;
 	/* Register the ISR */
 	ret = request_threaded_irq(pci->irq, sst_drv_ctx->ops->interrupt,
 		sst_drv_ctx->ops->irq_thread, 0, SST_DRV_NAME,
@@ -1051,6 +1052,8 @@ static int intel_sst_runtime_suspend(struct device *dev)
 	sst_set_fw_state_locked(ctx, SST_SUSPENDED);
 
 	flush_workqueue(ctx->post_msg_wq);
+	synchronize_irq(ctx->irq_num);
+
 	if (ctx->pci_id == SST_BYT_PCI_ID || ctx->pci_id == SST_CHT_PCI_ID) {
 		/* save the shim registers because PMC doesn't save state */
 		sst_save_shim64(ctx, ctx->shim, ctx->shim_regs64);
