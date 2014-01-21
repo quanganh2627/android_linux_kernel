@@ -583,7 +583,6 @@ void intel_panel_disable_backlight(struct drm_device *dev)
 			lpio_bl_write_bits(0, LPIO_PWM_CTRL, 0x00, 0x80000000);
 		} else {
 			intel_mid_pmic_writeb(0x51, 0x00);
-			intel_mid_pmic_writeb(0x52, 0x00);
 			intel_mid_pmic_writeb(0x4B, 0x7F);
 		}
 #else
@@ -594,6 +593,11 @@ void intel_panel_disable_backlight(struct drm_device *dev)
 	spin_lock_irqsave(&dev_priv->backlight.lock, flags);
 
 	dev_priv->backlight.enabled = false;
+
+	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi) {
+		spin_unlock_irqrestore(&dev_priv->backlight.lock, flags);
+		return;
+	}
 
 	if (INTEL_INFO(dev)->gen >= 4 &&
 				!(IS_VALLEYVIEW(dev) && dev_priv->is_mipi)) {
@@ -645,12 +649,9 @@ void intel_panel_enable_backlight(struct drm_device *dev,
 			udelay(500);
 		} else {
 			intel_mid_pmic_writeb(0x4B, 0xFF);
-			intel_mid_pmic_writeb(0x4E, 0xFF);
 			intel_mid_pmic_writeb(0x51, 0x01);
-			intel_mid_pmic_writeb(0x52, 0x01);
 		}
-		intel_panel_actually_set_mipi_backlight(dev,
-					dev_priv->backlight.level);
+
 #else
 		DRM_ERROR("Backlight not supported yet\n");
 #endif
@@ -715,6 +716,10 @@ set_level:
 						dev_priv->backlight.level);
 
 	spin_unlock_irqrestore(&dev_priv->backlight.lock, flags);
+
+	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi)
+		intel_panel_actually_set_mipi_backlight(dev,
+					dev_priv->backlight.level);
 }
 
 static void intel_panel_init_backlight(struct drm_device *dev)
