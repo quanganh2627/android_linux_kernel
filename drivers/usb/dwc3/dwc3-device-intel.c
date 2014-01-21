@@ -23,6 +23,7 @@
 #include <linux/usb/dwc3-intel-mid.h>
 #include <linux/usb/phy.h>
 #include <linux/wakelock.h>
+#include <asm/spid.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -199,6 +200,12 @@ static irqreturn_t dwc3_quirks_process_event_buf(struct dwc3 *dwc, u32 buf)
 	* Can be removed after B0.
 	*/
 	if (dwc->is_otg && dwc->revision == DWC3_REVISION_210A)
+		udelay(4);
+
+	/* WORKAROUND: Add 4 us delay as moorfield seems to have memory
+	 * inconsistent issue
+	 */
+	if (INTEL_MID_BOARD(1, PHONE, MOFD))
 		udelay(4);
 
 	left = evt->count;
