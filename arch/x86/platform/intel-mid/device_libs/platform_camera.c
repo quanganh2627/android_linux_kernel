@@ -62,7 +62,8 @@ struct camera_device_table {
 	struct devs_id dev;
 };
 
-/* Baytrail camera devs table */
+/* Baytrail Cherrytrail camera devs table */
+#ifdef CONFIG_ACPI
 static struct camera_device_table byt_ffrd10_cam_table[] = {
 	{
 		{SFI_DEV_TYPE_I2C, 4, 0x10, 0x0, 0x0, "imx175"},
@@ -111,9 +112,6 @@ static struct camera_device_table byt_crv2_cam_table[] = {
 	}
 };
 
-static struct atomisp_camera_caps default_camera_caps;
-
-#ifdef CHT_RVP_USE_BYT_CAM_AOB
 static struct camera_device_table cht_rvp_cam_table[] = {
 	{
 		{SFI_DEV_TYPE_I2C, 4, 0x10, 0x0, 0x0, "imx175"},
@@ -129,8 +127,8 @@ static struct camera_device_table cht_rvp_cam_table[] = {
 			&intel_register_i2c_camera_device}
 	}
 };
-#else
-static struct camera_device_table cht_rvp_cam_table[] = {
+
+static struct camera_device_table cht_ffd_cam_table[] = {
 	{
 		{SFI_DEV_TYPE_I2C, 2, 0x10, 0x0, 0x0, "imx175"},
 		{"imx175", SFI_DEV_TYPE_I2C, 0, &imx175_platform_data,
@@ -146,7 +144,7 @@ static struct camera_device_table cht_rvp_cam_table[] = {
 	}
 };
 #endif
-
+static struct atomisp_camera_caps default_camera_caps;
 /*
  * One-time gpio initialization.
  * @name: gpio name: coded in SFI table
@@ -530,13 +528,22 @@ void __init camera_init_device(void)
 			table = byt_ffrd10_cam_table;
 			entry_num = ARRAY_SIZE(byt_ffrd10_cam_table);
 		}
+	} else if (INTEL_MID_BOARD(1, TABLET, CHT) ||
+		   INTEL_MID_BOARD(1, PHONE, CHT)) {
+		if (spid.hardware_id == CHT_TABLET_RVP1 ||
+		    spid.hardware_id == CHT_TABLET_RVP2 ||
+		    spid.hardware_id == CHT_TABLET_RVP3) {
+			table = cht_rvp_cam_table;
+			entry_num = ARRAY_SIZE(cht_rvp_cam_table);
+		} else if (spid.hardware_id == CHT_TABLET_FRD_PR0 ||
+			   spid.hardware_id == CHT_TABLET_FRD_PR1 ||
+			   spid.hardware_id == CHT_TABLET_FRD_PR2) {
+			table = cht_ffd_cam_table;
+			entry_num = ARRAY_SIZE(cht_ffd_cam_table);
+		} else
+			pr_warn("unknown CHT platform variant.\n");
 	}
-	/* For CHT, INTEL_MID_BOARD is not ready at the moment. */
-	/* Need to call INTEL_MID_BOARD to indentify CHT. */
-#ifdef BOARD_CHT
-	table = cht_rvp_cam_table;
-	entry_num = ARRAY_SIZE(cht_rvp_cam_table);
-#endif
+
 	for (i = 0; i < entry_num; i++, table++) {
 		if (table->dev.device_handler)
 			table->dev.device_handler(&table->entry,

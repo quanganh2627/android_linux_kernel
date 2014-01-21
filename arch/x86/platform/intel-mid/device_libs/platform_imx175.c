@@ -28,15 +28,18 @@
 
 /* workround - pin defined for byt */
 #define CAMERA_0_RESET 126
+#define CAMERA_0_RESET_CHT  150
 #define CAMERA_0_RESET_CRV2 119
 #ifdef CONFIG_VLV2_PLAT_CLK
 #define OSC_CAM0_CLK 0x0
 #define CLK_19P2MHz 0x1
 #endif
+
 #ifdef CONFIG_CRYSTAL_COVE
 static struct regulator *v1p8_reg;
 static struct regulator *v2p8_reg;
 #endif
+
 static int camera_reset;
 static int camera_power_down;
 static int camera_vprog1_on;
@@ -65,6 +68,8 @@ static int imx175_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		if (camera_reset < 0) {
 			if (spid.hardware_id == BYT_TABLET_BLK_CRV2)
 				camera_reset = CAMERA_0_RESET_CRV2;
+			else if (IS_CHT)
+				camera_reset = CAMERA_0_RESET_CHT;
 			else
 				camera_reset = CAMERA_0_RESET;
 			ret = gpio_request(camera_reset, "camera_reset");
@@ -102,7 +107,6 @@ static int imx175_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int imx175_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 {
-	static const unsigned int clock_khz = 19200;
 #ifdef CONFIG_VLV2_PLAT_CLK
 	if (flag) {
 		int ret;
@@ -112,6 +116,7 @@ static int imx175_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 	}
 	return vlv2_plat_configure_clock(OSC_CAM0_CLK, flag);
 #elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
+	static const unsigned int clock_khz = 19200;
 	return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
 			flag ? clock_khz : 0);
 #else
@@ -132,6 +137,44 @@ static int imx175_power_ctrl(struct v4l2_subdev *sd, int flag)
 		dev_err(&client->dev,
 				"not avaiable regulator\n");
 		return -EINVAL;
+	}
+#endif
+
+	/*
+	 * FIXME: VRF has no implementation for CHT now,
+	 * remove pmic power control when VRF is ready.
+	 */
+#ifdef CONFIG_CRYSTAL_COVE
+	if (IS_CHT) {
+		if (flag) {
+			if (!camera_vprog1_on) {
+				ret = camera_set_pmic_power(CAMERA_2P8V, true);
+				if (ret) {
+					dev_err(&client->dev,
+						"Failed to enable pmic power v2p8\n");
+					return ret;
+				}
+
+				ret = camera_set_pmic_power(CAMERA_1P8V, true);
+				if (ret) {
+					camera_set_pmic_power(CAMERA_2P8V, false);
+					dev_err(&client->dev,
+						"Failed to enable pmic power v1p8\n");
+				}
+			}
+		} else {
+			if (camera_vprog1_on) {
+				ret = camera_set_pmic_power(CAMERA_2P8V, false);
+				if (ret)
+					dev_warn(&client->dev,
+						 "Failed to disable pmic power v2p8\n");
+				ret = camera_set_pmic_power(CAMERA_1P8V, false);
+				if (ret)
+					dev_warn(&client->dev,
+						 "Failed to disable pmic power v1p8\n");
+			}
+		}
+		return ret;
 	}
 #endif
 	if (flag) {

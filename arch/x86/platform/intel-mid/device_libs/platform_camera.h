@@ -20,6 +20,9 @@ extern const struct intel_v4l2_subdev_id v4l2_ids[] __attribute__((weak));
 #define IS_BYT (INTEL_MID_BOARD(1, PHONE, BYT) || \
 	INTEL_MID_BOARD(1, TABLET, BYT))
 
+#define IS_CHT (INTEL_MID_BOARD(1, PHONE, CHT) || \
+	INTEL_MID_BOARD(1, TABLET, CHT))
+
 /* MFLD iCDK camera sensor GPIOs */
 
 /* Obsolete pin, maybe used by old MFLD iCDK */
@@ -41,14 +44,14 @@ extern void intel_register_i2c_camera_device(
 				__attribute__((weak));
 
 /*
- * FIXME! This PMIC power access workaround for BTY
- * since currently no VRF for BTY
+ * FIXME! This PMIC power access workaround for CHT
+ * since currently no VRF for CHT
  */
 #ifdef CONFIG_CRYSTAL_COVE
-#define VPROG_2P8V 0x66
-#define VPROG_1P8V 0x5D
-#define VPROG_ENABLE 0x3
-#define VPROG_DISABLE 0x2
+#define VPROG_2P8V 0x5D
+#define VPROG_1P8V 0x57
+#define VPROG_ENABLE 0x63
+#define VPROG_DISABLE 0x62
 
 enum camera_pmic_pin {
 	CAMERA_1P8V,

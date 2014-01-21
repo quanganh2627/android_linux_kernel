@@ -104,7 +104,6 @@ static int imx134_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int imx134_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 {
-	static const unsigned int clock_khz = 19200;
 #ifdef CONFIG_VLV2_PLAT_CLK
 	if (flag) {
 		int ret;
@@ -115,6 +114,7 @@ static int imx134_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 	}
 	return vlv2_plat_configure_clock(OSC_CAM0_CLK, CLK_OFF);
 #elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
+	static const unsigned int clock_khz = 19200;
 	return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
 			flag ? clock_khz : 0);
 #else
