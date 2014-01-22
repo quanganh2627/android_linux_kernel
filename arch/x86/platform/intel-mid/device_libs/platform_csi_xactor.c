@@ -34,8 +34,18 @@ static int csi_xactor_c_csi_configure(struct v4l2_subdev *sd, int flag)
 		ATOMISP_INPUT_FORMAT_RAW_10, atomisp_bayer_order_rggb, flag);
 }
 
+static struct atomisp_camera_caps csi_xactor_camera_caps;
+
+static struct atomisp_camera_caps *csi_xactor_get_camera_caps(void)
+{
+	csi_xactor_camera_caps.sensor_num = 1;
+	csi_xactor_camera_caps.sensor[0].stream_num = 2;
+	return &csi_xactor_camera_caps;
+}
+
 static struct camera_sensor_platform_data csi_xactor_a_platform_data_ops = {
 	.csi_cfg        = csi_xactor_a_csi_configure,
+	.get_camera_caps = csi_xactor_get_camera_caps,
 };
 
 static struct camera_sensor_platform_data csi_xactor_b_platform_data_ops = {
