@@ -794,14 +794,14 @@ int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx)
 	struct sst_block *block = NULL;
 
 	/* Download both the data files */
-	retval = sst_request_vtsv_file("vtsv_net_119a.bin", ctx,
+	retval = sst_request_vtsv_file("vtsv_net.bin", ctx,
 			&ctx->vcache.file1_in_mem, &ctx->vcache.size1);
 	if (retval) {
 		pr_err("vtsv data file1 request failed %d\n", retval);
 		return retval;
 	}
 
-	retval = sst_request_vtsv_file("vtsv_grammar_119a.bin", ctx,
+	retval = sst_request_vtsv_file("vtsv_grammar.bin", ctx,
 			&ctx->vcache.file2_in_mem, &ctx->vcache.size2);
 	if (retval) {
 		pr_err("vtsv data file2 request failed %d\n", retval);
