@@ -889,7 +889,8 @@ static int intel_moor_emmc_probe_slot(struct sdhci_pci_slot *slot)
 				MMC_CAP2_INIT_CARD_SYNC;
 
 	/* Enable HS200 and HS400 */
-	slot->host->mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
+	slot->host->mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR |
+				MMC_CAP2_HS200_DIS;
 
 	if (slot->chip->pdev->revision == 0x1) { /* B0 stepping */
 		slot->host->mmc->caps2 |= MMC_CAP2_HS400_1_8V_DDR;
