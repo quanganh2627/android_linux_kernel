@@ -588,12 +588,17 @@ static int idle_hist_show(struct seq_file *s, void *unused)
 {
 	int cpu, i, max_no_of_buckets = 0;
 	struct idle_hist *idle_hist;
+
 	for_each_online_cpu(cpu) {
 		idle_hist = per_cpu(idle_hists, cpu);
 		if (idle_hist && idle_hist->no_of_buckets > max_no_of_buckets)
 			max_no_of_buckets = idle_hist->no_of_buckets;
 		seq_printf(s, "\tCPU%d", cpu);
 	}
+
+	if (unlikely(idle_hist == NULL))
+		return 0;
+
 	seq_puts(s, "\n");
 	for (i = 0; i <= max_no_of_buckets; i++) {
 		seq_printf(s, "%d", i * idle_hist->bucket_width);
