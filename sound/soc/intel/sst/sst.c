@@ -64,11 +64,21 @@ MODULE_VERSION(SST_DRIVER_VERSION);
 struct intel_sst_drv *sst_drv_ctx;
 static struct mutex drv_ctx_lock;
 
+/*
+ *  * ioctl32 compat
+ *   */
+#ifdef CONFIG_COMPAT
+#include "sst_app_compat_interface.c"
+#else
+#define intel_sst_ioctl_compat NULL
+#endif
+
 static const struct file_operations intel_sst_fops_cntrl = {
 	.owner = THIS_MODULE,
 	.open = intel_sst_open_cntrl,
 	.release = intel_sst_release_cntrl,
 	.unlocked_ioctl = intel_sst_ioctl,
+	.compat_ioctl = intel_sst_ioctl_compat,
 };
 
 struct miscdevice lpe_ctrl = {

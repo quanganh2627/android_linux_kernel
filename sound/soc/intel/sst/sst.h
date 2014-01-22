@@ -34,6 +34,7 @@
 #include <linux/intel_mid_dma.h>
 #include <linux/lnw_gpio.h>
 #include <asm/platform_sst.h>
+#include <sound/intel_sst_ioctl.h>
 
 #define SST_DRIVER_VERSION "3.0.8"
 
@@ -680,6 +681,8 @@ int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx);
 
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst);
 void sst_do_recovery(struct intel_sst_drv *sst);
+long intel_sst_ioctl_dsp(unsigned int cmd,
+		struct snd_ppp_params *algo_params, unsigned long arg);
 
 void sst_dump_to_buffer(const void *from, size_t from_len, char *buf);
 
