@@ -224,11 +224,12 @@ static struct crypto_alg dx_ablkcipher_algs[] = {
 	(sizeof(dx_ablkcipher_algs) / sizeof(struct crypto_alg))
 
 static const enum dxdi_sym_cipher_type dx_algs_cipher_types[] = {
+#ifdef USE_SEP54_AES
 	DXDI_SYMCIPHER_AES_ECB,
 	DXDI_SYMCIPHER_AES_CBC,
 	DXDI_SYMCIPHER_AES_CTR,
 	DXDI_SYMCIPHER_AES_XTS,
-
+#endif
 	DXDI_SYMCIPHER_DES_ECB,
 	DXDI_SYMCIPHER_DES_CBC,
 	DXDI_SYMCIPHER_DES_ECB,
