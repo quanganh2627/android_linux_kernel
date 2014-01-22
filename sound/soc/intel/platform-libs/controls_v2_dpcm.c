@@ -483,7 +483,8 @@ static int sst_gain_put(struct snd_kcontrol *kcontrol,
 	};
 
 	if (mc->w && mc->w->power)
-		sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id, mc->module_id, 0);
+		sst_send_gain_cmd(sst, gv, mc->task_id,
+				mc->pipe_id | mc->instance_id, mc->module_id, 0);
 	return 0;
 }
 
@@ -552,7 +553,8 @@ static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst, int mut
 		mc = (void *)kctl->private_value;
 		gv = mc->gain_val;
 
-		sst_send_gain_cmd(sst, gv, mc->task_id, mc->pipe_id, mc->module_id, mute);
+		sst_send_gain_cmd(sst, gv, mc->task_id,
+				mc->pipe_id | mc->instance_id, mc->module_id, mute);
 	}
 }
 
@@ -816,17 +818,22 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 {
 	struct sst_cmd_set_speech_path cmd;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+	struct sst_ids *ids = w->priv;
 	bool is_wideband;
+	static int speech_active;
 
 	pr_debug("%s: widget=%s\n", __func__, w->name);
-	if (SND_SOC_DAPM_EVENT_ON(event))
+
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		speech_active++;
 		cmd.switch_state = SST_SWITCH_ON;
-	else
+	} else {
+		speech_active--;
 		cmd.switch_state = SST_SWITCH_OFF;
+	}
 
 	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
 
-	/* MMX_SET_MEDIA_PATH == SBA_SET_MEDIA_PATH */
 	cmd.header.command_id = SBA_VB_SET_SPEECH_PATH;
 	cmd.header.length = sizeof(struct sst_cmd_set_speech_path)
 				- sizeof(struct sst_dsp_header);
@@ -838,11 +845,16 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 	if (is_wideband)
 		cmd.config.rate = 1;	/* 16 khz */
 
-	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
-			      SST_TASK_SBA, 0, &cmd,
-			      sizeof(cmd.header) + cmd.header.length);
-	if (SND_SOC_DAPM_EVENT_ON(event))
+	if ((SND_SOC_DAPM_EVENT_ON(event) && (speech_active == 1)) ||
+			(SND_SOC_DAPM_EVENT_OFF(event) && (speech_active == 0)))
+		sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
+				SST_TASK_SBA, 0, &cmd,
+				sizeof(cmd.header) + cmd.header.length);
+
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		sst_find_and_send_pipe_algo(w->platform, w);
+		sst_set_pipe_gain(ids, sst, 0);
+	}
 
 	return 0;
 
@@ -876,9 +888,10 @@ static int sst_set_media_path(struct snd_soc_dapm_widget *w,
 			      ids->task_id, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
 
-	if (SND_SOC_DAPM_EVENT_ON(event))
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		sst_find_and_send_pipe_algo(w->platform, w);
-	sst_set_pipe_gain(ids, sst, 0);
+		sst_set_pipe_gain(ids, sst, 0);
+	}
 
 	return 0;
 }
@@ -911,9 +924,10 @@ static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 			      SST_TASK_SBA, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
-	if (SND_SOC_DAPM_EVENT_ON(event))
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		sst_find_and_send_pipe_algo(w->platform, w);
-	sst_set_pipe_gain(ids, sst, 0);
+		sst_set_pipe_gain(ids, sst, 0);
+	}
 	return 0;
 }
 
@@ -1163,12 +1177,12 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_PATH_OUTPUT("fm_out", SST_TASK_SBA, SST_SWM_OUT_FM, NULL),
 
 	/* SBA Voice Paths */
-	SST_PATH_INPUT("speech_in", SST_TASK_SBA, SST_SWM_IN_SPEECH, NULL),
-	SST_PATH_INPUT("txspeech_in", SST_TASK_SBA, SST_SWM_IN_TXSPEECH, NULL),
-	SST_PATH_OUTPUT("hf_sns_out", SST_TASK_SBA, SST_SWM_OUT_HF_SNS, NULL),
-	SST_PATH_OUTPUT("hf_out", SST_TASK_SBA, SST_SWM_OUT_HF, NULL),
+	SST_PATH_INPUT("speech_in", SST_TASK_SBA, SST_SWM_IN_SPEECH, sst_set_speech_path),
+	SST_PATH_INPUT("txspeech_in", SST_TASK_SBA, SST_SWM_IN_TXSPEECH, sst_set_speech_path),
+	SST_PATH_OUTPUT("hf_sns_out", SST_TASK_SBA, SST_SWM_OUT_HF_SNS, sst_set_speech_path),
+	SST_PATH_OUTPUT("hf_out", SST_TASK_SBA, SST_SWM_OUT_HF, sst_set_speech_path),
 	SST_PATH_OUTPUT("speech_out", SST_TASK_SBA, SST_SWM_OUT_SPEECH, sst_set_speech_path),
-	SST_PATH_OUTPUT("rxspeech_out", SST_TASK_SBA, SST_SWM_OUT_RXSPEECH, NULL),
+	SST_PATH_OUTPUT("rxspeech_out", SST_TASK_SBA, SST_SWM_OUT_RXSPEECH, sst_set_speech_path),
 
 	/* Media Mixers */
 	SST_SWM_MIXER("media0_out mix 0", SST_MIX_MEDIA0, SST_TASK_MMX, SST_SWM_OUT_MEDIA0,
@@ -1455,7 +1469,7 @@ static const struct snd_kcontrol_new sst_probe_controls[] = {
 		SST_MODULE_ID_VOLUME, path_id, instance, task_id,			\
 		sst_gain_tlv_common, gain_var)
 
-#define SST_NUM_GAINS 35
+#define SST_NUM_GAINS 36
 static struct sst_gain_value sst_gains[SST_NUM_GAINS];
 
 static const struct snd_kcontrol_new sst_gain_controls[] = {
@@ -1499,6 +1513,7 @@ static const struct snd_kcontrol_new sst_gain_controls[] = {
 	SST_GAIN("sprot_loop_out", SST_PATH_INDEX_SPROT_LOOP_OUT, SST_TASK_SBA, 0, &sst_gains[32]),
 	SST_VOLUME("media0_in", SST_PATH_INDEX_MEDIA0_IN, SST_TASK_MMX, 0, &sst_gains[33]),
 	SST_GAIN("sidetone_in", SST_PATH_INDEX_SIDETONE_IN, SST_TASK_SBA, 0, &sst_gains[34]),
+	SST_GAIN("speech_out", SST_PATH_INDEX_SPEECH_OUT, SST_TASK_FBA_UL, 1, &sst_gains[35]),
 };
 
 static const struct snd_kcontrol_new sst_algo_controls[] = {
