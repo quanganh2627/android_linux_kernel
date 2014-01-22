@@ -1566,9 +1566,8 @@ static int aic31xx_i2c_remove(struct i2c_client *i2c)
 {
 
 	struct aic31xx_priv *aic31xx = dev_get_drvdata(&i2c->dev);
-
+	snd_soc_unregister_codec(aic31xx->dev);
 	aic31xx_device_exit(aic31xx);
-	kfree(aic31xx);
 	return 0;
 }
 
