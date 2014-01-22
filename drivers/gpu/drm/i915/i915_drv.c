@@ -1144,7 +1144,22 @@ static void i915_pm_shutdown(struct pci_dev *pdev)
 	struct drm_i915_private *dev_priv = drm_dev->dev_private;
 	struct drm_crtc *crtc;
 
+	/* make sure drm stops processing new ioctls */
+	drm_halt(drm_dev);
+
+	/* wait for drm to go idle */
+	if (drm_wait_idle(drm_dev, 5000))
+		DRM_ERROR("Failed to halt DRM. going for shutdown anyway...\n");
+
+	/* Not doing drm_continue as we are going for shutdown anyway */
+
+	/* even after drm_halt exceptions can still occur, which will
+	 * call i915_gem_fault. using this flag to avoid this
+	 */
+	mutex_lock(&drm_dev->struct_mutex);
+	/* take struct_mutex to avoid sync issue with i915_gem_fault */
 	dev_priv->pm.shutdown_in_progress = true;
+	mutex_unlock(&drm_dev->struct_mutex);
 
 	if (i915_is_device_suspended(drm_dev)) {
 		/* Device already in suspend state */

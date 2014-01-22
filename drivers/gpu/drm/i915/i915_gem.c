@@ -1427,6 +1427,12 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	if (ret)
 		goto out;
 
+	/* keep the check under struct_mutex to avoid sync problem */
+	if (dev_priv->pm.shutdown_in_progress) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
 	trace_i915_gem_object_fault(obj, page_offset, true, write);
 
 	/* Access to snoopable pages through the GTT is incoherent. */
