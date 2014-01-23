@@ -321,7 +321,7 @@ static int merr_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 	pr_debug("Invoked %s for dailink %s\n", __func__, rtd->dai_link->name);
 
 	rate->min = rate->max = SNDRV_PCM_RATE_48000;
-	channels->min = channels->max = 2;
+	channels->min = channels->max = 4;
 
 	/* set SSP2 to 24-bit */
 	snd_mask_set(&params->masks[SNDRV_PCM_HW_PARAM_FORMAT -
