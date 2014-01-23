@@ -98,6 +98,26 @@ TRACE_EVENT(sst_ipc_mailbox,
 
 );
 
+TRACE_EVENT(sst_lib_download,
+
+	TP_PROTO(const char *msg, const char *lib_name),
+
+	TP_ARGS(msg, lib_name),
+
+	TP_STRUCT__entry(
+		__string(info_msg, msg)
+		__string(info_lib_name, lib_name)
+	),
+
+	TP_fast_assign(
+		__assign_str(info_msg, msg);
+		__assign_str(info_lib_name, lib_name);
+	),
+
+	TP_printk("\t%s %s", __get_str(info_msg),
+			__get_str(info_lib_name))
+);
+
 TRACE_EVENT(sst_fw_download,
 
 	TP_PROTO(const char *msg, int fw_state),

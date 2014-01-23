@@ -1946,13 +1946,14 @@ int sst_load_all_modules_elf(struct intel_sst_drv *ctx, struct sst_module_info *
 
 	for (i = 0; i < num_modules; i++) {
 		mod = &mod_table[i];
-
+		trace_sst_lib_download("Start of Request Lib", mod->name);
 		retval = sst_request_lib_elf(mod, &fw_lib,
 						ctx->pci_id, ctx->dev);
 		if (retval < 0)
 			continue;
 		lib_size = fw_lib->size;
 
+		trace_sst_lib_download("End of Request Lib", mod->name);
 		retval = sst_validate_elf(fw_lib, true);
 		if (retval < 0) {
 			pr_err("library is not valid elf %d\n", retval);
@@ -1979,8 +1980,10 @@ int sst_load_all_modules_elf(struct intel_sst_drv *ctx, struct sst_module_info *
 		}
 		pr_debug("relocation done\n");
 		release_firmware(fw_lib);
+		trace_sst_lib_download("Start of download Lib", mod->name);
 		/* write to ddr imr region,use memcpy method */
 		retval = sst_download_lib_elf(ctx, out_elf, lib_size);
+		trace_sst_lib_download("End of download Lib", mod->name);
 		mod->status = SST_LIB_DOWNLOADED;
 		kfree(out_elf);
 	}
