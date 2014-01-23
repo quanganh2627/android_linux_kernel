@@ -137,7 +137,13 @@ config SND_SST_PLATFORM
 	tristate
 
 config SND_SOC_COMMS_SSP
-	tristate "Use ASOC framework to drive AudioComms SSP0 and SSP1"
+	depends on SND_INTEL_MID_I2S
+	tristate "Use ASOC framework to drive AudioComms SSP BT and Modem"
+	help
+	  Sound SOC cards usually used for BT VOIP and MODEM MIXING use cases.
+	  This will add devices for these uses cases in the list of alsa cards.
+	  Say Y if you need these sound cards (BT chipset or Modem present).
+	  Requires to enable the INTEL_MID_I2S low level SSP I2S driver.
 
 config SND_MFLD_MONO_SPEAKER_SUPPORT
 	tristate "Mono Speaker support for Medfield based devices"

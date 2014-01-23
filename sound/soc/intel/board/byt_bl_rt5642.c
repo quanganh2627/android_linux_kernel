@@ -40,8 +40,11 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include "../../codecs/rt5640.h"
+
+#ifdef CONFIG_SND_SOC_COMMS_SSP
 #include "byt_bl_rt5642.h"
 #include "../ssp/mid_ssp.h"
+#endif /* CONFIG_SND_SOC_COMMS_SSP */
 
 #define BYT_PLAT_CLK_3_HZ	25000000
 #define BYT_CODEC_GPIO_IDX      0
@@ -58,7 +61,9 @@
 #define BYT_HS_DET_RETRY_COUNT          6
 
 struct byt_mc_private {
+#ifdef CONFIG_SND_SOC_COMMS_SSP
 	struct byt_comms_mc_private comms_ctl;
+#endif /* CONFIG_SND_SOC_COMMS_SSP */
 	struct snd_soc_jack jack;
 	struct delayed_work hs_insert_work;
 	struct delayed_work hs_remove_work;
@@ -79,6 +84,7 @@ struct byt_mc_private {
 	bool use_soc_jd_gpio;
 };
 
+#ifdef CONFIG_SND_SOC_COMMS_SSP
 static inline struct byt_comms_mc_private *kcontrol2ctl(struct snd_kcontrol *kcontrol)
 {
 	struct snd_soc_card *card =  snd_kcontrol_chip(kcontrol);
@@ -123,6 +129,7 @@ int byt_set_ssp_modem_master_mode(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
+#endif /* CONFIG_SND_SOC_COMMS_SSP */
 
 static int byt_jack_codec_gpio_intr(void);
 static int byt_jack_soc_gpio_intr(void);
@@ -682,6 +689,7 @@ static int byt_set_bias_level(struct snd_soc_card *card,
 	return 0;
 }
 
+#ifdef CONFIG_SND_SOC_COMMS_SSP
 static int byt_comms_dai_link_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *str_runtime;
@@ -877,6 +885,7 @@ static int byt_comms_dai_link_prepare(struct snd_pcm_substream *substream)
 
 	return 0;
 }
+#endif  /* CONFIG_SND_SOC_COMMS_SSP */
 
 static int byt_init(struct snd_soc_pcm_runtime *runtime)
 {
@@ -940,6 +949,7 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		return ret;
 	}
 
+#ifdef CONFIG_SND_SOC_COMMS_SSP
 	/* Add Comms specific controls */
 	ctx->comms_ctl.ssp_bt_sco_master_mode = false;
 	ctx->comms_ctl.ssp_modem_master_mode = false;
@@ -951,6 +961,7 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		pr_err("unable to add COMMS card controls\n");
 		return ret;
 	}
+#endif /* CONFIG_SND_SOC_COMMS_SSP */
 
 	/* Keep the voice call paths active during
 	suspend. Mark the end points ignore_suspend */
@@ -1000,11 +1011,13 @@ static struct snd_soc_compr_ops byt_compr_ops = {
 	.set_params = byt_compr_set_params,
 };
 
+#ifdef CONFIG_SND_SOC_COMMS_SSP
 static struct snd_soc_ops byt_comms_dai_link_ops = {
 	.startup = byt_comms_dai_link_startup,
 	.hw_params = byt_comms_dai_link_hw_params,
 	.prepare = byt_comms_dai_link_prepare,
 };
+#endif /* CONFIG_SND_SOC_COMMS_SSP */
 
 static struct snd_soc_dai_link byt_dailink[] = {
 	[BYT_AUD_AIF1] = {
@@ -1041,6 +1054,7 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.ignore_suspend = 1,
 		.compr_ops = &byt_compr_ops,
 	},
+#ifdef CONFIG_SND_SOC_COMMS_SSP
 	[BYT_COMMS_BT] = {
 		.name = "Baytrail Comms BT SCO",
 		.stream_name = "BYT_BTSCO",
@@ -1061,6 +1075,7 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.init = NULL,
 		.ops = &byt_comms_dai_link_ops,
 	},
+#endif /* CONFIG_SND_SOC_COMMS_SSP */
 };
 
 #ifdef CONFIG_PM_SLEEP
