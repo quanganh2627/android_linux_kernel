@@ -490,30 +490,20 @@ int camera_set_pmic_power(enum camera_pmic_pin pin, bool flag)
 {
 	u8 reg_addr[CAMERA_POWER_NUM] = {VPROG_1P8V, VPROG_2P8V};
 	u8 reg_value[2] = {VPROG_DISABLE, VPROG_ENABLE};
-	static struct vprog_status status[CAMERA_POWER_NUM];
+	int val;
 	static DEFINE_MUTEX(mutex_power);
 	int ret = 0;
 
+	if (pin >= CAMERA_POWER_NUM)
+		return -EINVAL;
+
 	mutex_lock(&mutex_power);
-	/*
-	 * only set power at:
-	 * first to power on
-	 * last to power off
-	 */
-	if ((flag && status[pin].user == 0)
-	    || (!flag && status[pin].user == 1))
+	val = intel_mid_pmic_readb(reg_addr[pin]) & 0x3;
+
+	if ((flag && (val == VPROG_DISABLE)) ||
+		(!flag && (val == VPROG_ENABLE)))
 		ret = intel_mid_pmic_writeb(reg_addr[pin], reg_value[flag]);
 
-	/* no update counter if config failed */
-	if (ret)
-		goto done;
-
-	if (flag)
-		status[pin].user++;
-	else
-		if (status[pin].user)
-			status[pin].user--;
-done:
 	mutex_unlock(&mutex_power);
 	return ret;
 }
