@@ -13,6 +13,7 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/atomisp_platform.h>
+#include <linux/regulator/consumer.h>
 #include <asm/intel_scu_ipcutil.h>
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
@@ -33,10 +34,8 @@
 #define CLK_19P2MHz 0x1
 #endif
 #ifdef CONFIG_CRYSTAL_COVE
-#define VPROG_2P8V 0x66
-#define VPROG_1P8V 0x5D
-#define VPROG_ENABLE 0x3
-#define VPROG_DISABLE 0x2
+static struct regulator *v1p8_reg;
+static struct regulator *v2p8_reg;
 #endif
 static int camera_reset;
 static int camera_power_down;
@@ -123,21 +122,33 @@ static int imx175_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int imx175_power_ctrl(struct v4l2_subdev *sd, int flag)
 {
+#ifdef CONFIG_CRYSTAL_COVE
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+#endif
 	int ret = 0;
 
+#ifdef CONFIG_CRYSTAL_COVE
+	if (!v1p8_reg || !v2p8_reg) {
+		dev_err(&client->dev,
+				"not avaiable regulator\n");
+		return -EINVAL;
+	}
+#endif
 	if (flag) {
 		if (!camera_vprog1_on) {
 #ifdef CONFIG_CRYSTAL_COVE
-			/*
-			 * This should call VRF APIs.
-			 *
-			 * VRF not implemented for BTY, so call this
-			 * as WAs
-			 */
-			ret = camera_set_pmic_power(CAMERA_2P8V, true);
-			if (ret)
+			ret = regulator_enable(v2p8_reg);
+			if (ret) {
+				dev_err(&client->dev,
+						"Failed to enable regulator v2p8\n");
 				return ret;
-			ret = camera_set_pmic_power(CAMERA_1P8V, true);
+			}
+			ret = regulator_enable(v1p8_reg);
+			if (ret) {
+				regulator_disable(v2p8_reg);
+				dev_err(&client->dev,
+						"Failed to enable regulator v1p8\n");
+			}
 #elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
 			ret = intel_scu_ipc_msic_vprog1(1);
 #else
@@ -153,10 +164,14 @@ static int imx175_power_ctrl(struct v4l2_subdev *sd, int flag)
 	} else {
 		if (camera_vprog1_on) {
 #ifdef CONFIG_CRYSTAL_COVE
-			ret = camera_set_pmic_power(CAMERA_2P8V, false);
+			ret = regulator_disable(v2p8_reg);
 			if (ret)
-				return ret;
-			ret = camera_set_pmic_power(CAMERA_1P8V, false);
+				dev_warn(&client->dev,
+						"Failed to disable regulator v2p8\n");
+			ret = regulator_disable(v1p8_reg);
+			if (ret)
+				dev_warn(&client->dev,
+						"Failed to disable regulator v1p8\n");
 #elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
 			ret = intel_scu_ipc_msic_vprog1(0);
 #else
@@ -177,11 +192,42 @@ static int imx175_csi_configure(struct v4l2_subdev *sd, int flag)
 		ATOMISP_INPUT_FORMAT_RAW_10, atomisp_bayer_order_rggb, flag);
 }
 
+#ifdef CONFIG_CRYSTAL_COVE
+static int imx175_platform_init(struct i2c_client *client)
+{
+	v1p8_reg = regulator_get(&client->dev, "v1p8sx");
+	if (IS_ERR(v1p8_reg)) {
+		dev_err(&client->dev, "v1p8s regulator_get failed\n");
+		return PTR_ERR(v1p8_reg);
+	}
+
+	v2p8_reg = regulator_get(&client->dev, "v2p85sx");
+	if (IS_ERR(v2p8_reg)) {
+		regulator_put(v1p8_reg);
+		dev_err(&client->dev, "v2p85sx regulator_get failed\n");
+		return PTR_ERR(v2p8_reg);
+	}
+
+	return 0;
+}
+
+static int imx175_platform_deinit(void)
+{
+	regulator_put(v1p8_reg);
+	regulator_put(v2p8_reg);
+
+	return 0;
+}
+#endif
 static struct camera_sensor_platform_data imx175_sensor_platform_data = {
 	.gpio_ctrl      = imx175_gpio_ctrl,
 	.flisclk_ctrl   = imx175_flisclk_ctrl,
 	.power_ctrl     = imx175_power_ctrl,
 	.csi_cfg        = imx175_csi_configure,
+#ifdef CONFIG_CRYSTAL_COVE
+	.platform_init = imx175_platform_init,
+	.platform_deinit = imx175_platform_deinit,
+#endif
 };
 
 void *imx175_platform_data(void *info)
