@@ -1501,27 +1501,6 @@ i915_batch_pool_cleanup(drm_i915_private_t *dev_priv)
 	}
 }
 
-void cal_fwlogo_param(struct drm_i915_private *dev_priv)
-{
-	unsigned int fw_hactive, fw_vactive;
-	/* Set the bytes per pixel to max of 4 */
-	int bpp = 4;
-
-	/* If Primary PLANE is disable return */
-	if (!(I915_READ(DSPCNTR(0)) & DISPLAY_PLANE_ENABLE))
-		return;
-
-	/* Get the framebuffer size from HTotal and VTotal registers */
-	fw_hactive =  ((I915_READ(HTOTAL(0)) & PANEL_A_ACTIVE_MASK)) + 1;
-	fw_vactive =  ((I915_READ(VTOTAL(0)) & PANEL_A_ACTIVE_MASK)) + 1;
-
-	dev_priv->fwlogo_size = (fw_hactive * fw_vactive * bpp);
-
-	dev_priv->fwlogo_offset = (I915_READ(DSPSURF(0)) & DISP_BASEADDR_MASK);
-	DRM_DEBUG_DRIVER("FW logo Size: %d && FW Display Panel A Offset: %d\n",
-				dev_priv->fwlogo_size, dev_priv->fwlogo_offset);
-}
-
 /**
  * i915_driver_load - setup chip and create an initial config
  * @dev: DRM device
@@ -1561,8 +1540,6 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	dev->dev_private = (void *)dev_priv;
 	dev_priv->dev = dev;
 	dev_priv->info = info;
-	DRM_DEBUG_DRIVER("Setting is_booting flag\n");
-	dev->is_booting = true;
 
 	spin_lock_init(&dev_priv->irq_lock);
 	spin_lock_init(&dev_priv->gpu_error.lock);
@@ -1635,9 +1612,6 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 		dev_priv->ellc_size = 128;
 		DRM_INFO("Found %zuMB of eLLC\n", dev_priv->ellc_size);
 	}
-
-	/* Calculate Bootloader logo size */
-	cal_fwlogo_param(dev_priv);
 
 	ret = i915_gem_gtt_init(dev);
 	if (ret)

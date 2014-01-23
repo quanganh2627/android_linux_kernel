@@ -897,9 +897,6 @@ static void intel_dp_mode_set(struct intel_encoder *encoder)
 	struct intel_crtc *crtc = to_intel_crtc(encoder->base.crtc);
 	struct drm_display_mode *adjusted_mode = &crtc->config.adjusted_mode;
 
-	if (dev->is_booting)
-		return;
-
 	/*
 	 * There are four kinds of DP registers:
 	 *
@@ -1999,9 +1996,6 @@ static void intel_disable_dp(struct intel_encoder *encoder)
 	enum port port = dp_to_dig_port(intel_dp)->port;
 	struct drm_device *dev = encoder->base.dev;
 
-	if (dev->is_booting)
-		return;
-
 	/* Make sure the panel is off before trying to change the mode. But also
 	 * ensure that we have vdd while we switch off the panel. */
 	ironlake_edp_panel_vdd_on(intel_dp);
@@ -2019,9 +2013,6 @@ static void intel_post_disable_dp(struct intel_encoder *encoder)
 	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
 	enum port port = dp_to_dig_port(intel_dp)->port;
 	struct drm_device *dev = encoder->base.dev;
-
-	if (dev->is_booting)
-		return;
 
 	if (port == PORT_A || IS_VALLEYVIEW(dev)) {
 		intel_dp_link_down(intel_dp);
@@ -2073,9 +2064,6 @@ static void vlv_pre_enable_dp(struct intel_encoder *encoder)
 	int port = vlv_dport_to_channel(dport);
 	int pipe = intel_crtc->pipe;
 	u32 val;
-
-	if (dev->is_booting)
-		return;
 
 	mutex_lock(&dev_priv->dpio_lock);
 

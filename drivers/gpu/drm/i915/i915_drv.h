@@ -1560,11 +1560,6 @@ typedef struct drm_i915_private {
 	u16 is_mipi;
 	u16 mipi_panel_id;
 
-	unsigned int fwlogo_size;
-	unsigned int fwlogo_offset;
-	struct drm_mm_node *fwlogo_gtt_node;
-	struct drm_mm_node *fwlogo_stolen_node;
-
 #ifdef CONFIG_DRM_VXD_BYT
 	struct drm_psb_private *vxd_priv;
 	int (*vxd_driver_open)(struct drm_device *dev, struct drm_file *file);
@@ -2653,7 +2648,6 @@ int i915_set_plane_alpha(struct drm_device *dev, void *data,
 
 int i915_get_reset_stats_ioctl(struct drm_device *dev, void *data,
 				struct drm_file *file);
-void clear_reserved_fwlogo_mem(struct drm_i915_private *dev_priv);
 
 /* overlay */
 extern struct intel_overlay_error_state *intel_overlay_capture_error_state(struct drm_device *dev);
