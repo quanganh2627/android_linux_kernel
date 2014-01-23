@@ -1235,6 +1235,8 @@ struct drm_device {
 	atomic_t halt_count;
 	wait_queue_head_t ioctl_queue;
 	wait_queue_head_t halt_queue;
+	/* Flag to retain logo till boot animation */
+	bool is_booting;
 };
 
 #define DRM_SWITCH_POWER_ON 0
