@@ -49,6 +49,14 @@ static struct sst_dev_stream_map byt_bl_strm_map[] = {
 					SST_TASK_ID_NONE, SST_DEV_MAP_IN_USE},
 	{BYT_AUD_AIF1, 0, SNDRV_PCM_STREAM_CAPTURE, SST_CAPTURE_IN, SST_TASK_ID_NONE, SST_DEV_MAP_IN_USE},
 };
+static struct sst_dev_stream_map byt_cr_strm_map[] = {
+	{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, /* Reserved, not in use */
+	{BYT_CR_AUD_AIF1, 0, SNDRV_PCM_STREAM_PLAYBACK, SST_PCM_OUT0, SST_TASK_ID_NONE, SST_DEV_MAP_IN_USE},
+	{BYT_CR_AUD_AIF1, 1, SNDRV_PCM_STREAM_PLAYBACK, SST_PCM_OUT1, SST_TASK_ID_NONE, SST_DEV_MAP_IN_USE},
+	{BYT_CR_AUD_COMPR_DEV, 0, SNDRV_PCM_STREAM_PLAYBACK, SST_COMPRESSED_OUT,
+					SST_TASK_ID_NONE, SST_DEV_MAP_IN_USE},
+	{BYT_CR_AUD_AIF1, 0, SNDRV_PCM_STREAM_CAPTURE, SST_CAPTURE_IN, SST_TASK_ID_NONE, SST_DEV_MAP_IN_USE},
+};
 
 #if IS_BUILTIN(CONFIG_SST_MRFLD_DPCM)
 static struct sst_dev_stream_map mrfld_strm_map[] = {
@@ -156,6 +164,12 @@ static void set_ctp_platform_config(void)
 	}
 	pr_debug("audio:ctp:strm_map_size %d\n", sst_platform_pdata.strm_map_size);
 }
+static void set_byt_cr_platform_config(void)
+{
+	sst_platform_pdata.pdev_strm_map = byt_cr_strm_map;
+	sst_platform_pdata.strm_map_size =  ARRAY_SIZE(byt_cr_strm_map);
+	pr_debug("audio:byt_cr:strm_map_size %d\n", sst_platform_pdata.strm_map_size);
+}
 
 static void set_byt_platform_config(void)
 {
@@ -184,8 +198,16 @@ static void  populate_platform_data(void)
 	if ((INTEL_MID_BOARD(1, PHONE, CLVTP)) ||
 	    (INTEL_MID_BOARD(1, TABLET, CLVT))) {
 		set_ctp_platform_config();
+	/* For baytrail, byt and byt_cr stream map is different,
+	 * so override byt with  byt_cr if board is byt_cr.
+	 */
 	} else if ((INTEL_MID_BOARD(1, TABLET, BYT))) {
-		set_byt_platform_config();
+		if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2)) {
+			set_byt_cr_platform_config();
+			pr_info("Selecting byt-cr stream map\n");
+		} else {
+			set_byt_platform_config();
+		}
 	} else if ((INTEL_MID_BOARD(1, PHONE, MRFL)) ||
 			(INTEL_MID_BOARD(1, TABLET, MRFL)) ||
 			(INTEL_MID_BOARD(1, PHONE, MOFD)) ||

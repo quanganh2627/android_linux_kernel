@@ -21,6 +21,11 @@ enum {
 	BYT_AUD_PROBE_DEV,
 };
 
+enum {
+	BYT_CR_AUD_AIF1 = 0,
+	BYT_CR_AUD_COMPR_DEV,
+	BYT_CR_COMMS_BT,
+};
 /* LPE viewpoint addresses */
 /* TODO: move to DSDT */
 #define SST_BYT_IRAM_PHY_START	0xff2c0000
