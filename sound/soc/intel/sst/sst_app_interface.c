@@ -129,6 +129,36 @@ static int sst_create_algo_ipc(struct snd_ppp_params *algo_params,
 	return offset;
 }
 
+static long sst_send_algo(struct snd_ppp_params algo_params, struct sst_block *block)
+{
+	struct ipc_post *msg;
+	int retval;
+	int offset;
+
+	pr_debug("Algo ID %d Str id %d Enable %d Size %d\n",
+		algo_params.algo_id, algo_params.str_id,
+		algo_params.enable, algo_params.size);
+
+
+	offset = sst_create_algo_ipc(&algo_params, &msg, block->drv_id);
+	if (offset < 0)
+		return offset;
+
+	if (copy_from_user(msg->mailbox_data + offset,
+			algo_params.params, algo_params.size)) {
+		kfree(msg);
+		return -EFAULT;
+	}
+
+	sst_add_to_dispatch_list_and_post(sst_drv_ctx, msg);
+	retval = sst_wait_timeout(sst_drv_ctx, block);
+	if (retval) {
+		pr_debug("Error in sst_set_algo = %d\n", retval);
+		return -EIO;
+	}
+	return 0;
+}
+
 /**
  * intel_sst_ioctl_dsp - receives the device ioctl's
  *
@@ -143,7 +173,6 @@ static long intel_sst_ioctl_dsp(unsigned int cmd, unsigned long arg)
 	int retval = 0;
 	struct snd_ppp_params algo_params;
 	struct snd_ppp_params *algo_params_copied;
-	struct ipc_post *msg;
 	struct sst_block *block;
 	int pvt_id;
 
@@ -159,55 +188,18 @@ static long intel_sst_ioctl_dsp(unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-
-		pr_debug("Algo ID %d Str id %d Enable %d Size %d\n",
-			algo_params.algo_id, algo_params.str_id,
-			algo_params.enable, algo_params.size);
 		algo_params.reserved = 0;
-
-		retval = sst_create_algo_ipc(&algo_params, &msg, pvt_id);
-		if (retval < 0)
-			break;
-
-		if (copy_from_user(msg->mailbox_data + retval,
-				algo_params.params, algo_params.size)) {
-			kfree(msg);
-			retval = -EFAULT;
-			break;
-		}
-
-		sst_add_to_dispatch_list_and_post(sst_drv_ctx, msg);
-		retval = sst_wait_timeout(sst_drv_ctx, block);
-		if (retval) {
-			pr_debug("Error in sst_set_algo = %d\n", retval);
-			retval = -EIO;
-		}
+		retval = sst_send_algo(algo_params, block);
 		break;
 
 	case _IOC_NR(SNDRV_SST_GET_ALGO):
 		if (copy_from_user(&algo_params, (void __user *)arg,
 							sizeof(algo_params)))
 			return -EFAULT;
-		pr_debug("Algo ID %d Str id %d Enable %d Size %d\n",
-			algo_params.algo_id, algo_params.str_id,
-			algo_params.enable, algo_params.size);
 		algo_params.reserved = 1;
-		retval = sst_create_algo_ipc(&algo_params, &msg, pvt_id);
-		if (retval < 0)
+		retval = sst_send_algo(algo_params, block);
+		if (retval)
 			break;
-		if (copy_from_user(msg->mailbox_data + retval,
-				algo_params.params, algo_params.size))	{
-			kfree(msg);
-			retval = -EFAULT;
-			break;
-		}
-		sst_add_to_dispatch_list_and_post(sst_drv_ctx, msg);
-		retval = sst_wait_timeout(sst_drv_ctx, block);
-		if (retval) {
-			pr_debug("Error in sst_get_algo = %d\n", retval);
-			retval = -EIO;
-			break;
-		}
 		algo_params_copied = (struct snd_ppp_params *)block->data;
 
 		if (algo_params_copied->size > algo_params.size) {
