@@ -233,6 +233,8 @@ static int sdhci_acpi_emmc_probe_slot(struct platform_device *pdev)
 			!INTEL_MID_BOARDV2(TABLET, BYT, BLB, ENG))
 		sdhci_alloc_panic_host(host);
 
+	host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
+
 	if (!sdhci_intel_host(&cpu))
 		return 0;
 
