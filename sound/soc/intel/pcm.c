@@ -696,7 +696,8 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 		.channels_max = SST_STEREO,
 		.rates = SNDRV_PCM_RATE_8000 |
 				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			   SNDRV_PCM_FMTBIT_S32_LE,
 	},
 	.capture = {
 		.stream_name = "Probe Capture",
@@ -704,7 +705,8 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 		.channels_max = SST_STEREO,
 		.rates = SNDRV_PCM_RATE_8000 |
 				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			   SNDRV_PCM_FMTBIT_S32_LE,
 	},
 },
 {
