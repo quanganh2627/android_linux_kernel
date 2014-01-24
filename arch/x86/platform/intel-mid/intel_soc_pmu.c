@@ -1586,19 +1586,6 @@ nc_done:
 	}
 #endif
 
-	/* FIXME:: If S0ix is enabled when North Complex is ON we see
-	 * Fabric errors, tracked in BZ: 115181, hence hold pm_qos
-	 * to restrict s0ix during North Island in D0i0
-	 */
-	if (nc_device_state()) {
-		if (!pm_qos_request_active(mid_pmu_cxt->nc_restrict_qos))
-			pm_qos_add_request(mid_pmu_cxt->nc_restrict_qos,
-			 PM_QOS_CPU_DMA_LATENCY, (CSTATE_EXIT_LATENCY_S0i1-1));
-	} else {
-		if (pm_qos_request_active(mid_pmu_cxt->nc_restrict_qos))
-			pm_qos_remove_request(mid_pmu_cxt->nc_restrict_qos);
-	}
-
 unlock:
 	up(&mid_pmu_cxt->scu_ready_sem);
 
