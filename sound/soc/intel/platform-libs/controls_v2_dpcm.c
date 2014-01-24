@@ -281,9 +281,10 @@ static void sst_send_algo_cmd(struct sst_data *sst,
 	int len;
 	struct sst_cmd_set_params *cmd;
 
+	/* bc->max includes sizeof algos + length field */
 	len = sizeof(cmd->dst) + sizeof(cmd->command_id) + bc->max;
 
-	cmd = kzalloc(len + bc->max, GFP_KERNEL);
+	cmd = kzalloc(len, GFP_KERNEL);
 	if (cmd == NULL) {
 		pr_err("Failed to send cmd, kzalloc failed\n");
 		return;
@@ -294,7 +295,7 @@ static void sst_send_algo_cmd(struct sst_data *sst,
 	memcpy(cmd->params, bc->params, bc->max);
 
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_SET_PARAMS, SST_FLAG_BLOCKED,
-				bc->task_id, 0, cmd, len);
+			      bc->task_id, 0, cmd, len);
 	kfree(cmd);
 
 }

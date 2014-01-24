@@ -258,9 +258,10 @@ struct sst_algo_control {
 	struct snd_soc_dapm_widget *w;
 };
 
+/* size of the control = size of params + size of length field */
 #define SST_ALGO_CTL_VALUE(xcount, xtype, xpipe, xmod, xtask, xcmd)			\
 	(struct sst_algo_control){							\
-		.max = xcount, .type = xtype, .module_id = xmod,			\
+		.max = xcount + sizeof(u16), .type = xtype, .module_id = xmod,			\
 		.pipe_id = xpipe, .task_id = xtask, .cmd_id = xcmd,			\
 	}
 
