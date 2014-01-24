@@ -1290,7 +1290,7 @@ fail:
 	return ret;
 }
 
-static int smb347_hw_uninit(struct smb347_charger *smb)
+static void smb347_hw_uninit(struct smb347_charger *smb)
 {
 	if (smb->otg) {
 		struct smb347_otg_event *evt, *tmp;
