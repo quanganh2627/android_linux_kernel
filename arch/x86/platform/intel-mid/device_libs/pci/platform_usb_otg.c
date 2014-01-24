@@ -21,15 +21,15 @@
 #include <linux/usb/dwc3-intel-mid.h>
 static struct intel_dwc_otg_pdata dwc_otg_pdata;
 
-static bool dwc_otg_get_usbspecoverride(void)
+static bool dwc_otg_get_usbspecoverride(u32 addr)
 {
 	void __iomem *usb_comp_iomap;
 	bool usb_spec_override;
 
-	/* Read MISCFLAGS byte from offset 0x717 */
-	usb_comp_iomap = ioremap_nocache(0xFFFCE717, 4);
+	/* Read MISCFLAGS byte */
+	usb_comp_iomap = ioremap_nocache(addr, 4);
 	/* MISCFLAGS.BIT[6] indicates USB spec override */
-	usb_spec_override = ioread8(usb_comp_iomap) & 0x40;
+	usb_spec_override = ioread8(usb_comp_iomap) & SMIP_VIOLATE_BC_MASK;
 	iounmap(usb_comp_iomap);
 
 	return usb_spec_override;
@@ -59,13 +59,8 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 			dwc_otg_pdata.pmic_type = SHADY_COVE;
 			dwc_otg_pdata.charger_detect_enable = 0;
 			dwc_otg_pdata.usb2_phy_type = get_usb2_phy_type();
-
-			/* [WA] SRAM caching ioremap not functional for MOFD (Bug 165464).
-			 * Hence hard-coding USBSPECOVERRIDE temporarily.
-			 */
-			/* dwc_otg_pdata.charging_compliance =
-				dwc_otg_get_usbspecoverride();*/
-			dwc_otg_pdata.charging_compliance = 1;
+			 dwc_otg_pdata.charging_compliance =
+				dwc_otg_get_usbspecoverride(MOFD_SMIP_VIOLATE_BC_ADDR);
 
 			if (dwc_otg_pdata.usb2_phy_type == USB2_PHY_ULPI)
 				dwc_otg_pdata.charger_detect_enable = 1;
@@ -76,7 +71,7 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 			dwc_otg_pdata.charger_detect_enable = 1;
 
 			dwc_otg_pdata.charging_compliance =
-				dwc_otg_get_usbspecoverride();
+				dwc_otg_get_usbspecoverride(MERR_SMIP_VIOLATE_BC_ADDR);
 			dwc_otg_pdata.usb2_phy_type = USB2_PHY_ULPI;
 			dwc_otg_pdata.ulpi_eye_calibrate = 0x7D;
 

@@ -213,4 +213,9 @@ struct intel_dwc_otg_pdata {
 #define SCCB_USB_CFG	0xff03a018
 #define SCCB_USB_CFG_SELECT_ULPI	(1 << 14)
 
+/* SMIP address which check if violate BC */
+#define MOFD_SMIP_VIOLATE_BC_ADDR	0xFFFC631B
+#define MERR_SMIP_VIOLATE_BC_ADDR	0xFFFCE717
+#define SMIP_VIOLATE_BC_MASK	0x40
+
 #endif /* __DWC3_INTEL_H */
