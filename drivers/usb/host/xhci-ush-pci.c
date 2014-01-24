@@ -576,7 +576,12 @@ static void hsic_aux_work(struct work_struct *work)
 		mutex_unlock(&hsic.hsic_mutex);
 		return;
 	}
-	ush_hsic_port_disable();
+
+	if (hsic.port_disconnect == 0)
+		hsic_port_logical_disconnect(hsic.rh_dev,
+				HSIC_USH_PORT);
+	else
+		ush_hsic_port_disable();
 	usleep_range(hsic.reenumeration_delay,
 			hsic.reenumeration_delay + 1000);
 	ush_hsic_port_enable();
@@ -777,27 +782,21 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 		pm_runtime_put(&hsic.rh_dev->dev);
 	}
 
+	if (hsic.port_disconnect == 0)
+		hsic_port_logical_disconnect(hsic.rh_dev,
+				HSIC_USH_PORT);
+	else
+		ush_hsic_port_disable();
+
 	if (org_req) {
 		dev_dbg(dev, "enable hsic\n");
-
-		/* add this due to hcd release
-			 doesn't set hcd to NULL */
-		ush_hsic_port_disable();
-		usleep_range(5000, 6000);
+		msleep(20);
 		ush_hsic_port_enable();
 	} else {
 		dev_dbg(dev, "disable hsic\n");
-		/* add this due to hcd release
-			 doesn't set hcd to NULL */
-		if (hsic.port_disconnect == 0)
-			hsic_port_logical_disconnect(hsic.rh_dev,
-					HSIC_USH_PORT);
-		else {
-			ush_hsic_port_disable();
-			if (hsic.rh_dev) {
-				hsic.autosuspend_enable = 0;
-				usb_enable_autosuspend(hsic.rh_dev);
-			}
+		if (hsic.rh_dev) {
+			hsic.autosuspend_enable = 0;
+			usb_enable_autosuspend(hsic.rh_dev);
 		}
 	}
 	mutex_unlock(&hsic.hsic_mutex);
