@@ -19,7 +19,8 @@ static struct ush_hsic_pdata hsic_pdata = {
 	.has_modem = 0,
 	.enabled = 0,
 	.aux_gpio = -EINVAL,
-	.wakeup_gpio = -EINVAL
+	.wakeup_gpio = -EINVAL,
+	.reenum_delay = USH_REENUM_DELAY
 };
 
 static struct ush_hsic_pdata *get_hsic_platform_data(struct pci_dev *pdev)
@@ -34,6 +35,13 @@ static struct ush_hsic_pdata *get_hsic_platform_data(struct pci_dev *pdev)
 			pdata->has_modem = 1;
 			pdata->enabled = 1;
 		}
+
+		if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0))
+			/* BYT FFRD8 PR0 */
+			pdata->reenum_delay = USH_REENUM_DELAY_FFRD8_PR0;
+		else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1))
+			/* BYT FFRD8 PR1 */
+			pdata->reenum_delay = USH_REENUM_DELAY;
 		break;
 
 	default:

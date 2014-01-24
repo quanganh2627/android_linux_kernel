@@ -15,8 +15,9 @@
 #define HSIC_BUS_INACTIVITYDURATION              500
 #define HSIC_REMOTEWAKEUP                       1
 
-#define USH_PCI_ID           0x0F35
-#define USH_REENUM_DELAY     600000
+#define USH_PCI_ID                     0x0F35
+#define USH_REENUM_DELAY_FFRD8_PR0     600000
+#define USH_REENUM_DELAY               20000
 
 enum wlock_state {
 	UNLOCKED,
@@ -72,10 +73,11 @@ enum {
 };
 
 struct ush_hsic_pdata {
-	unsigned has_modem:1;     /* has modem or not */
-	unsigned enabled:1;       /* enable flag */
-	int aux_gpio;
-	int wakeup_gpio;
+	unsigned                has_modem:1;     /* has modem or not */
+	unsigned                enabled:1;       /* enable flag */
+	int                     aux_gpio;
+	int                     wakeup_gpio;
+	int                     reenum_delay;
 };
 
 static int hsic_notify(struct notifier_block *self,
