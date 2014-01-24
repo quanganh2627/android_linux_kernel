@@ -786,22 +786,6 @@ static int intel_sst_probe(struct pci_dev *pci,
 		/*set SSP3 disable DMA finsh for SSSP3 */
 		csr2 |= BIT(1)|BIT(2);
 		sst_shim_write(sst_drv_ctx->shim, SST_CSR2, csr2);
-	} else if (((sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) ||
-			(sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR))) {
-		/*allocate mem for fw context save during suspend*/
-		sst_drv_ctx->context.iram =
-			kzalloc(sst_drv_ctx->iram_end - sst_drv_ctx->iram_base, GFP_KERNEL);
-		if (!sst_drv_ctx->context.iram) {
-			ret = -ENOMEM;
-			goto do_free_misc;
-		}
-		sst_drv_ctx->context.dram =
-			kzalloc(sst_drv_ctx->dram_end - sst_drv_ctx->dram_base, GFP_KERNEL);
-		if (!sst_drv_ctx->context.dram) {
-			ret = -ENOMEM;
-			kfree(sst_drv_ctx->context.iram);
-			goto do_free_misc;
-		}
 	}
 	if (sst_drv_ctx->pdata->ssp_data) {
 		if (sst_drv_ctx->pdata->ssp_data->gpio_in_use)

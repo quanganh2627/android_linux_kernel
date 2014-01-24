@@ -359,12 +359,6 @@ struct snd_sst_probe_bytes {
 #define PCI_DMAC_CLV_ID 0x08F0
 #define PCI_DMAC_MRFLD_ID 0x119B
 
-struct sst_fw_context {
-	void *iram;
-	void *dram;
-	unsigned int saved;
-};
-
 struct sst_ram_buf {
 	u32 size;
 	char *buf;
@@ -536,7 +530,6 @@ struct intel_sst_drv {
 	struct list_head	memcpy_list;
 	/* list used during LIB download in memcpy mode */
 	struct list_head	libmemcpy_list;
-	struct sst_fw_context	context;
 	/* holds the stucts of iram/dram local buffers for dump*/
 	struct sst_dump_buf	dump_buf;
 	/* Lock for CSR register change */
