@@ -148,10 +148,9 @@ static inline bool pmu_power_down_lss_without_driver(int index,
 	if (platform_is(INTEL_ATOM_MRFLD))
 		return ((sub_sys_index == 0x0) && (sub_sys_pos == 0x5));
 
-	/* For MOFD ignore D0i0 on LSS 5, 7 */
+	/* For MOFD ignore D0i0 on LSS 5 */
 	if ((platform_is(INTEL_ATOM_MOORFLD)) && (sub_sys_index == 0x0))
-		return ((sub_sys_pos == 0x5) || (sub_sys_pos == 0x7));
-
+		return (sub_sys_pos == 0x5);
 	return false;
 }
 
@@ -1792,14 +1791,13 @@ static int pmu_init(void)
 	 */
 	update_all_lss_states(&pmu_config);
 
-	/* In MOFD LSS 16 is used by PTI and LSS 15 is used by DFX
-	 * and should not be powered down during init
-	 */
 	if (platform_is(INTEL_ATOM_MOORFLD)) {
 		pmu_config.pmu2_states[0] &=
 			~SSMSK(D0I3_MASK, 15);
 		pmu_config.pmu2_states[1] &=
 			~SSMSK(D0I3_MASK, 0);
+		pmu_config.pmu2_states[0] &=
+			~SSMSK(D0I3_MASK, 7);
 	}
 
 	status = pmu_issue_interactive_command(&pmu_config, false,
