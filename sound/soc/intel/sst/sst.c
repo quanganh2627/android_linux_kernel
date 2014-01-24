@@ -260,55 +260,6 @@ static irqreturn_t intel_sst_intr_mfld(int irq, void *context)
 	return retval;
 }
 
-
-static int sst_save_fw_rams(struct intel_sst_drv *sst)
-{
-	/* first reset, stall and bypass the core */
-	sst->ops->reset();
-
-	/* FIXME now we copy, should use DMA here but for now we cant
-	 * so use mempcy instead
-	 */
-	memcpy_fromio(sst->context.iram, sst->iram,
-			sst->iram_end - sst->iram_base);
-	memcpy_fromio(sst->context.dram, sst->dram,
-			sst->dram_end - sst->dram_base);
-	return 0;
-}
-
-static int sst_load_fw_rams(struct intel_sst_drv *sst)
-{
-	struct sst_block *block;
-
-	/* first reset, stall and bypass the core */
-	sst->ops->reset();
-
-	/* FIXME now we copy, should use DMA here but for now we cant
-	 * so use mempcy instead
-	 */
-	block = sst_create_block(sst, 0, FW_DWNL_ID);
-	if (block == NULL)
-		return -ENOMEM;
-
-	memcpy_toio(sst->iram, sst->context.iram,
-			sst->iram_end - sst->iram_base);
-	memcpy_toio(sst->dram, sst->context.dram,
-			sst->dram_end - sst->dram_base);
-	sst_set_fw_state_locked(sst, SST_FW_LOADED);
-
-	sst->ops->start();
-	if (sst_wait_timeout(sst, block)) {
-		pr_err("fw download failed\n");
-		/* assume FW d/l failed due to timeout*/
-		sst_set_fw_state_locked(sst, SST_UN_INIT);
-		sst_free_block(sst, block);
-		return -EBUSY;
-	}
-	pr_debug("Fw loaded!");
-	sst_free_block(sst, block);
-	return 0;
-}
-
 static int sst_save_dsp_context_v2(struct intel_sst_drv *sst)
 {
 	unsigned int pvt_id;
@@ -345,13 +296,6 @@ static int sst_save_dsp_context_v2(struct intel_sst_drv *sst)
 		return -EIO;
 	}
 
-	/* all good, so lets copy the fw */
-	/*FIXME: remove the PCI id check for CHT, when the functionality is enabled*/
-	if (sst->pci_id != SST_CHT_PCI_ID) {
-		sst_save_fw_rams(sst);
-		sst->context.saved = 0;
-		pr_debug("fw context saved  ...\n");
-	}
 	sst_free_block(sst, block);
 	return 0;
 }
@@ -1103,16 +1047,6 @@ static int intel_sst_runtime_resume(struct device *dev)
 	}
 
 	sst_set_fw_state_locked(ctx, SST_UN_INIT);
-	if (((ctx->pci_id == SST_MRFLD_PCI_ID) ||
-		(ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)) &&
-			ctx->context.saved) {
-		/* in mrfld we have saved ram snapshot
-		 * so check if snapshot is present if so download that
-		 */
-		sst_load_fw_rams(ctx);
-		ctx->context.saved = 0;
-	}
-
 	return ret;
 }
 
