@@ -86,7 +86,7 @@ struct sdhci_acpi_host {
 };
 
 #define INTEL_VLV_CPU	0x37
-#define INTEL_CHV_CPU	0x30
+#define INTEL_CHV_CPU	0x4c
 static const struct x86_cpu_id intel_cpus[] = {
 	{ X86_VENDOR_INTEL, 6, INTEL_VLV_CPU, X86_FEATURE_ANY, 0 },
 	{ X86_VENDOR_INTEL, 6, INTEL_CHV_CPU, X86_FEATURE_ANY, 0 },
