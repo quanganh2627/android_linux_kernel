@@ -21,6 +21,7 @@
 #include "platform_imx175.h"
 #include "platform_imx134.h"
 #include "platform_ov2722.h"
+#include "platform_gc2235.h"
 #include "platform_ov5693.h"
 #include "platform_lm3554.h"
 #include "platform_ap1302.h"
@@ -40,6 +41,7 @@ const struct intel_v4l2_subdev_id v4l2_ids[] = {
 	{"imx135", RAW_CAMERA, ATOMISP_CAMERA_PORT_PRIMARY},
 	{"imx135fuji", RAW_CAMERA, ATOMISP_CAMERA_PORT_PRIMARY},
 	{"imx134", RAW_CAMERA, ATOMISP_CAMERA_PORT_PRIMARY},
+	{"gc2235", RAW_CAMERA, ATOMISP_CAMERA_PORT_PRIMARY},
 	{"imx132", RAW_CAMERA, ATOMISP_CAMERA_PORT_SECONDARY},
 	{"ov9724", RAW_CAMERA, ATOMISP_CAMERA_PORT_SECONDARY},
 	{"ov2722", RAW_CAMERA, ATOMISP_CAMERA_PORT_SECONDARY},
@@ -103,6 +105,10 @@ static struct camera_device_table byt_ffrd8_cam_table[] = {
 
 static struct camera_device_table byt_crv2_cam_table[] = {
 	{
+		{SFI_DEV_TYPE_I2C, 2, 0x3C, 0x0, 0x0, "gc2235"},
+		{"gc2235", SFI_DEV_TYPE_I2C, 0, &gc2235_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
 		{SFI_DEV_TYPE_I2C, 2, 0x10, 0x0, 0x0, "imx134"},
 		{"imx134", SFI_DEV_TYPE_I2C, 0, &imx134_platform_data,
 			&intel_register_i2c_camera_device}
@@ -376,6 +382,7 @@ static void atomisp_unregister_acpi_devices(struct atomisp_platform_data *pdata)
 		"2-0053",	/* byt-crv2 lm3554*/
 		"2-0010",	/* imx1xx driver*/
 		"2-0036",	/* ov2722 driver*/
+		"2-003c",	/* gc2235 driver*/
 		"2-0010",	/* CHT OV5693 */
 		"4-003c",	/* CHT AP1302 */
 		"1-0053",	/* CHT lm3554 */

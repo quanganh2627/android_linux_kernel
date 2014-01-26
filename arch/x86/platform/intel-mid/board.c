@@ -109,6 +109,7 @@
 #include "device_libs/platform_s5k8aay.h"
 #include "device_libs/platform_ov9724.h"
 #include "device_libs/platform_ov2722.h"
+#include "device_libs/platform_gc2235.h"
 #include "device_libs/platform_lm3559.h"
 #include "device_libs/platform_ov8830.h"
 #include "device_libs/platform_ov5693.h"
@@ -296,6 +297,8 @@ struct devs_id __initconst device_ids[] = {
 	{"ov9724", SFI_DEV_TYPE_I2C, 0, &ov9724_platform_data,
 					&intel_register_i2c_camera_device},
 	{"ov2722", SFI_DEV_TYPE_I2C, 0, &ov2722_platform_data,
+					&intel_register_i2c_camera_device},
+	{"gc2235", SFI_DEV_TYPE_I2C, 0, &gc2235_platform_data,
 					&intel_register_i2c_camera_device},
 	{"lm3559", SFI_DEV_TYPE_I2C, 0, &lm3559_platform_data_func,
 					&intel_register_i2c_camera_device},
