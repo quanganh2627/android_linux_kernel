@@ -1594,7 +1594,9 @@ static int intel_mid_ssp_spi_runtime_idle(struct device *dev)
 	else
 		err = pm_schedule_suspend(dev, 500);
 
-	return err;
+	if (err)
+		return err;
+	return -EBUSY;
 }
 #else
 #define intel_mid_ssp_spi_suspend NULL
