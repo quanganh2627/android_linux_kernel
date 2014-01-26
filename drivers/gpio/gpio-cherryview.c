@@ -486,45 +486,16 @@ static void chv_writel(u32 value, void __iomem *reg)
 static int chv_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
 	struct chv_gpio *cg = to_chv_priv(chip);
-	void __iomem *reg;
-	unsigned long flags;
-	u32 value;
 
 	if (cg->pad_info[offset].family < 0)
 		return -EINVAL;
-
-	if (PAD_CFG_LOCKED(offset))
-		return 0;
-
-	reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL0_REG);
-	spin_lock_irqsave(&cg->lock, flags);
-	value = chv_readl(reg);
-	value |= CV_GPIO_EN;
-	chv_writel(value, reg);
-	spin_unlock_irqrestore(&cg->lock, flags);
 
 	return 0;
 }
 
 static void chv_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
-	struct chv_gpio *cg = to_chv_priv(chip);
-	void __iomem *reg;
-	unsigned long flags;
-	u32 value;
-
-	if (cg->pad_info[offset].family < 0)
-		return;
-
-	if (PAD_CFG_LOCKED(offset))
-		return;
-
-	reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL0_REG);
-	spin_lock_irqsave(&cg->lock, flags);
-	value = chv_readl(reg);
-	value &= ~CV_GPIO_EN;
-	chv_writel(value, reg);
-	spin_unlock_irqrestore(&cg->lock, flags);
+	return;
 }
 
 void lnw_gpio_set_alt(int gpio, int alt)
