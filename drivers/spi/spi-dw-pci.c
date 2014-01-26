@@ -184,8 +184,8 @@ static int spi_dw_pci_runtime_idle(struct device *dev)
 	else
 		err = pm_schedule_suspend(dev, 500);
 
-	if (err != 0)
-		return 0;
+	if (err)
+		return err;
 
 	return -EBUSY;
 }
