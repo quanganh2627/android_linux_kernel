@@ -784,6 +784,17 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 		ehci_hsic_start_host(pci_dev);
 	} else {
 		dev_dbg(dev, "disable hsic\n");
+
+		/* If device enable auto suspend, disable it before disable hsic */
+		if (hsic.autosuspend_enable) {
+			dev_dbg(dev, "disable pm\n");
+			if (hsic.modem_dev != NULL)
+				usb_disable_autosuspend(hsic.modem_dev);
+			if (hsic.rh_dev != NULL)
+				usb_disable_autosuspend(hsic.rh_dev);
+			hsic.autosuspend_enable = 0;
+		}
+
 		/* add this due to hcd release
 		 doesn't set hcd to NULL */
 		if (hsic.hsic_stopped == 0)
@@ -859,6 +870,7 @@ static ssize_t hsic_autosuspend_enable_store(struct device *dev,
 
 	mutex_lock(&hsic.hsic_mutex);
 	hsic.autosuspend_enable = org_req;
+
 	if (hsic.modem_dev != NULL) {
 		if (hsic.autosuspend_enable == 0) {
 			dev_dbg(dev, "Modem dev autosuspend disable\n");
