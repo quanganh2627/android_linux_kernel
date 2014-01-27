@@ -993,7 +993,7 @@ static const char * const sst_bt_fm_texts[] = {
 };
 
 static const struct snd_kcontrol_new sst_bt_fm_mux =
-	SST_SSP_MUX_CTL("ssp1", 0, SST_MUX_REG, SST_BT_FM_MUX_SHIFT, sst_bt_fm_texts,
+	SST_SSP_MUX_CTL("ssp1_out", 0, SST_MUX_REG, SST_BT_FM_MUX_SHIFT, sst_bt_fm_texts,
 			sst_mux_get, sst_mux_put);
 
 #define SST_SSP_CODEC_MUX		0
@@ -1222,7 +1222,7 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 		      sst_mix_modem_controls, sst_swm_mixer_event),
 
 	SND_SOC_DAPM_SWITCH("aware_out aware 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_aware),
-	SND_SOC_DAPM_MUX("ssp1 mux 0", SND_SOC_NOPM, 0, 0, &sst_bt_fm_mux),
+	SND_SOC_DAPM_MUX("ssp1_out mux 0", SND_SOC_NOPM, 0, 0, &sst_bt_fm_mux),
 
 	SND_SOC_DAPM_SUPPLY("VBTimer", SND_SOC_NOPM, 0, 0,
 			    sst_vb_trigger_event,
@@ -1288,9 +1288,9 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"modem_out", NULL, "modem_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("modem_out mix 0"),
 
-	{"bt_fm_out", NULL, "ssp1 mux 0"},
-	{"ssp1 mux 0", "bt", "bt_out"},
-	{"ssp1 mux 0", "fm", "fm_out"},
+	{"bt_fm_out", NULL, "ssp1_out mux 0"},
+	{"ssp1_out mux 0", "bt", "bt_out"},
+	{"ssp1_out mux 0", "fm", "fm_out"},
 	{"bt_out", NULL, "bt_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("bt_out mix 0"),
 	{"fm_out", NULL, "fm_out mix 0"},
