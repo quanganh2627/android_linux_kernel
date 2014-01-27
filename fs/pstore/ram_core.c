@@ -347,10 +347,14 @@ void persistent_ram_free_old(struct persistent_ram_zone *prz)
 	prz->old_log_size = 0;
 }
 
+void persistent_ram_sync_ctrl_buffer(struct persistent_ram_zone *prz)
+{
+	atomic_set(&prz->buffer_ctrl->start, atomic_read(&prz->buffer->start));
+	atomic_set(&prz->buffer_ctrl->size, atomic_read(&prz->buffer->size));
+}
+
 void persistent_ram_zap(struct persistent_ram_zone *prz)
 {
-	atomic_set(&prz->buffer_ctrl->start, 0);
-	atomic_set(&prz->buffer_ctrl->size, 0);
 	atomic_set(&prz->buffer->start, 0);
 	atomic_set(&prz->buffer->size, 0);
 	persistent_ram_update_header_ecc(prz);
@@ -449,6 +453,7 @@ static int persistent_ram_post_init(struct persistent_ram_zone *prz, u32 sig,
 				" size %zu, start %zu\n",
 			       buffer_size(prz), buffer_start(prz));
 			persistent_ram_save_old(prz);
+			persistent_ram_sync_ctrl_buffer(prz);
 			return 0;
 		}
 	} else {
@@ -458,6 +463,7 @@ static int persistent_ram_post_init(struct persistent_ram_zone *prz, u32 sig,
 
 	prz->buffer->sig = sig;
 	persistent_ram_zap(prz);
+	persistent_ram_sync_ctrl_buffer(prz);
 
 	return 0;
 err:
