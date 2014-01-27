@@ -36,6 +36,7 @@
 #include <linux/delay.h>
 #include <sound/asound.h>
 #include <sound/pcm.h>
+#include <sound/compress_offload.h>
 #include "../sst_platform.h"
 #include "../platform_ipc_v2.h"
 #include "sst.h"
@@ -234,7 +235,9 @@ static void sst_stream_recovery(struct intel_sst_drv *sst)
 			str_info = &sst_drv_ctx->streams[i];
 			if (str_info->pcm_substream)
 				snd_pcm_stop(str_info->pcm_substream, SNDRV_PCM_STATE_SETUP);
-				sst->streams[i].status = STREAM_RESET;
+			else if (str_info->compr_cb_param)
+				snd_compr_stop(str_info->compr_cb_param);
+			sst->streams[i].status = STREAM_RESET;
 		}
 	}
 }
