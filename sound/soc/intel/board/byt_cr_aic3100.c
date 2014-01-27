@@ -799,7 +799,7 @@ static void snd_byt_mc_shutdown(struct platform_device *pdev)
 	struct byt_mc_private *drv = snd_soc_card_get_drvdata(soc_card);
 
 	pr_debug("In %s\n", __func__);
-	snd_soc_jack_free_gpios(&drv->jack, 1, &hs_gpio);
+	snd_byt_unregister_jack(drv);
 }
 
 static const struct dev_pm_ops snd_byt_mc_pm_ops = {
