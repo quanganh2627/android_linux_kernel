@@ -33,6 +33,7 @@
 #include "platform_smb347.h"
 
 #define MRFL_SMIP_SRAM_ADDR		0xFFFCE000
+#define MOFD_SMIP_SRAM_ADDR		0xFFFC5C00
 #define MRFL_PLATFORM_CONFIG_OFFSET	0x3B3
 #define MRFL_SMIP_SHUTDOWN_OFFSET	1
 #define MRFL_SMIP_RESV_CAP_OFFSET	3
@@ -316,18 +317,24 @@ static bool is_mapped;
 static void __iomem *smip;
 int get_smip_plat_config(int offset)
 {
+	unsigned long sram_addr;
+
 	if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
-		INTEL_MID_BOARD(1, TABLET, MRFL) ||
-		INTEL_MID_BOARD(1, PHONE, MOFD) ||
+		INTEL_MID_BOARD(1, TABLET, MRFL)) {
+		sram_addr = MRFL_SMIP_SRAM_ADDR;
+	} else if (INTEL_MID_BOARD(1, PHONE, MOFD) ||
 		INTEL_MID_BOARD(1, TABLET, MOFD)) {
-		if (!is_mapped) {
-			smip = ioremap_nocache(MRFL_SMIP_SRAM_ADDR +
+		sram_addr = MOFD_SMIP_SRAM_ADDR;
+	} else
+		return -EINVAL;
+
+	if (!is_mapped) {
+		smip = ioremap_nocache(sram_addr +
 				MRFL_PLATFORM_CONFIG_OFFSET, 8);
-			is_mapped = true;
-		}
-		return ioread8(smip + offset);
+		is_mapped = true;
 	}
-	return -EINVAL;
+
+	return ioread8(smip + offset);
 }
 
 static void init_tgain_toff(struct max17042_platform_data *pdata)
