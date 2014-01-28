@@ -588,12 +588,14 @@ static int dwc3_intel_byt_set_power(struct usb_phy *_otg,
 		else
 			cap.ma = 2;
 
-		if (sdp_charging(otg))
+		if (sdp_charging(otg)) {
+			otg_dbg(otg, "Notify EM cap.ma = %d\n", cap.ma);
 			atomic_notifier_call_chain(&otg->usb2_phy.notifier,
 					USB_EVENT_ENUMERATED, &cap.ma);
-		else
+		} else
 			atomic_notifier_call_chain(&otg->usb2_phy.notifier,
 					USB_EVENT_CHARGER, &cap);
+
 		otg_dbg(otg, "Notify EM	CHARGER_EVENT_SUSPEND\n");
 
 		return 0;
@@ -687,10 +689,11 @@ static int dwc3_intel_byt_notify_charger_type(struct dwc_otg2 *otg,
 	cap.chrg_evt = event;
 	spin_unlock_irqrestore(&otg->lock, flags);
 
-	if (sdp_charging(otg))
+	if (sdp_charging(otg)) {
+		otg_dbg(otg, "Notify EM cap.ma = %d\n", cap.ma);
 		atomic_notifier_call_chain(&otg->usb2_phy.notifier,
 				USB_EVENT_ENUMERATED, &cap.ma);
-	else
+	} else
 		atomic_notifier_call_chain(&otg->usb2_phy.notifier,
 				USB_EVENT_CHARGER, &cap);
 
@@ -912,6 +915,7 @@ static int dwc3_intel_byt_handle_notification(struct notifier_block *nb,
 	spin_lock_irqsave(&otg->lock, flags);
 	switch (event) {
 	case USB_EVENT_VBUS:
+		otg_dbg(otg, "VBUS event received %d\n", val);
 		if (val) {
 			otg->otg_events |= OEVT_B_DEV_SES_VLD_DET_EVNT;
 			otg->otg_events &= ~OEVT_A_DEV_SESS_END_DET_EVNT;
