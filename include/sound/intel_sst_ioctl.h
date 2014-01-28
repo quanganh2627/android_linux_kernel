@@ -37,7 +37,7 @@ struct snd_ppp_params {
 	__u8			algo_id;/* Post/Pre processing algorithm ID  */
 	__u8			str_id;	/*Only 5 bits used 0 - 31 are valid*/
 	__u8			enable;	/* 0= disable, 1= enable*/
-	__u8			reserved;
+	__u8			operation; /* 0 = set_algo, 1 = get_algo */
 	__u32			size;	/*Size of parameters for all blocks*/
 	void			*params;
 } __packed;

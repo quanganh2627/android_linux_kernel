@@ -129,7 +129,8 @@ static int sst_create_algo_ipc(struct snd_ppp_params *algo_params,
 	return offset;
 }
 
-static long sst_send_algo(struct snd_ppp_params algo_params, struct sst_block *block)
+static long sst_send_algo(struct snd_ppp_params algo_params,
+		struct sst_block *block, enum sst_algo_ops algo)
 {
 	struct ipc_post *msg;
 	int retval;
@@ -139,7 +140,7 @@ static long sst_send_algo(struct snd_ppp_params algo_params, struct sst_block *b
 		algo_params.algo_id, algo_params.str_id,
 		algo_params.enable, algo_params.size);
 
-
+	algo_params.operation = algo;
 	offset = sst_create_algo_ipc(&algo_params, &msg, block->drv_id);
 	if (offset < 0)
 		return offset;
@@ -153,7 +154,8 @@ static long sst_send_algo(struct snd_ppp_params algo_params, struct sst_block *b
 	sst_add_to_dispatch_list_and_post(sst_drv_ctx, msg);
 	retval = sst_wait_timeout(sst_drv_ctx, block);
 	if (retval) {
-		pr_debug("Error in sst_set_algo = %d\n", retval);
+		pr_debug("%s: failed for algo ops %s with retval %d\n",
+				__func__, algo ? "SST_GET_ALGO" : "SST_SET_ALGO", retval);
 		return -EIO;
 	}
 	return 0;
@@ -188,16 +190,14 @@ static long intel_sst_ioctl_dsp(unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		algo_params.reserved = 0;
-		retval = sst_send_algo(algo_params, block);
+		retval = sst_send_algo(algo_params, block, SST_SET_ALGO);
 		break;
 
 	case _IOC_NR(SNDRV_SST_GET_ALGO):
 		if (copy_from_user(&algo_params, (void __user *)arg,
 							sizeof(algo_params)))
 			return -EFAULT;
-		algo_params.reserved = 1;
-		retval = sst_send_algo(algo_params, block);
+		retval = sst_send_algo(algo_params, block, SST_GET_ALGO);
 		if (retval)
 			break;
 		algo_params_copied = (struct snd_ppp_params *)block->data;

@@ -65,6 +65,11 @@ enum sst_states {
 	SST_SHUTDOWN,
 };
 
+enum sst_algo_ops {
+	SST_SET_ALGO = 0,
+	SST_GET_ALGO = 1,
+};
+
 #define SST_BLOCK_TIMEOUT	1000
 
 /* SST register map */
