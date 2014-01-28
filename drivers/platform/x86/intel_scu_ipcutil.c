@@ -2848,6 +2848,9 @@ static int oshob_init(void)
 		pr_warn("[BOOT] RR=[UNKNOWN 0x%02x] WD=0x%02x ALARM=0x%02x (osnib)\n",
 			rr, wd, alarm);
 
+	pr_warn("[BOOT] WD[3..0] bits %scleared by IA FW (osnib)\n",
+		(wd & 0x0F) ? "NOT " : "");
+
 	for (i = 0; i < ARRAY_SIZE(osnib_wake_srcs); i++) {
 		if (osnib_wake_srcs[i].id == wakesrc) {
 			pr_warn("[BOOT] WAKESRC=[%s] (osnib)\n",
