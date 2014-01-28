@@ -365,6 +365,13 @@ struct devs_id __initconst device_ids[] = {
 	{"RMC_PEGASUS", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
 		&sfi_handle_mdm},
 	/* scalability V2 configurations */
+	/* for 6360 modem*/
+	{"XMM6360_CONF_1", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"XMM6360_CONF_2", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"XMM6360_CONF_3", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
 	/* for 7160 modem*/
 	{"XMM7160_CONF_1", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
 		&sfi_handle_mdm},
