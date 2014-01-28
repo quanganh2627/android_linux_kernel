@@ -327,8 +327,8 @@ static void sst_stall_lpe_n_wait(struct intel_sst_drv *sst)
 #define NUM_DWORDS		256
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 {
-	char iram_event[30], dram_event[30], ddr_imr_event[65];
-	char *envp[4];
+	char iram_event[30], dram_event[30], ddr_imr_event[65], event_type[30];
+	char *envp[5];
 	int env_offset = 0;
 
 	/*
@@ -366,6 +366,8 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 
 	}
 
+	snprintf(event_type, sizeof(event_type), "EVENT_TYPE=SST_RECOVERY");
+	envp[env_offset++] = event_type;
 	snprintf(iram_event, sizeof(iram_event), "IRAM_DUMP_SIZE=%d",
 					sst->dump_buf.iram_buf.size);
 	envp[env_offset++] = iram_event;
