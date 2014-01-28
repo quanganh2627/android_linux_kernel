@@ -144,6 +144,8 @@
 #define GAB_CTL				0x24000
 #define   GAB_CTL_CONT_AFTER_PAGEFAULT	(1<<8)
 
+#define PHYSICAL_ADDR_MASK		0xFFFFF000
+
 /* VGA stuff */
 
 #define VGA_ST01_MDA 0x3ba

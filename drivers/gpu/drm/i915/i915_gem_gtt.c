@@ -690,7 +690,7 @@ void clear_reserved_fwlogo_mem(struct drm_i915_private *dev_priv)
 		drm_mm_put_block(dev_priv->fwlogo_gtt_node);
 
 		dev_priv->gtt.base.clear_range(&dev_priv->gtt.base,
-					       dev_priv->fwlogo_offset,
+					       dev_priv->fwlogo_offset >> PAGE_SHIFT,
 					       dev_priv->fwlogo_size >> PAGE_SHIFT);
 	}
 
@@ -702,59 +702,110 @@ void clear_reserved_fwlogo_mem(struct drm_i915_private *dev_priv)
 	DRM_DEBUG_DRIVER("Cleanup reserved node upon first flip after boot\n");
 }
 
-/* Release the node (which holds FW logo) with DRM for both GTT and stolen range. */
-static void reserve_fwlogo_mem(struct drm_device *dev)
+static unsigned int
+i915_get_physical_address(struct drm_device *dev, unsigned long ggtt_offset)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	gen6_gtt_pte_t __iomem *gtt_entries;
+	unsigned int addr, first_entry;
+
+	first_entry = ggtt_offset >> PAGE_SHIFT;
+	gtt_entries = (gen6_gtt_pte_t __iomem *) dev_priv->gtt.gsm + first_entry;
+	addr = (readl(&gtt_entries[0]) & PHYSICAL_ADDR_MASK);
+
+	DRM_DEBUG_DRIVER("GTT entry is 0x%x & Dma/physaddr is 0x%x\n",
+					ioread32(&gtt_entries[0]), (u32)addr);
+
+
+	return addr;
+}
+
+static bool
+reserve_fwlogo_in_gtt(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct i915_address_space *ggtt_vm = &dev_priv->gtt.base;
 	int retval;
-	DRM_DEBUG_DRIVER("reserve node in GGTT and stolen first flip after boot\n");
 
 	dev_priv->fwlogo_gtt_node =
 			kzalloc(sizeof(*dev_priv->fwlogo_gtt_node), GFP_KERNEL);
 	if (!dev_priv->fwlogo_gtt_node)
-		return;
+		return false;
 
+	dev_priv->fwlogo_gtt_node->start = dev_priv->fwlogo_offset;
+	dev_priv->fwlogo_gtt_node->size = dev_priv->fwlogo_size;
+
+	retval = drm_mm_reserve_node(&ggtt_vm->mm, dev_priv->fwlogo_gtt_node);
+	if (retval)
+		return false;
+
+	return true;
+}
+
+static bool
+reserve_fwlogo_in_stolen(struct drm_device *dev, int stolen_offset)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int retval;
 	dev_priv->fwlogo_stolen_node =
 			kzalloc(sizeof(*dev_priv->fwlogo_stolen_node),
 					GFP_KERNEL);
 	if (!dev_priv->fwlogo_stolen_node)
-		goto err_gtt;
+		return false;
 
-	dev_priv->fwlogo_gtt_node->start = dev_priv->fwlogo_offset;
-	dev_priv->fwlogo_stolen_node->start = dev_priv->fwlogo_offset;
-
-	dev_priv->fwlogo_gtt_node->size = dev_priv->fwlogo_size;
+	dev_priv->fwlogo_stolen_node->start = stolen_offset;
 	dev_priv->fwlogo_stolen_node->size = dev_priv->fwlogo_size;
 
-	retval = drm_mm_reserve_node(&ggtt_vm->mm, dev_priv->fwlogo_gtt_node);
+	retval = drm_mm_reserve_node(&dev_priv->mm.stolen,
+			dev_priv->fwlogo_stolen_node);
 	if (retval)
-		goto cleanup;
+		return false;
 
-	if (drm_mm_initialized(&dev_priv->mm.stolen)) {
-		retval = drm_mm_reserve_node(&dev_priv->mm.stolen,
-				dev_priv->fwlogo_stolen_node);
-		if (retval)
+	return true;
+}
+
+
+/* Release the node (which holds FW logo) with DRM for both GTT and stolen range. */
+static void reserve_fwlogo_mem(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	bool is_stolen_offset;
+	unsigned int phy_addr, stolen_offset;
+	unsigned int stolen_size = (unsigned int) dev_priv->gtt.stolen_size;
+
+	/* Reserve FW Logo in GTT */
+	if (!reserve_fwlogo_in_gtt(dev))
+		goto err_gtt;
+
+	phy_addr = i915_get_physical_address(dev, dev_priv->fwlogo_offset);
+	is_stolen_offset = (phy_addr >= dev_priv->mm.stolen_base &&
+				phy_addr <= (dev_priv->mm.stolen_base + stolen_size));
+
+	DRM_DEBUG_DRIVER("Does the offset falls within Stolen %d\n",
+							is_stolen_offset);
+
+	if (is_stolen_offset && drm_mm_initialized(&dev_priv->mm.stolen)) {
+		/* Reserve FW Logo in Stolen */
+		stolen_offset = phy_addr - dev_priv->mm.stolen_base;
+		DRM_DEBUG_DRIVER("Stolen offset= 0x%x\n", stolen_offset);
+		if (!reserve_fwlogo_in_stolen(dev, stolen_offset))
 			goto err_out;
-
-		return;
 	}
 
+	return;
 err_out:
 	drm_mm_put_block(dev_priv->fwlogo_gtt_node);
 	dev_priv->gtt.base.clear_range(&dev_priv->gtt.base,
-			       dev_priv->fwlogo_offset,
+			       dev_priv->fwlogo_offset >> PAGE_SHIFT,
 			       dev_priv->fwlogo_size >> PAGE_SHIFT);
 
-cleanup:
 	kfree(dev_priv->fwlogo_stolen_node);
 err_gtt:
 	kfree(dev_priv->fwlogo_gtt_node);
+
 	dev_priv->fwlogo_gtt_node = NULL;
 	dev_priv->fwlogo_stolen_node = NULL;
-
 	DRM_ERROR("Couldnt reserve GGTT or Stolen DRM node for FW Logo\n");
-
 }
 
 
