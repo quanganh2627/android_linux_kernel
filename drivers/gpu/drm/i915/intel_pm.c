@@ -5597,13 +5597,13 @@ static void valleyview_init_clock_gating(struct drm_device *dev)
 	I915_WRITE(VLV_GUNIT_CLOCK_GATE, 0xffffffff);
 
 	/* Conservative clock gating settings for now */
-	I915_WRITE(0x9400, 0xffffffff);
-	I915_WRITE(0x9404, 0xffffffff);
-	I915_WRITE(0x9408, 0xffffffff);
-	I915_WRITE(0x940c, 0xffffffff);
-	I915_WRITE(0x9410, 0xffffffff);
-	I915_WRITE(0x9414, 0xffffffff);
-	I915_WRITE(0x9418, 0xffffffff);
+	I915_WRITE(GEN6_UCGCTL1, GEN7_ENABLE_UCGCTL_MASK);
+	I915_WRITE(GEN6_UCGCTL2, GEN7_ENABLE_UCGCTL_MASK);
+	I915_WRITE(GEN7_UCGCTL3, GEN7_ENABLE_UCGCTL_MASK);
+	I915_WRITE(GEN7_UCGCTL4, GEN7_L3BANK2X_CLOCK_GATE_DISABLE_MASK);
+	I915_WRITE(GEN7_UCGCTL5, GEN7_GAMunit_CLOCK_GATE_DISABLE_MASK);
+	I915_WRITE(GEN7_UCGCTL6, GEN7_ENABLE_UCGCTL_MASK);
+	I915_WRITE(GEN7_UCGCTL7, GEN7_ENABLE_UCGCTL_MASK);
 }
 
 static void cherryview_init_clock_gating(struct drm_device *dev)
