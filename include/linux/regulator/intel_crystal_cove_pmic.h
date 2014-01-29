@@ -26,6 +26,7 @@
 #define V2P85SXCNT_ADDR	0x066
 #define V3P3SCNT_ADDR	0x069
 #define V1P8SCNT_ADDR	0x05c
+#define V1P8SXCNT_ADDR	0x05d
 #define VSYS_SCNT_ADDR	0x06c
 
 #define CRYSTAL_COVE_REGULATOR_ID_START 1000
@@ -37,6 +38,7 @@ enum intel_regulator_id {
 	V2P85SX,
 	V3P3S,
 	V1P8S,
+	V1P8SX,
 	VSYS_S,
 };
 
@@ -59,6 +61,10 @@ static const u16 V3P3S_VSEL_TABLE[] = {
 };
 
 static const u16 V1P8S_VSEL_TABLE[] = {
+	1817,
+};
+
+static const u16 V1P8SX_VSEL_TABLE[] = {
 	1817,
 };
 
