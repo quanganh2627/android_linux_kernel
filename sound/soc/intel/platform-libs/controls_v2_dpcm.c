@@ -1048,10 +1048,6 @@ int sst_dpcm_probe_send(struct snd_soc_platform *platform, u16 probe_pipe_id,
 	return sst_send_probe_cmd(sst, probe_pipe_id, mode, switch_state, probe_cfg);
 }
 
-static const struct snd_kcontrol_new sst_mix_sw_aware =
-	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 0, 1, 0,
-		sst_mix_get, sst_mix_put);
-
 static const struct snd_kcontrol_new sst_mix_sw_tone_gen =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 1, 1, 0,
 		sst_mix_get, sst_mix_put);
@@ -1290,7 +1286,6 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_SWM_MIXER("modem_out mix 0", SST_MIX_MODEM, SST_TASK_SBA, SST_SWM_OUT_MODEM,
 		      sst_mix_modem_controls, sst_swm_mixer_event),
 
-	SND_SOC_DAPM_SWITCH("aware_out aware 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_aware),
 	SND_SOC_DAPM_MUX("ssp1_out mux 0", SND_SOC_NOPM, 0, 0, &sst_bt_fm_mux),
 	SND_SOC_DAPM_SWITCH("tone_in tone_generator 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_tone_gen),
 
@@ -1344,8 +1339,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	SST_SBA_MIXER_GRAPH_MAP("voip_out mix 0"),
 
 	{"aware", NULL, "aware_out"},
-	{"aware_out", NULL, "aware_out aware 0"},
-	{"aware_out aware 0", "switch", "aware_out mix 0"},
+	{"aware_out", NULL, "aware_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("aware_out mix 0"),
 	{"vad", NULL, "vad_out"},
 	{"vad_out", NULL, "vad_out mix 0"},
@@ -1593,8 +1587,6 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 		SST_PATH_INDEX_AWARE_OUT, 0, SST_TASK_SBA, SBA_VB_SET_FIR),
 	SST_ALGO_KCONTROL_BYTES("aware_out", "iir", 300, SST_MODULE_ID_IIR_24,
 		SST_PATH_INDEX_AWARE_OUT, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
-	SST_ALGO_KCONTROL_BYTES("aware_out", "aware", 48, SST_MODULE_ID_CONTEXT_ALGO_AWARE,
-		SST_PATH_INDEX_AWARE_OUT, 0, SST_TASK_AWARE, AWARE_ENV_CLASS_PARAMS),
 	SST_ALGO_KCONTROL_BYTES("vad_out", "fir", 272, SST_MODULE_ID_FIR_24,
 		SST_PATH_INDEX_VAD_OUT, 0, SST_TASK_SBA, SBA_VB_SET_FIR),
 	SST_ALGO_KCONTROL_BYTES("vad_out", "iir", 300, SST_MODULE_ID_IIR_24,
