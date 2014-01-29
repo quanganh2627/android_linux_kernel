@@ -154,6 +154,37 @@ static struct platform_device v1p8s_device = {
 	},
 };
 
+/* V1P8SX regulator platform data */
+static struct regulator_consumer_supply v1p8sx_consumer[] = {
+};
+
+static struct regulator_init_data v1p8sx_data = {
+	.constraints = {
+		.name = "v1p8sx",
+		.min_uV			= 1817000,
+		.max_uV			= 1817000,
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(v1p8sx_consumer),
+	.consumer_supplies	= v1p8sx_consumer,
+};
+
+static struct intel_pmic_info v1p8sx_info = {
+	.pmic_reg   = V1P8SXCNT_ADDR,
+	.init_data  = &v1p8sx_data,
+	.table_len  = ARRAY_SIZE(V1P8SX_VSEL_TABLE),
+	.table      = V1P8SX_VSEL_TABLE,
+};
+
+static struct platform_device v1p8sx_device = {
+	.name = "intel_regulator",
+	.id = V1P8SX,
+	.dev = {
+		.platform_data = &v1p8sx_info,
+	},
+};
+
 /***********VSYS_S REGUATOR platform data*************/
 static struct regulator_consumer_supply vsys_s_consumer[] = {
 };
@@ -187,6 +218,7 @@ static struct platform_device *regulator_devices[] __initdata = {
 	&v2p85sx_device,
 	&v3p3s_device,
 	&v1p8s_device,
+	&v1p8sx_device,
 	&vsys_s_device,
 };
 
