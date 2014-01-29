@@ -198,7 +198,7 @@ long intel_sst_ioctl_dsp(unsigned int cmd,
 		if (algo_params_copied->size > algo_params->size) {
 			pr_debug("mem insufficient to copy\n");
 			retval = -EMSGSIZE;
-			goto free_mem;
+			break;
 		} else {
 			char __user *tmp;
 			struct snd_ppp_params *get_params;
@@ -209,22 +209,22 @@ long intel_sst_ioctl_dsp(unsigned int cmd,
 			if (copy_to_user(tmp, &algo_params_copied->size,
 						 sizeof(u32))) {
 				retval = -EFAULT;
-				goto free_mem;
+				break;
 			}
 			tmp = (char __user *)arg + offsetof(
 					struct snd_ppp_params, enable);
 			if (copy_to_user(tmp, &algo_params_copied->enable,
 						 sizeof(u8))) {
 				retval = -EFAULT;
-				goto free_mem;
+				break;
 			}
 			if (algo_params_copied->size == 0)
-				goto free_mem;
+				break;
 
 			get_params = kmalloc(sizeof(*get_params), GFP_KERNEL);
 			if (!get_params) {
 				pr_err("sst: mem alloc failed\n");
-				goto free_mem;
+				break;
 			}
 			memcpy(get_params, algo_params_copied,
 							sizeof(*get_params));
@@ -232,7 +232,7 @@ long intel_sst_ioctl_dsp(unsigned int cmd,
 			get_params->params = kmalloc(get_params->size, GFP_KERNEL);
 			if (!get_params->params) {
 				pr_err("sst: mem alloc failed\n");
-				goto free_mem2;
+				goto free_mem;
 			}
 			pp = (char *)algo_params_copied;
 			pp = pp + sizeof(*get_params) -
@@ -245,11 +245,10 @@ long intel_sst_ioctl_dsp(unsigned int cmd,
 			}
 			kfree(get_params->params);
 
-free_mem2:
+free_mem:
 			kfree(get_params);
 
 		}
-free_mem:
 		break;
 	}
 	sst_free_block(sst_drv_ctx, block);
