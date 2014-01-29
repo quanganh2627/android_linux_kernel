@@ -219,19 +219,19 @@ int aic31xx_wait_bits(struct aic31xx_priv *aic31xx, unsigned int reg,
 			unsigned int mask, unsigned char val, int sleep,
 			int counter)
 {
-	unsigned int status;
+	unsigned int value;
 	int timeout = sleep * counter;
-	int ret;
-	status = regmap_read(aic31xx->regmap, reg, &mask);
-	while (((status & mask) != val) && counter) {
+
+	value = snd_soc_read(aic31xx->codec, reg);
+	while (((value & mask) != val) && counter) {
 		usleep_range(sleep, sleep + 100);
-		ret = regmap_read(aic31xx->regmap, reg, &mask);
+		value = snd_soc_read(aic31xx->codec, reg);
 		counter--;
 	};
 	if (!counter)
 		dev_err(aic31xx->dev,
 			"wait_bits timedout (%d millisecs). lastval 0x%x\n",
-			timeout, status);
+			timeout, value);
 	return counter;
 }
 
@@ -337,7 +337,6 @@ static int aic31xx_hp_power_up_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct aic31xx_priv *aic31xx = snd_soc_codec_get_drvdata(codec);
-	int reg_mask = 0;
 	int ret_wbits = 0;
 	/* TODO: Already checked with TI, why same thing is getting
 		 done for powerup and poweron both
@@ -346,8 +345,8 @@ static int aic31xx_hp_power_up_event(struct snd_soc_dapm_widget *w,
 
 		if (!(strcmp(w->name, "HPL Driver"))) {
 			ret_wbits = aic31xx_wait_bits(aic31xx,
-					AIC31XX_DACFLAG1, reg_mask,
-					0x0, AIC31XX_TIME_DELAY,
+					AIC31XX_DACFLAG1, AIC31XX_HPL_MASK,
+					AIC31XX_HPL_MASK, AIC31XX_TIME_DELAY,
 					AIC31XX_DELAY_COUNTER);
 			if (!ret_wbits)
 				dev_dbg(codec->dev, "HPL Power Timedout\n");
@@ -355,8 +354,8 @@ static int aic31xx_hp_power_up_event(struct snd_soc_dapm_widget *w,
 		}
 		if (!(strcmp(w->name, "HPR Driver"))) {
 			ret_wbits = aic31xx_wait_bits(aic31xx,
-					AIC31XX_DACFLAG1, reg_mask,
-					0x0, AIC31XX_TIME_DELAY,
+					AIC31XX_DACFLAG1, AIC31XX_HPR_MASK,
+					AIC31XX_HPR_MASK, AIC31XX_TIME_DELAY,
 					AIC31XX_DELAY_COUNTER);
 			if (!ret_wbits)
 				dev_dbg(codec->dev, "HPR Power Timedout\n");
@@ -367,7 +366,7 @@ static int aic31xx_hp_power_up_event(struct snd_soc_dapm_widget *w,
 
 		if (!(strcmp(w->name, "HPL Driver"))) {
 			ret_wbits = aic31xx_wait_bits(aic31xx,
-					AIC31XX_DACFLAG1, reg_mask,
+					AIC31XX_DACFLAG1, AIC31XX_HPL_MASK,
 					0x0, AIC31XX_TIME_DELAY,
 					AIC31XX_DELAY_COUNTER);
 			if (!ret_wbits)
@@ -376,7 +375,7 @@ static int aic31xx_hp_power_up_event(struct snd_soc_dapm_widget *w,
 		}
 		if (!(strcmp(w->name, "HPR Driver"))) {
 			ret_wbits = aic31xx_wait_bits(aic31xx,
-					AIC31XX_DACFLAG1, reg_mask,
+					AIC31XX_DACFLAG1, AIC31XX_HPR_MASK,
 					0x0, AIC31XX_TIME_DELAY,
 					AIC31XX_DELAY_COUNTER);
 			if (!ret_wbits)
@@ -393,15 +392,14 @@ static int aic31xx_sp_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	struct aic31xx_priv *aic31xx = snd_soc_codec_get_drvdata(codec);
 	int ret_wbits = 0;
-	unsigned int reg_mask = 0;
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		/* Check for the DAC FLAG register to know if the SPL & SPR are
 		 * really powered up
 		 */
 		if (w->shift == 7) {
 			ret_wbits = aic31xx_wait_bits(aic31xx,
-						AIC31XX_DACFLAG1, reg_mask,
-						0x0, AIC31XX_TIME_DELAY,
+						AIC31XX_DACFLAG1,  AIC31XX_SPL_MASK,
+						 AIC31XX_SPL_MASK, AIC31XX_TIME_DELAY,
 						AIC31XX_DELAY_COUNTER);
 			if (!ret_wbits)
 				dev_dbg(codec->dev, "SPL power timedout\n");
@@ -410,8 +408,8 @@ static int aic31xx_sp_event(struct snd_soc_dapm_widget *w,
 
 		if (w->shift == 6) {
 			ret_wbits = aic31xx_wait_bits(aic31xx,
-						AIC31XX_DACFLAG1, reg_mask,
-						0x0, AIC31XX_TIME_DELAY,
+						AIC31XX_DACFLAG1,  AIC31XX_SPR_MASK,
+						 AIC31XX_SPR_MASK, AIC31XX_TIME_DELAY,
 						AIC31XX_DELAY_COUNTER);
 			if (!ret_wbits)
 				dev_dbg(codec->dev, "SPR power timedout\n");
@@ -425,7 +423,7 @@ static int aic31xx_sp_event(struct snd_soc_dapm_widget *w,
 		 */
 		if (w->shift == 7) {
 			ret_wbits = aic31xx_wait_bits(aic31xx,
-						AIC31XX_DACFLAG1, reg_mask,
+						AIC31XX_DACFLAG1,  AIC31XX_SPL_MASK,
 						0x0, AIC31XX_TIME_DELAY,
 						AIC31XX_DELAY_COUNTER);
 			if (!ret_wbits)
@@ -433,7 +431,7 @@ static int aic31xx_sp_event(struct snd_soc_dapm_widget *w,
 			}
 		if (w->shift == 6) {
 			ret_wbits = aic31xx_wait_bits(aic31xx,
-						AIC31XX_DACFLAG1, reg_mask,
+						AIC31XX_DACFLAG1,  AIC31XX_SPR_MASK,
 						0x0, AIC31XX_TIME_DELAY,
 						AIC31XX_DELAY_COUNTER);
 			if (!ret_wbits)
@@ -553,10 +551,10 @@ static const struct snd_soc_dapm_widget aic31xx_dapm_widgets[] = {
 	/* Output drivers */
 	SND_SOC_DAPM_OUT_DRV_E("HPL Driver", AIC31XX_HPDRIVER, 7, 0,
 			NULL, 0, aic31xx_hp_power_up_event,
-			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_OUT_DRV_E("HPR Driver", AIC31XX_HPDRIVER, 6, 0,
 			NULL, 0, aic31xx_hp_power_up_event,
-			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	/* ADC */
 	SND_SOC_DAPM_ADC_E("ADC", "Capture", AIC31XX_ADCSETUP, 7, 0,

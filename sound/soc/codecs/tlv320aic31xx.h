@@ -270,6 +270,10 @@ void aic31xx_btn_press_intr_enable(struct snd_soc_codec *codec,
 /* DAC Flag Registers */
 #define AIC31XX_DACFLAG1				0xA5
 #define AIC31XX_DACFLAG2				0xA6
+#define AIC31XX_HPL_MASK			0x20
+#define AIC31XX_HPR_MASK			0x02
+#define AIC31XX_SPL_MASK			0x10
+#define AIC31XX_SPR_MASK			0x01
 
 /* Sticky Interrupt flag (overflow) */
 #define AIC31XX_OFFLAG			0xA7
