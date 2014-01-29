@@ -1081,6 +1081,9 @@ struct v4l2_private_int_data {
 #define ATOMISP_VFPP_DISABLE_SCALER		1
 #define ATOMISP_VFPP_DISABLE_LOWLAT		2
 
+/* Query real flash status register value */
+#define V4L2_CID_FLASH_STATUS_REGISTER  (V4L2_CID_CAMERA_LASTP1 + 26)
+
 #define V4L2_BUF_FLAG_BUFFER_INVALID       0x0400
 #define V4L2_BUF_FLAG_BUFFER_VALID         0x0800
 
