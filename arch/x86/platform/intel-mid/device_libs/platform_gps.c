@@ -11,7 +11,6 @@
  */
 
 #include <linux/gpio.h>
-#include <linux/lnw_gpio.h>
 #include <linux/intel_mid_gps.h>
 #include <linux/sfi.h>
 #include <asm/intel-mid.h>
@@ -20,6 +19,7 @@
 static struct intel_mid_gps_platform_data gps_data = {
 	.gpio_reset  = -EINVAL,
 	.gpio_enable = -EINVAL,
+	.gpio_hostwake = -EINVAL,
 	.reset  = RESET_ON,
 	.enable = ENABLE_OFF,
 	.hsu_port = -EINVAL,
@@ -40,6 +40,7 @@ void  __init *intel_mid_gps_device_init(void *info)
 
 	gps_data.gpio_reset  = get_gpio_by_name(GPS_GPIO_RESET);
 	gps_data.gpio_enable = get_gpio_by_name(GPS_GPIO_ENABLE);
+	gps_data.gpio_hostwake = get_gpio_by_name(GPS_GPIO_HOSTWAKE);
 	gps_data.hsu_port = entry->host_num;
 
 	ret = platform_device_register(&intel_mid_gps_device);

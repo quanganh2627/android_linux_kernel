@@ -15,6 +15,7 @@
 
 #define GPS_GPIO_RESET	"GPS-Reset"
 #define GPS_GPIO_ENABLE	"GPS-Enable"
+#define GPS_GPIO_HOSTWAKE	"GPS-Hostwake"
 
 void *intel_mid_gps_device_init(void *info);
 
