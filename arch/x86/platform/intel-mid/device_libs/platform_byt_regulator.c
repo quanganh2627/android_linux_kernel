@@ -86,42 +86,42 @@ static struct platform_device v2p85sx_device = {
 };
 
 /***********V3P3S REGUATOR platform data*************/
-static struct regulator_consumer_supply v3p3s_consumer[] = {
+static struct regulator_consumer_supply v3p3sx_consumer[] = {
 	/* Add consumer list here like below..
 	 * REGULATOR_SUPPLY("usbregu", "usbreg0"),
 	 */
 };
 
-static struct pmic_regulator_gpio_en v3p3s_gpio_data = {
+static struct pmic_regulator_gpio_en v3p3sx_gpio_data = {
 	.gpio = GPIO_3P3SX_EN,
 	.init_gpio_state = GPIOF_OUT_INIT_HIGH,
 };
 
-static struct regulator_init_data v3p3s_data = {
+static struct regulator_init_data v3p3sx_data = {
 	.constraints = {
-		.name = "v3p3s",
+		.name = "v3p3sx",
 		.min_uV			= 3332000,
 		.max_uV			= 3332000,
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
 	},
-	.num_consumer_supplies	= ARRAY_SIZE(v3p3s_consumer),
-	.consumer_supplies	= v3p3s_consumer,
+	.num_consumer_supplies	= ARRAY_SIZE(v3p3sx_consumer),
+	.consumer_supplies	= v3p3sx_consumer,
 };
 
-static struct intel_pmic_info v3p3s_info = {
-	.pmic_reg   = V3P3SCNT_ADDR,
-	.init_data  = &v3p3s_data,
-	.table_len  = ARRAY_SIZE(V3P3S_VSEL_TABLE),
-	.table      = V3P3S_VSEL_TABLE,
-	.en_pin	=  &v3p3s_gpio_data,
+static struct intel_pmic_info v3p3sx_info = {
+	.pmic_reg   = V3P3SXCNT_ADDR,
+	.init_data  = &v3p3sx_data,
+	.table_len  = ARRAY_SIZE(V3P3SX_VSEL_TABLE),
+	.table      = V3P3SX_VSEL_TABLE,
+	.en_pin	=  &v3p3sx_gpio_data,
 };
 
-static struct platform_device v3p3s_device = {
+static struct platform_device v3p3sx_device = {
 	.name = "intel_regulator",
-	.id = V3P3S,
+	.id = V3P3SX,
 	.dev = {
-		.platform_data = &v3p3s_info,
+		.platform_data = &v3p3sx_info,
 	},
 };
 
@@ -216,7 +216,7 @@ static struct platform_device vsys_s_device = {
 static struct platform_device *regulator_devices[] __initdata = {
 	&v2p85s_device,
 	&v2p85sx_device,
-	&v3p3s_device,
+	&v3p3sx_device,
 	&v1p8s_device,
 	&v1p8sx_device,
 	&vsys_s_device,
