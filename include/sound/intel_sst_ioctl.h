@@ -56,8 +56,8 @@ struct snd_sst_tuning_params {
 
 /*IOCTL defined here */
 /*SST common ioctls */
-#define SNDRV_SST_DRIVER_INFO	_IOR('L', 0x10, struct snd_sst_driver_info *)
-#define SNDRV_SST_SET_ALGO	_IOW('L', 0x30,  struct snd_ppp_params *)
-#define SNDRV_SST_GET_ALGO	_IOWR('L', 0x31,  struct snd_ppp_params *)
-#define SNDRV_SST_TUNING_PARAMS	_IOW('L', 0x32,  struct snd_sst_tuning_params *)
+#define SNDRV_SST_DRIVER_INFO	_IOR('L', 0x10, struct snd_sst_driver_info)
+#define SNDRV_SST_SET_ALGO	_IOW('L', 0x30,  struct snd_ppp_params)
+#define SNDRV_SST_GET_ALGO	_IOWR('L', 0x31,  struct snd_ppp_params)
+#define SNDRV_SST_TUNING_PARAMS	_IOW('L', 0x32,  struct snd_sst_tuning_params)
 #endif /* __INTEL_SST_IOCTL_H__ */

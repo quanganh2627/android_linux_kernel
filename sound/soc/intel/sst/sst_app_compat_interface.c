@@ -42,8 +42,8 @@ struct snd_ppp_params32 {
 } __packed;
 
 enum {
-SNDRV_SST_SET_ALGO32 = _IOW('L', 0x30,  struct snd_ppp_params32 *),
-SNDRV_SST_GET_ALGO32 = _IOWR('L', 0x31,  struct snd_ppp_params32 *),
+SNDRV_SST_SET_ALGO32 = _IOW('L', 0x30,  struct snd_ppp_params32),
+SNDRV_SST_GET_ALGO32 = _IOWR('L', 0x31,  struct snd_ppp_params32),
 };
 
 static long sst_algo_compat(unsigned int cmd,
