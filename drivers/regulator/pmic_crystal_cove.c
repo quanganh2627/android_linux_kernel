@@ -39,7 +39,7 @@
 #define OFF			0
 
 const u16 reg_addr_offset[] = {
-	V2P85SCNT_ADDR, V2P85SXCNT_ADDR, V3P3SCNT_ADDR,
+	V2P85SCNT_ADDR, V2P85SXCNT_ADDR, V3P3SXCNT_ADDR,
 	V1P8SCNT_ADDR, V1P8SXCNT_ADDR, VSYS_SCNT_ADDR
 };
 const u8 initial_state[] = {1, 1, 1, 1, 1, 1};
@@ -285,10 +285,10 @@ static struct regulator_desc intel_pmic_desc[] = {
 		.owner = THIS_MODULE,
 	},
 	{
-		.name = "v3p3s",
-		.id = V3P3S,
+		.name = "v3p3sx",
+		.id = V3P3SX,
 		.ops = &intel_pmic_ops_voltage_notchangeable,
-		.n_voltages = ARRAY_SIZE(V3P3S_VSEL_TABLE),
+		.n_voltages = ARRAY_SIZE(V3P3SX_VSEL_TABLE),
 		.type = REGULATOR_VOLTAGE,
 		.owner = THIS_MODULE,
 	},
