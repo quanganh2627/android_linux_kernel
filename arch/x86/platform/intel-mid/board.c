@@ -135,12 +135,21 @@
 #include "device_libs/platform_wl12xx.h"
 #include "device_libs/platform_wifi.h"
 
+/* UART devices */
+#include "device_libs/platform_gps.h"
+
 static void __init *no_platform_data(void *info)
 {
 	return NULL;
 }
 
 struct devs_id __initconst device_ids[] = {
+	/* UART devices */
+	{"bcm4752", SFI_DEV_TYPE_UART, 0, &intel_mid_gps_device_init, NULL},
+	{"bcm47521", SFI_DEV_TYPE_UART, 0, &intel_mid_gps_device_init, NULL},
+	{"bcm47531", SFI_DEV_TYPE_UART, 0, &intel_mid_gps_device_init, NULL},
+	{"csrg05t", SFI_DEV_TYPE_UART, 0, &intel_mid_gps_device_init, NULL},
+
 	/* SD devices */
 	{"wl12xx_clk_vmmc", SFI_DEV_TYPE_SD, 0, &wl12xx_platform_data, NULL},
 	{"bcm43xx_clk_vmmc", SFI_DEV_TYPE_SD, 0, &wifi_platform_data, NULL},
