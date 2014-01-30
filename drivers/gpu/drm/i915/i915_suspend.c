@@ -843,7 +843,7 @@ static int valleyview_freeze(struct drm_device *dev)
 		if (error) {
 			dev_err(&dev->pdev->dev,
 				"GEM idle failed, resume might fail\n");
-			return error;
+			goto out;
 		}
 
 		/* uninstall the interrupts and then cancel outstanding wq.
@@ -911,12 +911,14 @@ static int valleyview_freeze(struct drm_device *dev)
 	/* vii)  Power Gate Power Wells */
 	valleyview_power_gate_disp(dev_priv);
 
+	dev_priv->is_suspending = false;
+
+out:
 	/* viii) Release graphics clocks */
 	reg = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
 	reg &= ~VLV_GFX_CLK_FORCE_ON_BIT;
 	I915_WRITE(VLV_GTLC_SURVIVABILITY_REG, reg);
 
-	dev_priv->is_suspending = false;
 	return 0;
 }
 
