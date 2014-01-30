@@ -635,7 +635,7 @@ int sst_acpi_remove(struct platform_device *pdev)
 	pm_runtime_get_noresume(ctx->dev);
 	pm_runtime_disable(ctx->dev);
 	unregister_sst(ctx->dev);
-	sst_set_fw_state_locked(ctx, SST_RESET);
+	sst_set_fw_state_locked(ctx, SST_SHUTDOWN);
 	misc_deregister(&lpe_ctrl);
 	kfree(ctx->runtime_param.param.addr);
 	flush_scheduled_work();

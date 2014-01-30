@@ -620,7 +620,7 @@ static int sst_cdev_control(unsigned int cmd, unsigned int str_id)
 {
 	pr_debug("recieved cmd %d on stream %d\n", cmd, str_id);
 
-	if (sst_drv_ctx->sst_state == SST_RESET)
+	if (sst_drv_ctx->sst_state != SST_FW_RUNNING)
 		return 0;
 
 	switch (cmd) {
@@ -860,7 +860,7 @@ static int sst_device_control(int cmd, void *arg)
 {
 	int retval = 0, str_id = 0;
 
-	if (sst_drv_ctx->sst_state == SST_RESET)
+	if (sst_drv_ctx->sst_state != SST_FW_RUNNING)
 		return 0;
 
 	switch (cmd) {

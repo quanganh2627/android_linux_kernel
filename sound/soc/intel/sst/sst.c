@@ -882,7 +882,7 @@ static void intel_sst_remove(struct pci_dev *pci)
 	pm_runtime_forbid(sst_drv_ctx->dev);
 	unregister_sst(sst_drv_ctx->dev);
 	pci_dev_put(sst_drv_ctx->pci);
-	sst_set_fw_state_locked(sst_drv_ctx, SST_RESET);
+	sst_set_fw_state_locked(sst_drv_ctx, SST_SHUTDOWN);
 	misc_deregister(&lpe_ctrl);
 	free_irq(pci->irq, sst_drv_ctx);
 
