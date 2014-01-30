@@ -425,13 +425,11 @@ static void __init sfi_handle_i2c_dev(struct sfi_device_table_entry *pentry,
 static void sfi_handle_hsu_dev(struct sfi_device_table_entry *pentry,
 					struct devs_id *dev)
 {
-	void *pdata = NULL;
-
 	pr_info("HSU bus = %d, name = %16.16s port = %d\n",
 		pentry->host_num,
 		pentry->name,
 		pentry->addr);
-	dev->get_platform_data((unsigned int)pentry->host_num);
+	dev->get_platform_data(pentry);
 }
 
 static void sfi_handle_hsi_dev(struct sfi_device_table_entry *pentry,
