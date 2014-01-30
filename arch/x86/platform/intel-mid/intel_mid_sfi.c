@@ -61,6 +61,7 @@ static int spi_next_dev;
 static int i2c_next_dev;
 static int i2c_bus[MAX_SCU_I2C];
 static int gpio_num_entry;
+static unsigned int watchdog_irq_num = 0xff;
 static u32 sfi_mtimer_usage[SFI_MTMR_MAX_NUM];
 int sfi_mrtc_num;
 int sfi_mtimer_num;
@@ -71,6 +72,11 @@ EXPORT_SYMBOL_GPL(sfi_mrtc_array);
 struct blocking_notifier_head intel_scu_notifier =
 			BLOCKING_NOTIFIER_INIT(intel_scu_notifier);
 EXPORT_SYMBOL_GPL(intel_scu_notifier);
+
+unsigned int sfi_get_watchdog_irq(void)
+{
+	return watchdog_irq_num;
+}
 
 /* parse all the mtimer info to a static mtimer array */
 int __init sfi_parse_mtmr(struct sfi_table_header *table)
@@ -539,6 +545,10 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 					else
 						/* active high */
 						irq_attr.polarity = 0;
+					/* catch watchdog interrupt number */
+					if (!strncmp(pentry->name,
+							"watchdog", 8))
+						watchdog_irq_num = (unsigned int) irq;
 				} else {
 					/* PNW and CLV go with active low */
 					irq_attr.polarity = 1;
