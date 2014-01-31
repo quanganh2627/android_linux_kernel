@@ -473,6 +473,17 @@ int sst_wait_timeout(struct intel_sst_drv *sst_drv_ctx, struct sst_block *block)
 			pr_err("Can't recover as timedout while downloading the FW\n");
 			pr_err("reseting fw state to unint from %d ...\n", sst_drv_ctx->sst_state);
 			sst_drv_ctx->sst_state = SST_UN_INIT;
+
+			dump_sst_shim(sst_drv_ctx);
+
+			/* Reset & Power Off the LPE only for MRFLD */
+			if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) {
+				sst_stall_lpe_n_wait(sst_drv_ctx);
+
+				/* Send IPC to SCU to power gate and reset the LPE */
+				sst_send_scu_reset_ipc(sst_drv_ctx);
+			}
+
 		} else {
 			if (sst_drv_ctx->ops->do_recovery)
 				sst_drv_ctx->ops->do_recovery(sst_drv_ctx);
