@@ -1207,7 +1207,8 @@ static int watchdog_panic_handler(struct notifier_block *this,
 				  unsigned long         event,
 				  void                  *unused)
 {
-	tasklet_schedule(&watchdog_device.panic_tasklet);
+	if (disable_kernel_watchdog == false)
+		tasklet_schedule(&watchdog_device.panic_tasklet);
 
 	return NOTIFY_OK;
 }
