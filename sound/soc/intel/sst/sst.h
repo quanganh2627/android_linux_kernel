@@ -683,6 +683,8 @@ void sst_do_recovery(struct intel_sst_drv *sst);
 
 void sst_dump_to_buffer(const void *from, size_t from_len, char *buf);
 
+extern int intel_scu_ipc_simple_command(int, int);
+
 static inline int sst_pm_runtime_put(struct intel_sst_drv *sst_drv)
 {
 	int ret;

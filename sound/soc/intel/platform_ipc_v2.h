@@ -153,6 +153,10 @@
  * There is no specific Ack message ID. The data field is used as response
  * meaning.
  */
+
+/* SCU IPC for resetting & power gating the LPE through SCU */
+#define IPC_SCU_LPE_RESET 0xA3
+
 enum ackData {
 	IPC_ACK_SUCCESS = 0,
 	IPC_ACK_FAILURE,

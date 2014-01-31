@@ -323,6 +323,32 @@ static void sst_stall_lpe_n_wait(struct intel_sst_drv *sst)
 				sst_reg_read64(dma_reg1, offset));
 }
 
+#if IS_ENABLED(CONFIG_INTEL_SCU_IPC)
+static void sst_send_scu_reset_ipc(struct intel_sst_drv *sst)
+{
+	int ret = 0;
+
+	/* Reset and power gate the LPE */
+	ret = intel_scu_ipc_simple_command(IPC_SCU_LPE_RESET, 0);
+	if (ret) {
+		pr_err("Power gating LPE failed %d\n", ret);
+		reset_sst_shim(sst);
+	} else {
+		pr_err("LPE reset via SCU is success!!\n");
+		pr_err("dump after LPE power cycle\n");
+		dump_sst_shim(sst);
+
+		/* Mask the DMA & SSP interrupts */
+		sst_shim_write64(sst->shim, SST_IMRX, 0xFFFF0038);
+	}
+}
+#else
+static void sst_send_scu_reset_ipc(struct intel_sst_drv *sst)
+{
+	pr_debug("%s: do nothing, just return\n", __func__);
+}
+#endif
+
 #define SRAM_OFFSET_MRFLD	0xc00
 #define NUM_DWORDS		256
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
@@ -348,8 +374,6 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	dump_sst_shim(sst);
 
 	sst_stall_lpe_n_wait(sst);
-
-	reset_sst_shim(sst);
 
 	/* dump mailbox and sram */
 	pr_err("Dumping Mailbox...\n");
@@ -383,6 +407,9 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	envp[env_offset] = NULL;
 	kobject_uevent_env(&sst->dev->kobj, KOBJ_CHANGE, envp);
 	pr_err("Recovery Uevent Sent!!\n");
+
+	/* Send IPC to SCU to power gate and reset the LPE */
+	sst_send_scu_reset_ipc(sst);
 
 	pr_err("reset the pvt id from val %d\n", sst_drv_ctx->pvt_id);
 	spin_lock(&sst_drv_ctx->pvt_id_lock);
