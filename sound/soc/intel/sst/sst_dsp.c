@@ -804,10 +804,11 @@ static int sst_parse_module_dma(struct intel_sst_drv *sst_ctx,
 	block = (void *)module + sizeof(*module);
 
 	for (count = 0; count < module->blocks; count++) {
-		sg_len += (block->size) / sst_drv_ctx->info.dma_max_len;
-
-		if (block->size % sst_drv_ctx->info.dma_max_len)
-			sg_len = sg_len + 1;
+		if (block->type != SST_CUSTOM_INFO) {
+			sg_len += (block->size) / sst_drv_ctx->info.dma_max_len;
+			if (block->size % sst_drv_ctx->info.dma_max_len)
+				sg_len = sg_len + 1;
+		}
 		block = (void *)block + sizeof(*block) + block->size;
 	}
 
