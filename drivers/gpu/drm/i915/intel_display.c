@@ -2296,10 +2296,6 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		intel_crtc->dspaddr_offset = linear_offset;
 	}
 
-	if (BYT_CR_CONFIG)
-		I915_WRITE(PIPESRC(plane),
-			((fb->width - 1) << 16) | (fb->height - 1));
-
 	I915_WRITE(DSPSTRIDE(plane), fb->pitches[0]);
 	if (INTEL_INFO(dev)->gen >= 4) {
 		I915_MODIFY_DISPBASE(DSPSURF(plane),
@@ -5062,22 +5058,6 @@ static void intel_set_pipe_timings(struct intel_crtc *intel_crtc)
 	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 	uint32_t vsyncshift, crtc_vtotal, crtc_vblank_end;
 
-	if (BYT_CR_CONFIG) {
-		struct intel_encoder *encoder;
-		struct intel_dsi *intel_dsi;
-
-		for_each_encoder_on_crtc(dev, &intel_crtc->base, encoder) {
-			switch (encoder->type) {
-			case INTEL_OUTPUT_DSI:
-			intel_dsi = enc_to_intel_dsi(&encoder->base);
-			mode = intel_dsi->attached_connector->panel.fixed_mode;
-			adjusted_mode =
-				intel_dsi->attached_connector->panel.fixed_mode;
-				break;
-			}
-
-		}
-	}
 	/* We need to be careful not to changed the adjusted mode, for otherwise
 	 * the hw state checker will get angry at the mismatch. */
 	crtc_vtotal = adjusted_mode->crtc_vtotal;
@@ -5485,7 +5465,7 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
+	struct drm_display_mode *mode = &intel_crtc->config.adjusted_mode;
 	int pipe = intel_crtc->pipe;
 	int plane = intel_crtc->plane;
 	int refclk, num_connectors = 0;
@@ -5508,12 +5488,6 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 			break;
 		case INTEL_OUTPUT_DSI:
 			is_dsi = true;
-			if (BYT_CR_CONFIG) {
-				struct intel_dsi *intel_dsi;
-				intel_dsi = enc_to_intel_dsi(&encoder->base);
-				mode =
-				intel_dsi->attached_connector->panel.fixed_mode;
-			}
 			break;
 		}
 

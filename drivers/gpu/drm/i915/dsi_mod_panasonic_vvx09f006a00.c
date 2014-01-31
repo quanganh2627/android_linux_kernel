@@ -73,6 +73,35 @@ static void vvx09f006a00_create_resources(struct intel_dsi_device *dsi)
 {
 }
 
+static bool  vvx09f006a00_load_timing(struct drm_display_mode *mode)
+{
+	if (!mode) {
+		DRM_DEBUG_KMS("Panasonic panel: Invalid input to load timing\n");
+		return false;
+	}
+
+	mode->hsync_start = mode->hdisplay + 110;
+	mode->hsync_end = mode->hsync_start + 38;
+	mode->htotal = mode->hsync_end + 90;
+
+	mode->vsync_start = mode->vdisplay + 15;
+	mode->vsync_end = mode->vsync_start + 10;
+	mode->vtotal = mode->vsync_end + 10;
+
+	mode->vrefresh = 60;
+	mode->clock =  mode->vrefresh * mode->vtotal *
+		mode->htotal / 1000;
+
+	/* Configure */
+	drm_mode_set_name(mode);
+	drm_mode_set_crtcinfo(mode, 0);
+	mode->type |= DRM_MODE_TYPE_PREFERRED;
+
+	DRM_DEBUG_KMS("Loaded mode=%dx%d\n",
+		mode->hdisplay, mode->vdisplay);
+	return true;
+}
+
 static struct drm_display_mode *vvx09f006a00_get_modes(
 	struct intel_dsi_device *dsi)
 {
@@ -85,26 +114,22 @@ static struct drm_display_mode *vvx09f006a00_get_modes(
 		return NULL;
 	}
 
-	/* Hardcode 1920x1200 */
-	mode->hdisplay = 1920;
-	mode->hsync_start = mode->hdisplay + 110;
-	mode->hsync_end = mode->hsync_start + 38;
-	mode->htotal = mode->hsync_end + 90;
+	if (BYT_CR_CONFIG) {
+		/* Fake mode 1280x800 */
+		mode->hdisplay = BYT_CR_USERMODE_HDISPLAY;
+		mode->vdisplay = BYT_CR_USERMODE_VDISPLAY;
+	} else {
+		/* Hardcode 1920x1200 */
+		mode->hdisplay = BYT_MODESET_HDISPLAY;
+		mode->vdisplay = BYT_MODESET_VDISPLAY;
+	}
 
-	mode->vdisplay = 1200;
-	mode->vsync_start = mode->vdisplay + 15;
-	mode->vsync_end = mode->vsync_start + 10;
-	mode->vtotal = mode->vsync_end + 10;
+	if (!vvx09f006a00_load_timing(mode)) {
+		DRM_DEBUG_KMS("Panasonic panel: Load timing failed\n");
+		return NULL;
+	}
 
-	mode->vrefresh = 60;
-	mode->clock =  mode->vrefresh * mode->vtotal *
-		mode->htotal / 1000;
-
-	/* Configure */
-	drm_mode_set_name(mode);
-	drm_mode_set_crtcinfo(mode, 0);
-	if (!BYT_CR_CONFIG)
-		mode->type |= DRM_MODE_TYPE_PREFERRED;
+	DRM_DEBUG_KMS("Mode: %dx%d", mode->hdisplay, mode->vdisplay);
 	return mode;
 }
 
@@ -128,6 +153,19 @@ static enum drm_connector_status vvx09f006a00_detect(
 static bool vvx09f006a00_mode_fixup(struct intel_dsi_device *dsi,
 		    const struct drm_display_mode *mode,
 		    struct drm_display_mode *adjusted_mode) {
+
+	if (BYT_CR_CONFIG) {
+		adjusted_mode->hdisplay = BYT_MODESET_HDISPLAY;
+		adjusted_mode->vdisplay = BYT_MODESET_VDISPLAY;
+		 if (!vvx09f006a00_load_timing(adjusted_mode)) {
+			DRM_DEBUG_KMS("Panasonic panel fixup: Load timing failed\n");
+			return false;
+		}
+
+		DRM_DEBUG_KMS("Panasonic panel fixup: %dx%d (adjusted mode)",
+			adjusted_mode->hdisplay, adjusted_mode->vdisplay);
+	}
+
 	return true;
 }
 
