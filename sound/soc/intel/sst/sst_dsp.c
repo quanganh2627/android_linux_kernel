@@ -1220,6 +1220,14 @@ void sst_firmware_load_cb(const struct firmware *fw, void *context)
 		ctx->fw_in_mem = NULL;
 		goto out;
 	}
+
+	/* If static module download(download at boot time) is supported,
+	 * set the flag to indicate lib download is to be done
+	 */
+	if (ctx->pdata->lib_info)
+		if (ctx->pdata->lib_info->mod_ddr_dnld)
+			ctx->lib_dwnld_reqd = true;
+
 	sst_set_fw_state_locked(sst_drv_ctx, SST_FW_LIB_LOAD);
 	goto exit;
 out:
@@ -1292,6 +1300,12 @@ static int sst_request_fw(struct intel_sst_drv *sst)
 		sst->fw_in_mem = NULL;
 	}
 
+	/* If static module download(download at boot time) is supported,
+	 * set the flag to indicate lib download is to be done
+	 */
+	if (sst->pdata->lib_info)
+		if (sst->pdata->lib_info->mod_ddr_dnld)
+			sst->lib_dwnld_reqd = true;
 end_release:
 	release_firmware(fw);
 	return retval;
@@ -1533,13 +1547,6 @@ int sst_load_fw(void)
 			sst_drv_ctx->sst_state !=  SST_FW_LIB_LOAD) ||
 			sst_drv_ctx->sst_state == SST_SHUTDOWN)
 		return -EAGAIN;
-
-	/* If static module download(download at boot time) is supported,
-	 * set the flag to indicate lib download is to be done
-	 */
-	if (sst_drv_ctx->pdata->lib_info)
-		if (sst_drv_ctx->pdata->lib_info->mod_ddr_dnld)
-			sst_drv_ctx->lib_dwnld_reqd = true;
 
 	if (!sst_drv_ctx->fw_in_mem) {
 		if (sst_drv_ctx->sst_state != SST_START_INIT) {
