@@ -383,6 +383,12 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	sst_drv_ctx->pvt_id = 0;
 	spin_unlock(&sst_drv_ctx->pvt_id_lock);
 	sst_dump_lists(sst_drv_ctx);
+
+	if (sst_drv_ctx->fw_in_mem) {
+		pr_err("Clearing the cached FW copy...\n");
+		kfree(sst_drv_ctx->fw_in_mem);
+		sst_drv_ctx->fw_in_mem = NULL;
+	}
 }
 
 void sst_do_recovery(struct intel_sst_drv *sst)
