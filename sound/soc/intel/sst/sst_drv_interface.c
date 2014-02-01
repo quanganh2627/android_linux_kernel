@@ -600,6 +600,10 @@ static int sst_cdev_set_metadata(unsigned int str_id,
 static int sst_cdev_control(unsigned int cmd, unsigned int str_id)
 {
 	pr_debug("recieved cmd %d on stream %d\n", cmd, str_id);
+
+	if (sst_drv_ctx->sst_state == SST_UN_INIT)
+		return 0;
+
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		return sst_pause_stream(str_id);
