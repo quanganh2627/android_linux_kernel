@@ -508,9 +508,12 @@ static int sst_cdev_close(unsigned int str_id)
 	stream->compr_cb_param = NULL;
 	stream->compr_cb = NULL;
 
-	/* If stream free returns error, put already done in open so skip */
-	/* Do put only in valid free stream case */
-	if (!retval)
+	/* The free_stream will return a error if there is no stream to free,
+	(i.e. the alloc failure case). And in this case the open does a put in
+	the error scenario, so skip in this case.
+		In the close we need to handle put in the success scenario and
+	the timeout error(EBUSY) scenario. */
+	if (!retval || (retval == -EBUSY))
 		sst_pm_runtime_put(sst_drv_ctx);
 
 	return retval;
@@ -728,9 +731,12 @@ static int sst_close_pcm_stream(unsigned int str_id)
 	stream->period_elapsed = NULL;
 	sst_drv_ctx->stream_cnt--;
 
-	/* If stream free returns error, put already done in open so skip */
-	/* Do put only in valid free stream case */
-	if (!retval)
+	/* The free_stream will return a error if there is no stream to free,
+	(i.e. the alloc failure case). And in this case the open does a put in
+	the error scenario, so skip in this case.
+		In the close we need to handle put in the success scenario and
+	the timeout error(EBUSY) scenario. */
+	if (!retval || (retval == -EBUSY))
 		sst_pm_runtime_put(sst_drv_ctx);
 
 	return 0;
