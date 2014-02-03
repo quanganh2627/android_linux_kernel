@@ -723,6 +723,10 @@ static int trigger_algo(struct power_supply *psy)
 		set_cv(chrgr_lst[cnt], cv);
 	}
 
+	if ((bat_prop.algo_stat == PSY_ALGO_STAT_NOT_CHARGE) ||
+		(bat_prop.algo_stat == PSY_ALGO_STAT_FULL))
+		return -EOPNOTSUPP;
+
 	return 0;
 }
 
