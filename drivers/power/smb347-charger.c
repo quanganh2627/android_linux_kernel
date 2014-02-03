@@ -1240,6 +1240,13 @@ static int smb347_hw_init(struct smb347_charger *smb)
 		reg_offset += 2;
 	}
 
+	/* disable charging to recover from previous errors */
+	ret = smb347_read(smb, CMD_A);
+	if (ret >= 0) {
+		ret &= ~CMD_A_CHG_ENABLED;
+		smb347_write(smb, CMD_A, ret);
+	}
+
 	switch (smb->pdata->otg_control) {
 	case SMB347_OTG_CONTROL_DISABLED:
 		break;
