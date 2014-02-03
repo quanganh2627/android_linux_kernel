@@ -294,6 +294,31 @@ static void dump_buffer_fromio(void __iomem *from,
 	pr_err("****** End *********\n\n\n");
 }
 
+static void sst_stall_lpe_n_wait(struct intel_sst_drv *sst)
+{
+	union config_status_reg_mrfld csr;
+	void __iomem *dma_reg0 = sst->debugfs.dma_reg[0];
+	void __iomem *dma_reg1 = sst->debugfs.dma_reg[1];
+	int offset = 0x3A0; /* ChEnReg of DMA */
+
+
+	pr_err("Before stall: DMA_0 Ch_EN %#llx DMA_1 Ch_EN %#llx\n",
+				sst_reg_read64(dma_reg0, offset),
+				sst_reg_read64(dma_reg1, offset));
+
+	/* Stall LPE */
+	csr.full = sst_shim_read64(sst->shim, SST_CSR);
+	csr.part.runstall  = 1;
+	sst_shim_write64(sst->shim, SST_CSR, csr.full);
+
+	/* A 5ms delay, before resetting the LPE */
+	usleep_range(5000, 5100);
+
+	pr_err("After stall: DMA_0 Ch_EN %#llx DMA_1 Ch_EN %#llx\n",
+				sst_reg_read64(dma_reg0, offset),
+				sst_reg_read64(dma_reg1, offset));
+}
+
 #define SRAM_OFFSET_MRFLD	0xc00
 #define NUM_DWORDS		256
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
@@ -301,10 +326,6 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	char iram_event[30], dram_event[30], ddr_imr_event[65];
 	char *envp[4];
 	int env_offset = 0;
-	union config_status_reg_mrfld csr;
-	void __iomem *dma_reg0 = sst_drv_ctx->debugfs.dma_reg[0];
-	void __iomem *dma_reg1 = sst_drv_ctx->debugfs.dma_reg[1];
-	int offset = 0x3A0; /* ChEnReg of DMA */
 
 	/*
 	 * setting firmware state as uninit so that the firmware will get
@@ -321,21 +342,9 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 
 	dump_stack();
 	dump_sst_shim(sst);
-	pr_err("Before stall: DMA_0 Ch_EN %#llx DMA_1 Ch_EN %#llx\n",
-				sst_reg_read64(dma_reg0, offset),
-				sst_reg_read64(dma_reg1, offset));
 
-	/* Stall LPE */
-	csr.full = sst_shim_read64(sst_drv_ctx->shim, SST_CSR);
-	csr.part.runstall  = 1;
-	sst_shim_write64(sst_drv_ctx->shim, SST_CSR, csr.full);
+	sst_stall_lpe_n_wait(sst);
 
-	/* A 5ms delay, before resetting the LPE */
-	usleep_range(5000, 5100);
-
-	pr_err("After stall: DMA_0 Ch_EN %#llx DMA_1 Ch_EN %#llx\n",
-				sst_reg_read64(dma_reg0, offset),
-				sst_reg_read64(dma_reg1, offset));
 	reset_sst_shim(sst);
 
 	/* dump mailbox and sram */
