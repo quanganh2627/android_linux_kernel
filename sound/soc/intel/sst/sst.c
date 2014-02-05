@@ -398,7 +398,7 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 		sst->ops = &mrfld_ops;
 		return 0;
 	case SST_BYT_PCI_ID:
-		sst->tstamp = SST_TIME_STAMP_MRFLD;
+		sst->tstamp = SST_TIME_STAMP_BYT;
 		sst->ops = &mrfld_32_ops;
 		return 0;
 	case SST_CLV_PCI_ID:
