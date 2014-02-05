@@ -43,6 +43,7 @@
 #include <linux/acpi_gpio.h>
 
 /* Status register bits */
+#define STATUS_MASK		0xFF0A
 #define STATUS_POR_BIT		(1 << 1)
 #define STATUS_BST_BIT		(1 << 3)
 #define STATUS_VMN_BIT		(1 << 8)
@@ -87,16 +88,11 @@
 #define CONFIG_BER_BIT_ENBL	(1 << 0)
 #define CONFIG_BEI_BIT_ENBL	(1 << 1)
 #define CONFIG_ALRT_BIT_ENBL	(1 << 2)
+#define CONFIG_VSTICKY_BIT_SET	(1 << 12)
 #define CONFIG_TSTICKY_BIT_SET	(1 << 13)
+#define CONFIG_SSTICKY_BIT_SET	(1 << 14)
 #define CONFIG_ALP_BIT_ENBL	(1 << 11)
 #define CONFIG_TEX_BIT_ENBL	(1 << 8)
-
-/* Interrupt status bits */
-#define STATUS_INTR_VMAX_BIT	(1 << 12)
-#define STATUS_INTR_VMIN_BIT	(1 << 8)
-#define STATUS_INTR_SOCMAX_BIT	(1 << 14)
-#define STATUS_INTR_SOCMIN_BIT	(1 << 10)
-
 
 #define VFSOC0_LOCK		0x0000
 #define VFSOC0_UNLOCK		0x0080
@@ -248,6 +244,14 @@ enum max170xx_chip_type {MAX17042, MAX17050};
 /* No of times we should retry on -EAGAIN error */
 #define NR_RETRY_CNT	3
 
+/* No of times we should process interrupt reasons @irq handler */
+/* Probably all values >1 are ok, Normally It just goes once thought
+ * all bits and everything is handled. Also chips seems to limit
+ * interrupts to ~3/s, so we have ~300ms to process, until we will
+ * miss interrupt. What ever value it's, it doesn't have any
+ * performance impact. */
+#define NR_RETRY_INT	3
+
 /* No of times we should reset I2C lines */
 #define NR_I2C_RESET_CNT	8
 
@@ -366,6 +370,7 @@ static struct i2c_client *max17042_client;
 atomic_t fopen_count;
 
 static void update_runtime_params(struct max17042_chip *chip);
+static int read_batt_pack_temp(struct max17042_chip *chip, int *temp);
 
 /* Voltage-Capacity lookup function to get
  * capacity value against a given voltage */
@@ -620,46 +625,136 @@ static irqreturn_t max17042_intr_handler(int id, void *dev)
 static irqreturn_t max17042_thread_handler(int id, void *dev)
 {
 	struct max17042_chip *chip = dev;
-	int stat;
+	struct device *device = &chip->client->dev;
+	int stat, temp, val, count = 0;
+	u16 processed, ignored, config;
 
-	pm_runtime_get_sync(&chip->client->dev);
+	pm_runtime_get_sync(device);
+
+	/* read current configuration */
+	val = max17042_read_reg(chip->client, MAX17042_CONFIG);
+	if (val < 0)
+		config = fg_conf_data->cfg;
+	else
+		config = val;
 
 	stat = max17042_read_reg(chip->client, MAX17042_STATUS);
-	if (stat < 0) {
-		dev_err(&chip->client->dev,
-			"max17042-INTR: status read failed:%d\n", stat);
-		pm_runtime_put_sync(&chip->client->dev);
-		return IRQ_HANDLED;
-	}
-	dev_info(&chip->client->dev, "max17042-INTR: Status-val:%x\n", stat);
-
-	if ((stat & STATUS_INTR_VMAX_BIT) ||
-		(stat & STATUS_INTR_VMIN_BIT))
-		dev_info(&chip->client->dev, "VOLT threshold INTR\n");
-
-	if ((stat & STATUS_INTR_SOCMAX_BIT) ||
-		(stat & STATUS_INTR_SOCMIN_BIT)) {
-		dev_info(&chip->client->dev, "SOC threshold INTR\n");
-	}
-
-	if (stat & STATUS_BR_BIT) {
-		dev_info(&chip->client->dev, "Battery removed INTR\n");
-		/* clear BR bit */
-		max17042_reg_read_modify(chip->client, MAX17042_STATUS,
-						STATUS_BR_BIT, 0);
-		if ((fg_conf_data->cfg & CONFIG_BER_BIT_ENBL) &&
-				(stat & STATUS_BST_BIT)) {
-			dev_warn(&chip->client->dev, "battery unplugged\n");
-			mutex_lock(&chip->batt_lock);
-			chip->present = 0;
-			mutex_unlock(&chip->batt_lock);
-			kernel_power_off();
+	do {
+		dev_dbg(device, "%s: Status-val: 0x%x\n", __func__, stat);
+		if (stat < 0) {
+			dev_err(device,
+				"max17042-INTR: status read failed:%d\n", stat);
+			pm_runtime_put_sync(device);
+			return IRQ_HANDLED;
 		}
-	}
+
+		processed = 0;
+		ignored = 0;
+
+		if ((stat & STATUS_VMN_BIT) || (stat & STATUS_VMX_BIT)) {
+			dev_info(device, "VOLT threshold INTR\n");
+			/* nothing yet */
+			if (stat & STATUS_VMN_BIT) {
+				if (config & CONFIG_VSTICKY_BIT_SET)
+					processed |= STATUS_VMN_BIT;
+				else
+					ignored |= STATUS_VMN_BIT;
+			}
+			if (stat & STATUS_VMX_BIT) {
+				if (config & CONFIG_VSTICKY_BIT_SET)
+					processed |= STATUS_VMX_BIT;
+				else
+					ignored |= STATUS_VMX_BIT;
+			}
+		}
+
+		if ((stat & STATUS_SMN_BIT) || (stat & STATUS_SMX_BIT)) {
+			dev_info(device, "SOC threshold INTR\n");
+			/* Actual processing is done in evt_worker */
+			/* so we might get interrupt again or miss */
+			if (stat & STATUS_SMN_BIT) {
+				if (config & CONFIG_SSTICKY_BIT_SET)
+					processed |= STATUS_SMN_BIT;
+				else
+					ignored |= STATUS_SMN_BIT;
+			}
+			if (stat & STATUS_SMX_BIT) {
+				if (config & CONFIG_SSTICKY_BIT_SET)
+					processed |= STATUS_SMX_BIT;
+				else
+					ignored |= STATUS_SMX_BIT;
+			}
+		}
+
+		if (stat & STATUS_BR_BIT) {
+			dev_info(device, "Battery removed INTR\n");
+			if ((config & CONFIG_BER_BIT_ENBL) &&
+			    (stat & STATUS_BST_BIT)) {
+				dev_warn(device, "battery unplugged\n");
+				mutex_lock(&chip->batt_lock);
+				chip->present = 0;
+				mutex_unlock(&chip->batt_lock);
+				kernel_power_off();
+			}
+			processed |= STATUS_BR_BIT;
+		}
+
+		if ((stat & STATUS_TMN_BIT) || (stat & STATUS_TMX_BIT)) {
+			val = read_batt_pack_temp(chip, &temp);
+			if (val) {
+				dev_warn(device, "Can't read temp: %d\n", val);
+			} else {
+				val = max17042_read_reg(chip->client,
+							MAX17042_TALRT_Th);
+				dev_info(device,
+					"Thermal threshold INTR: %d (%d, %d)\n",
+					 temp, (int8_t)(val & 0xff),
+					 (int8_t)(val >> 8));
+			}
+			if (stat & STATUS_TMN_BIT) {
+				if (config & CONFIG_TSTICKY_BIT_SET)
+					processed |= STATUS_TMN_BIT;
+				else
+					ignored |= STATUS_TMN_BIT;
+			}
+			if (stat & STATUS_TMX_BIT) {
+				if (config & CONFIG_TSTICKY_BIT_SET)
+					processed |= STATUS_TMX_BIT;
+				else
+					ignored |= STATUS_TMX_BIT;
+			}
+		}
+
+		if (stat & STATUS_POR_BIT) {
+			dev_info(device, "Power On Reset event\n");
+			ignored |= STATUS_POR_BIT;
+		}
+
+		if (stat & STATUS_BST_BIT)
+			ignored |= STATUS_BST_BIT;
+
+		if (stat & STATUS_BI_BIT) {
+			dev_info(device, "Battery Insert INTR\n");
+			/* nothing yet */
+			processed |= STATUS_BI_BIT;
+		}
+
+		/* clear int */
+		max17042_reg_read_modify(chip->client, MAX17042_STATUS,
+					 processed, 0);
+
+		stat = max17042_read_reg(chip->client, MAX17042_STATUS);
+	} while ((stat & STATUS_MASK & ~ignored) && (count++ < NR_RETRY_INT));
 
 	/* update battery status and health */
 	schedule_work(&chip->evt_worker);
-	pm_runtime_put_sync(&chip->client->dev);
+	pm_runtime_put_sync(device);
+	if (count >= NR_RETRY_INT) {
+		dev_err(device, "%s: can't process all IRQ reasons: 0x%x\n",
+			__func__, stat);
+		/* desperate */
+		max17042_write_reg(max17042_client, MAX17042_STATUS, 0x0000);
+	}
 	return IRQ_HANDLED;
 }
 
