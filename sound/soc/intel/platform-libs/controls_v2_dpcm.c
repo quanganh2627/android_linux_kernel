@@ -1670,7 +1670,7 @@ static const struct snd_kcontrol_new sst_gain_controls[] = {
 	SST_GAIN("pcm1_in", SST_PATH_INDEX_PCM1_IN, SST_TASK_SBA, 0, &sst_gains[5]),
 	SST_GAIN("low_pcm0_in", SST_PATH_INDEX_LOW_PCM0_IN, SST_TASK_SBA, 0, &sst_gains[6]),
 	SST_GAIN("pcm1_out", SST_PATH_INDEX_PCM1_OUT, SST_TASK_SBA, 0, &sst_gains[7]),
-	SST_GAIN("pcm2_out", SST_PATH_INDEX_PCM1_OUT, SST_TASK_SBA, 0, &sst_gains[8]),
+	SST_GAIN("pcm2_out", SST_PATH_INDEX_PCM2_OUT, SST_TASK_SBA, 0, &sst_gains[8]),
 
 	SST_GAIN("voip_in", SST_PATH_INDEX_VOIP_IN, SST_TASK_SBA, 0, &sst_gains[9]),
 	SST_GAIN("voip_out", SST_PATH_INDEX_VOIP_OUT, SST_TASK_SBA, 0, &sst_gains[10]),
