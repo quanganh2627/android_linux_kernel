@@ -373,15 +373,25 @@ parse_general_definitions(struct drm_i915_private *dev_priv,
 			  struct bdb_header *bdb)
 {
 	struct bdb_general_definitions *general;
+	struct child_device_config *device_config;
 
 	general = find_section(bdb, BDB_GENERAL_DEFINITIONS);
 	if (general) {
 		u16 block_size = get_blocksize(general);
+		DRM_DEBUG_KMS("block size of block 2 is %d\n", block_size);
 		if (block_size >= sizeof(*general)) {
 			int bus_pin = general->crt_ddc_gmbus_pin;
 			DRM_DEBUG_KMS("crt_ddc_bus_pin: %d\n", bus_pin);
 			if (intel_gmbus_is_port_valid(bus_pin))
 				dev_priv->vbt.crt_ddc_pin = bus_pin;
+			device_config = (struct child_device_config *) &general->devices[0];
+			if (device_config->device_type == MIPI_SUPPORT) {
+				dev_priv->is_mipi_from_vbt = true;
+				DRM_DEBUG_KMS("In VBT, MIPI is selected as LFP\n");
+			} else if (device_config->device_type == EDP_SUPPORT) {
+				dev_priv->is_mipi_from_vbt = false;
+				DRM_DEBUG_KMS("In VBT, EDP is selected as LFP\n");
+			}
 		} else {
 			DRM_DEBUG_KMS("BDB_GD too small (%d). Invalid.\n",
 				      block_size);

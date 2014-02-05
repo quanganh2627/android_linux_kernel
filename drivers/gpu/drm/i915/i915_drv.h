@@ -1558,6 +1558,7 @@ typedef struct drm_i915_private {
 	bool gamma_enabled;
 	bool csc_enabled;
 	bool is_hdmi;
+	bool is_mipi_from_vbt;
 	u16 is_mipi;
 	u16 mipi_panel_id;
 	u16 mipi_fw;

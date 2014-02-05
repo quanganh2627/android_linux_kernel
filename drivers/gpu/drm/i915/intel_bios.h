@@ -203,6 +203,9 @@ struct bdb_general_features {
 #define DEVICE_PORT_DVOB	0x01
 #define DEVICE_PORT_DVOC	0x02
 
+#define EDP_SUPPORT           0x1806
+#define MIPI_SUPPORT          0x1400
+
 struct child_device_config {
 	u16 handle;
 	u16 device_type;
