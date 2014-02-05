@@ -42,7 +42,6 @@ const u16 reg_addr_offset[] = {
 	V2P85SCNT_ADDR, V2P85SXCNT_ADDR, V3P3SXCNT_ADDR,
 	V1P8SCNT_ADDR, V1P8SXCNT_ADDR, VSYS_SCNT_ADDR
 };
-const u8 initial_state[] = {1, 1, 1, 1, 1, 1};
 
 static ATOMIC_NOTIFIER_HEAD(vrf_notifier);
 
@@ -63,29 +62,6 @@ void vrf_notifier_call_chain(unsigned int val)
 	atomic_notifier_call_chain(&vrf_notifier, val, NULL);
 }
 EXPORT_SYMBOL(vrf_notifier_call_chain);
-
-/**
-* intel_pmic_reg_get_cntrl - To get the control of the regulator
-* @rdev:    regulator_dev structure
-* @return value :0  - success
-*		:nonzero - Error
-*/
-static int intel_pmic_reg_initialize(u16 pmic_reg, u8 state)
-{
-	int reg_value;
-	u8 val;
-
-	reg_value = intel_mid_pmic_readb(pmic_reg);
-	if (reg_value < 0)
-		return reg_value;
-
-	if (state)
-		val = reg_value | REG_CNT_ENBL | REG_ON;
-	else
-		val = (reg_value & REG_OFF) | REG_CNT_ENBL;
-
-	return intel_mid_pmic_writeb(pmic_reg, val);
-}
 
 /**
 * intel_pmic_reg_is_enabled - To check if the regulator is enabled
@@ -346,11 +322,6 @@ static int crystal_cove_pmic_probe(struct platform_device *pdev)
 	config.dev = &pdev->dev;
 	config.init_data = pdata->init_data;
 	config.driver_data = pdata;
-
-	if (intel_pmic_reg_initialize(reg_addr_offset[i], initial_state[i])) {
-		dev_err(&pdev->dev, "can't get control of the regulator\n");
-		return -EINVAL;
-	}
 
 	pdata->intel_pmic_rdev = regulator_register(&intel_pmic_desc[i],
 								&config);
