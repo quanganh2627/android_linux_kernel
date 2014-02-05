@@ -219,6 +219,71 @@ static struct platform_device vsys_s_device = {
 		.platform_data = &vsys_s_info,
 	},
 };
+
+/* v1p0a regulator platform data */
+static struct regulator_consumer_supply v1p0a_consumer[] = {
+/* Add consumers */
+};
+static struct regulator_init_data v1p0a_data = {
+	.constraints = {
+		.name = "v1p0a",
+		.min_uV			= 900000,
+		.max_uV			= 1100000,
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS |
+						REGULATOR_CHANGE_VOLTAGE,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+		.boot_on		= 1,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(v1p0a_consumer),
+	.consumer_supplies	= v1p0a_consumer,
+};
+
+static struct intel_pmic_info v1p0a_info = {
+	.pmic_reg   = V1P0ACNT_ADDR,
+	.init_data  = &v1p0a_data,
+	.table_len  = ARRAY_SIZE(V1P0A_VSEL_TABLE),
+	.table      = V1P0A_VSEL_TABLE,
+};
+static struct platform_device v1p0a_device = {
+	.name = "intel_regulator",
+	.id = V1P0A,
+	.dev = {
+		.platform_data = &v1p0a_info,
+	},
+};
+
+/* v1p8a regulator platform data */
+static struct regulator_consumer_supply v1p8a_consumer[] = {
+/* Add consumers */
+};
+static struct regulator_init_data v1p8a_data = {
+	.constraints = {
+		.name = "v1p8a",
+		.min_uV			= 1620000,
+		.max_uV			= 1980000,
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS |
+						REGULATOR_CHANGE_VOLTAGE,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+		.boot_on		= 1,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(v1p8a_consumer),
+	.consumer_supplies	= v1p8a_consumer,
+};
+
+static struct intel_pmic_info v1p8a_info = {
+	.pmic_reg   = V1P8ACNT_ADDR,
+	.init_data  = &v1p8a_data,
+	.table_len  = ARRAY_SIZE(V1P8A_VSEL_TABLE),
+	.table      = V1P8A_VSEL_TABLE,
+};
+static struct platform_device v1p8a_device = {
+	.name = "intel_regulator",
+	.id = V1P8A,
+	.dev = {
+		.platform_data = &v1p8a_info,
+	},
+};
+
 static struct platform_device *regulator_devices[] __initdata = {
 	&v2p85s_device,
 	&v2p85sx_device,
@@ -226,6 +291,8 @@ static struct platform_device *regulator_devices[] __initdata = {
 	&v1p8s_device,
 	&v1p8sx_device,
 	&vsys_s_device,
+	&v1p0a_device,
+	&v1p8a_device,
 };
 
 static int __init regulator_init(void)
