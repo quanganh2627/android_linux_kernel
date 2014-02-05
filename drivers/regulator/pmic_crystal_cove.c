@@ -40,7 +40,8 @@
 
 const u16 reg_addr_offset[] = {
 	V2P85SCNT_ADDR, V2P85SXCNT_ADDR, V3P3SXCNT_ADDR,
-	V1P8SCNT_ADDR, V1P8SXCNT_ADDR, VSYS_SCNT_ADDR
+	V1P8SCNT_ADDR, V1P8SXCNT_ADDR, V1P0ACNT_ADDR,
+	V1P8ACNT_ADDR, VSYS_SCNT_ADDR
 };
 
 static ATOMIC_NOTIFIER_HEAD(vrf_notifier);
@@ -281,6 +282,22 @@ static struct regulator_desc intel_pmic_desc[] = {
 		.id = V1P8SX,
 		.ops = &intel_pmic_ops_voltage_notchangeable,
 		.n_voltages = ARRAY_SIZE(V1P8SX_VSEL_TABLE),
+		.type = REGULATOR_VOLTAGE,
+		.owner = THIS_MODULE,
+	},
+	{
+		.name = "v1p0a",
+		.id = V1P0A,
+		.ops = &intel_pmic_ops_voltage_changeable,
+		.n_voltages = ARRAY_SIZE(V1P0A_VSEL_TABLE),
+		.type = REGULATOR_VOLTAGE,
+		.owner = THIS_MODULE,
+	},
+	{
+		.name = "v1p8a",
+		.id = V1P8A,
+		.ops = &intel_pmic_ops_voltage_changeable,
+		.n_voltages = ARRAY_SIZE(V1P8A_VSEL_TABLE),
 		.type = REGULATOR_VOLTAGE,
 		.owner = THIS_MODULE,
 	},
