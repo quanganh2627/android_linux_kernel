@@ -63,6 +63,7 @@ static struct cfg_match cfg_assoc_tbl[] = {
 	/* Saltbay PR2 7260 */
 	{"XMM7260_CONF_2", "XMM_7260_REV1", CPU_TANGIER},
 	{"XMM7260_CONF_5", "XMM_7260_REV2", CPU_TANGIER},
+	{"XMM7260_CONF_8", "XMM_7260_REV2", CPU_TANGIER},
 	/* Baytrail FFRD8 */
 	{"XMM7160_CONF_3", "XMM_7160", CPU_VVIEW2},
 	/* CTP 7160 */
