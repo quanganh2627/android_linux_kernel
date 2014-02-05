@@ -506,7 +506,7 @@ static int micbias_power_on_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 
 	if (SND_SOC_DAPM_EVENT_ON(event))
-		snd_soc_update_bits(codec, AIC31XX_MICBIAS, 0x03, (0x03));
+		snd_soc_update_bits(codec, AIC31XX_MICBIAS, 0x03, (0x02));
 	else if (SND_SOC_DAPM_EVENT_OFF(event))
 		snd_soc_update_bits(codec, AIC31XX_MICBIAS, 0x03, (0x0));
 
