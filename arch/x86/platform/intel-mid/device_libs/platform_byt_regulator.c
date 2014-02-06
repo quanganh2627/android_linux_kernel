@@ -89,9 +89,9 @@ static struct platform_device v2p85sx_device = {
 
 /***********V3P3S REGUATOR platform data*************/
 static struct regulator_consumer_supply v3p3sx_consumer[] = {
-	/* Add consumer list here like below..
-	 * REGULATOR_SUPPLY("usbregu", "usbreg0"),
-	 */
+/* Add consumers here */
+	REGULATOR_SUPPLY("v3p3sx", "0000:00:02.0"), /* Display drm */
+	REGULATOR_SUPPLY("v3p3sx", "1-0035"), /* smb347 charger */
 };
 
 static struct pmic_regulator_gpio_en v3p3sx_gpio_data = {
