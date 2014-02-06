@@ -230,13 +230,13 @@ int iio_basincove_gpadc_sample(struct iio_dev *indio_dev,
 				case PMIC_GPADC_CHANNEL_SYSTEMP1:
 				case PMIC_GPADC_CHANNEL_SYSTEMP2:
 				case PMIC_GPADC_CHANNEL_USBID:
-					if (info->is_pmic_provisioned) {
+					if (!info->pmic_id  && !info->is_pmic_provisioned) {
+						/* Auto mode with Scaling 4 for non-provisioned A0*/
+						rlsb = 32550;
+					} else {
 						/* Auto mode without Scaling */
 						cursrc = (th & 0xF0) >> 4;
 						rlsb = rlsb_array[cursrc];
-					} else {
-						/* Auto mode with Scaling 4 */
-						rlsb = 32550;
 					}
 
 					res->data[i] = (reg_val * rlsb)/10000;
