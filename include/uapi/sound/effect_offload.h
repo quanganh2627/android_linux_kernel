@@ -49,14 +49,14 @@ struct snd_effect_caps {
 
 #define SNDRV_CTL_IOCTL_EFFECT_VERSION		_IOR('E', 0x00, int)
 #define SNDRV_CTL_IOCTL_EFFECT_CREATE		_IOW('E', 0x01,\
-						struct snd_effect *)
+						struct snd_effect)
 #define SNDRV_CTL_IOCTL_EFFECT_DESTROY		_IOW('E', 0x02,\
-						struct snd_effect *)
+						struct snd_effect)
 #define SNDRV_CTL_IOCTL_EFFECT_SET_PARAMS	_IOW('E', 0x03,\
-						struct snd_effect_params *)
+						struct snd_effect_params)
 #define SNDRV_CTL_IOCTL_EFFECT_GET_PARAMS	_IOWR('E', 0x04,\
-						struct snd_effect_params *)
+						struct snd_effect_params)
 #define SNDRV_CTL_IOCTL_EFFECT_QUERY_NUM	_IOR('E', 0x05, int)
 #define SNDRV_CTL_IOCTL_EFFECT_QUERY_CAPS	_IOWR('E', 0x06,\
-						struct snd_effect_caps *)
+						struct snd_effect_caps)
 #endif
