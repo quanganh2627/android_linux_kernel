@@ -90,7 +90,9 @@ static bool msic_battery_check(struct max17042_platform_data *pdata)
 		 * than BATTID length*/
 		if (sb->pentry && sb->header.len >= BATTID_LEN) {
 			if (!((INTEL_MID_BOARD(1, TABLET, MRFL)) ||
-				(INTEL_MID_BOARD(1, PHONE, MRFL)))) {
+				(INTEL_MID_BOARD(1, PHONE, MRFL)) ||
+				(INTEL_MID_BOARD(1, PHONE, MOFD)) ||
+				(INTEL_MID_BOARD(1, TABLET, MOFD)))) {
 				snprintf(pdata->battid, BATTID_LEN + 1, "%s",
 						(char *)sb->pentry);
 			} else {
