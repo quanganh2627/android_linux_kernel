@@ -8992,6 +8992,8 @@ compute_baseline_pipe_bpp(struct intel_crtc *crtc,
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct intel_connector *connector;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_encoder *intel_encoder;
 	int bpp;
 
 	switch (fb->pixel_format) {
@@ -9032,17 +9034,29 @@ compute_baseline_pipe_bpp(struct intel_crtc *crtc,
 
 	pipe_config->pipe_bpp = bpp;
 
+	for_each_encoder_on_crtc(dev, &crtc->base, intel_encoder) {
+
 	/* Clamp display bpp to EDID value */
+
 	list_for_each_entry(connector, &dev->mode_config.connector_list,
 			    base.head) {
 		if (!connector->new_encoder ||
 		    connector->new_encoder->new_crtc != crtc)
 			continue;
-
 		connected_sink_compute_bpp(connector, pipe_config);
+
 	}
+		if (intel_encoder->type == INTEL_OUTPUT_DSI) {
+			if (dev_priv->mipi.panel_bpp == PIPE_24BPP)
+				bpp = DISPLAY_8BPC;
+		else
+				bpp = DISPLAY_6BPC;
+			}
+
+		}
 
 	return bpp;
+
 }
 
 static void intel_dump_pipe_config(struct intel_crtc *crtc,
@@ -9139,6 +9153,7 @@ intel_modeset_pipe_config(struct drm_crtc *crtc,
 	 * after encoders and crtc also have had their say. */
 	plane_bpp = compute_baseline_pipe_bpp(to_intel_crtc(crtc),
 					      fb, pipe_config);
+
 	if (plane_bpp < 0)
 		goto fail;
 
@@ -9189,7 +9204,7 @@ encoder_retry:
 	}
 
 	pipe_config->dither = pipe_config->pipe_bpp != plane_bpp;
-	DRM_DEBUG_KMS("plane bpp: %i, pipe bpp: %i, dithering: %i\n",
+	DRM_ERROR("plane bpp: %i, pipe bpp: %i, dithering: %i\n",
 		      plane_bpp, pipe_config->pipe_bpp, pipe_config->dither);
 
 	return pipe_config;

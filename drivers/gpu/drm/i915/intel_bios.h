@@ -792,6 +792,17 @@ enum MIPI_GPIO_PIN_INDEX {
 
 };
 
+struct mipi_info {
+	u8 seq_version;
+	u16 panel_id;
+	u16 panel_bpp;
+	struct _mipi_config *config;
+	struct _mipi_pps_data *pps;
+	u32 size;
+	u8 *data;
+	u8 *sequence[MIPI_SEQ_MAX];
+};
+
 /* We will have variable number of these - max 6 */
 struct bdb_mipi_sequence {
 	u8 version;

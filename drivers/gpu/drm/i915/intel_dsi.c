@@ -226,9 +226,12 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	int pipe = intel_crtc->pipe;
+	bool is_dsi;
 	u32 temp;
 
 	DRM_DEBUG_KMS("\n");
+
+	is_dsi = intel_pipe_has_type(encoder->base.crtc, INTEL_OUTPUT_DSI);
 	if (dev->is_booting)
 		return;
 
@@ -248,6 +251,9 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 
 		temp = I915_READ(MIPI_PORT_CTRL(pipe));
 		temp = temp | intel_dsi->port_bits;
+
+		if (is_dsi && intel_crtc->config.dither)
+			temp |= DITHERING_ENABLE;
 		I915_WRITE(MIPI_PORT_CTRL(pipe), temp | DPI_ENABLE);
 		usleep_range(2000, 2500);
 	}

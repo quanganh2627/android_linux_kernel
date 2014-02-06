@@ -3241,6 +3241,9 @@ EDP_PSR_SW_TIMER
 #define   PIPECONF_8BPC		(0<<5)
 #define   PIPECONF_10BPC	(1<<5)
 #define   PIPECONF_6BPC		(2<<5)
+#define   DISPLAY_8BPC         8
+#define   DISPLAY_6BPC         6
+#define   PIPE_24BPP           24
 #define   PIPECONF_12BPC	(3<<5)
 #define   PIPECONF_DITHER_EN	(1<<4)
 #define   PIPECONF_DITHER_TYPE_MASK (0x0000000c)
