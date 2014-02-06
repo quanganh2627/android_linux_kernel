@@ -1343,7 +1343,7 @@ typedef struct drm_i915_private {
 	bool late_resume;
 	bool is_suspending;
 	bool is_resuming;
-	bool pfi_credit;
+	bool is_first_modeset;
 	u32 gt_irq_mask;
 	u32 pm_irq_mask;
 

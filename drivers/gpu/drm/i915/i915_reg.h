@@ -400,8 +400,8 @@
  */
 #define PMC_WA_FORICLK5_REG		0xB4
 #define PMC_WA_HNDSHK			(1<<0)
-#define PMC_WA_ICLK5_BIT16_BND		(1<<1)
-#define PMC_WA_ICLK5_BIT17_SPRD		(1<<2)
+#define PMC_WA_ICLK5_BIT16_BND	(1<<1)
+#define PMC_WA_ICLK5_BIT17_SPRD	(1<<2)
 
 /*
  * IOSF sideband
@@ -5158,18 +5158,26 @@ EDP_PSR_SW_TIMER
 #define OPCODE_REG_READ				6
 #define OPCODE_REG_WRITE			7
 
-#define CCU_iCLK5_REG				0x0114
-#define   iCLK5_BENDCLKEN_SHIFT			16
-#define   iCLK5_DISPBENDCLKEN			(1<<16)
-#define   iCLK5_DISPBENDCLKREQ			(1<<0)
-#define CCU_iCLK1_REG				0x0104
-#define   iCLK1_BENDTIME_SHIFT			20
-#define   iCLK1_BENDUPDOWN_SHIFT		28
-#define   iCLK1_BENDTIMETOSW			(0xFF<<20)
-#define   iCLK1_BENDUPDOWN			(1<<28)
-#define CCU_iCLK0_REG				0x0100
-#define   iCLK0_STEPSIZE_SHIFT			9
-#define   iCLK0_BENDSTEPSIZE			(0xF<<9)
+#define CCU_ICLK_GATE_CTRL_REG		(0x24)
+#define ICLKGTCTRL_SSON				(1<<4)
+#define ICLKGTCTRL_SSOFF			(1<<5)
+#define ICLKGTCTRL_BNDON			(1<<6)
+#define ICLKGTCTRL_BNDOFF			(1<<7)
+
+#define CCU_ICLK5_REG				0x0114
+#define   ICLK5_BENDCLKEN_SHIFT		16
+#define   ICLK5_DISPBENDCLKEN		(1<<16)
+#define   ICLK5_DISPBENDCLKREQ		(1<<0)
+#define   ICLK5_DISPSSCLK_SSEN		(1<<17)
+#define   ICLK5_DISPSSCLKREQ		(1<<1)
+#define CCU_ICLK1_REG				0x0104
+#define   ICLK1_BENDTIME_SHIFT		20
+#define   ICLK1_BENDUPDOWN_SHIFT	28
+#define   ICLK1_BENDTIMETOSW		(0xFF<<20)
+#define   ICLK1_BENDUPDOWN			(1<<28)
+#define CCU_ICLK0_REG				0x0100
+#define   ICLK0_STEPSIZE_SHIFT		9
+#define   ICLK0_BENDSTEPSIZE		(0xF<<9)
 
 #define GEN6_GT_CORE_STATUS		0x138060
 #define   GEN6_CORE_CPD_STATE_MASK	(7<<4)
@@ -6021,6 +6029,10 @@ EDP_PSR_SW_TIMER
 #define VLV_PWRGT_DPIO_TX_LANES_MASK   0x000FF000
 #define VLV_PWRGT_DPIO_CMN_LANES_MASK  0x00000C00
 #define VLV_PWRGT_DPIO_RX_TX_LANES_MASK        0x00FFF000
+
+#define PUNIT_GVD_SPARE1	0xD6
+#define PUNIT_CLKS_OFF		0x1
+#define PUNIT_CLKS_ON		0x0
 
 /* GUnit registers for save/restore during s0ix */
 #define GUNIT_CONTROL		(VLV_DISPLAY_BASE + 0x02030)

@@ -5275,179 +5275,6 @@ void intel_iosf_rw(struct drm_i915_private *dev_priv,
 	return;
 }
 
-void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
-		struct intel_program_clock_bending *clockbend)
-{
-	unsigned long refclk = 0, targetclk = 0, currentclk = 0;
-	unsigned long long idealrefclk = 0, errorPPM = 0;
-	bool ssbendupdown = 0, clkbenden = 0;
-	u32 iClk1val = 0, iClk0val = 0, iClk5val = 0, writeval = 0;
-	unsigned long long bendadjust = 0, bendstepsize = 0;
-	u32 bendtimetosw = 0, regval = 0;
-	unsigned long long mult = 0, div = 0;
-	unsigned long timeout = jiffies + msecs_to_jiffies(100);
-
-	clkbenden = clockbend->is_enable;
-	if (clockbend->is_enable) {
-		/*clocks in Hz*/
-		refclk = (unsigned long)clockbend->referenceclk * 1000;
-		currentclk =  (unsigned long)clockbend->dotclock * 1000;
-		targetclk = (unsigned long)clockbend->targetclk * 1000;
-
-		/*errorPPM = (targetclock - actualclock)*1000000/actualclock*/
-		if (targetclk > currentclk) {
-			errorPPM = (unsigned long long)(targetclk - currentclk)*
-					PPM_MULTIPLIER;
-			do_div(errorPPM, currentclk);
-		} else {
-			errorPPM = (unsigned long long)(currentclk - targetclk)*
-					PPM_MULTIPLIER;
-			do_div(errorPPM, currentclk);
-		}
-
-		if (errorPPM > 1) {
-			/* multiplication by ACCURACY_MULTIPLIER
-			to increase accuracy of result */
-
-			/*IdealReferenceClock =
-			TargetClock/ActualClock*RefClkinMHz */
-			mult = ((unsigned long long)targetclk *
-				ACCURACY_MULTIPLIER);
-			div = (unsigned long long)currentclk;
-			do_div(mult, div);
-			div = (unsigned long long)NANOSEC_MULTIPLIER/refclk;
-			idealrefclk = mult * div;
-
-			/*BendAdjustment =
-			(10 - IdealRefClock)*4.8*128*249 */
-
-			/* need to set ssbendupdown based on sign
-				of bendadjust.
-			ssbendupdown = 1 ; BendAdjustment > 0.
-			ssbendupdown = 0 ; BendAdjustment < 0.*/
-			if (idealrefclk >= BENDADJUST_MULT) {
-				bendadjust = ((idealrefclk -
-				(unsigned long long)(BENDADJUST_MULT)) *
-					INVERSE_BEND_RESOLUTION);
-				div = (unsigned long long)BENDADJUST_MULT;
-				do_div(bendadjust, div);
-				ssbendupdown = true;
-			} else {
-				bendadjust = (((unsigned long long)
-					(BENDADJUST_MULT) -
-					idealrefclk) *
-					INVERSE_BEND_RESOLUTION);
-				div = (unsigned long long)BENDADJUST_MULT;
-				do_div(bendadjust, div);
-				ssbendupdown = false;
-			}
-
-			/*BendStepSize = BendAdjustment/249 */
-			bendstepsize = bendadjust;
-			div = (unsigned long long) VLV_ACCUMULATOR_SIZE;
-			do_div(bendstepsize, div);
-
-			/*BendTimetoSwitch = (BendAdjustment % 249) + 0.5 */
-			div_u64_rem(bendadjust, VLV_ACCUMULATOR_SIZE,
-					&bendtimetosw);
-			bendtimetosw = (2*bendtimetosw)+1;
-			do_div(bendtimetosw, 2);
-
-			/* Program and Enable clock bending to achieve 1ppm.
-			Enabled only for required CE modes for HDMI.
-
-			Disable clock bending if enabled: toggling of enable bit
-			is required for new parameters to take effect.*/
-			iClk5val = vlv_nc_read(dev_priv, CCU_iCLK5_REG);
-			if (true == ((iClk5val & iCLK5_DISPBENDCLKEN)
-					>> iCLK5_BENDCLKEN_SHIFT)) {
-				/* HW WA - Clear the dispbendclken */
-				intel_pmc_write_bits(dev_priv,
-				PMC_WA_FORICLK5_REG, PMC_WA_HNDSHK, 0x3);
-				do {
-					regval = 0xF; /* Random */
-					intel_pmc_read(dev_priv,
-						PMC_WA_FORICLK5_REG, &regval);
-				 /* Wait for handshake bit clearance */
-				} while (((regval & PMC_WA_HNDSHK) != 0x0) &&
-					time_after(timeout, jiffies));
-				if (time_after(jiffies, timeout))
-					DRM_DEBUG_DRIVER(
-					"Clock bending prgm timed out\n");
-			}
-
-			/*program step size*/
-			intel_iosf_rw(dev_priv, OPCODE_REG_READ,
-				IOSF_PORT_CCU, CCU_iCLK0_REG, &iClk0val);
-			writeval = bendstepsize << iCLK0_STEPSIZE_SHIFT;
-			iClk0val = iClk0val & ~iCLK0_BENDSTEPSIZE;
-			iClk0val = iClk0val | writeval;
-			intel_iosf_rw(dev_priv, OPCODE_REG_WRITE,
-				IOSF_PORT_CCU, CCU_iCLK0_REG,  &iClk0val);
-
-			/*program number of times to switch up/down*/
-			intel_iosf_rw(dev_priv, OPCODE_REG_READ,
-				IOSF_PORT_CCU, CCU_iCLK1_REG, &iClk1val);
-			writeval = (bendtimetosw << iCLK1_BENDTIME_SHIFT) |
-				(ssbendupdown << iCLK1_BENDUPDOWN_SHIFT);
-			iClk1val = iClk1val &
-				~(iCLK1_BENDTIMETOSW | iCLK1_BENDUPDOWN);
-			iClk1val = iClk1val | writeval;
-			intel_iosf_rw(dev_priv, OPCODE_REG_WRITE,
-				IOSF_PORT_CCU, CCU_iCLK1_REG, &iClk1val);
-
-			/*enable clock bend*/
-			/* Alternative HW WA */
-			/* Handshake bit and bit 1 mapped to bit 16 of iclk5 */
-			intel_pmc_write_bits(dev_priv, PMC_WA_FORICLK5_REG,
-				PMC_WA_HNDSHK | PMC_WA_ICLK5_BIT16_BND, 0x3);
-			do {
-				regval = 0xF; /* Random */
-				intel_pmc_read(dev_priv,
-					PMC_WA_FORICLK5_REG, &regval);
-			/* Wait for handshake bit clearance */
-			} while (((regval & PMC_WA_HNDSHK) != 0x0) &&
-				time_after(timeout, jiffies));
-			if (time_after(jiffies, timeout))
-				DRM_DEBUG_DRIVER(
-				"Clock bending prgm timed out\n");
-		} else {
-			clkbenden = false;
-		}
-	}
-
-	if (false == clkbenden) {
-		/*Disable clock bending for non HDMI modes and
-			HDMI modes with 0 ppm*/
-		intel_iosf_rw(dev_priv, OPCODE_REG_READ,
-				IOSF_PORT_CCU, CCU_iCLK0_REG, &iClk0val);
-		iClk0val = iClk0val & ~iCLK0_BENDSTEPSIZE;
-		intel_iosf_rw(dev_priv, OPCODE_REG_WRITE, IOSF_PORT_CCU,
-				CCU_iCLK0_REG, &iClk0val);
-
-		intel_iosf_rw(dev_priv, OPCODE_REG_READ,
-				IOSF_PORT_CCU, CCU_iCLK1_REG, &iClk1val);
-		iClk1val = iClk1val & ~(iCLK1_BENDTIMETOSW | iCLK1_BENDUPDOWN);
-		intel_iosf_rw(dev_priv, OPCODE_REG_WRITE, IOSF_PORT_CCU,
-				CCU_iCLK1_REG, &iClk1val);
-
-		/* Alternative HW WA */
-		intel_pmc_write_bits(dev_priv,
-			PMC_WA_FORICLK5_REG, PMC_WA_HNDSHK, 0x3);
-		do {
-			regval = 0xF; /* Random */
-			intel_pmc_read(dev_priv, PMC_WA_FORICLK5_REG, &regval);
-		 /* Wait for handshake bit clearance */
-		} while (((regval & PMC_WA_HNDSHK) != 0x0) &&
-			time_after(timeout, jiffies));
-		if (time_after(jiffies, timeout))
-			DRM_DEBUG_DRIVER(
-			"Clock bending prgm timed out\n");
-		iClk5val = vlv_nc_read(dev_priv, CCU_iCLK5_REG);
-		DRM_DEBUG_DRIVER("iCLK5 Reg Value = %x\n", iClk5val);
-	}
-}
-
 bool get_regulator(struct drm_device *dev,
 	struct drm_i915_private *dev_priv)
 {
@@ -9626,6 +9453,24 @@ check_crtc_state(struct drm_device *dev)
 	}
 }
 
+#define BNDSPRDOFF ((vlv_ccu_read(dev_priv, CCU_ICLK_GATE_CTRL_REG) & (ICLKGTCTRL_SSON | ICLKGTCTRL_BNDON)) != (ICLKGTCTRL_SSON | ICLKGTCTRL_BNDON))
+void clock_off_bend_spread(struct drm_i915_private *dev_priv)
+{
+	bool done = false;
+	/*
+	 * We have only one bit to control both spread and bend main clocks
+	 * If Spread is not being used, we can disable clocks
+	 */
+	u32 punitspare = vlv_punit_read(dev_priv, PUNIT_GVD_SPARE1);
+	if (punitspare == PUNIT_CLKS_ON) {
+		vlv_punit_write(dev_priv, PUNIT_GVD_SPARE1, PUNIT_CLKS_OFF);
+		done = wait_for_atomic(BNDSPRDOFF, 10) == 0;
+		if (!done)
+			DRM_ERROR("WARN! Failed to turn off Bend/Spread clocks\n");
+	} else
+		DRM_ERROR("INFO: PUNIT clocks already OFF\n");
+}
+
 static void
 check_shared_dpll_state(struct drm_device *dev)
 {
@@ -9740,9 +9585,11 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 
 	/* DO it only once */
 	if (IS_VALLEYVIEW(dev))
-		if (dev_priv->pfi_credit) {
+		if (dev_priv->is_first_modeset) {
 			program_pfi_credits(dev_priv, true);
-			dev_priv->pfi_credit = false;
+			/* Disable the Bend/Spread clocks */
+			clock_off_bend_spread(dev_priv);
+			dev_priv->is_first_modeset = false;
 		}
 
 	/* crtc->mode is already used by the ->mode_set callbacks, hence we need
