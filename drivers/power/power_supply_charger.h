@@ -222,13 +222,13 @@ static inline int get_ps_int_property(struct power_supply *psy,
 #define IS_HEALTH_GOOD(psy)\
 	(HEALTH(psy) == POWER_SUPPLY_HEALTH_GOOD)
 
-static inline void set_battery_status(struct power_supply *psy, int status)
+static inline int set_battery_status(struct power_supply *psy, int status)
 {
-
-	if (STATUS(psy) != status)
+	if (STATUS(psy) != status) {
 		set_ps_int_property(psy, POWER_SUPPLY_PROP_STATUS, status);
-
-
+		return true;
+	}
+	return false;
 }
 
 static inline void set_charger_online(struct power_supply *psy, int online)
