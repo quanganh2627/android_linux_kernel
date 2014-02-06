@@ -44,6 +44,8 @@
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <linux/dma_remapping.h>
+#include <linux/regulator/consumer.h>
+#include <asm/spid.h>
 
 #define MAX_BRIGHTNESS	255
 
@@ -5446,6 +5448,17 @@ void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
 	}
 }
 
+bool get_regulator(struct drm_device *dev,
+	struct drm_i915_private *dev_priv)
+{
+	dev_priv->v3p3s_reg = regulator_get(dev->dev, FFRD8_PR1_DISP_BKLGHT_REGULATOR);
+	if (IS_ERR(dev_priv->v3p3s_reg)) {
+		DRM_ERROR("FFRD8_PR1_DISP_BKLGHT_REGULATOR: Regulator_get failed\n");
+		return false;
+	}
+	return true;
+}
+
 static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 			      int x, int y,
 			      struct drm_framebuffer *fb)
@@ -5463,7 +5476,8 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 	bool is_lvds = false, is_dsi = false;
 	struct intel_encoder *encoder;
 	const intel_limit_t *limit;
-	int ret;
+	int ret, rgrt;
+	static bool getregulator = true;
 
 	if (dev->is_booting)
 		return 0;
@@ -5574,6 +5588,23 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 			HAD_EVENT_MODE_CHANGING);
 	}
 
+	if (spid.hardware_id == BYT_TABLET_BLK_8PR1) {
+		/* Get the regulator once */
+		if (getregulator) {
+			getregulator = false;
+			rgrt = get_regulator(dev, dev_priv);
+			if (!rgrt) {
+				DRM_ERROR("WARN! 3P3SX Regulator get failed\n");
+				dev_priv->v3p3s_reg = NULL;
+				goto out;
+			}
+			/* FIXME:Remove this once regulator framework does default enable */
+			rgrt = regulator_enable(dev_priv->v3p3s_reg);
+			if (rgrt)
+				DRM_ERROR("WARN! Failed to turn ON 3P3SX\n");
+		}
+	}
+out:
 	return ret;
 }
 
@@ -10296,6 +10327,14 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
+	int rgrt;
+
+	if (spid.hardware_id == BYT_TABLET_BLK_8PR1)
+		if (dev_priv->v3p3s_reg) {
+			rgrt = regulator_disable(dev_priv->v3p3s_reg);
+			if (rgrt)
+				DRM_ERROR("Failed to turn OFF 3P3SX\n");
+		}
 
 	dev_priv->is_suspending = true;
 
@@ -10349,6 +10388,7 @@ extern void intel_resume_hotplug(struct drm_device *dev);
 ssize_t display_runtime_resume(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	int rgrt;
 
 	i915_rpm_get_disp(dev);
 
@@ -10390,6 +10430,12 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	if (dev_priv->dpst.state)
 		i915_dpst_enable_hist_interrupt(dev);
 
+	if (spid.hardware_id == BYT_TABLET_BLK_8PR1)
+		if (dev_priv->v3p3s_reg) {
+			rgrt = regulator_enable(dev_priv->v3p3s_reg);
+			if (rgrt)
+				DRM_ERROR("Failed to turn ON 3P3SX\n");
+		}
 	return 0;
 }
 
