@@ -160,7 +160,6 @@ static inline void byt_force_enable_pin(struct snd_soc_codec *codec,
 		snd_soc_dapm_force_enable_pin(&codec->dapm, bias_widget);
 	else
 		snd_soc_dapm_disable_pin(&codec->dapm, bias_widget);
-	snd_soc_dapm_sync(&codec->dapm);
 }
 
 static inline void byt_set_mic_bias_ldo(struct snd_soc_codec *codec, bool enable)
@@ -172,6 +171,7 @@ static inline void byt_set_mic_bias_ldo(struct snd_soc_codec *codec, bool enable
 		byt_force_enable_pin(codec, "micbias1", false);
 		byt_force_enable_pin(codec, "LDO2", false);
 	}
+	snd_soc_dapm_sync(&codec->dapm);
 }
 
 /*if Soc Jack det is enabled, use it, otherwise use JD via codec */

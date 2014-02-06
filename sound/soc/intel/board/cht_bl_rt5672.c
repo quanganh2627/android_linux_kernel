@@ -93,7 +93,6 @@ static inline void cht_force_enable_pin(struct snd_soc_codec *codec,
 		snd_soc_dapm_force_enable_pin(&codec->dapm, bias_widget);
 	else
 		snd_soc_dapm_disable_pin(&codec->dapm, bias_widget);
-	snd_soc_dapm_sync(&codec->dapm);
 }
 
 static inline void cht_set_codec_power(struct snd_soc_codec *codec, int jack_type)
@@ -115,8 +114,9 @@ static inline void cht_set_codec_power(struct snd_soc_codec *codec, int jack_typ
 		cht_force_enable_pin(codec, "micbias2", false);
 	       break;
 	default:
-		break;
+		return;
 	}
+	snd_soc_dapm_sync(&codec->dapm);
 }
 /* Identify the jack type as Headset/Headphone/None */
 static int cht_check_jack_type(struct snd_soc_jack *jack, struct snd_soc_codec *codec)
