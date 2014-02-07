@@ -85,7 +85,8 @@
 
 #define SMSC_CHARGE_CUR_DCP		2000
 #define SMSC_CHARGE_CUR_CDP		1500
-#define SMSC_CHARGE_CUR_SDP		100
+#define SMSC_CHARGE_CUR_SDP_100		100
+#define SMSC_CHARGE_CUR_SDP_500		500
 
 #define SMSC375X_EXTCON_USB		"USB"
 #define SMSC375X_EXTCON_SDP		"CHARGER_USB_SDP"
@@ -216,7 +217,10 @@ static int smsc375x_detect_dev(struct smsc375x_chip *chip)
 		cable = SMSC375X_EXTCON_SDP;
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
-		cable_props.ma = SMSC_CHARGE_CUR_SDP;
+		if (chip->pdata->charging_compliance_override)
+			cable_props.ma = SMSC_CHARGE_CUR_SDP_500;
+		else
+			cable_props.ma = SMSC_CHARGE_CUR_SDP_100;
 	} else if (chrg_type == STAT_CHRG_TYPE_CDP) {
 		dev_info(&chip->client->dev,
 				"CDP cable connecetd\n");
@@ -364,14 +368,18 @@ static int smsc375x_handle_otg_notification(struct notifier_block *nb,
 		 * had already send those event notifications.
 		 * Also only handle notifications for SDP case.
 		 */
-		if (!*val || !chip->is_sdp ||
-			(*val == SMSC_CHARGE_CUR_SDP))
+		/* No need to change SDP inlimit based on enumeration status
+		 * if platform can voilate charging_compliance.
+		 */
+		if (chip->pdata->charging_compliance_override ||
+			 !chip->is_sdp ||
+			(*val == SMSC_CHARGE_CUR_SDP_100))
 			break;
 		/*
 		 * if current limit is < 100mA
 		 * treat it as suspend event.
 		 */
-		if (*val < SMSC_CHARGE_CUR_SDP)
+		if (*val < SMSC_CHARGE_CUR_SDP_100)
 			cable_props.chrg_evt =
 					POWER_SUPPLY_CHARGER_EVENT_SUSPEND;
 		else
