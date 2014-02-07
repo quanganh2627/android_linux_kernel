@@ -727,7 +727,6 @@ int mei_cl_read_start(struct mei_cl *cl, size_t length)
 		goto out;
 
 	cb->fop_type = MEI_FOP_READ;
-	cl->read_cb = cb;
 
 
 	if (mei_hbuf_acquire(dev)) {
@@ -741,6 +740,7 @@ int mei_cl_read_start(struct mei_cl *cl, size_t length)
 		list_add_tail(&cb->list, &dev->ctrl_wr_list.list);
 	}
 
+	cl->read_cb = cb;
 out:
 	cl_dbg(dev, cl, "rpm: autosuspend\n");
 	pm_runtime_mark_last_busy(&dev->pdev->dev);
