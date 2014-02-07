@@ -280,6 +280,25 @@ hsu_port_pin_cfg hsu_port_pin_cfgs[][hsu_pid_max][hsu_port_max] = {
 			},
 		},
 	},
+	[hsu_chv] = {
+		[hsu_pid_def] = {
+			[hsu_port0] = {
+				.id = 0,
+				.name = HSU_BT_PORT,
+				.rts_gpio = 0,
+				.rts_alt = 0,
+			},
+			[hsu_port1] = {
+				.id = 1,
+				.name = HSU_GPS_PORT,
+				.wake_gpio = 0,
+				.rx_gpio = 0,
+				.rx_alt = 0,
+				.rts_gpio = 0,
+				.rts_alt = 0,
+			},
+		},
+	},
 
 };
 
@@ -453,6 +472,44 @@ static struct hsu_port_cfg hsu_port_cfgs[][hsu_port_max] = {
 		},
 	},
 	[hsu_vlv2] = {
+		[hsu_port0] = {
+			.type = bt_port,
+			.hw_ip = hsu_dw,
+			.index = 0,
+			.name = HSU_BT_PORT,
+			.idle = 100,
+			.hw_reset = intel_mid_hsu_reset,
+			.set_clk = intel_mid_hsu_set_clk,
+			.hw_ctrl_cts = 1,
+			.hw_init = intel_mid_hsu_init,
+			/* Trust FW has set it correctly */
+			.hw_set_alt = NULL,
+			.hw_set_rts = intel_mid_hsu_rts,
+			.hw_suspend = intel_mid_hsu_suspend,
+			.hw_resume = intel_mid_hsu_resume,
+			.hw_context_save = 1,
+		},
+		[hsu_port1] = {
+			.type = gps_port,
+			.hw_ip = hsu_dw,
+			.index = 1,
+			.name = HSU_GPS_PORT,
+			.idle = 30,
+			.preamble = 1,
+			.hw_reset = intel_mid_hsu_reset,
+			.set_clk = intel_mid_hsu_set_clk,
+			.hw_ctrl_cts = 1,
+			.hw_init = intel_mid_hsu_init,
+			/* Trust FW has set it correctly */
+			.hw_set_alt = NULL,
+			.hw_set_rts = intel_mid_hsu_rts,
+			.hw_suspend = intel_mid_hsu_suspend,
+			.hw_suspend_post = intel_mid_hsu_suspend_post,
+			.hw_resume = intel_mid_hsu_resume,
+			.hw_context_save = 1,
+		},
+	},
+	[hsu_chv] = {
 		[hsu_port0] = {
 			.type = bt_port,
 			.hw_ip = hsu_dw,
@@ -783,7 +840,7 @@ int intel_mid_hsu_init(struct device *dev, int port)
 	return 1;
 }
 
-static void hsu_platform_clk(enum intel_mid_cpu_type cpu_type)
+static void hsu_platform_clk(enum intel_mid_cpu_type cpu_type, ulong plat)
 {
 	void __iomem *clkctl, *clksc;
 	u32 clk_src, clk_div;
@@ -829,12 +886,71 @@ static void hsu_platform_clk(enum intel_mid_cpu_type cpu_type)
 		clock = 50000;
 		break;
 	default:
-		/* FIXME: VALLEYVIEW2? */
-		clock = 100000;
-		break;
+		switch (plat) {
+		case hsu_vlv2:
+		case hsu_chv:
+			clock = 100000;
+			break;
+		default:
+			break;
+		}
 	}
 
 	pr_info("hsu core clock %u M\n", clock / 1000);
+}
+
+int intel_mid_hsu_plat_init(int port, ulong plat, struct device *dev)
+{
+	switch (plat) {
+	case hsu_vlv2:
+		platform_hsu_info = &hsu_port_cfgs[hsu_vlv2][0];
+		hsu_port_gpio_mux =
+			&hsu_port_pin_cfgs[hsu_vlv2][hsu_pid_def][0];
+		break;
+	case hsu_chv:
+	{
+/*
+#ifdef  CONFIG_ACPI
+		struct acpi_gpio_info info;
+		struct hsu_port_pin_cfg *port_gpio_mux =
+			&hsu_port_pin_cfgs[plat][hsu_pid_def][port];
+
+		if (port_gpio_mux->rx_gpio == -1)
+			port_gpio_mux->rx_gpio =
+				acpi_get_gpio_by_index(dev, rxd_acpi_idx, &info);
+
+		if (port_gpio_mux->tx_gpio == -1)
+			port_gpio_mux->tx_gpio =
+				acpi_get_gpio_by_index(dev, txd_acpi_idx, &info);
+
+		if (port_gpio_mux->rts_gpio == -1)
+			port_gpio_mux->rts_gpio =
+				acpi_get_gpio_by_index(dev, rts_acpi_idx, &info);
+
+		if (port_gpio_mux->cts_gpio == -1)
+			port_gpio_mux->cts_gpio =
+				acpi_get_gpio_by_index(dev, cts_acpi_idx, &info);
+#endif
+*/
+		platform_hsu_info = &hsu_port_cfgs[hsu_chv][0];
+		hsu_port_gpio_mux =
+			&hsu_port_pin_cfgs[hsu_chv][hsu_pid_def][0];
+	}
+		break;
+	default:
+		pr_err("failed config platform:%ld\n", plat);
+		break;
+	}
+
+	if (platform_hsu_info == NULL)
+		return -ENODEV;
+
+	if (hsu_port_gpio_mux == NULL)
+		return -ENODEV;
+
+	hsu_register_board_info(platform_hsu_info);
+	hsu_platform_clk(0, plat);
+	return 0;
 }
 
 static __init int hsu_dev_platform_data(void)
@@ -863,12 +979,13 @@ static __init int hsu_dev_platform_data(void)
 		platform_hsu_info = &hsu_port_cfgs[hsu_pnw][0];
 		hsu_port_gpio_mux = &hsu_port_pin_cfgs[hsu_pnw][hsu_pid_def][0];
 		break;
+
 	default:
-		/* FIXME: VALLEYVIEW2? */
-		platform_hsu_info = &hsu_port_cfgs[hsu_vlv2][0];
-		hsu_port_gpio_mux =
-			&hsu_port_pin_cfgs[hsu_vlv2][hsu_pid_def][0];
-		break;
+		/* valleyview and cherryview acpi device will check
+		   acpi_device_id->driver_data to identify platforms
+		*/
+		pr_info("HSU: if not acpi device please add config\n");
+		return 0;
 	}
 
 	if (platform_hsu_info == NULL)
@@ -878,7 +995,7 @@ static __init int hsu_dev_platform_data(void)
 		return -ENODEV;
 
 	hsu_register_board_info(platform_hsu_info);
-	hsu_platform_clk(intel_mid_identify_cpu());
+	hsu_platform_clk(intel_mid_identify_cpu(), 0);
 
 	return 0;
 }

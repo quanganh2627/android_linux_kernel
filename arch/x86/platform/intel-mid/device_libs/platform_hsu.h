@@ -12,17 +12,22 @@
 #ifndef _PLATFORM_HSU_H_
 #define _PLATFORM_HSU_H_
 
+#ifdef CONFIG_ACPI
+#include <linux/acpi.h>
+#include <linux/acpi_gpio.h>
+
+enum {
+	rxd_acpi_idx = 0,
+	txd_acpi_idx,
+	rts_acpi_idx,
+	cts_acpi_idx,
+};
+#endif
+
 #define HSU_BT_PORT "hsu_bt_port"
 #define HSU_MODEM_PORT "hsu_modem_port"
 #define HSU_GPS_PORT "hsu_gps_port"
 #define HSU_DEBUG_PORT "hsu_debug_port"
-
-enum hsu_core {
-	hsu_pnw,
-	hsu_clv,
-	hsu_tng,
-	hsu_vlv2,
-};
 
 enum hsu_pid {
 	hsu_pid_def = 0,
