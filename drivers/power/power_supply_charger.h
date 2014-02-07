@@ -166,6 +166,8 @@ static inline int get_ps_int_property(struct power_supply *psy,
 		get_ps_int_property(psy, POWER_SUPPLY_PROP_ONLINE)
 #define INLMT(psy) \
 		get_ps_int_property(psy, POWER_SUPPLY_PROP_INLMT)
+#define ITERM(psy) \
+		get_ps_int_property(psy, POWER_SUPPLY_PROP_CHARGE_TERM_CUR)
 
 #define IS_CHARGING_ENABLED(psy) \
 		get_ps_int_property(psy, POWER_SUPPLY_PROP_ENABLE_CHARGING)

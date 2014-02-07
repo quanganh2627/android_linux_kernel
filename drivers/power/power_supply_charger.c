@@ -932,7 +932,8 @@ static int select_chrgr_cable(struct device *dev, void *data)
 
 		set_inlmt(psy, max_ma_cable->cable_props.ma);
 		if (!get_battery_thresholds(psy, &bat_thresh)) {
-			SET_ITERM(psy, bat_thresh.iterm);
+			if (!ITERM(psy))
+				SET_ITERM(psy, bat_thresh.iterm);
 			SET_MIN_TEMP(psy, bat_thresh.temp_min);
 			SET_MAX_TEMP(psy, bat_thresh.temp_max);
 		}
