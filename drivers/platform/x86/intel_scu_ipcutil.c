@@ -146,6 +146,7 @@ static struct osnib_target_os osnib_target_oses[] = {
 	{ "recovery", SIGNED_RECOVERY_ATTR },
 	{ "fastboot", SIGNED_POS_ATTR },
 	{ "factory", SIGNED_FACTORY_ATTR },
+	{ "factory2", SIGNED_FACTORY2_ATTR },
 };
 
 
