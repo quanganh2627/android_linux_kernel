@@ -653,7 +653,7 @@ static void *platform_byt_get_batt_charge_profile(void)
 	byt_batt_chg_profile.battery_type = 0x2;
 	byt_batt_chg_profile.capacity = 0x2C52;
 	byt_batt_chg_profile.voltage_max = 4350;
-	byt_batt_chg_profile.chrg_term_ma = 300;
+	byt_batt_chg_profile.chrg_term_ma = 128;
 	byt_batt_chg_profile.low_batt_mV = 3400;
 	byt_batt_chg_profile.disch_tmp_ul = 55;
 	byt_batt_chg_profile.disch_tmp_ll = 0;
