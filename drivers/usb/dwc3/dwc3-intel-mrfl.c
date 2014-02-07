@@ -770,6 +770,9 @@ static enum power_supply_charger_cable_type
 	if (!charger_detect_enable(otg))
 		return cap_record.chrg_type;
 
+	if (dwc3_intel_get_id(otg) == RID_GND)
+		return POWER_SUPPLY_CHARGER_TYPE_B_DEVICE;
+
 	phy = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (!phy) {
 		otg_err(otg, "Get USB2 PHY failed\n");
