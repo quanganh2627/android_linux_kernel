@@ -434,6 +434,7 @@ static void *get_platform_data(void)
 		} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
 			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1)) {
 			byt_t_ffrd8_pr1_pdata.detect_chg = true;
+			byt_t_ffrd8_pr1_pdata.use_regulator = true;
 			byt_t_ffrd8_pr1_pdata.gpio_mux = 131; /* GPIO_SUS1*/
 			/* configure output */
 			lnw_gpio_set_alt(byt_t_ffrd8_pr1_pdata.gpio_mux, 0);
