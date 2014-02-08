@@ -1216,7 +1216,6 @@ static int snd_byt_mc_remove(struct platform_device *pdev)
 
 	pr_debug("In %s\n", __func__);
 	snd_byt_unregister_jack(drv);
-	snd_soc_jack_free_gpios(&drv->jack, drv->num_jack_gpios, hs_gpio);
 	snd_soc_card_set_drvdata(soc_card, NULL);
 	snd_soc_unregister_card(soc_card);
 	platform_set_drvdata(pdev, NULL);
@@ -1230,7 +1229,6 @@ static void snd_byt_mc_shutdown(struct platform_device *pdev)
 
 	pr_debug("In %s\n", __func__);
 	snd_byt_unregister_jack(drv);
-	snd_soc_jack_free_gpios(&drv->jack, drv->num_jack_gpios, hs_gpio);
 }
 
 const struct dev_pm_ops snd_byt_mc_pm_ops = {
