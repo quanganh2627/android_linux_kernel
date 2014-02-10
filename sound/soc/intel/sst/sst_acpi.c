@@ -250,7 +250,6 @@ void sst_init_locks(struct intel_sst_drv *ctx)
 	mutex_init(&ctx->stream_lock);
 	mutex_init(&ctx->sst_lock);
 	mutex_init(&ctx->mixer_ctrl_lock);
-	mutex_init(&ctx->csr_lock);
 	spin_lock_init(&sst_drv_ctx->rx_msg_lock);
 	spin_lock_init(&ctx->ipc_spin_lock);
 	spin_lock_init(&ctx->block_lock);

@@ -536,8 +536,6 @@ struct intel_sst_drv {
 	struct list_head	libmemcpy_list;
 	/* holds the stucts of iram/dram local buffers for dump*/
 	struct sst_dump_buf	dump_buf;
-	/* Lock for CSR register change */
-	struct mutex		csr_lock;
 	/* byte control to set the probe stream */
 	struct snd_sst_probe_bytes *probe_bytes;
 	/* contains the ipc registers */

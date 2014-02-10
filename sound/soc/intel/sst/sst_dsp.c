@@ -83,18 +83,18 @@ void memcpy32_toio(void *dst, const void *src, int count)
  * intel_sst_reset_dsp_medfield - Resetting SST DSP
  *
  * This resets DSP in case of Medfield platfroms
+ * All CSR operations should be in the context of
+ * sst_lock
  */
 int intel_sst_reset_dsp_mfld(void)
 {
 	union config_status_reg csr;
 
 	pr_debug("Resetting the DSP in medfield\n");
-	mutex_lock(&sst_drv_ctx->csr_lock);
 	csr.full = sst_shim_read(sst_drv_ctx->shim, SST_CSR);
 	csr.full |= 0x382;
 	csr.part.run_stall = 0x1;
 	sst_shim_write(sst_drv_ctx->shim, SST_CSR, csr.full);
-	mutex_unlock(&sst_drv_ctx->csr_lock);
 
 	return 0;
 }
@@ -108,7 +108,6 @@ int sst_start_mfld(void)
 {
 	union config_status_reg csr;
 
-	mutex_lock(&sst_drv_ctx->csr_lock);
 	csr.full = sst_shim_read(sst_drv_ctx->shim, SST_CSR);
 	csr.part.bypass = 0;
 	sst_shim_write(sst_drv_ctx->shim, SST_CSR, csr.full);
@@ -121,7 +120,6 @@ int sst_start_mfld(void)
 	pr_debug("Starting the DSP_medfld %x\n", csr.full);
 	sst_shim_write(sst_drv_ctx->shim, SST_CSR, csr.full);
 	pr_debug("Starting the DSP_medfld\n");
-	mutex_unlock(&sst_drv_ctx->csr_lock);
 
 	return 0;
 }
@@ -135,7 +133,6 @@ int intel_sst_reset_dsp_mrfld(void)
 	union config_status_reg_mrfld csr;
 
 	pr_debug("sst: Resetting the DSP in mrfld\n");
-	mutex_lock(&sst_drv_ctx->csr_lock);
 	csr.full = sst_shim_read64(sst_drv_ctx->shim, SST_CSR);
 
 	pr_debug("value:0x%llx\n", csr.full);
@@ -151,7 +148,6 @@ int intel_sst_reset_dsp_mrfld(void)
 
 	csr.full = sst_shim_read64(sst_drv_ctx->shim, SST_CSR);
 	pr_debug("value:0x%llx\n", csr.full);
-	mutex_unlock(&sst_drv_ctx->csr_lock);
 	return 0;
 }
 
@@ -165,7 +161,6 @@ int sst_start_mrfld(void)
 	union config_status_reg_mrfld csr;
 
 	pr_debug("sst: Starting the DSP in mrfld LALALALA\n");
-	mutex_lock(&sst_drv_ctx->csr_lock);
 	csr.full = sst_shim_read64(sst_drv_ctx->shim, SST_CSR);
 	pr_debug("value:0x%llx\n", csr.full);
 
@@ -181,7 +176,6 @@ int sst_start_mrfld(void)
 
 	csr.full = sst_shim_read64(sst_drv_ctx->shim, SST_CSR);
 	pr_debug("sst: Starting the DSP_merrifield:%llx\n", csr.full);
-	mutex_unlock(&sst_drv_ctx->csr_lock);
 	return 0;
 }
 
@@ -189,12 +183,12 @@ int sst_start_mrfld(void)
  * intel_sst_set_bypass - Sets/clears the bypass bits
  *
  * This sets/clears the bypass bits
+ * CSR register updates should be in context of sst_lock
  */
 void intel_sst_set_bypass_mfld(bool set)
 {
 	union config_status_reg csr;
 
-	mutex_lock(&sst_drv_ctx->csr_lock);
 	csr.full = sst_shim_read(sst_drv_ctx->shim, SST_CSR);
 	if (set == true)
 		csr.full |= 0x380;
@@ -202,7 +196,6 @@ void intel_sst_set_bypass_mfld(bool set)
 		csr.part.bypass = 0;
 	pr_debug("SetupByPass set %d Val 0x%x\n", set, csr.full);
 	sst_shim_write(sst_drv_ctx->shim, SST_CSR, csr.full);
-	mutex_unlock(&sst_drv_ctx->csr_lock);
 
 }
 #define SST_CALC_DMA_DSTN(lpe_viewpt_rqd, ia_viewpt_addr, elf_paddr, \
@@ -1401,7 +1394,6 @@ static int sst_download_library(const struct firmware *fw_lib,
 
 	/* downloading on success */
 	mutex_lock(&sst_drv_ctx->sst_lock);
-	mutex_lock(&sst_drv_ctx->csr_lock);
 
 	sst_drv_ctx->sst_state = SST_FW_LOADING;
 	csr.full = readl(sst_drv_ctx->shim + SST_CSR);
@@ -1411,7 +1403,6 @@ static int sst_download_library(const struct firmware *fw_lib,
 	csr.full = sst_shim_read(sst_drv_ctx->shim, SST_CSR);
 	csr.part.bypass = 0x7;
 	sst_shim_write(sst_drv_ctx->shim, SST_CSR, csr.full);
-	mutex_unlock(&sst_drv_ctx->csr_lock);
 
 	if (sst_drv_ctx->use_dma) {
 		ret_val = sst_do_dma(&sst_drv_ctx->library_list);
@@ -1422,7 +1413,6 @@ static int sst_download_library(const struct firmware *fw_lib,
 	} else
 		sst_do_memcpy(&sst_drv_ctx->libmemcpy_list);
 	/* set the FW to running again */
-	mutex_lock(&sst_drv_ctx->csr_lock);
 	csr.full = sst_shim_read(sst_drv_ctx->shim, SST_CSR);
 	csr.part.bypass = 0x0;
 	sst_shim_write(sst_drv_ctx->shim, SST_CSR, csr.full);
@@ -1430,7 +1420,6 @@ static int sst_download_library(const struct firmware *fw_lib,
 	csr.full = sst_shim_read(sst_drv_ctx->shim, SST_CSR);
 	csr.part.run_stall = 0;
 	sst_shim_write(sst_drv_ctx->shim, SST_CSR, csr.full);
-	mutex_unlock(&sst_drv_ctx->csr_lock);
 send_ipc:
 	/* send download complete and wait */
 	if (sst_create_ipc_msg(&msg, true)) {

@@ -316,6 +316,7 @@ static void sst_stall_lpe_n_wait(struct intel_sst_drv *sst)
 				sst_reg_read64(dma_reg0, offset),
 				sst_reg_read64(dma_reg1, offset));
 
+	/* CSR operations should be in context of sst_lock */
 	/* Stall LPE */
 	csr.full = sst_shim_read64(sst->shim, SST_CSR);
 	csr.part.runstall  = 1;
@@ -379,7 +380,9 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	dump_stack();
 	dump_sst_shim(sst);
 
+	mutex_lock(&sst->sst_lock);
 	sst_stall_lpe_n_wait(sst);
+	mutex_unlock(&sst->sst_lock);
 
 	/* dump mailbox and sram */
 	pr_err("Dumping Mailbox...\n");
@@ -389,10 +392,12 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 
 	if (sst_drv_ctx->ops->set_bypass) {
 
+		mutex_lock(&sst->sst_lock);
 		sst_drv_ctx->ops->set_bypass(true);
 		dump_ram_area(sst, &(sst->dump_buf), SST_IRAM);
 		dump_ram_area(sst, &(sst->dump_buf), SST_DRAM);
 		sst_drv_ctx->ops->set_bypass(false);
+		mutex_unlock(&sst->sst_lock);
 
 	}
 
@@ -485,7 +490,9 @@ int sst_wait_timeout(struct intel_sst_drv *sst_drv_ctx, struct sst_block *block)
 
 			/* Reset & Power Off the LPE only for MRFLD */
 			if (sst_drv_ctx->pci_id == SST_MRFLD_PCI_ID) {
+				mutex_lock(&sst_drv_ctx->sst_lock);
 				sst_stall_lpe_n_wait(sst_drv_ctx);
+				mutex_lock(&sst_drv_ctx->sst_lock);
 
 				/* Send IPC to SCU to power gate and reset the LPE */
 				sst_send_scu_reset_ipc(sst_drv_ctx);

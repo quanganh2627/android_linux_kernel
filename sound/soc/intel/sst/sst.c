@@ -543,7 +543,6 @@ static int intel_sst_probe(struct pci_dev *pci,
 	mutex_init(&sst_drv_ctx->stream_lock);
 	mutex_init(&sst_drv_ctx->sst_lock);
 	mutex_init(&sst_drv_ctx->mixer_ctrl_lock);
-	mutex_init(&sst_drv_ctx->csr_lock);
 
 	sst_drv_ctx->stream_cnt = 0;
 	sst_drv_ctx->fw_in_mem = NULL;
