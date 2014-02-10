@@ -87,5 +87,6 @@ extern const struct smiapp_quirk smiapp_jt8ev1_quirk;
 extern const struct smiapp_quirk smiapp_imx125es_quirk;
 extern const struct smiapp_quirk smiapp_jt8ew9_quirk;
 extern const struct smiapp_quirk smiapp_tcm8500md_quirk;
+extern const struct smiapp_quirk smiapp_imx135_quirk;
 
 #endif /* __SMIAPP_QUIRK__ */
