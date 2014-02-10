@@ -752,12 +752,15 @@ static inline void sst_fill_header_dsp(struct ipc_dsp_hdr *dsp, int msg,
  */
 static inline unsigned int sst_assign_pvt_id(struct intel_sst_drv *sst_drv_ctx)
 {
+	unsigned int local;
+
 	spin_lock(&sst_drv_ctx->pvt_id_lock);
 	sst_drv_ctx->pvt_id++;
 	if (sst_drv_ctx->pvt_id > MAX_BLOCKS)
 		sst_drv_ctx->pvt_id = 1;
+	local = sst_drv_ctx->pvt_id;
 	spin_unlock(&sst_drv_ctx->pvt_id_lock);
-	return sst_drv_ctx->pvt_id;
+	return local;
 }
 
 
