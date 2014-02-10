@@ -2206,9 +2206,9 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	u16 ctrl;
 	u32 ier;
 	int tuning_loop_counter = MAX_TUNING_LOOP;
-	unsigned long timeout;
 	int err = 0;
 	bool requires_tuning_nonuhs = false;
+	unsigned long t;
 
 	host = mmc_priv(mmc);
 
@@ -2267,14 +2267,13 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	 * Issue CMD19 repeatedly till Execute Tuning is set to 0 or the number
 	 * of loops reaches 40 times or a timeout of 150ms occurs.
 	 */
-	timeout = 150;
+	t = jiffies + msecs_to_jiffies(150);
 	do {
 		struct mmc_command cmd = {0};
 		struct mmc_request mrq = {NULL};
 		unsigned int intmask;
-		unsigned long t = jiffies + msecs_to_jiffies(150);
 
-		if (!tuning_loop_counter && !timeout)
+		if (!tuning_loop_counter || time_after(jiffies, t))
 			break;
 
 		cmd.opcode = opcode;
@@ -2366,13 +2365,13 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 				"Buffer Read Ready interrupt during tuning "
 				"procedure\n");
 			pr_warn("%s: present %08x, ctrl2 %08x, irq %08x\n"
-				"%s: loop %d, timeout %ld, retry....\n",
+				"%s: loop %d, retry....\n",
 				mmc_hostname(host->mmc),
 				sdhci_readl(host, SDHCI_PRESENT_STATE),
 				sdhci_readw(host, SDHCI_HOST_CONTROL2),
 				sdhci_readl(host, SDHCI_INT_STATUS),
 				mmc_hostname(host->mmc),
-				tuning_loop_counter, timeout);
+				tuning_loop_counter);
 		}
 
 		host->tuning_done = 0;
@@ -2380,18 +2379,13 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 		if (tuning_loop_counter)
 			tuning_loop_counter--;
-		if (timeout)
-			timeout--;
-		spin_unlock(&host->lock);
-		usleep_range(900, 1100);
-		spin_lock(&host->lock);
 	} while (ctrl & SDHCI_CTRL_EXEC_TUNING);
 
 	/*
 	 * The Host Driver has exhausted the maximum number of loops allowed,
 	 * so use fixed sampling frequency.
 	 */
-	if (!tuning_loop_counter || !timeout) {
+	if (!tuning_loop_counter || time_after(jiffies, t)) {
 		ctrl &= ~SDHCI_CTRL_TUNED_CLK;
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 	} else {
@@ -2443,7 +2437,6 @@ out:
 
 	return err;
 }
-
 
 static void sdhci_enable_preset_value(struct sdhci_host *host, bool enable)
 {
