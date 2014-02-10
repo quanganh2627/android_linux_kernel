@@ -3394,6 +3394,7 @@ CONFIG_SENSORS_MID_VDD=y
 # CONFIG_SENSORS_APDS990X_FORK is not set
 # CONFIG_KCT_DAEMON is not set
 CONFIG_BCM_BT_LPM=m
+# CONFIG_INTEL_ST_LD is not set
 
 #
 # Fork of Texas Instruments shared transport line discipline

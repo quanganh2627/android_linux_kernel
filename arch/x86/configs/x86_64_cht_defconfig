@@ -3578,6 +3578,7 @@ CONFIG_EMMC_IPANIC_PLABEL="panic"
 # CONFIG_SENSORS_APDS990X_FORK is not set
 CONFIG_KCT_DAEMON=y
 CONFIG_BCM_BT_LPM=m
+# CONFIG_INTEL_ST_LD is not set
 
 #
 # Fork of Texas Instruments shared transport line discipline

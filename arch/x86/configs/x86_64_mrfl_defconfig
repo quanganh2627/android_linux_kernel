@@ -3599,6 +3599,7 @@ CONFIG_EMMC_IPANIC_PLABEL="panic"
 CONFIG_KCT_DAEMON=y
 CONFIG_TRACEPOINT_TO_EVENT=y
 CONFIG_BCM_BT_LPM=m
+CONFIG_INTEL_ST_LD=m
 
 #
 # Fork of Texas Instruments shared transport line discipline
