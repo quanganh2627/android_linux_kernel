@@ -574,13 +574,13 @@ static int dwc3_intel_byt_set_power(struct usb_phy *_otg,
 		 * Otherwise, notify 0ma.
 		*/
 		if (!cap.ma) {
-			if (data->charging_compliance) {
+			if (!data->charging_compliance) {
 				cap.ma = 500;
 				cap.chrg_evt =
 					POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 			}
 		/* For standard SDP, if SMIP set, then ignore suspend */
-		} else if (data->charging_compliance)
+		} else if (!data->charging_compliance)
 			return 0;
 		/* Stander SDP(cap.ma != 0) and SMIP not set.
 		 * Should send 0ma with SUSPEND event
@@ -608,7 +608,7 @@ static int dwc3_intel_byt_set_power(struct usb_phy *_otg,
 	}
 
 	/* For SMIP set case, only need to report 500/900ma */
-	if (data->charging_compliance) {
+	if (!data->charging_compliance) {
 		if ((ma != OTG_USB2_500MA) &&
 				(ma != OTG_USB3_900MA))
 			return 0;
