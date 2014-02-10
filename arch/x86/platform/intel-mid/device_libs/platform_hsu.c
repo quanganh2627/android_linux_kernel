@@ -28,6 +28,7 @@
 
 #define VLV_HSU_CLOCK	0x0800
 #define VLV_HSU_RESET	0x0804
+#define VLV_HSU_OVF_IRQ	0x0820	/* Overflow interrupt related */
 
 static unsigned int clock;
 static struct hsu_port_pin_cfg *hsu_port_gpio_mux;
@@ -715,6 +716,8 @@ void intel_mid_hsu_reset(void __iomem *addr)
 {
 	writel(0, addr + VLV_HSU_RESET);
 	writel(3, addr + VLV_HSU_RESET);
+	/* Disable the tx overflow IRQ */
+	writel(2, addr + VLV_HSU_OVF_IRQ);
 }
 
 unsigned int intel_mid_hsu_get_clk(void)
