@@ -617,7 +617,12 @@ struct intel_program_clock_bending {
 	u32 dotclock;
 	u32 referenceclk;
 	u32 targetclk;
-	bool is_enable;
+};
+
+struct intel_program_clock_spread {
+	u32 dotclock;
+	u32 referenceclk;
+	u32 targetclk;
 };
 
 int intel_pch_rawclk(struct drm_device *dev);
@@ -947,8 +952,16 @@ extern int intel_edp_psr_exit_ioctl(struct drm_device *device, void *data,
 extern int intel_edp_get_psr_support(struct drm_device *device, void *data,
 					struct drm_file *file);
 /* VLV LP clock bending */
-extern void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
-		struct intel_program_clock_bending *clockbendargs);
+extern void valleyview_program_clock_bending(
+		struct drm_i915_private *dev_priv,
+		struct intel_program_clock_bending *clockbend);
+
+extern void valleyview_program_clock_spread(
+		struct drm_i915_private *dev_priv,
+		struct intel_program_clock_spread *clockspread);
+
+extern void clock_off_bend_spread(struct drm_i915_private *dev_priv);
+extern void disable_bend_clock(struct drm_i915_private *dev_priv);
 
 extern ssize_t display_runtime_suspend(struct drm_device *drm_dev);
 extern ssize_t display_runtime_resume(struct drm_device *drm_dev);

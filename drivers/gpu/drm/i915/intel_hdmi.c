@@ -1089,7 +1089,8 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 			return status;
 		}
 	} else {
-		/* HDMI is disconneted, so remove saved old EDID */
+		/* HDMI is disconnected, so remove saved old EDID */
+		dev_priv->unplug = true;
 		kfree(intel_hdmi->edid);
 		intel_hdmi->edid = NULL;
 		connector->display_info.raw_edid = NULL;

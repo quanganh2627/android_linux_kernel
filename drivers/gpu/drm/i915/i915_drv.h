@@ -1344,6 +1344,9 @@ typedef struct drm_i915_private {
 	bool is_suspending;
 	bool is_resuming;
 	bool is_first_modeset;
+	bool clockspread;
+	bool clockbend;
+	bool unplug;
 	u32 gt_irq_mask;
 	u32 pm_irq_mask;
 
