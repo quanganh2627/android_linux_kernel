@@ -748,40 +748,157 @@ static void sst_send_slot_map(struct sst_data *sst)
 			      sizeof(cmd.header) + cmd.header.length);
 }
 
-static int sst_ssp_event(struct snd_soc_dapm_widget *w,
-			 struct snd_kcontrol *k, int event)
+#define SST_SSP_CODEC_MUX		0
+#define SST_SSP_CODEC_DOMAIN		0
+#define SST_SSP_MODEM_MUX		0
+#define SST_SSP_MODEM_DOMAIN		0
+#define SST_SSP_FM_MUX			0
+#define SST_SSP_FM_DOMAIN		0
+#define SST_SSP_BT_MUX			1
+#define SST_SSP_BT_NB_DOMAIN		0
+#define SST_SSP_BT_WB_DOMAIN		1
+
+static const int sst_ssp_mux_shift[SST_NUM_SSPS] = {
+	[SST_SSP0] = -1,			/* no register shift, i.e. single mux value */
+	[SST_SSP1] = SST_BT_FM_MUX_SHIFT,
+	[SST_SSP2] = -1,
+};
+
+static const int sst_ssp_domain_shift[SST_NUM_SSPS][SST_MAX_SSP_MUX] = {
+	[SST_SSP0][0] = -1,			/* no domain shift, i.e. single domain */
+	[SST_SSP1] = {
+		[SST_SSP_FM_MUX] = -1,
+		[SST_SSP_BT_MUX] = SST_BT_MODE_SHIFT,
+	},
+	[SST_SSP2][0] = -1,
+};
+
+static const struct sst_ssp_config
+sst_ssp_configs[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
+	[SST_SSP0] = {
+		[SST_SSP_MODEM_MUX] = {
+			[SST_SSP_MODEM_DOMAIN] = {
+				.ssp_id = SSP_MODEM,
+				.bits_per_slot = 16,
+				.slots = 1,
+				.ssp_mode = SSP_MODE_MASTER,
+				.pcm_mode = SSP_PCM_MODE_NETWORK,
+				.duplex = SSP_DUPLEX,
+				.ssp_protocol = SSP_MODE_PCM,
+				.fs_width = 1,
+				.fs_frequency = SSP_FS_48_KHZ,
+				.active_slot_map = 0x1,
+				.start_delay = 1,
+			},
+		},
+	},
+	[SST_SSP1] = {
+		[SST_SSP_FM_MUX] = {
+			[SST_SSP_FM_DOMAIN] = {
+				.ssp_id = SSP_FM,
+				.bits_per_slot = 16,
+				.slots = 2,
+				.ssp_mode = SSP_MODE_MASTER,
+				.pcm_mode = SSP_PCM_MODE_NORMAL,
+				.duplex = SSP_DUPLEX,
+				.ssp_protocol = SSP_MODE_I2S,
+				.fs_width = 32,
+				.fs_frequency = SSP_FS_48_KHZ,
+				.active_slot_map = 0x3,
+				.start_delay = 0,
+			},
+		},
+		[SST_SSP_BT_MUX] = {
+			[SST_SSP_BT_NB_DOMAIN] = {
+				.ssp_id = SSP_BT,
+				.bits_per_slot = 16,
+				.slots = 1,
+				.ssp_mode = SSP_MODE_MASTER,
+				.pcm_mode = SSP_PCM_MODE_NORMAL,
+				.duplex = SSP_DUPLEX,
+				.ssp_protocol = SSP_MODE_PCM,
+				.fs_width = 1,
+				.fs_frequency = SSP_FS_8_KHZ,
+				.active_slot_map = 0x1,
+				.start_delay = 1,
+			},
+			[SST_SSP_BT_WB_DOMAIN] = {
+				.ssp_id = SSP_BT,
+				.bits_per_slot = 16,
+				.slots = 1,
+				.ssp_mode = SSP_MODE_MASTER,
+				.pcm_mode = SSP_PCM_MODE_NORMAL,
+				.duplex = SSP_DUPLEX,
+				.ssp_protocol = SSP_MODE_PCM,
+				.fs_width = 1,
+				.fs_frequency = SSP_FS_16_KHZ,
+				.active_slot_map = 0x1,
+				.start_delay = 1,
+			},
+		},
+	},
+	[SST_SSP2] = {
+		[SST_SSP_CODEC_MUX] = {
+			[SST_SSP_CODEC_DOMAIN] = {
+				.ssp_id = SSP_CODEC,
+				.bits_per_slot = 24,
+				.slots = 4,
+				.ssp_mode = SSP_MODE_MASTER,
+				.pcm_mode = SSP_PCM_MODE_NETWORK,
+				.duplex = SSP_DUPLEX,
+				.ssp_protocol = SSP_MODE_PCM,
+				.fs_width = 1,
+				.fs_frequency = SSP_FS_48_KHZ,
+				.active_slot_map = 0xF,
+				.start_delay = 0,
+			},
+		},
+	},
+};
+
+#define SST_SSP_CFG(wssp_no)                                                            \
+	(const struct sst_ssp_cfg){ .ssp_config = &sst_ssp_configs[wssp_no],            \
+				.ssp_number = wssp_no,                              \
+				.mux_shift = &sst_ssp_mux_shift[wssp_no],           \
+				.domain_shift = &sst_ssp_domain_shift[wssp_no], }
+
+void send_ssp_cmd(struct snd_soc_platform *platform, const char *id, bool enable)
 {
 	struct sst_cmd_sba_hw_set_ssp cmd;
-	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
-	struct sst_ids *ids = w->priv;
-	static int ssp_active[SST_NUM_SSPS];
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
 	unsigned int domain, mux;
-	unsigned int ssp_no = ids->ssp->ssp_number;
-	int domain_shift, mux_shift;
+	int domain_shift, mux_shift, ssp_no;
 	const struct sst_ssp_config *config;
+	const struct sst_ssp_cfg *ssp;
 
-	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
+
+	pr_err("Enter:%s, enable=%d port_name=%s\n", __func__, enable, id);
+
+	if (strcmp(id, "ssp0-port") == 0)
+		ssp_no = SST_SSP0;
+	else if (strcmp(id, "ssp1-port") == 0)
+		ssp_no = SST_SSP1;
+	else if (strcmp(id, "ssp2-port") == 0)
+		ssp_no = SST_SSP2;
+	else
+		return;
+
+	ssp = &SST_SSP_CFG(ssp_no);
 
 	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
 	cmd.header.command_id = SBA_HW_SET_SSP;
 	cmd.header.length = sizeof(struct sst_cmd_sba_hw_set_ssp)
 				- sizeof(struct sst_dsp_header);
-	mux_shift = *ids->ssp->mux_shift;
+	mux_shift = *ssp->mux_shift;
 	mux = (mux_shift == -1) ? 0 : get_mux_state(sst, SST_MUX_REG, mux_shift);
-	domain_shift = (*ids->ssp->domain_shift)[mux];
+	domain_shift = (*ssp->domain_shift)[mux];
 	domain = (domain_shift == -1) ? 0 : get_mux_state(sst, SST_MUX_REG, domain_shift);
 
-	config = &(*ids->ssp->ssp_config)[mux][domain];
+	config = &(*ssp->ssp_config)[mux][domain];
 	pr_debug("%s: ssp_id: %u, mux: %d, domain: %d\n", __func__,
 		 config->ssp_id, mux, domain);
 
-	if (SND_SOC_DAPM_EVENT_ON(event))
-		ssp_active[ssp_no]++;
-	else
-		ssp_active[ssp_no]--;
-
-	pr_debug("%s: ssp_no: %u ssp_active: %d", __func__, ssp_no, ssp_active[ssp_no]);
-	if (ssp_active[ssp_no])
+	if (enable)
 		cmd.switch_state = SST_SWITCH_ON;
 	else
 		cmd.switch_state = SST_SWITCH_OFF;
@@ -802,8 +919,17 @@ static int sst_ssp_event(struct snd_soc_dapm_widget *w,
 	cmd.reserved1 = cmd.reserved2 = 0xFF;
 
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
-			      SST_TASK_SBA, 0, &cmd,
-			      sizeof(cmd.header) + cmd.header.length);
+				SST_TASK_SBA, 0, &cmd,
+				sizeof(cmd.header) + cmd.header.length);
+}
+
+static int sst_set_be_modules(struct snd_soc_dapm_widget *w,
+			 struct snd_kcontrol *k, int event)
+{
+	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+	struct sst_ids *ids = w->priv;
+
+	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
 
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		sst_find_and_send_pipe_algo(w->platform, w);
@@ -1115,120 +1241,6 @@ static const struct snd_kcontrol_new sst_bt_fm_mux =
 	SST_SSP_MUX_CTL("ssp1_out", 0, SST_MUX_REG, SST_BT_FM_MUX_SHIFT, sst_bt_fm_texts,
 			sst_mux_get, sst_mux_put);
 
-#define SST_SSP_CODEC_MUX		0
-#define SST_SSP_CODEC_DOMAIN		0
-#define SST_SSP_MODEM_MUX		0
-#define SST_SSP_MODEM_DOMAIN		0
-#define SST_SSP_FM_MUX			0
-#define SST_SSP_FM_DOMAIN		0
-#define SST_SSP_BT_MUX			1
-#define SST_SSP_BT_NB_DOMAIN		0
-#define SST_SSP_BT_WB_DOMAIN		1
-
-static const int sst_ssp_mux_shift[SST_NUM_SSPS] = {
-	[SST_SSP0] = -1,			/* no register shift, i.e. single mux value */
-	[SST_SSP1] = SST_BT_FM_MUX_SHIFT,
-	[SST_SSP2] = -1,
-};
-
-static const int sst_ssp_domain_shift[SST_NUM_SSPS][SST_MAX_SSP_MUX] = {
-	[SST_SSP0][0] = -1,			/* no domain shift, i.e. single domain */
-	[SST_SSP1] = {
-		[SST_SSP_FM_MUX] = -1,
-		[SST_SSP_BT_MUX] = SST_BT_MODE_SHIFT,
-	},
-	[SST_SSP2][0] = -1,
-};
-
-static const struct sst_ssp_config
-sst_ssp_configs[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
-	[SST_SSP0] = {
-		[SST_SSP_MODEM_MUX] = {
-			[SST_SSP_MODEM_DOMAIN] = {
-				.ssp_id = SSP_MODEM,
-				.bits_per_slot = 16,
-				.slots = 1,
-				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NETWORK,
-				.duplex = SSP_DUPLEX,
-				.ssp_protocol = SSP_MODE_PCM,
-				.fs_width = 1,
-				.fs_frequency = SSP_FS_48_KHZ,
-				.active_slot_map = 0x1,
-				.start_delay = 1,
-			},
-		},
-	},
-	[SST_SSP1] = {
-		[SST_SSP_FM_MUX] = {
-			[SST_SSP_FM_DOMAIN] = {
-				.ssp_id = SSP_FM,
-				.bits_per_slot = 16,
-				.slots = 2,
-				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NORMAL,
-				.duplex = SSP_DUPLEX,
-				.ssp_protocol = SSP_MODE_I2S,
-				.fs_width = 32,
-				.fs_frequency = SSP_FS_48_KHZ,
-				.active_slot_map = 0x3,
-				.start_delay = 0,
-			},
-		},
-		[SST_SSP_BT_MUX] = {
-			[SST_SSP_BT_NB_DOMAIN] = {
-				.ssp_id = SSP_BT,
-				.bits_per_slot = 16,
-				.slots = 1,
-				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NORMAL,
-				.duplex = SSP_DUPLEX,
-				.ssp_protocol = SSP_MODE_PCM,
-				.fs_width = 1,
-				.fs_frequency = SSP_FS_8_KHZ,
-				.active_slot_map = 0x1,
-				.start_delay = 1,
-			},
-			[SST_SSP_BT_WB_DOMAIN] = {
-				.ssp_id = SSP_BT,
-				.bits_per_slot = 16,
-				.slots = 1,
-				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NORMAL,
-				.duplex = SSP_DUPLEX,
-				.ssp_protocol = SSP_MODE_PCM,
-				.fs_width = 1,
-				.fs_frequency = SSP_FS_16_KHZ,
-				.active_slot_map = 0x1,
-				.start_delay = 1,
-			},
-		},
-	},
-	[SST_SSP2] = {
-		[SST_SSP_CODEC_MUX] = {
-			[SST_SSP_CODEC_DOMAIN] = {
-				.ssp_id = SSP_CODEC,
-				.bits_per_slot = 24,
-				.slots = 4,
-				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NETWORK,
-				.duplex = SSP_DUPLEX,
-				.ssp_protocol = SSP_MODE_PCM,
-				.fs_width = 1,
-				.fs_frequency = SSP_FS_48_KHZ,
-				.active_slot_map = 0xF,
-				.start_delay = 0,
-			},
-		},
-	},
-};
-
-#define SST_SSP_CFG(wssp_no)								\
-	(const struct sst_ssp_cfg){ .ssp_config = &sst_ssp_configs[wssp_no],		\
-				    .ssp_number = wssp_no,				\
-				    .mux_shift = &sst_ssp_mux_shift[wssp_no],		\
-				    .domain_shift = &sst_ssp_domain_shift[wssp_no], }
-
 static const struct sst_pcm_format aware_stream_fmt = {
 	.sample_bits = 24,
 	.rate_min = 8000,
@@ -1239,14 +1251,14 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("tone"),
 	SST_DAPM_OUTPUT("aware", SST_PATH_INDEX_AWARE_OUT, SST_TASK_AWARE, &aware_stream_fmt, sst_aware_event),
 	SND_SOC_DAPM_OUTPUT("vad"),
-	SST_SSP_INPUT("modem_in",  sst_ssp_event, SST_SSP_CFG(SST_SSP0)),
-	SST_SSP_AIF_IN("codec_in0", sst_ssp_event, SST_SSP_CFG(SST_SSP2)),
-	SST_SSP_AIF_IN("codec_in1", sst_ssp_event, SST_SSP_CFG(SST_SSP2)),
-	SST_SSP_INPUT("bt_fm_in", sst_ssp_event, SST_SSP_CFG(SST_SSP1)),
-	SST_SSP_OUTPUT("modem_out", sst_ssp_event, SST_SSP_CFG(SST_SSP0)),
-	SST_SSP_AIF_OUT("codec_out0", sst_ssp_event, SST_SSP_CFG(SST_SSP2)),
-	SST_SSP_AIF_OUT("codec_out1", sst_ssp_event, SST_SSP_CFG(SST_SSP2)),
-	SST_SSP_OUTPUT("bt_fm_out", sst_ssp_event, SST_SSP_CFG(SST_SSP1)),
+	SST_INPUT("modem_in",  sst_set_be_modules),
+	SST_AIF_IN("codec_in0", sst_set_be_modules),
+	SST_AIF_IN("codec_in1", sst_set_be_modules),
+	SST_INPUT("bt_fm_in", sst_set_be_modules),
+	SST_OUTPUT("modem_out", sst_set_be_modules),
+	SST_AIF_OUT("codec_out0", sst_set_be_modules),
+	SST_AIF_OUT("codec_out1", sst_set_be_modules),
+	SST_OUTPUT("bt_fm_out", sst_set_be_modules),
 
 	/* Media Paths */
 	/* MediaX IN paths are set via ALLOC, so no SET_MEDIA_PATH command */

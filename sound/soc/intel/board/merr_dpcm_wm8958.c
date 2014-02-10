@@ -379,10 +379,18 @@ static const struct snd_soc_dapm_route map[] = {
 	{ "IN1LP", NULL, "AMIC" },
 
 	/* SWM map link the SWM outs to codec AIF */
-	{ "AIF1 Playback", NULL, "codec_out0"  },
-	{ "AIF1 Playback", NULL, "codec_out1"  },
-	{ "codec_in0", NULL, "AIF1 Capture" },
-	{ "codec_in1", NULL, "AIF1 Capture" },
+	{ "AIF1 Playback", NULL, "ssp2 Tx"},
+	{ "ssp2 Tx", NULL, "codec_out0"},
+	{ "ssp2 Tx", NULL, "codec_out1"},
+	{ "codec_in0", NULL, "ssp2 Rx" },
+	{ "codec_in1", NULL, "ssp2 Rx" },
+	{ "ssp2 Rx", NULL, "AIF1 Capture"},
+
+	{ "ssp0 Tx", NULL, "modem_out"},
+	{ "modem_in", NULL, "ssp0 Rx" },
+
+	{ "ssp1 Tx", NULL, "bt_fm_out"},
+	{ "bt_fm_in", NULL, "ssp1 Rx" },
 
 	{ "AIF1 Playback", NULL, "VFLEXCNT" },
 	{ "AIF1 Capture", NULL, "VFLEXCNT" },
@@ -696,19 +704,41 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 	{
 		.name = "Merrifield Codec-Loop Port",
 		.stream_name = "Saltbay Codec-Loop",
-		.cpu_dai_name = "snd-soc-dummy-dai",
+		.cpu_dai_name = "ssp2-port",
+		.platform_name = "sst-platform",
 		.codec_dai_name = "wm8994-aif1",
 		.codec_name = "wm8994-codec",
 		.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF
 						| SND_SOC_DAIFMT_CBS_CFS,
 		.params = &mrfld_wm8958_dai_params,
+		.dsp_loopback = true,
+	},
+	{
+		.name = "Merrifield Modem-Loop Port",
+		.stream_name = "Saltbay Modem-Loop",
+		.cpu_dai_name = "ssp0-port",
+		.platform_name = "sst-platform",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.params = &mrfld_wm8958_dai_params,
+		.dsp_loopback = true,
+	},
+	{
+		.name = "Merrifield BTFM-Loop Port",
+		.stream_name = "Saltbay BTFM-Loop",
+		.cpu_dai_name = "ssp1-port",
+		.platform_name = "sst-platform",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.params = &mrfld_wm8958_dai_params,
+		.dsp_loopback = true,
 	},
 
 	/* back ends */
 	{
 		.name = "SSP2-Codec",
 		.be_id = 1,
-		.cpu_dai_name = "ssp2-codec",
+		.cpu_dai_name = "ssp2-port",
 		.platform_name = "sst-platform",
 		.no_pcm = 1,
 		.codec_dai_name = "wm8994-aif1",

@@ -557,6 +557,25 @@ static int sst_media_hw_free(struct snd_pcm_substream *substream,
 	return snd_pcm_lib_free_pages(substream);
 }
 
+static int sst_enable_ssp(struct snd_pcm_substream *substream,
+			struct snd_soc_dai *dai)
+{
+	pr_debug("In %s :dai=%s pb=%d cp= %d dai_active=%d id=%d\n", __func__,
+		dai->name, dai->playback_active, dai->capture_active, dai->active,  dai->id);
+	if (!dai->active)
+		send_ssp_cmd(dai->platform, dai->name, 1);
+	return 0;
+}
+
+static void sst_disable_ssp(struct snd_pcm_substream *substream,
+			struct snd_soc_dai *dai)
+{
+	pr_debug("In %s :dai=%s pb=%d cp= %d dai_active=%d id=%d\n", __func__,
+		dai->name, dai->playback_active, dai->capture_active, dai->active, dai->id);
+	if (!dai->active)
+		send_ssp_cmd(dai->platform, dai->name, 0);
+}
+
 static struct snd_soc_dai_ops sst_media_dai_ops = {
 	.startup = sst_media_open,
 	.shutdown = sst_media_close,
@@ -583,6 +602,11 @@ static struct snd_soc_dai_ops sst_loopback_dai_ops = {
 
 static struct snd_soc_dai_ops sst_compr_dai_ops = {
 	.mute_stream = sst_media_digital_mute,
+};
+
+static struct snd_soc_dai_ops sst_be_dai_ops = {
+	.startup = sst_enable_ssp,
+	.shutdown = sst_disable_ssp,
 };
 
 static struct snd_soc_dai_driver sst_platform_dai[] = {
@@ -740,16 +764,53 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 },
 /*BE CPU  Dais */
 {
-	.name = "ssp2-codec",
+	.name = "ssp0-port",
+	.ops = &sst_be_dai_ops,
 	.playback = {
-		.stream_name = "ssp2 playback",
+		.stream_name = "ssp0 Tx",
 		.channels_min = SST_STEREO,
 		.channels_max = SST_STEREO,
 		.rates = SNDRV_PCM_RATE_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 	.capture = {
-		.stream_name = "ssp2 Capture",
+		.stream_name = "ssp0 Rx",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+},
+{
+	.name = "ssp1-port",
+	.ops = &sst_be_dai_ops,
+	.playback = {
+		.stream_name = "ssp1 Tx",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_16000|SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+	.capture = {
+		.stream_name = "ssp1 Rx",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_16000|SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+},
+{
+	.name = "ssp2-port",
+	.ops = &sst_be_dai_ops,
+	.playback = {
+		.stream_name = "ssp2 Tx",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+	.capture = {
+		.stream_name = "ssp2 Rx",
 		.channels_min = SST_STEREO,
 		.channels_max = SST_STEREO,
 		.rates = SNDRV_PCM_RATE_48000,

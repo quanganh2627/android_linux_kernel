@@ -69,6 +69,13 @@ enum sst_drv_status {
 	SST_PLATFORM_DROPPED,
 };
 
+enum ssp_port {
+	SST_SSP_PORT0 = 0,
+	SST_SSP_PORT1,
+	SST_SSP_PORT2,
+	SST_SSP_PORT3,
+};
+
 #define SST_PIPE_CONTROL	0x0
 #define SST_COMPRESS_VOL	0x01
 
@@ -76,6 +83,7 @@ int sst_platform_clv_init(struct snd_soc_platform *platform);
 int sst_dsp_init(struct snd_soc_platform *platform);
 int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform);
 int sst_send_pipe_gains(struct snd_soc_dai *dai, int stream, int mute);
+void send_ssp_cmd(struct snd_soc_platform *platform, const char *id, bool enable);
 
 unsigned int sst_soc_read(struct snd_soc_platform *platform, unsigned int reg);
 int sst_soc_write(struct snd_soc_platform *platform, unsigned int reg, unsigned int val);

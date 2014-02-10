@@ -79,44 +79,44 @@ struct sst_ids {
 	u8  reg;
 	struct list_head algo_list;
 	struct list_head gain_list;
-	const struct sst_ssp_cfg *ssp;
 	const struct sst_pcm_format *pcm_fmt;
 };
 
-#define SST_SSP_AIF_IN(wname, wevent, wssp_cfg)						\
+
+#define SST_AIF_IN(wname, wevent)							\
 {	.id = snd_soc_dapm_aif_in, .name = wname, .sname = NULL,			\
 	.reg = SND_SOC_NOPM, .shift = 0, .invert = 0,					\
 	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,	\
-	.priv = (void *)&(struct sst_ids) { .ssp = &wssp_cfg, }				\
+	.priv = (void *)&(struct sst_ids) { .task_id = 0, .location_id = 0 }		\
 }
 
-#define SST_SSP_AIF_OUT(wname, wevent, wssp_cfg)					\
+#define SST_AIF_OUT(wname, wevent)							\
 {	.id = snd_soc_dapm_aif_out, .name = wname, .sname = NULL,			\
 	.reg = SND_SOC_NOPM, .shift = 0, .invert = 0,					\
 	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,	\
-	.priv = (void *)&(struct sst_ids) { .ssp = &wssp_cfg, }				\
+	.priv = (void *)&(struct sst_ids) { .task_id = 0, .location_id = 0 }		\
 }
 
-#define SST_SSP_INPUT(wname, wevent, wssp_cfg)						\
+#define SST_INPUT(wname, wevent)							\
 {	.id = snd_soc_dapm_input, .name = wname, .sname = NULL,				\
 	.reg = SND_SOC_NOPM, .shift = 0, .invert = 0,					\
 	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,	\
-	.priv = (void *)&(struct sst_ids) { .ssp = &wssp_cfg, }				\
+	.priv = (void *)&(struct sst_ids) { .task_id = 0, .location_id = 0 }		\
 }
 
-#define SST_SSP_OUTPUT(wname, wevent, wssp_cfg)						\
+#define SST_OUTPUT(wname, wevent)							\
 {	.id = snd_soc_dapm_output, .name = wname, .sname = NULL,			\
 	.reg = SND_SOC_NOPM, .shift = 0, .invert = 0,					\
 	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,	\
-	.priv = (void *)&(struct sst_ids) { .ssp = &wssp_cfg, }				\
+	.priv = (void *)&(struct sst_ids) { .task_id = 0, .location_id = 0 }		\
 }
 
-#define SST_DAPM_OUTPUT(wname, wloc_id, wtask_id, wformat, wevent)			\
-{	.id = snd_soc_dapm_output, .name = wname, .sname = NULL,			\
-	.reg = SND_SOC_NOPM, .shift = 0, .invert = 0,					\
-	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,	\
-	.priv = (void *)&(struct sst_ids) { .location_id = wloc_id, .task_id = wtask_id, \
-					    .pcm_fmt = wformat,	}			\
+#define SST_DAPM_OUTPUT(wname, wloc_id, wtask_id, wformat, wevent)                      \
+{	.id = snd_soc_dapm_output, .name = wname, .sname = NULL,                        \
+	.reg = SND_SOC_NOPM, .shift = 0, .invert = 0,                                   \
+	.event = wevent, .event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD,   \
+	.priv = (void *)&(struct sst_ids) { .location_id = wloc_id, .task_id = wtask_id,\
+						.pcm_fmt = wformat, }			\
 }
 
 #define SST_PATH(wname, wtask, wloc_id, wevent, wflags)					\
