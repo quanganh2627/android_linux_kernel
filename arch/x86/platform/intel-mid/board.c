@@ -193,6 +193,7 @@ struct devs_id __initconst device_ids[] = {
 	{"lsm303dl", SFI_DEV_TYPE_I2C, 0, &lsm303dlhc_accel_platform_data},
 	{"lsm303cmp", SFI_DEV_TYPE_I2C, 0, &no_platform_data, NULL},
 	{"apds990x", SFI_DEV_TYPE_I2C, 0, &apds990x_platform_data},
+	{"MNZX8000", SFI_DEV_TYPE_I2C, 0, &no_platform_data, NULL},
 
 	/* MSIC subdevices */
 	{"msic_adc", SFI_DEV_TYPE_IPC, 1, &msic_adc_platform_data,
