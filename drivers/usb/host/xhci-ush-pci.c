@@ -166,7 +166,7 @@ static int hsic_wakeup_irq_init(void)
 	gpio_direction_input(hsic.wakeup_gpio);
 	retval = request_irq(gpio_to_irq(hsic.wakeup_gpio),
 			hsic_wakeup_gpio_irq,
-			IRQF_SHARED | IRQF_TRIGGER_RISING,
+			IRQF_SHARED | IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
 			"hsic_remote_wakeup_request", &pci_dev->dev);
 	if (retval) {
 		dev_err(&pci_dev->dev,
