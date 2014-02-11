@@ -533,8 +533,10 @@ int sst_acpi_probe(struct platform_device *pdev)
 	ctx->use_dma = 1;
 	ctx->use_lli = 1;
 
-	if (sst_workqueue_init(ctx))
+	if (sst_workqueue_init(ctx)) {
+		ret = -EINVAL;
 		goto do_free_wq;
+	}
 
 	ctx->pdata = sst_get_acpi_driver_data(hid);
 	if (!ctx->pdata)

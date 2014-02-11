@@ -573,12 +573,16 @@ static int intel_sst_probe(struct pci_dev *pci,
 	init_waitqueue_head(&sst_drv_ctx->wait_queue);
 
 	sst_drv_ctx->mad_wq = create_singlethread_workqueue("sst_mad_wq");
-	if (!sst_drv_ctx->mad_wq)
+	if (!sst_drv_ctx->mad_wq) {
+		ret = -EINVAL;
 		goto do_free_drv_ctx;
+	}
 	sst_drv_ctx->post_msg_wq =
 		create_singlethread_workqueue("sst_post_msg_wq");
-	if (!sst_drv_ctx->post_msg_wq)
+	if (!sst_drv_ctx->post_msg_wq) {
+		ret = -EINVAL;
 		goto free_mad_wq;
+	}
 
 	spin_lock_init(&sst_drv_ctx->ipc_spin_lock);
 	spin_lock_init(&sst_drv_ctx->block_lock);
@@ -638,8 +642,10 @@ static int intel_sst_probe(struct pci_dev *pci,
 		sst_drv_ctx->ddr_end = pci_resource_end(pci, 0);
 
 		sst_drv_ctx->ddr = pci_ioremap_bar(pci, 0);
-		if (!sst_drv_ctx->ddr)
+		if (!sst_drv_ctx->ddr) {
+			ret = -EINVAL;
 			goto do_unmap_ddr;
+		}
 		pr_debug("sst: DDR Ptr %p\n", sst_drv_ctx->ddr);
 	} else {
 		sst_drv_ctx->ddr = NULL;
@@ -648,31 +654,39 @@ static int intel_sst_probe(struct pci_dev *pci,
 	/* SHIM */
 	sst_drv_ctx->shim_phy_add = pci_resource_start(pci, 1);
 	sst_drv_ctx->shim = pci_ioremap_bar(pci, 1);
-	if (!sst_drv_ctx->shim)
+	if (!sst_drv_ctx->shim) {
+		ret = -EINVAL;
 		goto do_release_regions;
+	}
 	pr_debug("SST Shim Ptr %p\n", sst_drv_ctx->shim);
 
 	/* Shared SRAM */
 	sst_drv_ctx->mailbox_add = pci_resource_start(pci, 2);
 	sst_drv_ctx->mailbox = pci_ioremap_bar(pci, 2);
-	if (!sst_drv_ctx->mailbox)
+	if (!sst_drv_ctx->mailbox) {
+		ret = -EINVAL;
 		goto do_unmap_shim;
+	}
 	pr_debug("SRAM Ptr %p\n", sst_drv_ctx->mailbox);
 
 	/* IRAM */
 	sst_drv_ctx->iram_end = pci_resource_end(pci, 3);
 	sst_drv_ctx->iram_base = pci_resource_start(pci, 3);
 	sst_drv_ctx->iram = pci_ioremap_bar(pci, 3);
-	if (!sst_drv_ctx->iram)
+	if (!sst_drv_ctx->iram) {
+		ret = -EINVAL;
 		goto do_unmap_sram;
+	}
 	pr_debug("IRAM Ptr %p\n", sst_drv_ctx->iram);
 
 	/* DRAM */
 	sst_drv_ctx->dram_end = pci_resource_end(pci, 4);
 	sst_drv_ctx->dram_base = pci_resource_start(pci, 4);
 	sst_drv_ctx->dram = pci_ioremap_bar(pci, 4);
-	if (!sst_drv_ctx->dram)
+	if (!sst_drv_ctx->dram) {
+		ret = -EINVAL;
 		goto do_unmap_iram;
+	}
 	pr_debug("DRAM Ptr %p\n", sst_drv_ctx->dram);
 
 	if ((sst_pdata->pdata != NULL) &&
@@ -816,8 +830,10 @@ static int intel_sst_probe(struct pci_dev *pci,
 	sst_debugfs_init(sst_drv_ctx);
 	sst_drv_ctx->qos = kzalloc(sizeof(struct pm_qos_request),
 				GFP_KERNEL);
-	if (!sst_drv_ctx->qos)
+	if (!sst_drv_ctx->qos) {
+		ret = -EINVAL;
 		goto do_free_misc;
+	}
 	pm_qos_add_request(sst_drv_ctx->qos, PM_QOS_CPU_DMA_LATENCY,
 				PM_QOS_DEFAULT_VALUE);
 
