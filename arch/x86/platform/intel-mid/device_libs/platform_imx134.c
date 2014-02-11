@@ -31,6 +31,8 @@
 #ifdef CONFIG_VLV2_PLAT_CLK
 #define OSC_CAM0_CLK 0x0
 #define CLK_19P2MHz 0x1
+#define CLK_ON	0x1
+#define CLK_OFF	0x2
 #endif
 #ifdef CONFIG_CRYSTAL_COVE
 static struct regulator *v1p8_reg;
@@ -109,8 +111,9 @@ static int imx134_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 		ret = vlv2_plat_set_clock_freq(OSC_CAM0_CLK, CLK_19P2MHz);
 		if (ret)
 			return ret;
+		return vlv2_plat_configure_clock(OSC_CAM0_CLK, CLK_ON);
 	}
-	return vlv2_plat_configure_clock(OSC_CAM0_CLK, flag);
+	return vlv2_plat_configure_clock(OSC_CAM0_CLK, CLK_OFF);
 #elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
 	return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
 			flag ? clock_khz : 0);
