@@ -51,7 +51,15 @@
 
 #define	PMC_MMIO_BAR		1
 #define	BASE_ADDRESS_MASK	0xFFFFFFFE00
-#define	DISABLE_LPC_CLK_WAKE_EN 0xffffef
+
+/* Disable PMC SOIX_WAKE_EN events coming from:
+ * - LPC clock run
+ * - GPIO_SUS ored dedicated IRQs
+ * - GPIO_SCORE ored dedicated IRQs
+ * - GPIO_SUS shared IRQ
+ * - GPIO_SCORE shared IRQ
+ */
+#define	PMC_WAKE_EN_SETTING     0xe3ffcf
 
 #define PM_SUPPORT		0x21
 
@@ -750,7 +758,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 		goto err_release_region;
 	}
 
-	writel(DISABLE_LPC_CLK_WAKE_EN, pmc_cxt->s0ix_wake_en);
+	writel(PMC_WAKE_EN_SETTING, pmc_cxt->s0ix_wake_en);
 
 	return 0;
 
