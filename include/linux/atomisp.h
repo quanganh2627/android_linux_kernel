@@ -374,6 +374,12 @@ struct atomisp_xnr_config {
 #endif
 };
 
+/* metadata config */
+struct atomisp_metadata_config {
+	uint32_t metadata_height;
+	uint32_t metadata_stride;
+};
+
 struct atomisp_parm {
 	struct atomisp_grid_info info;
 #ifdef CSS20
@@ -389,6 +395,7 @@ struct atomisp_parm {
 	struct atomisp_nr_config nr_config;
 	struct atomisp_ee_config ee_config;
 	struct atomisp_tnr_config tnr_config;
+	struct atomisp_metadata_config metadata_config;
 };
 
 struct dvs2_bq_resolution {
@@ -892,6 +899,14 @@ struct v4l2_private_int_data {
 	_IOW('v', BASE_VIDIOC_PRIVATE + 21, struct atomisp_gamma_table)
 #define ATOMISP_IOC_G_ISP_GDC_TAB \
 	_IOR('v', BASE_VIDIOC_PRIVATE + 22, struct atomisp_morph_table)
+/*
+ * FIXME: BZ:172549
+ * Now the ATOMISP_IOC_G_ISP_GDC_TAB isn't used in current camera system
+ * and all private ioctl ID are used. so the private ATOMISP_IOC_G_METADATA
+ * is temporary to use private ID 22.
+ */
+#define ATOMISP_IOC_G_METADATA \
+	_IOWR('v', BASE_VIDIOC_PRIVATE + 22, struct atomisp_metadata)
 #define ATOMISP_IOC_S_ISP_GDC_TAB \
 	_IOW('v', BASE_VIDIOC_PRIVATE + 23, struct atomisp_morph_table)
 #define ATOMISP_IOC_ISP_MAKERNOTE \
