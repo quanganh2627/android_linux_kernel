@@ -2658,10 +2658,21 @@ static int xhci_configure_endpoint(struct xhci_hcd *xhci,
 				ctx_change == 0 ?
 					"configure endpoint" :
 					"evaluate context");
-		/* cancel the configure endpoint command */
-		ret = xhci_cancel_cmd(xhci, command, cmd_trb);
-		if (ret < 0)
-			return ret;
+		/* When configure ep command met timeout, the Synopsys OTG3 was
+		 * already messed. Then even driver trying to stop cmd ring also
+		 * have no response.
+		 * So give up to stop cmd ring which waste another 10sec timeout
+		 * delay. Reset xHCI directly.
+		 **/
+		if (xhci->quirks | XHCI_RESET && xhci->reset_hcd_work) {
+			xhci_dbg(xhci, "Trying to reset xHCI host controller.\n");
+			schedule_work(xhci->reset_hcd_work);
+		} else {
+			/* cancel the configure endpoint command */
+			ret = xhci_cancel_cmd(xhci, command, cmd_trb);
+			if (ret < 0)
+				return ret;
+		}
 		return -ETIME;
 	}
 

@@ -1550,6 +1550,7 @@ struct xhci_hcd {
 #define XHCI_PORT_DISABLE_QUIRK	(1 << 17)
 #define XHCI_LPM_DISABLE_QUIRK	(1 << 18)
 #define XHCI_COMP_PLC_QUIRK		(1 << 19)
+#define XHCI_RESET		(1 << 20)
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */
@@ -1577,6 +1578,7 @@ struct xhci_hcd {
 	struct work_struct	pm_check;
 	int			pm_check_flag;
 	void __iomem		*pmc_base_addr;
+	struct work_struct	*reset_hcd_work;
 };
 
 /* convert between an HCD pointer and the corresponding EHCI_HCD */

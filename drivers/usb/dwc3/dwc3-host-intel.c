@@ -34,12 +34,39 @@
 
 #define WAIT_DISC_EVENT_COMPLETE_TIMEOUT 5 /* 100ms */
 
-static int otg_irqnum;
-static bool comp_test_enable;
-
 static int dwc3_start_host(struct usb_hcd *hcd);
 static int dwc3_stop_host(struct usb_hcd *hcd);
 static struct platform_driver dwc3_xhci_driver;
+static int __dwc3_stop_host(struct usb_hcd *hcd);
+
+static struct dwc3_xhci_hcd {
+	struct xhci_hcd *xhci;
+	struct work_struct reset_hcd;
+	int otg_irqnum;
+	bool host_started;
+	bool comp_test_enable;
+} dwc3_xhci;
+
+static void dwc3_host_quirks(struct device *dev, struct xhci_hcd *xhci)
+{
+	/*
+	 * As of now platform drivers don't provide MSI support so we ensure
+	 * here that the generic code does not try to make a pci_dev from our
+	 * dev struct in order to setup MSI
+	 */
+	xhci->quirks |= XHCI_PLAT;
+
+	/*
+	 * Due to some fatal silicon errors, the controller have to do reset
+	 * for make driver continue work.
+	 */
+	xhci->quirks |= XHCI_RESET;
+}
+
+static int dwc3_host_setup(struct usb_hcd *hcd)
+{
+	return xhci_gen_setup(hcd, dwc3_host_quirks);
+}
 
 static int xhci_dwc_bus_resume(struct usb_hcd *hcd)
 {
@@ -66,7 +93,7 @@ static const struct hc_driver xhci_dwc_hc_driver = {
 	/*
 	 * basic lifecycle operations
 	 */
-	.reset =		xhci_plat_setup,
+	.reset =		dwc3_host_setup,
 	.start =		xhci_run,
 	.stop =			xhci_stop,
 	.shutdown =		xhci_shutdown,
@@ -125,6 +152,22 @@ static int if_usb_devices_connected(struct xhci_hcd *xhci)
 		return 1;
 
 	return 0;
+}
+
+/* Do xHCI driver reinitialize when met fatal errors */
+static void dwc3_host_reset(struct work_struct *data)
+{
+	struct usb_hcd *hcd;
+
+	if (!dwc3_xhci.host_started || !data)
+		return;
+
+	if (!dwc3_xhci.xhci)
+		return;
+	hcd = dwc3_xhci.xhci->main_hcd;
+
+	__dwc3_stop_host(hcd);
+	dwc3_start_host(hcd);
 }
 
 static void dwc_xhci_enable_phy_auto_resume(struct usb_hcd *hcd, bool enable)
@@ -267,7 +310,7 @@ show_host_comp_test(struct device *_dev, struct device_attribute *attr, char *bu
 	size = PAGE_SIZE;
 
 	t = scnprintf(next, size, "%s\n",
-		(comp_test_enable ? "compliance test enabled, echo 0 to disable"
+		(dwc3_xhci.comp_test_enable ? "compliance test enabled, echo 0 to disable"
 		 : "compliance test disabled, echo 1 to enable")
 		);
 	size -= t;
@@ -295,25 +338,25 @@ store_host_comp_test(struct device *_dev,
 
 	switch (buf[0]) {
 	case '0':
-		if (comp_test_enable) {
+		if (dwc3_xhci.comp_test_enable) {
 			dev_dbg(hcd->self.controller, "run xHC\n");
 			cmd = xhci_readl(xhci, &xhci->op_regs->command);
 			cmd |= CMD_RUN;
 			xhci_writel(xhci, cmd, &xhci->op_regs->command);
 			pm_runtime_put(hcd->self.controller);
 			wake_unlock(&hcd->wake_lock);
-			comp_test_enable = false;
+			dwc3_xhci.comp_test_enable = false;
 		}
 		break;
 	case '1':
-		if (!comp_test_enable) {
+		if (!dwc3_xhci.comp_test_enable) {
 			dev_dbg(hcd->self.controller, "halt xHC\n");
 			wake_lock(&hcd->wake_lock);
 			pm_runtime_get_sync(hcd->self.controller);
 			cmd = xhci_readl(xhci, &xhci->op_regs->command);
 			cmd &= ~CMD_RUN;
 			xhci_writel(xhci, cmd, &xhci->op_regs->command);
-			comp_test_enable = true;
+			dwc3_xhci.comp_test_enable = true;
 		}
 		break;
 	default:
@@ -342,6 +385,8 @@ static int dwc3_start_host(struct usb_hcd *hcd)
 	if (!hcd)
 		return ret;
 
+	dwc3_xhci.host_started = true;
+
 	if (hcd->rh_registered) {
 		dev_dbg(hcd->self.controller,
 				"%s() - Already registered", __func__);
@@ -359,19 +404,19 @@ static int dwc3_start_host(struct usb_hcd *hcd)
 	 * To prevent incorrect flags set during last time. */
 	hcd->flags = 0;
 
-	ret = usb_add_hcd(hcd, otg_irqnum, IRQF_SHARED);
+	ret = usb_add_hcd(hcd, dwc3_xhci.otg_irqnum, IRQF_SHARED);
 	if (ret)
 		return -EINVAL;
 
 	xhci = hcd_to_xhci(hcd);
+	dwc3_xhci.xhci = xhci;
+	xhci->reset_hcd_work = &dwc3_xhci.reset_hcd;
 	xhci->shared_hcd = usb_create_shared_hcd(&xhci_dwc_hc_driver,
 		   hcd->self.controller, dev_name(hcd->self.controller), hcd);
 	if (!xhci->shared_hcd) {
 		ret = -ENOMEM;
 		goto dealloc_usb2_hcd;
 	}
-
-	xhci->quirks |= XHCI_PLAT;
 
 	/* Set the xHCI pointer before xhci_pci_setup() (aka hcd_driver.reset)
 	 * is called by usb_add_hcd().
@@ -383,7 +428,7 @@ static int dwc3_start_host(struct usb_hcd *hcd)
 	xhci->shared_hcd->rsrc_start = hcd->rsrc_start;
 	xhci->shared_hcd->rsrc_len = hcd->rsrc_len;
 
-	ret = usb_add_hcd(xhci->shared_hcd, otg_irqnum, IRQF_SHARED);
+	ret = usb_add_hcd(xhci->shared_hcd, dwc3_xhci.otg_irqnum, IRQF_SHARED);
 	if (ret)
 		goto put_usb3_hcd;
 
@@ -423,7 +468,7 @@ dealloc_usb2_hcd:
 	return ret;
 }
 
-static int dwc3_stop_host(struct usb_hcd *hcd)
+static int __dwc3_stop_host(struct usb_hcd *hcd)
 {
 	int count = 0;
 	u32 data;
@@ -464,6 +509,7 @@ static int dwc3_stop_host(struct usb_hcd *hcd)
 
 	usb_remove_hcd(hcd);
 
+	dwc3_xhci.xhci = NULL;
 	kfree(xhci);
 	*((struct xhci_hcd **) hcd->hcd_priv) = NULL;
 
@@ -472,14 +518,31 @@ static int dwc3_stop_host(struct usb_hcd *hcd)
 	pm_runtime_put(hcd->self.controller);
 	device_remove_file(hcd->self.controller, &dev_attr_pm_get);
 
-	if (comp_test_enable) {
+	if (dwc3_xhci.comp_test_enable) {
 		wake_unlock(&hcd->wake_lock);
 		pm_runtime_put(hcd->self.controller);
-		comp_test_enable = false;
+		dwc3_xhci.comp_test_enable = false;
 	}
 	device_remove_file(hcd->self.controller, &dev_attr_host_comp_test);
 	return 0;
 }
+
+static int dwc3_stop_host(struct usb_hcd *hcd)
+{
+	struct xhci_hcd *xhci;
+
+	xhci = hcd_to_xhci(hcd);
+	if (!xhci)
+		return -ENODEV;
+
+	dwc3_xhci.host_started = false;
+
+	cancel_work_sync(xhci->reset_hcd_work);
+	__dwc3_stop_host(hcd);
+
+	return 0;
+}
+
 static int xhci_dwc_drv_probe(struct platform_device *pdev)
 {
 	struct dwc_otg2 *otg;
@@ -509,7 +572,7 @@ static int xhci_dwc_drv_probe(struct platform_device *pdev)
 			dev_name(&pdev->dev));
 		return -ENODEV;
 	}
-	otg_irqnum = res->start;
+	dwc3_xhci.otg_irqnum = res->start;
 
 	hcd = usb_create_hcd(&xhci_dwc_hc_driver,
 			&pdev->dev, dev_name(&pdev->dev));
@@ -545,6 +608,7 @@ static int xhci_dwc_drv_probe(struct platform_device *pdev)
 
 	/* Enable wakeup irq */
 	hcd->has_wakeup_irq = 1;
+	INIT_WORK(&dwc3_xhci.reset_hcd, dwc3_host_reset);
 
 	platform_set_drvdata(pdev, hcd);
 	pm_runtime_enable(hcd->self.controller);
@@ -669,7 +733,7 @@ static int dwc_hcd_suspend_common(struct device *dev)
 			return retval;
 	}
 
-	synchronize_irq(otg_irqnum);
+	synchronize_irq(dwc3_xhci.otg_irqnum);
 
 	return retval;
 

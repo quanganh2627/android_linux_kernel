@@ -403,6 +403,10 @@ int xhci_cancel_cmd(struct xhci_hcd *xhci, struct xhci_command *command,
 			spin_unlock_irqrestore(&xhci->lock, flags);
 			usb_hc_died(xhci_to_hcd(xhci)->primary_hcd);
 			xhci_dbg(xhci, "xHCI host controller is dead.\n");
+			if (xhci->quirks | XHCI_RESET && xhci->reset_hcd_work) {
+				xhci_dbg(xhci, "Trying to reset xHCI host controller.\n");
+				schedule_work(xhci->reset_hcd_work);
+			}
 			return retval;
 		}
 	}
@@ -1013,6 +1017,10 @@ void xhci_stop_endpoint_command_watchdog(unsigned long arg)
 	xhci_dbg(xhci, "Calling usb_hc_died()\n");
 	usb_hc_died(xhci_to_hcd(xhci)->primary_hcd);
 	xhci_dbg(xhci, "xHCI host controller is dead.\n");
+	if (xhci->quirks | XHCI_RESET && xhci->reset_hcd_work) {
+		xhci_dbg(xhci, "Trying to reset xHCI host controller.\n");
+		schedule_work(xhci->reset_hcd_work);
+	}
 }
 
 
