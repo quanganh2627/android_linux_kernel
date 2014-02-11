@@ -1111,7 +1111,11 @@ static int smiapp_power_on(struct smiapp_sensor *sensor)
 	unsigned int sleep;
 	int rval;
 
-	rval = regulator_enable(sensor->vana);
+	if (!sensor->platform_data->set_power)
+		rval = regulator_enable(sensor->vana);
+	else
+		rval = sensor->platform_data->set_power(&sensor->src->sd, true);
+
 	if (rval) {
 		dev_err(&client->dev, "failed to enable vana regulator\n");
 		return rval;
@@ -1247,7 +1251,10 @@ out_cci_addr_fail:
 		clk_disable_unprepare(sensor->ext_clk);
 
 out_xclk_fail:
-	regulator_disable(sensor->vana);
+	if (!sensor->platform_data->set_power)
+		regulator_disable(sensor->vana);
+	else
+		sensor->platform_data->set_power(&sensor->src->sd, false);
 	return rval;
 }
 
@@ -1272,7 +1279,12 @@ static void smiapp_power_off(struct smiapp_sensor *sensor)
 	else
 		clk_disable_unprepare(sensor->ext_clk);
 	usleep_range(5000, 5000);
-	regulator_disable(sensor->vana);
+
+	if (!sensor->platform_data->set_power)
+		regulator_disable(sensor->vana);
+	else
+		sensor->platform_data->set_power(&sensor->src->sd, false);
+
 	sensor->streaming = 0;
 }
 
@@ -2357,10 +2369,12 @@ static int smiapp_registered(struct v4l2_subdev *subdev)
 	unsigned int i;
 	int rval;
 
-	sensor->vana = devm_regulator_get(&client->dev, "VANA");
-	if (IS_ERR(sensor->vana)) {
-		dev_err(&client->dev, "could not get regulator for vana\n");
-		return -ENODEV;
+	if (!sensor->platform_data->set_power) {
+		sensor->vana = devm_regulator_get(&client->dev, "VANA");
+		if (IS_ERR(sensor->vana)) {
+			dev_err(&client->dev, "could not get regulator for vana\n");
+			return -ENODEV;
+		}
 	}
 
 	if (!sensor->platform_data->set_xclk) {
