@@ -42,6 +42,9 @@ static enum usb_phy_intf get_usb2_phy_type(void)
 	u32 val;
 
 	addr = ioremap_nocache(SCCB_USB_CFG, 4);
+	if (!addr)
+		return USB2_PHY_ULPI;
+
 	val = readl(addr) & SCCB_USB_CFG_SELECT_ULPI;
 	iounmap(addr);
 
