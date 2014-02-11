@@ -2444,6 +2444,7 @@ int i915_gem_context_destroy_ioctl(struct drm_device *dev, void *data,
 
 void intel_panel_actually_set_backlight(struct drm_device *dev, u32 level);
 void intel_panel_actually_set_mipi_backlight(struct drm_device *dev, u32 level);
+u32 intel_panel_get_max_backlight(struct drm_device *dev);
 
 /* i915_gem_gtt.c */
 void i915_gem_cleanup_aliasing_ppgtt(struct drm_device *dev);

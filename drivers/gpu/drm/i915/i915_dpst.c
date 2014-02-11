@@ -131,7 +131,7 @@ i915_dpst_apply_luma(struct drm_device *dev,
 	u32 level;
 	u32 blm_hist_ctl;
 
-	if (!dev_priv->dpst.enabled)
+	if (dev_priv->early_suspended)
 		return -EINVAL;
 
 	/* Backlight settings */
@@ -169,9 +169,6 @@ i915_dpst_get_bin_data(struct drm_device *dev,
 	u32 blm_hist_ctl, blm_hist_bin;
 	int index;
 
-	if (!dev_priv->dpst.enabled)
-		return -EINVAL;
-
 	/* Setup register to access bin data from index 0 */
 	blm_hist_ctl = I915_READ(BLC_HIST_CTL);
 	blm_hist_ctl = blm_hist_ctl & ~(BIN_REGISTER_INDEX_MASK |
@@ -194,6 +191,7 @@ i915_dpst_get_bin_data(struct drm_device *dev,
 			I915_WRITE(BLC_HIST_CTL, blm_hist_ctl);
 		}
 	}
+	ioctl_data->hist_status.dpst_disable = !dev_priv->dpst.enabled;
 
 	return 0;
 }
