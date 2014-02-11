@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include <linux/wakelock.h>
 #include <linux/usb/otg.h>
 #include <linux/platform_device.h>
 #include <linux/usb/dwc3-intel-mid.h>
@@ -34,6 +35,7 @@
 #define WAIT_DISC_EVENT_COMPLETE_TIMEOUT 5 /* 100ms */
 
 static int otg_irqnum;
+static bool comp_test_enable;
 
 static int dwc3_start_host(struct usb_hcd *hcd);
 static int dwc3_stop_host(struct usb_hcd *hcd);
@@ -251,6 +253,78 @@ static ssize_t store_pm_get(struct device *_dev,
 }
 static DEVICE_ATTR(pm_get, S_IRUGO|S_IWUSR|S_IWGRP,
 			show_pm_get, store_pm_get);
+/*
+ * This is for host compliance test
+ * *
+ */
+static ssize_t
+show_host_comp_test(struct device *_dev, struct device_attribute *attr, char *buf)
+{
+	char				*next;
+	unsigned			size, t;
+
+	next = buf;
+	size = PAGE_SIZE;
+
+	t = scnprintf(next, size, "%s\n",
+		(comp_test_enable ? "compliance test enabled, echo 0 to disable"
+		 : "compliance test disabled, echo 1 to enable")
+		);
+	size -= t;
+	next += t;
+
+	return PAGE_SIZE - size;
+}
+
+static ssize_t
+store_host_comp_test(struct device *_dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct platform_device		*pdev = to_platform_device(_dev);
+	struct usb_hcd		*hcd = platform_get_drvdata(pdev);
+	struct xhci_hcd		*xhci = hcd_to_xhci(hcd);
+	u32 cmd;
+
+	if (count != 2) {
+		dev_err(hcd->self.controller, "return EINVAL\n");
+		return -EINVAL;
+	}
+
+	if (count > 0 && buf[count-1] == '\n')
+		((char *) buf)[count-1] = 0;
+
+	switch (buf[0]) {
+	case '0':
+		if (comp_test_enable) {
+			dev_dbg(hcd->self.controller, "run xHC\n");
+			cmd = xhci_readl(xhci, &xhci->op_regs->command);
+			cmd |= CMD_RUN;
+			xhci_writel(xhci, cmd, &xhci->op_regs->command);
+			pm_runtime_put(hcd->self.controller);
+			wake_unlock(&hcd->wake_lock);
+			comp_test_enable = false;
+		}
+		break;
+	case '1':
+		if (!comp_test_enable) {
+			dev_dbg(hcd->self.controller, "halt xHC\n");
+			wake_lock(&hcd->wake_lock);
+			pm_runtime_get_sync(hcd->self.controller);
+			cmd = xhci_readl(xhci, &xhci->op_regs->command);
+			cmd &= ~CMD_RUN;
+			xhci_writel(xhci, cmd, &xhci->op_regs->command);
+			comp_test_enable = true;
+		}
+		break;
+	default:
+		dev_dbg(hcd->self.controller,
+				"Just support 0(halt)/1(run)\n");
+		return -EINVAL;
+	}
+	return count;
+}
+static DEVICE_ATTR(host_comp_test, S_IRUGO|S_IWUSR|S_IWGRP,
+			show_host_comp_test, store_host_comp_test);
 
 static void dwc_set_host_mode(struct usb_hcd *hcd)
 {
@@ -314,6 +388,11 @@ static int dwc3_start_host(struct usb_hcd *hcd)
 		goto put_usb3_hcd;
 
 	pm_runtime_put(hcd->self.controller);
+
+	ret = device_create_file(hcd->self.controller, &dev_attr_host_comp_test);
+	if (ret < 0)
+		dev_err(hcd->self.controller,
+			"Can't register sysfs attribute: %d\n", ret);
 
 	ret = device_create_file(hcd->self.controller, &dev_attr_pm_get);
 	if (ret < 0)
@@ -392,6 +471,13 @@ static int dwc3_stop_host(struct usb_hcd *hcd)
 
 	pm_runtime_put(hcd->self.controller);
 	device_remove_file(hcd->self.controller, &dev_attr_pm_get);
+
+	if (comp_test_enable) {
+		wake_unlock(&hcd->wake_lock);
+		pm_runtime_put(hcd->self.controller);
+		comp_test_enable = false;
+	}
+	device_remove_file(hcd->self.controller, &dev_attr_host_comp_test);
 	return 0;
 }
 static int xhci_dwc_drv_probe(struct platform_device *pdev)
