@@ -38,6 +38,12 @@
 #define SMIAPP_PLL_FLAG_ALLOW_ODD_PRE_PLL_CLK_DIV		(1 << 2)
 /* op pix div value is half of the bits-per-pixel value */
 #define SMIAPP_PLL_FLAG_OP_PIX_DIV_HALF				(1 << 3)
+/*
+ * The effective vt and op pix clocks are twice as high as the
+ * calculated value. The limits are still against the regular limit
+ * values.
+ */
+#define SMIAPP_PLL_FLAG_PIX_CLOCK_DOUBLE			(1 << 4)
 
 struct smiapp_pll {
 	/* input values */

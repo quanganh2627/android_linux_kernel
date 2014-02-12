@@ -339,6 +339,10 @@ static int __smiapp_pll_calculate(struct device *dev,
 	pll->pixel_rate_csi =
 		pll->op_pix_clk_freq_hz * lane_op_clock_ratio;
 	pll->pixel_rate_pixel_array = pll->vt_pix_clk_freq_hz;
+	if (pll->flags & SMIAPP_PLL_FLAG_PIX_CLOCK_DOUBLE) {
+		pll->pixel_rate_csi *= 2;
+		pll->pixel_rate_pixel_array *= 2;
+	}
 
 	rval = bounds_check(dev, pll->pll_ip_clk_freq_hz,
 			    limits->min_pll_ip_freq_hz,
@@ -429,6 +433,12 @@ int smiapp_pll_calculate(struct device *dev,
 	 * frequency by two.
 	 */
 	if (pll->flags & SMIAPP_PLL_FLAG_OP_PIX_DIV_HALF)
+		pll->pll_op_clk_freq_hz /= 2;
+	/*
+	 * If it'll be multiplied by two in the end divide it now to
+	 * avoid achieving double the desired clock.
+	 */
+	if (pll->flags & SMIAPP_PLL_FLAG_PIX_CLOCK_DOUBLE)
 		pll->pll_op_clk_freq_hz /= 2;
 
 	/* Figure out limits for pre-pll divider based on extclk */
