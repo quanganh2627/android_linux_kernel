@@ -34,6 +34,8 @@
 /* op pix clock is for all lanes in total normally */
 #define SMIAPP_PLL_FLAG_OP_PIX_CLOCK_PER_LANE			(1 << 0)
 #define SMIAPP_PLL_FLAG_NO_OP_CLOCKS				(1 << 1)
+/* the pre-pll div may be odd */
+#define SMIAPP_PLL_FLAG_ALLOW_ODD_PRE_PLL_CLK_DIV		(1 << 2)
 
 struct smiapp_pll {
 	/* input values */

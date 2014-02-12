@@ -33,15 +33,22 @@ static inline uint64_t div_u64_round_up(uint64_t dividend, uint32_t divisor)
 	return div_u64(dividend + divisor - 1, divisor);
 }
 
-/* Return an even number or one. */
-static inline uint32_t clk_div_even(uint32_t a)
+/*
+ * Return an even number or one, unless allow_odd is set, in which
+ * case the same number is returned.
+ */
+static inline uint32_t clk_div(uint32_t a, bool allow_odd)
 {
+	if (allow_odd)
+		return a;
 	return max_t(uint32_t, 1, a & ~1);
 }
 
-/* Return an even number or one. */
-static inline uint32_t clk_div_even_up(uint32_t a)
+/* Same as clk_div() except that rounding is upwards. */
+static inline uint32_t clk_div_up(uint32_t a, bool allow_odd)
 {
+	if (allow_odd)
+		return a;
 	if (a == 1)
 		return 1;
 	return (a + 1) & ~1;
@@ -269,13 +276,13 @@ static int __smiapp_pll_calculate(struct device *dev,
 	min_sys_div = max(min_sys_div,
 			  DIV_ROUND_UP(min_vt_div,
 				       limits->vt.max_pix_clk_div));
-	dev_dbg(dev, "min_sys_div: max_vt_pix_clk_div: %u\n", min_sys_div);
+	dev_dbg(dev, "min_sys_div: max_vt_pix_clk_div: %d\n", min_sys_div);
 	min_sys_div = max_t(uint32_t, min_sys_div,
 			    pll->pll_op_clk_freq_hz
 			    / limits->vt.max_sys_clk_freq_hz);
-	dev_dbg(dev, "min_sys_div: max_pll_op_clk_freq_hz: %u\n", min_sys_div);
-	min_sys_div = clk_div_even_up(min_sys_div);
-	dev_dbg(dev, "min_sys_div: one or even: %u\n", min_sys_div);
+	dev_dbg(dev, "min_sys_div: max_pll_op_clk_freq_hz: %d\n", min_sys_div);
+	min_sys_div = clk_div_up(min_sys_div, 0);
+	dev_dbg(dev, "min_sys_div: one or even: %d\n", min_sys_div);
 
 	max_sys_div = limits->vt.max_sys_clk_div;
 	dev_dbg(dev, "max_sys_div: %u\n", max_sys_div);
@@ -423,14 +430,19 @@ int smiapp_pll_calculate(struct device *dev,
 		limits->min_pre_pll_clk_div, limits->max_pre_pll_clk_div);
 	max_pre_pll_clk_div =
 		min_t(uint16_t, limits->max_pre_pll_clk_div,
-		      clk_div_even(pll->ext_clk_freq_hz /
-				   limits->min_pll_ip_freq_hz));
+		      clk_div(
+			      pll->ext_clk_freq_hz /
+			      limits->min_pll_ip_freq_hz,
+			      pll->flags
+			      & SMIAPP_PLL_FLAG_ALLOW_ODD_PRE_PLL_CLK_DIV));
 	min_pre_pll_clk_div =
 		max_t(uint16_t, limits->min_pre_pll_clk_div,
-		      clk_div_even_up(
+		      clk_div_up(
 			      DIV_ROUND_UP(pll->ext_clk_freq_hz,
-					   limits->max_pll_ip_freq_hz)));
-	dev_dbg(dev, "pre-pll check: min / max pre_pll_clk_div: %u / %u\n",
+					   limits->max_pll_ip_freq_hz),
+			      pll->flags
+			      & SMIAPP_PLL_FLAG_ALLOW_ODD_PRE_PLL_CLK_DIV));
+	dev_dbg(dev, "pre-pll check: min / max pre_pll_clk_div: %d / %d\n",
 		min_pre_pll_clk_div, max_pre_pll_clk_div);
 
 	i = gcd(pll->pll_op_clk_freq_hz, pll->ext_clk_freq_hz);
@@ -440,15 +452,19 @@ int smiapp_pll_calculate(struct device *dev,
 
 	min_pre_pll_clk_div =
 		max_t(uint16_t, min_pre_pll_clk_div,
-		      clk_div_even_up(
+		      clk_div_up(
 			      DIV_ROUND_UP(mul * pll->ext_clk_freq_hz,
-					   limits->max_pll_op_freq_hz)));
-	dev_dbg(dev, "pll_op check: min / max pre_pll_clk_div: %u / %u\n",
+					   limits->max_pll_op_freq_hz),
+			      pll->flags
+			      & SMIAPP_PLL_FLAG_ALLOW_ODD_PRE_PLL_CLK_DIV));
+	dev_dbg(dev, "pll_op check: min / max pre_pll_clk_div: %d / %d\n",
 		min_pre_pll_clk_div, max_pre_pll_clk_div);
 
 	for (pll->pre_pll_clk_div = min_pre_pll_clk_div;
 	     pll->pre_pll_clk_div <= max_pre_pll_clk_div;
-	     pll->pre_pll_clk_div += 2 - (pll->pre_pll_clk_div & 1)) {
+	     pll->pre_pll_clk_div +=
+		     pll->flags & SMIAPP_PLL_FLAG_ALLOW_ODD_PRE_PLL_CLK_DIV
+		     ? 1 : (2 - (pll->pre_pll_clk_div & 1))) {
 		rval = __smiapp_pll_calculate(dev, limits, pll, mul, div,
 					      lane_op_clock_ratio);
 		if (rval)
