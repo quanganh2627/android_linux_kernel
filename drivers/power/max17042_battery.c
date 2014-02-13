@@ -2282,6 +2282,7 @@ static int max17042_probe(struct i2c_client *client,
 	/* Register reboot notifier callback */
 	if (!chip->pdata->file_sys_storage_enabled)
 		register_reboot_notifier(&max17042_reboot_notifier_block);
+	schedule_work(&chip->evt_worker);
 
 	return 0;
 }
