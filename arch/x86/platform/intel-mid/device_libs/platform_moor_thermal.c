@@ -42,7 +42,7 @@ static int linear_temp_correlation(void *info, long temp, long *res)
  * Currentlry keeping these as default one. */
 static struct intel_mid_thermal_sensor moor_sensors[] = {
 	{
-		.name = SYSTHERM0,
+		.name = SKIN1_NAME,
 		.index = SYS0,
 		.slope = 1000,
 		.intercept = 0,
@@ -50,7 +50,7 @@ static struct intel_mid_thermal_sensor moor_sensors[] = {
 		.direct = false,
 	},
 	{
-		.name = SYSTHERM1,
+		.name = SKIN0_NAME,
 		.index = SYS1,
 		.slope = 1000,
 		.intercept = 0,
