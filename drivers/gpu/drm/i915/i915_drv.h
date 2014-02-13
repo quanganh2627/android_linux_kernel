@@ -448,6 +448,7 @@ struct i915_pm {
 	func(is_crestline) sep \
 	func(is_ivybridge) sep \
 	func(is_valleyview) sep \
+	func(is_valleyview_c0) sep \
 	func(is_haswell) sep \
 	func(has_force_wake) sep \
 	func(has_fbc) sep \
@@ -1963,6 +1964,8 @@ struct drm_i915_cmd_table {
 				 (dev)->pci_device == 0x0106 ||	\
 				 (dev)->pci_device == 0x010A)
 #define IS_VALLEYVIEW(dev)	(INTEL_INFO(dev)->is_valleyview)
+#define IS_VALLEYVIEW_C0(dev)	(INTEL_INFO(dev)->is_valleyview_c0)
+#define IS_CHERRYVIEW(dev)     (INTEL_INFO(dev)->is_valleyview && IS_GEN8(dev))
 #define IS_VALLEYVIEWP_M(dev)	((dev)->pci_device == 0x0F31)
 #define IS_HASWELL(dev)	(INTEL_INFO(dev)->is_haswell)
 #define IS_MOBILE(dev)		(INTEL_INFO(dev)->is_mobile)
