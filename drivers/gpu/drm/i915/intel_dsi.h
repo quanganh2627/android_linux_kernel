@@ -85,6 +85,11 @@
 #define GPIO_NC_11_PCONF0               0x40F0
 #define GPIO_NC_11_PAD                  0x40F8
 
+/* Dual Link support */
+#define MIPI_DUAL_LINK_NONE		0
+#define MIPI_DUAL_LINK_FRONT_BACK	1
+#define MIPI_DUAL_LINK_PIXEL_ALT	2
+
 struct intel_dsi_device {
 	unsigned int panel_id;
 	const char *name;
@@ -168,6 +173,8 @@ struct intel_dsi {
 
 	u16 dsi_clock_freq;
 	u8 operation_mode;
+	u8 dual_link;
+	u8 pixel_overlap;
 	u8 video_mode_type;
 	u32 data_width;
 	u8 dither;

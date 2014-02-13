@@ -205,6 +205,91 @@ void intel_dsi_device_ready(struct intel_encoder *encoder)
 	usleep_range(2000, 2500);
 }
 
+void intel_dsi_port_enable(struct intel_encoder *encoder)
+{
+	struct drm_device *dev = encoder->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	int pipe = intel_crtc->pipe;
+	u32 val, port_control = 0;
+
+	if (intel_dsi->dual_link) {
+		port_control = (intel_dsi->dual_link - 1)
+						<< DUAL_LINK_MODE_SHIFT;
+		/* FIXME:
+		*For now use PIPE A in dual link mode
+		*later changes based on VBT Port Selection
+		*/
+		if (pipe)
+			port_control |= LANE_CONFIGURATION_DUAL_LINK_A;
+		else
+			port_control |= LANE_CONFIGURATION_DUAL_LINK_B;
+
+		/*Pixel overlap count; only for VLV CO stepping */
+		if (IS_VALLEYVIEW_C0(dev)) {
+			val = I915_READ(VLV_CHICKEN_3);
+			val &= ~PIXEL_OVERLAP_CNT_MASK |
+				intel_dsi->pixel_overlap <<
+				PIXEL_OVERLAP_CNT_SHIFT;
+			I915_WRITE(VLV_CHICKEN_3, val);
+		}
+
+		/* Port A */
+		val = I915_READ(MIPI_PORT_CTRL(0));
+		val = val | port_control;
+		I915_WRITE(MIPI_PORT_CTRL(0), val | DPI_ENABLE);
+
+		if (!IS_VALLEYVIEW_C0(dev)) {
+			/* for stepping before C0; we need to enable
+			* PORTC explicitly. From C0 onwards enable PORT A
+			* also enabled PORT C for dual link
+			*/
+			val = I915_READ(MIPI_PORT_CTRL(1));
+			I915_WRITE(MIPI_PORT_CTRL(1), val | DPI_ENABLE);
+		} else {
+			if (intel_crtc->config.dither) {
+				val = I915_READ(MIPI_PORT_CTRL(0));
+				val = val | DITHERING_ENABLE;
+				I915_WRITE(MIPI_PORT_CTRL(0), val);
+				val = I915_READ(MIPI_PORT_CTRL(1));
+				val = val | DITHERING_ENABLE;
+				I915_WRITE(MIPI_PORT_CTRL(1), val);
+			}
+		}
+		usleep_range(2000, 2500);
+	} else {
+		val = I915_READ(MIPI_PORT_CTRL(pipe));
+		val = val | port_control;
+		if (intel_crtc->config.dither && IS_VALLEYVIEW_C0(dev))
+			val |= DITHERING_ENABLE;
+		I915_WRITE(MIPI_PORT_CTRL(pipe), val | DPI_ENABLE);
+		usleep_range(2000, 2500);
+	}
+
+}
+
+void intel_dsi_port_disable(struct intel_encoder *encoder)
+{
+	struct drm_device *dev = encoder->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	int pipe = intel_crtc->pipe;
+
+	if (intel_dsi->dual_link) {
+		I915_WRITE_BITS(MIPI_PORT_CTRL(0), 0, DPI_ENABLE);
+		POSTING_READ(MIPI_PORT_CTRL(0));
+
+		I915_WRITE_BITS(MIPI_PORT_CTRL(1), 0, DPI_ENABLE);
+		POSTING_READ(MIPI_PORT_CTRL(1));
+	} else {
+		I915_WRITE_BITS(MIPI_PORT_CTRL(pipe), 0, DPI_ENABLE);
+		POSTING_READ(MIPI_PORT_CTRL(pipe));
+	}
+
+	usleep_range(2000, 2500);
+}
 static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 {
 	DRM_DEBUG_KMS("\n");
@@ -220,12 +305,8 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	int pipe = intel_crtc->pipe;
-	bool is_dsi;
-	u32 temp;
 
 	DRM_DEBUG_KMS("\n");
-
-	is_dsi = intel_pipe_has_type(encoder->base.crtc, INTEL_OUTPUT_DSI);
 
 	intel_enable_dsi_pll(intel_dsi);
 
@@ -241,13 +322,8 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 		if (intel_dsi->dev.dev_ops->enable)
 			intel_dsi->dev.dev_ops->enable(&intel_dsi->dev);
 
-		temp = I915_READ(MIPI_PORT_CTRL(pipe));
-		temp = temp | intel_dsi->port_bits;
+		intel_dsi_port_enable(encoder);
 
-		if (is_dsi && intel_crtc->config.dither)
-			temp |= DITHERING_ENABLE;
-		I915_WRITE(MIPI_PORT_CTRL(pipe), temp | DPI_ENABLE);
-		usleep_range(2000, 2500);
 	}
 
 	/* Adjust backlight timing for specific panel */
@@ -286,9 +362,7 @@ static void intel_dsi_disable(struct intel_encoder *encoder)
 		dpi_send_cmd(intel_dsi, SHUTDOWN);
 		usleep_range(1000, 1500);
 
-		I915_WRITE_BITS(MIPI_PORT_CTRL(pipe), 0, DPI_ENABLE);
-		POSTING_READ(MIPI_PORT_CTRL(pipe));
-		usleep_range(2000, 2500);
+		intel_dsi_port_disable(encoder);
 	}
 
 	/* Panel commands can be sent when clock is in LP11 */
