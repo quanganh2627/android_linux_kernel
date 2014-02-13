@@ -38,22 +38,24 @@ static int linear_temp_correlation(void *info, long temp, long *res)
  * skin0 -> front skin,
  * skin1--> back skin
  */
-/* TODO: Update slope and intercept values as per HW Team.
- * Currentlry keeping these as default one. */
+/* Updated slope and intercept values as per received from
+ * Thermal HW Team. Updated the same value for skin0.
+ * Updated the best match slope and intercept values
+ * for skin1 same as merrifield platform. */
 static struct intel_mid_thermal_sensor moor_sensors[] = {
 	{
 		.name = SKIN1_NAME,
 		.index = SYS0,
-		.slope = 1000,
-		.intercept = 0,
+		.slope = 525,
+		.intercept = 13674,
 		.temp_correlation = linear_temp_correlation,
 		.direct = false,
 	},
 	{
 		.name = SKIN0_NAME,
 		.index = SYS1,
-		.slope = 1000,
-		.intercept = 0,
+		.slope = 772,
+		.intercept = 5630,
 		.temp_correlation = linear_temp_correlation,
 		.direct = false,
 	},
