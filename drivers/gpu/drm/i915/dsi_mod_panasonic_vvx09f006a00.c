@@ -237,6 +237,8 @@ static void vvx09f006a00_dpms(struct intel_dsi_device *dsi, bool enable)
 bool vvx09f006a00_init(struct intel_dsi_device *dsi)
 {
 	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	DRM_DEBUG_KMS("Init: Panasonic panel\n");
 
@@ -266,6 +268,12 @@ bool vvx09f006a00_init(struct intel_dsi_device *dsi)
 	intel_dsi->backlight_off_delay = 20;
 	intel_dsi->send_shutdown = true;
 	intel_dsi->shutdown_pkt_delay = 20;
+
+	/* In the default VBT of UEFI GOP,rotation bit is not set.
+	 * In order to make FFRD8 work on UEFI GOP with default VBT,
+	 * hardcoding rotation bit to 1 only for Panasonic MIPI Panel */
+	if (!(dev_priv->vbt.is_180_rotation_enabled) && !(BYT_CR_CONFIG))
+		dev_priv->vbt.is_180_rotation_enabled = 1;
 
 	return true;
 }

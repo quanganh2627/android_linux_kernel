@@ -1206,6 +1206,7 @@ struct intel_vbt_data {
 	int edp_vswing;
 	bool edp_initialized;
 	bool edp_support;
+	bool is_180_rotation_enabled;
 	int edp_bpp;
 	struct edp_power_seq edp_pps;
 
@@ -2083,7 +2084,6 @@ extern int i915_panel_use_ssc __read_mostly;
 extern int i915_vbt_sdvo_panel_type __read_mostly;
 extern int i915_mipi_panel_id __read_mostly;
 extern int i915_enable_rc6 __read_mostly;
-extern int i915_rotation __read_mostly;
 extern int i915_enable_fbc __read_mostly;
 extern bool i915_enable_hangcheck __read_mostly;
 extern unsigned int i915_hangcheck_period __read_mostly;

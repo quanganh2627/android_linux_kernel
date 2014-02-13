@@ -376,7 +376,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size, true,
 				       src_w != crtc_w || src_h != crtc_h);
 
-	if (!intel_plane->rotate180 != !(i915_rotation && (pipe == 0)))
+	if (!intel_plane->rotate180 != !((dev_priv->vbt.is_180_rotation_enabled) &&
+									(pipe == 0)))
 		rotate = true;
 
 	/* Sizes are 0 based */
@@ -393,7 +394,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	}
 #endif
 	I915_WRITE(SPSTRIDE(pipe, plane), fb->pitches[0]);
-	if (i915_rotation && (pipe == 0))
+	if ((dev_priv->vbt.is_180_rotation_enabled) && (pipe == 0))
 		I915_WRITE(SPPOS(pipe, plane), ((crtc->hwmode.vdisplay -
 			(crtc_y + crtc_h + 1)) << 16) |
 			(crtc->hwmode.hdisplay - (crtc_x + crtc_w + 1)));

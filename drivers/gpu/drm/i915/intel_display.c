@@ -2333,7 +2333,8 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		BUG();
 	}
 
-	if (!intel_crtc->rotate180 != !(i915_rotation && (pipe == 0)))
+	if (!intel_crtc->rotate180 != !((dev_priv->vbt.is_180_rotation_enabled) &&
+									(pipe == 0)))
 		rotate = true;
 
 	if (INTEL_INFO(dev)->gen >= 4) {

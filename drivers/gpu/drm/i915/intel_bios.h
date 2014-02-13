@@ -129,7 +129,7 @@ struct bdb_general_features {
         /* bits 3 */
 	u8 disable_smooth_vision:1;
 	u8 single_dvi:1;
-	u8 rsvd9:1;
+	u8 enable_180_rotation:1;
 	u8 fdi_rx_polarity_inverted:1;
 	u8 rsvd10:4; /* finish byte */
 
