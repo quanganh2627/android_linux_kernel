@@ -4011,7 +4011,7 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 
 	WARN_ON(!crtc->enabled);
 
-	if (intel_crtc->active || dev->is_booting)
+	if (intel_crtc->active)
 		return;
 
 	intel_crtc->active = true;
@@ -4145,7 +4145,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	struct intel_program_clock_bending clockbend;
 	struct intel_program_clock_spread clockspread;
 
-	if (!intel_crtc->active || dev->is_booting)
+	if (!intel_crtc->active)
 		return;
 
 	if ((pipe == 0) && (dev_priv->is_mipi || dev_priv->is_hdmi)) {
@@ -5496,9 +5496,6 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 	const intel_limit_t *limit;
 	int ret, rgrt;
 	static bool getregulator = true;
-
-	if (dev->is_booting)
-		return 0;
 
 	for_each_encoder_on_crtc(dev, crtc, encoder) {
 		switch (encoder->type) {

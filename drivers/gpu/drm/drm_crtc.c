@@ -2036,8 +2036,6 @@ int drm_mode_set_config_internal(struct drm_mode_set *set)
 	struct drm_crtc *tmp;
 	int ret;
 
-	if (crtc->dev->is_booting)
-		return 0;
 	/*
 	 * NOTE: ->set_config can also disable other crtcs (if we steal all
 	 * connectors from it), hence we need to refcount the fbs across all
@@ -2092,9 +2090,6 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 	uint32_t __user *set_connectors_ptr;
 	int ret;
 	int i;
-
-	DRM_DEBUG_DRIVER("Releasing the is_booting flag\n");
-	dev->is_booting = false;
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;

@@ -116,10 +116,7 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 
 static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
 {
-	struct drm_device *dev = encoder->base.dev;
 	DRM_DEBUG_KMS("\n");
-	if (dev->is_booting)
-		return;
 
 	/* nothing to do here as we do necessary stuff in pre_enable
 	 * to comply to the hw team recommended DSI sequence */
@@ -210,11 +207,8 @@ void intel_dsi_device_ready(struct intel_encoder *encoder)
 
 static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 {
-	struct drm_device *dev = encoder->base.dev;
 	DRM_DEBUG_KMS("\n");
 
-	if (dev->is_booting)
-		return;
 	/* put device in ready state */
 	intel_dsi_device_ready(encoder);
 }
@@ -232,8 +226,6 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	DRM_DEBUG_KMS("\n");
 
 	is_dsi = intel_pipe_has_type(encoder->base.crtc, INTEL_OUTPUT_DSI);
-	if (dev->is_booting)
-		return;
 
 	intel_enable_dsi_pll(intel_dsi);
 
@@ -278,9 +270,6 @@ static void intel_dsi_disable(struct intel_encoder *encoder)
 	u32 tmp;
 
 	DRM_DEBUG_KMS("\n");
-
-	if (dev->is_booting)
-		return;
 
 	intel_panel_disable_backlight(dev);
 	if (intel_dsi->backlight_off_delay >= 20)
@@ -384,11 +373,7 @@ void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
 
 static void intel_dsi_post_disable(struct intel_encoder *encoder)
 {
-	struct drm_device *dev = encoder->base.dev;
-
 	DRM_DEBUG_KMS("\n");
-	if (dev->is_booting)
-		return;
 
 	intel_dsi_clear_device_ready(encoder);
 }
@@ -556,9 +541,6 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 	unsigned int bpp = intel_crtc->config.pipe_bpp;
 	struct drm_display_mode *adjusted_mode = &intel_crtc->config.adjusted_mode;
 	u32 val;
-
-	if (dev->is_booting)
-		return;
 
 	I915_WRITE(MIPI_DEVICE_READY(pipe), 0x0);
 
