@@ -15,6 +15,7 @@
 #define EM_CONFIG_OEM0_NAME "OEM0"
 #define EM_CONFIG_OEM1_NAME "OEM1"
 
+static void dump_chrg_profile(const struct ps_pse_mod_prof *chrg_prof);
 
 static int em_config_get_acpi_table(char *name, void *data, int data_size)
 {
@@ -58,50 +59,45 @@ EXPORT_SYMBOL(em_config_get_oem1_data);
 int em_config_get_charge_profile(struct ps_pse_mod_prof *chrg_prof)
 {
 	struct em_config_oem0_data oem0_data;
-	int i, ret = 0;
-	int ranges = EM_CONFIG_BATT_TEMP_NR_RNG;
+	int ret = 0;
 
 	if (chrg_prof == NULL)
 		return 0;
-	ret = em_config_get_oem0_data(&oem0_data);
-
-	if (ret <= 0)
-		goto chrg_prof_error;
-
-	memcpy(chrg_prof->batt_id, oem0_data.batt_id, BATTID_STR_LEN);
-	chrg_prof->battery_type = oem0_data.batt_type;
-	chrg_prof->capacity = oem0_data.capacity;
-	chrg_prof->voltage_max = oem0_data.volt_max;
-	chrg_prof->temp_mon_ranges =
-			oem0_data.temp_mon_ranges;
-
-	if (oem0_data.temp_mon_ranges < EM_CONFIG_BATT_TEMP_NR_RNG)
-		ranges = oem0_data.temp_mon_ranges;
-
-	/* Copy the temperature ranges */
-	for (i = 0; i < ranges; i++) {
-		chrg_prof->temp_mon_range[i].temp_up_lim =
-		oem0_data.temp_mon_range[i].temp_up_lim;
-
-		chrg_prof->temp_mon_range[i].full_chrg_vol =
-		oem0_data.temp_mon_range[i].full_chrg_vol;
-
-		chrg_prof->temp_mon_range[i].full_chrg_cur =
-		oem0_data.temp_mon_range[i].full_chrg_cur;
-
-		chrg_prof->temp_mon_range[i].maint_chrg_vol_ll =
-		oem0_data.temp_mon_range[i].maint_chrg_vol_ll;
-
-		chrg_prof->temp_mon_range[i].maint_chrg_vol_ul =
-		oem0_data.temp_mon_range[i].maint_chrg_vol_ul;
-
-		chrg_prof->temp_mon_range[i].maint_chrg_cur =
-		oem0_data.temp_mon_range[i].maint_chrg_cur;
+	ret = em_config_get_oem0_data((struct em_config_oem0_data *)chrg_prof);
+	if (ret > 0) {
+		/* battery_type field contains 2 bytes, and upper byte contains battery_type &
+		 * lower byte used for turbo, which is discarded */
+		chrg_prof->battery_type = chrg_prof->battery_type >> 8;
+#ifdef DEBUG
+		dump_chrg_profile(chrg_prof);
+#endif
 	}
-
-	chrg_prof->temp_low_lim = oem0_data.temp_low_lim;
-
-chrg_prof_error:
 	return ret;
 }
 EXPORT_SYMBOL(em_config_get_charge_profile);
+
+
+
+static void dump_chrg_profile(const struct ps_pse_mod_prof *chrg_prof)
+{
+	u16 i = 0;
+
+	pr_info("OEM0:batt_id = %s\n", chrg_prof->batt_id);
+	pr_info("OEM0:battery_type = %d\n", chrg_prof->battery_type);
+	pr_info("OEM0:capacity = %d\n", chrg_prof->capacity);
+	pr_info("OEM0:voltage_max = %d\n", chrg_prof->voltage_max);
+	pr_info("OEM0:chrg_term_ma = %d\n", chrg_prof->chrg_term_ma);
+	pr_info("OEM0:low_batt_mV = %d\n", chrg_prof->low_batt_mV);
+	pr_info("OEM0:disch_tmp_ul = %d\n", chrg_prof->disch_tmp_ul);
+	pr_info("OEM0:disch_tmp_ll = %d\n", chrg_prof->disch_tmp_ll);
+	pr_info("OEM0:temp_mon_ranges = %d\n", chrg_prof->temp_mon_ranges);
+	for (i = 0; i < chrg_prof->temp_mon_ranges; i++) {
+		pr_info("OEM0:temp_mon_range[%d].up_lim = %d\n", i, chrg_prof->temp_mon_range[i].temp_up_lim);
+		pr_info("OEM0:temp_mon_range[%d].full_chrg_vol = %d\n", i, chrg_prof->temp_mon_range[i].full_chrg_vol);
+		pr_info("OEM0:temp_mon_range[%d].full_chrg_cur = %d\n", i, chrg_prof->temp_mon_range[i].full_chrg_cur);
+		pr_info("OEM0:temp_mon_range[%d].maint_chrg_vol_ll = %d\n", i, chrg_prof->temp_mon_range[i].maint_chrg_vol_ll);
+		pr_info("OEM0:temp_mon_range[%d].main_chrg_vol_ul = %d\n", i, chrg_prof->temp_mon_range[i].maint_chrg_vol_ul);
+		pr_info("OEM0:temp_mon_range[%d].main_chrg_cur = %d\n", i, chrg_prof->temp_mon_range[i].maint_chrg_cur);
+	}
+	pr_info("OEM0:temp_low_lim = %d\n", chrg_prof->temp_low_lim);
+}
