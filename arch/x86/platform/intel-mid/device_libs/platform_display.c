@@ -54,6 +54,11 @@ static int __init platform_display_module_init(void)
 			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1))
 		return i2c_register_board_info(3, &lp8556_i2c_device, 1);
 
+	if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2) ||
+			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2))
+		return i2c_register_board_info(4, &lp8556_i2c_device, 1);
+
+
 	return -EPERM;
 }
 

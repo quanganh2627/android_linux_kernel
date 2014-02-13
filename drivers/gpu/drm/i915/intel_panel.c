@@ -35,7 +35,6 @@
 #include "linux/mfd/intel_mid_pmic.h"
 #include <linux/pwm.h>
 #include <linux/platform_data/lp855x.h>
-
 #define PCI_LBPC 0xf4 /* legacy/combination backlight modes */
 
 void
@@ -630,9 +629,12 @@ void intel_panel_enable_backlight(struct drm_device *dev,
 
 	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi) {
 #ifdef CONFIG_CRYSTAL_COVE
+
 		uint32_t val;
 		if (BYT_CR_CONFIG) {
 			/* GPIOC_94 config to PWM0 function */
+
+
 			val = vlv_gps_core_read(dev_priv, 0x40A0);
 			vlv_gps_core_write(dev_priv, 0x40A0, 0x2000CC01);
 			vlv_gps_core_write(dev_priv, 0x40A8, 0x5);
@@ -648,6 +650,29 @@ void intel_panel_enable_backlight(struct drm_device *dev,
 			vlv_gpio_nc_write(dev_priv, 0x40E0, 0x2000CC00);
 			vlv_gpio_nc_write(dev_priv, 0x40E8, 0x00000005);
 			udelay(500);
+
+			if (lpdata) {
+
+				msleep(30);
+
+				lp855x_ext_write_byte(LP8556_CFG9,
+							LP8556_VBOOST_MAX_NA_21V |
+							LP8556_JUMP_DIS |
+							LP8556_JMP_TSHOLD_10P |
+							LP8556_JMP_VOLT_0_5V);
+				lp855x_ext_write_byte(LP8556_CFG5,
+							LP8556_PWM_DRECT_DIS |
+							LP8556_PS_MODE_5P5D |
+							LP8556_PWM_FREQ_9616HZ);
+				lp855x_ext_write_byte(LP8556_CFG7,
+							LP8556_RSRVD_76 |
+							LP8556_DRV3_EN |
+							LP8556_DRV2_EN |
+							LP8556_RSRVD_32 |
+							LP8556_IBOOST_LIM_1_8A_NA);
+				lp855x_ext_write_byte(LP8556_LEDSTREN,
+							LP8556_5LEDSTR);
+				}
 		} else {
 			intel_mid_pmic_writeb(0x4B, 0xFF);
 			intel_mid_pmic_writeb(0x51, 0x01);
