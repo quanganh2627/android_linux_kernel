@@ -60,9 +60,17 @@ static void pci_dev_d3_sleep(struct pci_dev *dev)
 		delay = pci_pm_d3_delay;
 
 	if (delay) {
-		/* convert from ms to us */
+		/*
+		* convert delay from ms to us
+		* if oops in progress, interrupts are disabled
+		* so do not call usleep that reenables interrupts
+		* but udelay that does not reenable interrupts
+		*/
 		delay = 1000*delay;
-		usleep_range(delay-10, delay+10);
+		if (oops_in_progress)
+			udelay(delay);
+		else
+			usleep_range(delay-10, delay+10);
 	}
 }
 
