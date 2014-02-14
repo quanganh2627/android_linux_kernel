@@ -930,20 +930,28 @@ static void intel_dp_mode_set(struct intel_encoder *encoder)
 		intel_write_eld(&encoder->base, adjusted_mode);
 	}
 
-	if (intel_dp->pfit && (adjusted_mode->hdisplay < PFIT_SIZE_LIMIT)) {
-		u32 val = 0;
-		if (intel_dp->pfit == AUTOSCALE)
-			val = PFIT_ENABLE | (crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
-		if (intel_dp->pfit == PILLARBOX)
-			val = PFIT_ENABLE | (crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
-		else if (intel_dp->pfit == LETTERBOX)
-			val = PFIT_ENABLE | (crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
-		DRM_DEBUG_DRIVER("pfit val = %x", val);
-		I915_WRITE(PFIT_CONTROL, val);
-		crtc->base.panning_en = true;
+	if (intel_dp->pfit) {
+		/* Enable panel fitter only if the scaling ratio is > 1 and the
+			input src size should be < 2kx2k */
+		if (((adjusted_mode->hdisplay < PFIT_SIZE_LIMIT) &&
+		(adjusted_mode->vdisplay < PFIT_SIZE_LIMIT)) &&
+		((adjusted_mode->hdisplay != crtc->base.fb->width) ||
+		(adjusted_mode->vdisplay != crtc->base.fb->height))) {
+			u32 val = 0;
+			if (intel_dp->pfit == AUTOSCALE)
+				val = PFIT_ENABLE | (crtc->pipe <<
+					PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
+			if (intel_dp->pfit == PILLARBOX)
+				val = PFIT_ENABLE | (crtc->pipe <<
+					PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
+			else if (intel_dp->pfit == LETTERBOX)
+				val = PFIT_ENABLE | (crtc->pipe <<
+					PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
+			DRM_DEBUG_DRIVER("pfit val = %x", val);
+			I915_WRITE(PFIT_CONTROL, val);
+			crtc->base.panning_en = true;
+		} else
+			DRM_DEBUG_DRIVER("Wrong panel fitter input src config");
 	 } else
 		crtc->base.panning_en = false;
 

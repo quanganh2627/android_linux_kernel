@@ -637,7 +637,8 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 
 	I915_WRITE(MIPI_INTR_STAT(pipe), 0xFFFFFFFF);
 
-	if (adjusted_mode->hdisplay < PFIT_SIZE_LIMIT) {
+	if ((adjusted_mode->hdisplay < PFIT_SIZE_LIMIT) &&
+	(adjusted_mode->vdisplay < PFIT_SIZE_LIMIT)) {
 		/* BYT-CR needs panel fitter only with Panasonic panel */
 		if (BYT_CR_CONFIG && (i915_mipi_panel_id ==
 			MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID)) {
@@ -645,9 +646,11 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 					PFIT_SCALING_AUTO;
 			I915_WRITE(PFIT_CONTROL, val);
 			intel_crtc->base.panning_en = true;
-		} else {
-			/* Normal scenario, enable panel fitter only if configured */
-			if (intel_dsi->pfit) {
+		} else if (intel_dsi->pfit) {
+			/* Normal scenario, enable panel fitter only if the
+			scaling ratio is > 1 and the input src size < 2kx2k */
+			if ((adjusted_mode->hdisplay != intel_crtc->base.fb->width) ||
+			(adjusted_mode->vdisplay != intel_crtc->base.fb->height)) {
 				if (intel_dsi->pfit == AUTOSCALE)
 					val = PFIT_ENABLE | (intel_crtc->pipe <<
 						PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
@@ -659,11 +662,14 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 						PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
 				I915_WRITE(PFIT_CONTROL, val);
 				intel_crtc->base.panning_en = true;
-			}
-		}
-		DRM_DEBUG_DRIVER("pfit val = %x", val);
+				DRM_DEBUG_DRIVER("pfit val = %x", val);
+			} else
+				DRM_DEBUG_DRIVER("Wrong pfit input src config");
+		} else
+			intel_crtc->base.panning_en = false;
+
 	} else
-		intel_crtc->base.panning_en = false;
+		DRM_DEBUG_DRIVER("Wrong pfit input src config");
 }
 
 static enum drm_connector_status
