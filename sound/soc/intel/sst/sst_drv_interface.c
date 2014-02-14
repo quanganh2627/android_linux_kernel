@@ -1042,7 +1042,7 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 		ret_val = sst_send_vtsv_data_to_fw(sst_drv_ctx);
 		if (ret_val)
 			pr_err("vtsv data send failed\n");
-		pm_runtime_put(sst_drv_ctx->dev);
+		sst_pm_runtime_put(sst_drv_ctx);
 		break;
 	}
 	default:
