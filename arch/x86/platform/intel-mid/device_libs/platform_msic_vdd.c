@@ -23,7 +23,12 @@
 
 #define BCUIRQ 0x24
 
+/* to correct annotation for byt */
+#ifdef CONFIG_ACPI
+void *msic_vdd_platform_data(void *info)
+#else
 void __init *msic_vdd_platform_data(void *info)
+#endif
 {
 	static struct intel_msic_vdd_pdata msic_vdd_pdata;
 	struct platform_device *pdev = NULL;
