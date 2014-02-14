@@ -16,35 +16,21 @@
 #include <linux/acpi.h>
 #include <linux/power/battery_id.h>
 
-#define EM_CONFIG_BATT_TEMP_NR_RNG 4
 
-/********* OEM0 Table Structures ****************/
-struct em_config_temp_threshold_param {
-	/* upper temperature limit for each zone */
-	short int temp_up_lim;
-	/* Battery resistance upto the sence register (in mOhms) */
-	short int batt_resistance;
-	/* charge current and voltage */
-	short int full_chrg_vol;
-	short int full_chrg_cur;
-	/* maintenance thresholds */
-	/* maintenance lower threshold. Once battery hits full, charging
-	*  charging will be resumed when battery voltage <= this voltage
-	*/
-	short int maint_chrg_vol_ll;
-	/* Charge current and voltage in maintenance mode */
-	short int maint_chrg_vol_ul;
-	short int maint_chrg_cur;
-} __packed;
 struct em_config_oem0_data {
 	char batt_id[BATTID_STR_LEN];
+	 u8 turbo;
+	 u8 batt_type;
+	u16 capacity;
 	u16 volt_max;
-	u32 capacity;
-	u16 batt_type;
+	u16 chrg_term_ma;
+	u16 low_batt_thr;
+	u8  safe_dischrg_ul;
+	u8  safe_dischrg_ll;
 	u16 temp_mon_ranges;
-	struct em_config_temp_threshold_param temp_mon_range[EM_CONFIG_BATT_TEMP_NR_RNG];
+	struct ps_temp_chg_table temp_mon_range[BATT_TEMP_NR_RNG];
 	/* Temperature lower limit */
-	short int temp_low_lim;
+	u16 temp_low_lim;
 } __packed;
 
 
@@ -99,15 +85,15 @@ int em_config_get_charge_profile(struct ps_pse_mod_prof *chrg_prof);
 
 #else
 
-int em_config_get_oem0_data(struct em_config_oem0_data *data)
+static int em_config_get_oem0_data(struct em_config_oem0_data *data)
 {
 	return 0;
 }
-int em_config_get_oem1_data(struct em_config_oem1_data *data)
+static int em_config_get_oem1_data(struct em_config_oem1_data *data)
 {
 	return 0;
 }
-int em_config_get_charge_profile(struct ps_pse_mod_prof *chrg_prof)
+static int em_config_get_charge_profile(struct ps_pse_mod_prof *chrg_prof)
 {
 	return 0;
 }
