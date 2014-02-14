@@ -461,7 +461,7 @@ static ssize_t sst_sysfs_set_recovery(struct device *dev,
 			pr_debug("%s: set sst state to uninit...\n", __func__);
 			sst_set_fw_state_locked(ctx, SST_UN_INIT);
 		} else {
-			pr_debug("%s: not setting sst state... %d\n", __func__,
+			pr_err("%s: not setting sst state... %d\n", __func__,
 					atomic_read(&ctx->pm_usage_count));
 			return -EPERM;
 		}

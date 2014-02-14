@@ -382,6 +382,10 @@ int intel_sst_check_device(void)
 
 	pm_runtime_get_sync(sst_drv_ctx->dev);
 	atomic_inc(&sst_drv_ctx->pm_usage_count);
+
+	pr_debug("%s: count is %d now\n", __func__,
+				atomic_read(&sst_drv_ctx->pm_usage_count));
+
 	mutex_lock(&sst_drv_ctx->sst_lock);
 	if (sst_drv_ctx->sst_state == SST_UN_INIT)
 		sst_drv_ctx->sst_state = SST_START_INIT;

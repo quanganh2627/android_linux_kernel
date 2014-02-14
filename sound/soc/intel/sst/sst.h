@@ -694,6 +694,8 @@ static inline int sst_pm_runtime_put(struct intel_sst_drv *sst_drv)
 		return ret;
 	atomic_dec(&sst_drv->pm_usage_count);
 
+	pr_debug("%s: count is %d now..\n", __func__,
+			atomic_read(&sst_drv->pm_usage_count));
 	return 0;
 }
 /*
