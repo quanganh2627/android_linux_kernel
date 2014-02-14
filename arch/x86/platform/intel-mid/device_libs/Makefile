@@ -59,6 +59,7 @@ obj-$(subst m,y,$(CONFIG_A1026)) += platform_a1026.o
 obj-$(subst m,y,$(CONFIG_EXTCON_FSA9285)) += platform_fsa9285.o
 obj-$(subst m,y,$(CONFIG_EXTCON_SMSC375X))	+= platform_smsc375x.o
 obj-$(subst m,y,$(CONFIG_SND_SOC_WM5102)) += platform_wm5102.o
+obj-$(subst m,y,$(CONFIG_GPIO_PCA953X)) += platform_pca9574.o
 
 # SPI Devices
 obj-$(subst m,y,$(CONFIG_SERIAL_MRST_MAX3110)) += platform_max3111.o

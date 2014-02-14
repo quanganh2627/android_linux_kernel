@@ -87,6 +87,7 @@
 #include "device_libs/platform_lsm303.h"
 #include "device_libs/platform_apds990x.h"
 #include "device_libs/platform_a1026.h"
+#include "device_libs/platform_pca9574.h"
 
 /* SW devices */
 #include "device_libs/platform_panel.h"
@@ -194,6 +195,7 @@ struct devs_id __initconst device_ids[] = {
 	{"lsm303cmp", SFI_DEV_TYPE_I2C, 0, &no_platform_data, NULL},
 	{"apds990x", SFI_DEV_TYPE_I2C, 0, &apds990x_platform_data},
 	{"MNZX8000", SFI_DEV_TYPE_I2C, 0, &no_platform_data, NULL},
+	{"pca953x", SFI_DEV_TYPE_I2C, 0, &nxp_pca9574_platform_data, NULL},
 
 	/* MSIC subdevices */
 	{"msic_adc", SFI_DEV_TYPE_IPC, 1, &msic_adc_platform_data,
@@ -245,6 +247,8 @@ struct devs_id __initconst device_ids[] = {
 	{"PNC_JDI_7x12", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
 	{"PNC_SHARP_10x19", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+	{"PNCD_SHARP_10x19", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
 	{"PNV_SHARP_25x16", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
