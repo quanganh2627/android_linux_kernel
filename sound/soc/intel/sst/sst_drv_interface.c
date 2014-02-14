@@ -500,11 +500,22 @@ static int sst_cdev_close(unsigned int str_id)
 	int retval;
 	struct stream_info *stream;
 
-	pr_debug("%s: doing rtpm_put\n", __func__);
+	pr_debug("%s: Entry\n", __func__);
 	stream = get_stream_info(str_id);
 	if (!stream)
 		return -EINVAL;
+
+	if (stream->status == STREAM_RESET) {
+		/* silently fail here as we have cleaned the stream */
+		pr_debug("stream in reset state...\n");
+		stream->status = STREAM_UN_INIT;
+
+		retval = 0;
+		goto put;
+	}
+
 	retval = sst_free_stream(str_id);
+put:
 	stream->compr_cb_param = NULL;
 	stream->compr_cb = NULL;
 
@@ -515,6 +526,8 @@ static int sst_cdev_close(unsigned int str_id)
 	the timeout error(EBUSY) scenario. */
 	if (!retval || (retval == -EBUSY))
 		sst_pm_runtime_put(sst_drv_ctx);
+
+	pr_debug("%s: End\n", __func__);
 
 	return retval;
 
@@ -725,11 +738,21 @@ static int sst_close_pcm_stream(unsigned int str_id)
 	struct stream_info *stream;
 	int retval = 0;
 
-	pr_debug("%s: doing rtpm_put\n", __func__);
+	pr_debug("%s: Entry\n", __func__);
 	stream = get_stream_info(str_id);
 	if (!stream)
 		return -EINVAL;
+
+	if (stream->status == STREAM_RESET) {
+		/* silently fail here as we have cleaned the stream */
+		pr_debug("stream in reset state...\n");
+
+		retval = 0;
+		goto put;
+	}
+
 	retval = free_stream_context(str_id);
+put:
 	stream->pcm_substream = NULL;
 	stream->status = STREAM_UN_INIT;
 	stream->period_elapsed = NULL;
@@ -743,6 +766,7 @@ static int sst_close_pcm_stream(unsigned int str_id)
 	if (!retval || (retval == -EBUSY))
 		sst_pm_runtime_put(sst_drv_ctx);
 
+	pr_debug("%s: Exit\n", __func__);
 	return 0;
 }
 

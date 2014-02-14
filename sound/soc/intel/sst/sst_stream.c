@@ -650,12 +650,7 @@ int sst_free_stream(int str_id)
 	ops = sst_drv_ctx->ops;
 
 	mutex_lock(&str_info->lock);
-	if (str_info->status == STREAM_RESET) {
-		/* silently fail here as we have cleaned the stream */
-		str_info->status = STREAM_UN_INIT;
-		mutex_unlock(&str_info->lock);
-		return 0;
-	} else if (str_info->status != STREAM_UN_INIT) {
+	if (str_info->status != STREAM_UN_INIT) {
 		str_info->prev =  str_info->status;
 		str_info->status = STREAM_UN_INIT;
 		mutex_unlock(&str_info->lock);
