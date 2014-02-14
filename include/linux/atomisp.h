@@ -382,6 +382,22 @@ struct atomisp_parm {
 	struct atomisp_tnr_config tnr_config;
 };
 
+struct dvs2_bq_resolution {
+	int width_bq;         /* width [BQ] */
+	int height_bq;        /* height [BQ] */
+};
+
+struct atomisp_dvs2_bq_resolutions {
+	/* GDC source image size [BQ] */
+	struct dvs2_bq_resolution source_bq;
+	/* GDC output image size [BQ] */
+	struct dvs2_bq_resolution output_bq;
+	/* GDC effective envelope size [BQ] */
+	struct dvs2_bq_resolution envelope_bq;
+	/* isp pipe filter size [BQ] */
+	struct dvs2_bq_resolution ispfilter_bq;
+};
+
 struct atomisp_dvs_6axis_config {
 	uint32_t exp_id;
 	uint32_t width_y;
@@ -840,6 +856,10 @@ struct v4l2_private_int_data {
  */
 #define ATOMISP_IOC_G_DIS_STAT \
 	_IOWR('v', BASE_VIDIOC_PRIVATE + 14, struct atomisp_dis_statistics)
+
+#define ATOMISP_IOC_G_DVS2_BQ_RESOLUTIONS \
+	_IOR('v', BASE_VIDIOC_PRIVATE + 14, struct atomisp_dvs2_bq_resolutions)
+
 #define ATOMISP_IOC_S_DIS_COEFS \
 	_IOW('v', BASE_VIDIOC_PRIVATE + 15, struct atomisp_dis_coefficients)
 
