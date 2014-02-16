@@ -22,13 +22,14 @@ snd-merr-saltbay-lm49453-objs := merr_saltbay_lm49453.o
 snd-merr-saltbay-wm8958-objs := merr_saltbay_wm8958.o
 snd-merr-dpcm-wm8958-objs := merr_dpcm_wm8958.o
 
-ifdef CONFIG_SST_MRFLD_DPCM
+ifdef CONFIG_SST_DPCM
 	obj-$(CONFIG_SND_MRFLD_MACHINE) += snd-merr-dpcm-wm8958.o
 else
 	obj-$(CONFIG_SND_MRFLD_MACHINE) += snd-merr-saltbay-lm49453.o snd-merr-saltbay-wm8958.o
 endif
 
 # Moorefield board
+obj-$(CONFIG_SND_MOOR_MACHINE) += snd-merr-dpcm-wm8958.o
 obj-$(CONFIG_SND_MOOR_MACHINE) += snd-merr-saltbay-wm8958.o
 
 # Baytrail board

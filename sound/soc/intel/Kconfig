@@ -157,11 +157,11 @@ config SND_MFLD_MONO_SPEAKER_SUPPORT
 config PRH_TEMP_WA_FOR_SPID
 	tristate "Workaround for PRh since SPID is unavailable"
 
-config SST_MRFLD_DPCM
-	bool "Use DPCM based Merrifield Machine Audio driver"
+config SST_DPCM
+	bool "Use DPCM based Machine Audio driver"
 	default n
 	help
-	  This adds an option to enable the DPCM based MRFLD machine driver
+	  This adds an option to enable the DPCM based machine driver
 
 config SND_SST_MACHINE
 	tristate

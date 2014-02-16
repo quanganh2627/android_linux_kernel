@@ -100,7 +100,7 @@ static int sst_media_digital_mute(struct snd_soc_dai *dai, int mute, int stream)
 
 	pr_debug("%s: enter, mute=%d dai-name=%s dir=%d\n", __func__, mute, dai->name, stream);
 
-#if IS_BUILTIN(CONFIG_SST_MRFLD_DPCM)
+#if IS_BUILTIN(CONFIG_SST_DPCM)
 		sst_send_pipe_gains(dai, stream, mute);
 #endif
 
@@ -424,7 +424,7 @@ out_ops:
 
 static void sst_free_stream_in_use(struct sst_dev_stream_map *map, int str_id)
 {
-#if IS_BUILTIN(CONFIG_SST_MRFLD_DPCM)
+#if IS_BUILTIN(CONFIG_SST_DPCM)
 	return;
 #else
 	if ((map[str_id].dev_num == MERR_SALTBAY_AUDIO) ||
@@ -469,7 +469,7 @@ static int sst_dpcm_probe_cmd(struct snd_soc_platform *platform,
 		struct snd_pcm_substream *substream, u16 pipe_id, bool on)
 {
 	int ret = 0;
-#if IS_BUILTIN(CONFIG_SST_MRFLD_DPCM)
+#if IS_BUILTIN(CONFIG_SST_DPCM)
 	if (substream->pcm->device == MERR_DPCM_PROBE)
 		ret = sst_dpcm_probe_send(platform, pipe_id, substream->number,
 					      substream->stream, on);
@@ -965,7 +965,7 @@ static int sst_soc_probe(struct snd_soc_platform *platform)
 			INTEL_MID_BOARD(1, TABLET, MRFL) ||
 			INTEL_MID_BOARD(1, PHONE, MOFD) ||
 			INTEL_MID_BOARD(1, TABLET, MOFD)) {
-#if IS_BUILTIN(CONFIG_SST_MRFLD_DPCM)
+#if IS_BUILTIN(CONFIG_SST_DPCM)
 		ret = sst_dsp_init_v2_dpcm(platform);
 #else
 		ret = sst_dsp_init(platform);

@@ -58,7 +58,7 @@ static struct sst_dev_stream_map byt_cr_strm_map[] = {
 	{BYT_CR_AUD_AIF1, 0, SNDRV_PCM_STREAM_CAPTURE, SST_CAPTURE_IN, SST_TASK_ID_NONE, SST_DEV_MAP_IN_USE},
 };
 
-#if IS_BUILTIN(CONFIG_SST_MRFLD_DPCM)
+#if IS_BUILTIN(CONFIG_SST_DPCM)
 static struct sst_dev_stream_map mrfld_strm_map[] = {
 	{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, /* Reserved, not in use */
 	{MERR_DPCM_AUDIO, 0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_MEDIA1_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
