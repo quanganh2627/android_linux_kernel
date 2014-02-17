@@ -10426,6 +10426,12 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	dev_priv->s0ixstat = true;
 	dev_priv->late_resume = true;
 
+	if (spid.hardware_id == BYT_TABLET_BLK_8PR1)
+		if (dev_priv->v3p3s_reg) {
+			rgrt = regulator_enable(dev_priv->v3p3s_reg);
+			if (rgrt)
+				DRM_ERROR("Failed to turn ON 3P3SX\n");
+		}
 	/*
 	 * DO NOT Move it from here
 	 * HOTPLUG_EN needs to be enabled for reading LIVE STATUS
@@ -10464,13 +10470,6 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 
 	if (dev_priv->dpst.state)
 		i915_dpst_enable_hist_interrupt(dev);
-
-	if (spid.hardware_id == BYT_TABLET_BLK_8PR1)
-		if (dev_priv->v3p3s_reg) {
-			rgrt = regulator_enable(dev_priv->v3p3s_reg);
-			if (rgrt)
-				DRM_ERROR("Failed to turn ON 3P3SX\n");
-		}
 
 	return 0;
 }
