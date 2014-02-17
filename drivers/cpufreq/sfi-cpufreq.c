@@ -72,6 +72,13 @@ struct sfi_cpufreq_data {
 	unsigned int resume;
 };
 
+
+struct drv_cmd {
+	const struct cpumask *mask;
+	u32 msr;
+	u32 val;
+};
+
 static DEFINE_PER_CPU(struct sfi_cpufreq_data *, drv_data);
 struct sfi_freq_table_entry sfi_cpufreq_array[SFI_FREQ_MAX];
 static struct sfi_cpu_table_entry sfi_cpu_array[SFI_CPU_MAX];
@@ -209,6 +216,27 @@ static unsigned extract_freq(u32 msr, struct sfi_cpufreq_data *data)
 	return data->freq_table[0].frequency;
 }
 
+/* Called via smp_call_function_many(), on the target CPUs */
+static void do_drv_write(void *_cmd)
+{
+	struct drv_cmd *cmd = _cmd;
+	u32 lo, hi;
+
+	rdmsr(cmd->msr, lo, hi);
+	lo = (lo & ~INTEL_MSR_RANGE) | (cmd->val & INTEL_MSR_RANGE);
+	wrmsr(cmd->msr, lo, hi);
+}
+
+static void drv_write(struct drv_cmd *cmd)
+{
+	int this_cpu;
+
+	this_cpu = get_cpu();
+	if (cpumask_test_cpu(this_cpu, cmd->mask))
+		do_drv_write(cmd);
+	smp_call_function_many(cmd->mask, do_drv_write, cmd, 1);
+	put_cpu();
+}
 
 static u32 get_cur_val(const struct cpumask *mask)
 {
@@ -259,7 +287,8 @@ static int sfi_cpufreq_target(struct cpufreq_policy *policy,
 	unsigned int next_state = 0; /* Index into freq_table */
 	unsigned int next_perf_state = 0; /* Index into perf table */
 	int result = 0;
-	u32 lo, hi;
+	struct drv_cmd cmd;
+
 
 	pr_debug("sfi_cpufreq_target %d (%d)\n", target_freq, policy->cpu);
 
@@ -289,16 +318,16 @@ static int sfi_cpufreq_target(struct cpufreq_policy *policy,
 		}
 	}
 
+	cmd.msr = MSR_IA32_PERF_CTL;
+	cmd.val = (u32) perf->states[next_perf_state].control;
+	cmd.mask = policy->cpus;
+
 	freqs.old = perf->states[perf->state].core_frequency * 1000;
 	freqs.new = data->freq_table[next_state].frequency;
 
 	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
 
-	rdmsr_on_cpu(policy->cpu, MSR_IA32_PERF_CTL, &lo, &hi);
-	lo = (lo & ~INTEL_MSR_RANGE) |
-		((u32) perf->states[next_perf_state].control & INTEL_MSR_RANGE);
-	wrmsr_on_cpu(policy->cpu, MSR_IA32_PERF_CTL, lo, hi);
-
+	drv_write(&cmd);
 
 	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 	perf->state = next_perf_state;
@@ -365,7 +394,7 @@ static int sfi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	perf = data->sfi_data;
 	policy->shared_type = CPUFREQ_SHARED_TYPE_HW;
 
-	cpumask_set_cpu(policy->cpu, policy->cpus);
+	cpumask_setall(policy->cpus);
 	cpumask_set_cpu(policy->cpu, policy->related_cpus);
 
 	/* capability check */
@@ -417,13 +446,6 @@ static int sfi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	/* Check for APERF/MPERF support in hardware */
 	if (cpu_has(c, X86_FEATURE_APERFMPERF))
 		sfi_cpufreq_driver.getavg = cpufreq_get_measured_perf;
-
-	/* enable eHALT for SLM */
-	if (boot_cpu_data.x86_model == X86_ATOM_ARCH_SLM) {
-		rdmsr_on_cpu(policy->cpu, MSR_IA32_POWER_MISC, &lo, &hi);
-		lo = lo | ENABLE_ULFM_AUTOCM | ENABLE_INDP_AUTOCM;
-		wrmsr_on_cpu(policy->cpu, MSR_IA32_POWER_MISC, lo, hi);
-	}
 
 	pr_debug("CPU%u - SFI performance management activated.\n", cpu);
 	for (i = 0; i < perf->state_count; i++)
@@ -610,35 +632,6 @@ static void __exit sfi_cpufreq_exit(void)
 late_initcall(sfi_cpufreq_init);
 module_exit(sfi_cpufreq_exit);
 
-unsigned int ehalt_enable __read_mostly = 1; /* default enable */
-int set_ehalt_feature(const char *val, struct kernel_param *kp)
-{
-	int i, nc;
-	u32 lo, hi;
-	int rv = param_set_int(val, kp);
-
-	if (rv)
-		return rv;
-
-	/* disable eHALT for SLM */
-	nc = num_possible_cpus();
-	if (boot_cpu_data.x86_model == X86_ATOM_ARCH_SLM) {
-		for (i = 0; i < nc; i++) {
-			rdmsr_on_cpu(i, MSR_IA32_POWER_MISC, &lo, &hi);
-			if (ehalt_enable)
-				lo = lo |
-				(ENABLE_ULFM_AUTOCM | ENABLE_INDP_AUTOCM);
-			else
-				lo = lo &
-				(~(ENABLE_ULFM_AUTOCM | ENABLE_INDP_AUTOCM));
-			wrmsr_on_cpu(i, MSR_IA32_POWER_MISC, lo, hi);
-		}
-	}
-	return 0;
-}
-MODULE_PARM_DESC(ehalt_enable, "to enable/disable ehalt feature(1:Enable; 0:Disable)");
-module_param_call(ehalt_enable, set_ehalt_feature, param_get_uint,
-		  &ehalt_enable, S_IRUGO | S_IWUSR);
 
 unsigned int turbo_enable  __read_mostly = 1; /* default enable */
 int set_turbo_feature(const char *val, struct kernel_param *kp)
