@@ -8635,6 +8635,19 @@ static int intel_gen7_queue_mmio_flip(struct drm_device *dev,
 		goto err_unpin;
 	}
 
+	/*
+	 * Check opportunistically, if rendering has already completed or not
+	 * on the buffer to be flipped. Else we need to wait and we queue
+	 * a work item for that, so as to wait from worker thread's context.
+	 */
+	if (!obj->ring ||
+	    i915_seqno_passed(obj->ring->get_seqno(obj->ring, false),
+			      obj->last_write_seqno)) {
+		intel_mark_page_flip_active(intel_crtc);
+		i9xx_update_plane(crtc, crtc->fb, 0, 0);
+		return 0;
+	}
+
 	work->flipdata.crtc  = crtc;
 	work->flipdata.seqno = obj->last_write_seqno;
 	work->flipdata.ring_id = RCS;
