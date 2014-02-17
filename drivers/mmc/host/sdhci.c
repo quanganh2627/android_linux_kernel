@@ -1676,9 +1676,11 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		 */
 		if ((host->flags & SDHCI_NEEDS_RETUNING) &&
 		    !(present_state & (SDHCI_DOING_WRITE | SDHCI_DOING_READ)) &&
-		    (mmc_cmd_type(mrq->cmd) == MMC_CMD_ADTC) &&
 		    (mrq->cmd->opcode != MMC_SEND_STATUS)) {
 			if (mmc->card) {
+				if (mmc_card_sdio(mmc->card) &&
+				    (mmc_cmd_type(mrq->cmd) != MMC_CMD_ADTC))
+					goto end_tuning;
 				if ((mmc->card->ext_csd.part_config & 0x07) ==
 					EXT_CSD_PART_CONFIG_ACC_RPMB)
 					goto end_tuning;
