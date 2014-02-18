@@ -67,6 +67,7 @@
 #include <linux/delay.h>
 #include <linux/kthread.h>
 #include <linux/version.h>
+#include <linux/wakelock.h>
 
 #include "otg.h"
 
@@ -76,6 +77,7 @@ struct dwc3_otg_hw_ops *dwc3_otg_pdata;
 struct dwc_device_par *platform_par;
 
 static struct mutex lock;
+static struct wake_lock wakelock;
 static const char driver_name[] = "dwc3_otg";
 static struct dwc_otg2 *the_transceiver;
 static void dwc_otg_remove(struct pci_dev *pdev);
@@ -786,8 +788,12 @@ static int do_b_peripheral(struct dwc_otg2 *otg)
 static int dwc_otg_handle_notification(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
-	if (dwc3_otg_pdata->otg_notifier_handler)
+	if (dwc3_otg_pdata->otg_notifier_handler) {
+		/* hold wakelock for a while to block S3, avoid missing
+		 * events if S3 entry during notification handling */
+		wake_lock_timeout(&wakelock, msecs_to_jiffies(300));
 		return dwc3_otg_pdata->otg_notifier_handler(nb, event, data);
+	}
 
 	return NOTIFY_DONE;
 }
@@ -1333,6 +1339,8 @@ static int dwc_otg_probe(struct pci_dev *pdev,
 
 	otg->irqnum = pdev->irq;
 
+	wake_lock_init(&wakelock, WAKE_LOCK_SUSPEND, "dwc_otg_wakelock");
+
 	if (dwc3_otg_pdata->platform_init) {
 		retval = dwc3_otg_pdata->platform_init(otg);
 		if (retval)
@@ -1363,6 +1371,8 @@ static void dwc_otg_remove(struct pci_dev *pdev)
 		platform_device_unregister(otg->gadget);
 	if (otg->host)
 		platform_device_unregister(otg->host);
+
+	wake_lock_destroy(&wakelock);
 
 	pm_runtime_forbid(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
