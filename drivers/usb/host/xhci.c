@@ -3822,6 +3822,14 @@ int xhci_address_device(struct usb_hcd *hcd, struct usb_device *udev)
 		break;
 	}
 	if (ret) {
+		/* When this issue reproduce. The controller was already very
+		 * unstable. And easy to met fabric error. So do soft-reset for
+		 * the controller.
+		 */
+		if (xhci->quirks | XHCI_RESET && xhci->reset_hcd_work) {
+			xhci_dbg(xhci, "Trying to reset xHCI host controller.\n");
+			schedule_work(xhci->reset_hcd_work);
+		}
 		return ret;
 	}
 	temp_64 = xhci_read_64(xhci, &xhci->op_regs->dcbaa_ptr);
