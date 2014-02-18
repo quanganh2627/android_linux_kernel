@@ -960,7 +960,7 @@ static const struct x86_cpu_id intel_idle_ids[] = {
 	ICPU(0x2f, idle_cpu_nehalem),
 	ICPU(0x2a, idle_cpu_snb),
 	ICPU(0x2d, idle_cpu_snb),
-	ICPU(0x30, idle_cpu_chv),
+	ICPU(0x4c, idle_cpu_chv),
 	ICPU(0x37, idle_cpu_vlv),
 	ICPU(0x3a, idle_cpu_ivb),
 	ICPU(0x3e, idle_cpu_ivb),
@@ -1084,7 +1084,7 @@ static int intel_idle_cpuidle_driver_init(void)
 		}
 
 #if !defined(CONFIG_ATOM_SOC_POWER)
-		if (boot_cpu_data.x86_model != 0x37) {
+		if ((boot_cpu_data.x86_model != 0x37) && (boot_cpu_data.x86_model != 0x4c)) {
 			/* if sub-state in table is not enumerated by CPUID */
 			if ((mwait_substate + 1) > num_substates)
 				continue;
@@ -1159,7 +1159,7 @@ static int intel_idle_cpu_init(int cpu)
 		}
 
 #if !defined(CONFIG_ATOM_SOC_POWER)
-		if (boot_cpu_data.x86_model != 0x37) {
+		if ((boot_cpu_data.x86_model != 0x37) && (boot_cpu_data.x86_model != 0x4c)) {
 			/* if sub-state in table is not enumerated by CPUID */
 			if ((mwait_substate + 1) > num_substates)
 				continue;
