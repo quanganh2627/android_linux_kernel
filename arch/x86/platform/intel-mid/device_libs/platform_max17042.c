@@ -41,9 +41,15 @@
 #define MRFL_VOLT_SHUTDOWN_MASK (1 << 1)
 #define MRFL_NFC_RESV_MASK	(1 << 3)
 
-#define BYT_TEMP_MIN_LIM	0	/* 0degC */
-#define BYT_TEMP_MAX_LIM	55	/* 55degC */
-#define BYT_BATT_MIN_VOLT	3400	/* 3400mV */
+#define BYT_FFRD8_TEMP_MIN_LIM	0	/* 0degC */
+#define BYT_FFRD8_TEMP_MAX_LIM	55	/* 55degC */
+#define BYT_FFRD8_BATT_MIN_VOLT	3400	/* 3400mV */
+#define BYT_FFRD8_BATT_MAX_VOLT	4350	/* 4350mV */
+
+#define BYT_CRV2_TEMP_MIN_LIM	0	/* 0degC */
+#define BYT_CRV2_TEMP_MAX_LIM	45	/* 45degC */
+#define BYT_CRV2_BATT_MIN_VOLT	3400	/* 3400mV */
+#define BYT_CRV2_BATT_MAX_VOLT	4350	/* 4350mV */
 
 void max17042_i2c_reset_workaround(void)
 {
@@ -309,10 +315,9 @@ static int byt_get_vsys_min(void)
 	return DEFAULT_VMIN;
 }
 
-#define BYT_BATT_MAX_VOLT	4350	/* 4350mV */
 static int byt_get_vbatt_max(void)
 {
-	return BYT_BATT_MAX_VOLT * 1000;
+	return BYT_FFRD8_BATT_MAX_VOLT * 1000;
 }
 
 static bool is_mapped;
@@ -419,12 +424,6 @@ static void init_callbacks(struct max17042_platform_data *pdata)
 	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
 		pdata->get_vmin_threshold = byt_get_vsys_min;
 		pdata->get_vmax_threshold = byt_get_vbatt_max;
-		pdata->is_volt_shutdown = true;
-		pdata->reset_chip = true;
-		pdata->temp_min_lim = BYT_TEMP_MIN_LIM;
-		pdata->temp_max_lim = BYT_TEMP_MAX_LIM;
-		pdata->volt_min_lim = BYT_BATT_MIN_VOLT;
-		pdata->volt_max_lim = BYT_BATT_MAX_VOLT;
 	}
 
 	pdata->reset_i2c_lines = max17042_i2c_reset_workaround;
@@ -559,6 +558,24 @@ static void init_platform_thresholds(struct max17042_platform_data *pdata)
 
 		pdata->is_volt_shutdown = (shutdown_method &
 			MRFL_VOLT_SHUTDOWN_MASK) ? 1 : 0;
+	} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||
+		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR0) ||
+		INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
+		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1)) {
+		pdata->is_volt_shutdown = true;
+		pdata->reset_chip = true;
+		pdata->temp_min_lim = BYT_FFRD8_TEMP_MIN_LIM;
+		pdata->temp_max_lim = BYT_FFRD8_TEMP_MAX_LIM;
+		pdata->volt_min_lim = BYT_FFRD8_BATT_MIN_VOLT;
+		pdata->volt_max_lim = BYT_FFRD8_BATT_MAX_VOLT;
+	} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2) ||
+		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2)) {
+		pdata->is_volt_shutdown = true;
+		pdata->reset_chip = true;
+		pdata->temp_min_lim = BYT_CRV2_TEMP_MIN_LIM;
+		pdata->temp_max_lim = BYT_CRV2_TEMP_MAX_LIM;
+		pdata->volt_min_lim = BYT_CRV2_BATT_MIN_VOLT;
+		pdata->volt_max_lim = BYT_CRV2_BATT_MAX_VOLT;
 	}
 }
 

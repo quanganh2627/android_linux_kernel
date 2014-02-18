@@ -722,7 +722,7 @@ static void platform_byt_init_chrg_params(
 
 	pdata->max_cc = 1800;	/* 1800 mA */
 	pdata->max_cv = 4350;	/* 4350 mV */
-	pdata->max_temp = 55;	/* 55 DegC */
+	pdata->max_temp = 45;	/* 45 DegC */
 	pdata->min_temp = 0;	/* 0 DegC */
 }
 #else
