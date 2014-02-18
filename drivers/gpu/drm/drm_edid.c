@@ -1702,7 +1702,7 @@ EXPORT_SYMBOL(drm_get_cea_aspect_ratio);
  * An EDID detailed timing block contains enough info for us to create and
  * return a new struct drm_display_mode.
  */
-struct drm_display_mode *drm_mode_detailed(struct drm_device *dev,
+static struct drm_display_mode *drm_mode_detailed(struct drm_device *dev,
 						  struct edid *edid,
 						  struct detailed_timing *timing,
 						  u32 quirks)
@@ -1809,7 +1809,6 @@ set_size:
 
 	return mode;
 }
-EXPORT_SYMBOL(drm_mode_detailed);
 
 static bool
 mode_in_hsync_range(const struct drm_display_mode *mode,

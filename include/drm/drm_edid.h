@@ -24,8 +24,6 @@
 #define __DRM_EDID_H__
 
 #include <linux/types.h>
-#include <drm/drmP.h>
-
 
 #define EDID_LENGTH 128
 #define DDC_ADDR 0x50
@@ -270,10 +268,5 @@ int drm_load_edid_firmware(struct drm_connector *connector);
 int
 drm_hdmi_avi_infoframe_from_display_mode(struct hdmi_avi_infoframe *frame,
 					 const struct drm_display_mode *mode);
-
-struct drm_display_mode *
-drm_mode_detailed(struct drm_device *dev, struct edid *edid,
-			struct detailed_timing *timing, u32 quirks);
-
 
 #endif /* __DRM_EDID_H__ */
