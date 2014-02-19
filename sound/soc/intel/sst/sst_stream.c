@@ -199,6 +199,8 @@ int sst_alloc_stream_mrfld(char *params, struct sst_block *block)
 	pr_debug("header:%x\n", msg->mrfld_header.p.header_high.full);
 	pr_debug("response rqd: %x", msg->mrfld_header.p.header_high.part.res_rqd);
 	pr_debug("calling post_message\n");
+	pr_info("Alloc for str %d pipe %#x\n", str_id, pipe_id);
+
 	sst_add_to_dispatch_list_and_post(sst_drv_ctx, msg);
 	return str_id;
 }
@@ -242,6 +244,8 @@ int sst_start_stream(int str_id)
 		memcpy(msg->mailbox_data, &dsp_hdr, sizeof(dsp_hdr));
 		memset(msg->mailbox_data + sizeof(dsp_hdr), 0, sizeof(u16));
 		trace_sst_stream("START ->", str_id, str_info->pipe_id);
+		pr_info("Start for str %d pipe %#x\n", str_id, str_info->pipe_id);
+
 	} else {
 		pr_debug("fill START_STREAM for CTP\n");
 		sst_fill_header(&msg->header, IPC_IA_START_STREAM, 1, str_id);
@@ -528,6 +532,8 @@ int sst_drop_stream(int str_id)
 					str_info->pipe_id, 0);
 			memcpy(msg->mailbox_data, &dsp_hdr, sizeof(dsp_hdr));
 			trace_sst_stream("STOP  ->", str_id, str_info->pipe_id);
+			pr_info("Stop for str %d pipe %#x\n", str_id, str_info->pipe_id);
+
 			sst_drv_ctx->ops->sync_post_message(msg);
 		}
 	} else {
@@ -670,6 +676,8 @@ int sst_free_stream(int str_id)
 						str_info->pipe_id,  0);
 			memcpy(msg->mailbox_data, &dsp_hdr, sizeof(dsp_hdr));
 			trace_sst_stream("FREE  ->", str_id, str_info->pipe_id);
+			pr_info("Free for str %d pipe %#x\n", str_id, str_info->pipe_id);
+
 		} else {
 			retval = sst_create_block_and_ipc_msg(&msg, false,
 						sst_drv_ctx, &block,

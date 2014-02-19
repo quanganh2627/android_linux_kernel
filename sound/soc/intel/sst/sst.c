@@ -967,7 +967,7 @@ static int intel_sst_runtime_suspend(struct device *dev)
 	int ret = 0;
 	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
 
-	pr_debug("runtime_suspend called\n");
+	pr_info("runtime_suspend called\n");
 	if (ctx->sst_state == SST_UN_INIT) {
 		pr_debug("LPE is already in UNINIT state, No action");
 		return 0;
@@ -1003,7 +1003,7 @@ static int intel_sst_runtime_resume(struct device *dev)
 	int ret = 0;
 	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
 
-	pr_debug("runtime_resume called\n");
+	pr_info("runtime_resume called\n");
 
 	if (ctx->pci_id == SST_BYT_PCI_ID || ctx->pci_id == SST_CHT_PCI_ID) {
 		/* wait for device power up a/c to PCI spec */
@@ -1059,7 +1059,7 @@ static int intel_sst_runtime_idle(struct device *dev)
 {
 	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
 
-	pr_debug("runtime_idle called\n");
+	pr_info("runtime_idle called\n");
 	if (ctx->sst_state != SST_UN_INIT) {
 		pm_schedule_suspend(dev, SST_SUSPEND_DELAY);
 		return -EBUSY;

@@ -464,10 +464,13 @@ static int sst_open_pcm_stream(struct snd_sst_params *str_param)
 	if (retval)
 		return retval;
 	retval = sst_get_stream(str_param);
-	if (retval > 0)
+	if (retval > 0) {
 		sst_drv_ctx->stream_cnt++;
-	else
+	} else {
+		pr_err("sst_get_stream returned err %d\n", retval);
 		sst_pm_runtime_put(sst_drv_ctx);
+	}
+
 	return retval;
 }
 
@@ -506,8 +509,10 @@ static int sst_cdev_close(unsigned int str_id)
 
 	pr_debug("%s: Entry\n", __func__);
 	stream = get_stream_info(str_id);
-	if (!stream)
+	if (!stream) {
+		pr_err("stream info is NULL for str %d!!!\n", str_id);
 		return -EINVAL;
+	}
 
 	if (stream->status == STREAM_RESET) {
 		/* silently fail here as we have cleaned the stream */
@@ -530,9 +535,10 @@ put:
 	the timeout error(EBUSY) scenario. */
 	if (!retval || (retval == -EBUSY))
 		sst_pm_runtime_put(sst_drv_ctx);
+	else
+		pr_err("%s: free stream returned err %d\n", __func__, retval);
 
 	pr_debug("%s: End\n", __func__);
-
 	return retval;
 
 }
@@ -744,8 +750,10 @@ static int sst_close_pcm_stream(unsigned int str_id)
 
 	pr_debug("%s: Entry\n", __func__);
 	stream = get_stream_info(str_id);
-	if (!stream)
+	if (!stream) {
+		pr_err("stream info is NULL for str %d!!!\n", str_id);
 		return -EINVAL;
+	}
 
 	if (stream->status == STREAM_RESET) {
 		/* silently fail here as we have cleaned the stream */
@@ -769,6 +777,8 @@ put:
 	the timeout error(EBUSY) scenario. */
 	if (!retval || (retval == -EBUSY))
 		sst_pm_runtime_put(sst_drv_ctx);
+	else
+		pr_err("%s: free stream returned err %d\n", __func__, retval);
 
 	pr_debug("%s: Exit\n", __func__);
 	return 0;
