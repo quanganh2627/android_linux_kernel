@@ -77,6 +77,7 @@
 
 /* Default _max 85 C */
 #define DEFAULT_MAX_TEMP	85
+#define ALERT_LIMIT		2
 
 /* Constants defined in ShadyCove PMIC spec */
 #define PMIC_DIE_ADC_MIN	53
@@ -102,9 +103,20 @@ enum thermal_sensors { SYS0, SYS1, SYS2, PMIC_DIE, _COUNT };
  * The hysteresis value is stored in bits[4:7] of alert_regs_h.
  * Order: SYS0 SYS1 SYS2 PMIC_DIE
  *
- * static const int alert_regs_l[] = { 0xBA, 0xBE, 0xCe, 0xC8 };
+ * Thermal Alert has Min and Max registers. Each Min and Max has
+ * High [alert_regs_h] and Low registers [alert_regs_l].
+ *
+ * static const int alert_regs_l[2][4] = {
+ *			SYS0, SYS1, SYS2, PMIC_DIE
+ *	Alert Min ==>	{ 0xB8, 0xBC, 0xC0, 0xC8 },
+ *	Alert Max ==>	{ 0xBA, 0xBE, 0xC2, 0xC8 }
+ *			};
  */
-static const int alert_regs_h[] = { 0xB9, 0xBD, 0xC1, 0xC7 };
+static const int alert_regs_h[2][4] = {
+				/* SYS0, SYS1, SYS2, PMIC_DIE */
+	/* Alert Min */		{ 0xB7, 0xBB, 0xBF, 0xC7 },
+	/* Alert Max */		{ 0xB9, 0xBD, 0xC1, 0xC7 },
+				};
 
 /*
  * ADC code vs Temperature table
@@ -383,10 +395,11 @@ static int set_tmax(uint16_t alert_reg, uint16_t adc_val)
  */
 static int program_tmax(struct device *dev)
 {
-	int i, ret;
+	int i, ret, level;
 	uint16_t pmic_die_val;
-	uint16_t adc_val;
+	uint16_t adc_val, val;
 
+	/* ADC code corresponding to max Temp 85 C */
 	ret = temp_to_adc(0, DEFAULT_MAX_TEMP, &adc_val);
 	if (ret)
 		return ret;
@@ -395,24 +408,22 @@ static int program_tmax(struct device *dev)
 	if (ret)
 		return ret;
 	/*
-	 * Since this function sets max value, do for all sensors even if
+	 * Since this function sets max & min value, do for all sensors even if
 	 * the sensor does not register as a thermal zone.
 	 */
-	for (i = 0; i < PMIC_THERMAL_SENSORS - 1; i++) {
-		ret = set_tmax(alert_regs_h[i], adc_val);
-		if (ret)
-			goto exit_err;
+	for (level = 0; level < ALERT_LIMIT; level++) {
+		for (i = 0; i < PMIC_THERMAL_SENSORS; i++) {
+			val = (i == PMIC_DIE) ? pmic_die_val : adc_val;
+
+			ret = set_tmax(alert_regs_h[level][i], val);
+			if (ret)
+				goto exit_err;
+		}
 	}
-
-	/* Set _max for pmic die sensor */
-	ret = set_tmax(alert_regs_h[i], pmic_die_val);
-	if (ret)
-		goto exit_err;
-
 	return ret;
 
 exit_err:
-	dev_err(dev, "set_tmax for channel %d failed:%d\n", i, ret);
+	dev_err(dev, "set alert %d for channel %d failed:%d\n", level, i, ret);
 	return ret;
 }
 
@@ -422,7 +433,7 @@ static int store_trip_hyst(struct thermal_zone_device *tzd,
 	int ret;
 	uint8_t data;
 	struct thermal_device_info *td_info = tzd->devdata;
-	uint16_t alert_reg = alert_regs_h[td_info->sensor->index];
+	uint16_t alert_reg = alert_regs_h[trip][td_info->sensor->index];
 
 	/* Hysteresis value is 5 bits wide */
 	if (hyst > 31)
@@ -450,7 +461,7 @@ static int show_trip_hyst(struct thermal_zone_device *tzd,
 	int ret;
 	uint8_t data;
 	struct thermal_device_info *td_info = tzd->devdata;
-	uint16_t alert_reg = alert_regs_h[td_info->sensor->index];
+	uint16_t alert_reg = alert_regs_h[trip][td_info->sensor->index];
 
 	mutex_lock(&thrm_update_lock);
 
@@ -469,7 +480,7 @@ static int store_trip_temp(struct thermal_zone_device *tzd,
 	int ret;
 	uint16_t adc_val;
 	struct thermal_device_info *td_info = tzd->devdata;
-	uint16_t alert_reg = alert_regs_h[td_info->sensor->index];
+	uint16_t alert_reg = alert_regs_h[trip][td_info->sensor->index];
 
 	if (trip_temp < 1000) {
 		dev_err(&tzd->device, "Temperature should be in mC\n");
@@ -497,7 +508,7 @@ static int show_trip_temp(struct thermal_zone_device *tzd,
 	int ret = -EINVAL;
 	uint16_t adc_val;
 	struct thermal_device_info *td_info = tzd->devdata;
-	uint16_t alert_reg_h = alert_regs_h[td_info->sensor->index];
+	uint16_t alert_reg_h = alert_regs_h[trip][td_info->sensor->index];
 
 	mutex_lock(&thrm_update_lock);
 
