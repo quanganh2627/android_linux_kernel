@@ -922,6 +922,7 @@ static int intel_moor_sd_probe_slot(struct sdhci_pci_slot *slot)
 {
 	int ret = 0;
 
+	slot->host->mmc->caps2 |= MMC_CAP2_FIXED_NCRC;
 	if (slot->data)
 		if (slot->data->platform_quirks & PLFM_QUIRK_NO_HOST_CTRL_HW)
 			ret = -ENODEV;
