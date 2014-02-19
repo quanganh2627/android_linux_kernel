@@ -193,10 +193,20 @@ static ssize_t pdr_version_show(struct kobject *kobj,
 }
 pidv_attr(pdr_version);
 
+static ssize_t ifwi_version_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%02d.%02d\n",
+		(pidv.iasvn / 100),
+		(pidv.iasvn % 100));
+}
+pidv_attr(ifwi_version);
+
 static struct attribute *pidv_attrs[] = {
 	&iafw_version_attr.attr,
 	&secfw_version_attr.attr,
 	&pdr_version_attr.attr,
+	&ifwi_version_attr.attr,
 	NULL,
 };
 
