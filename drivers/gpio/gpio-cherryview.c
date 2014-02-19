@@ -935,18 +935,18 @@ static void chv_gpio_irq_dispatch(struct chv_gpio *cg)
 	/* each GPIO controller has one INT_STAT reg */
 	reg = chv_gpio_reg(&cg->chip, 0, CV_INT_STAT_REG);
 	mask_reg = chv_gpio_reg(&cg->chip, 0, CV_INT_MASK_REG);
-	pending = chv_readl(reg) & chv_readl(mask_reg) & 0xFFFF;
-	while (pending) {
+	while ((pending = (chv_readl(reg) & chv_readl(mask_reg) & 0xFFFF))) {
 		intr_line = __ffs(pending);
 		mask = BIT(intr_line);
 		chv_writel(mask, reg);
 		offset = cg->intr_lines[intr_line];
-		if (unlikely(offset < 0))
-			dev_warn(&cg->pdev->dev, "unregistered GPIO irq\n");
+		if (unlikely(offset < 0)) {
+			dev_warn(&cg->pdev->dev, "unregistered shared irq\n");
+			continue;
+		}
 
 		DEFINE_DEBUG_IRQ_CONUNT_INCREASE(cg->chip.base + offset);
 		generic_handle_irq(irq_find_mapping(cg->domain, offset));
-		pending = chv_readl(reg) & chv_readl(mask_reg) & 0xFFFF;
 	}
 }
 
