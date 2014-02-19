@@ -463,6 +463,8 @@ static ssize_t sst_sysfs_set_recovery(struct device *dev,
 		} else {
 			pr_err("%s: not setting sst state... %d\n", __func__,
 					atomic_read(&ctx->pm_usage_count));
+			pr_err("Unrecoverable state....\n");
+			BUG();
 			return -EPERM;
 		}
 	}
