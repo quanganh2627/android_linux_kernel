@@ -40,6 +40,7 @@ enum ct_attchmt_type {
 	CT_ATTCHMT_DATA5,
 	/* Always add new types after DATA5 */
 	CT_ATTCHMT_BINARY,
+	CT_ATTCHMT_FILELIST
 };
 
 struct ct_attchmt {
@@ -56,7 +57,7 @@ struct ct_event {
 	__u32 attchmt_size; /* sizeof(all_attachments inc. padding) */
 	__u32 flags;
 	struct ct_attchmt attachments[];
-}  __aligned(4);
+} __aligned(4);
 
 enum kct_nlmsg_type {
 	/* kernel -> userland */
@@ -106,8 +107,8 @@ extern void kct_free_event(struct ct_event *ev) __weak;
 extern int kct_log_event(struct ct_event *ev, gfp_t flags) __weak;
 
 /* API */
-#define MKFN(fn, ...) MKFN_N(fn, ##__VA_ARGS__, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)(__VA_ARGS__)
-#define MKFN_N(fn, n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n, ...) fn##n
+#define MKFN(fn, ...) MKFN_N(fn, ##__VA_ARGS__, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)(__VA_ARGS__)
+#define MKFN_N(fn, n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n, ...) fn##n
 #define kct_log(...) MKFN(__kct_log_, ##__VA_ARGS__)
 
 #define __kct_log_4(Type, Submitter_name, Ev_name, flags) \
@@ -242,6 +243,38 @@ extern int kct_log_event(struct ct_event *ev, gfp_t flags) __weak;
 			if (Data5) \
 				kct_add_attchmt(&__ev, CT_ATTCHMT_DATA5, \
 					strlen(Data5) + 1, Data5, GFP_ATOMIC); \
+			kct_log_event(__ev, GFP_ATOMIC); \
+		} \
+	} } while (0)
+
+	#define __kct_log_11(Type, Submitter_name, Ev_name, flags, Data0, Data1, Data2, \
+					 Data3, Data4, Data5, filelist) \
+	do {  if (kct_alloc_event) {	\
+		struct ct_event *__ev =	\
+			kct_alloc_event(Submitter_name, Ev_name, Type, \
+				GFP_ATOMIC, flags); \
+		if (__ev) { \
+			if (Data0) \
+			kct_add_attchmt(&__ev, CT_ATTCHMT_DATA0, \
+					strlen(Data0) + 1, Data0, GFP_ATOMIC); \
+			if (Data1) \
+			kct_add_attchmt(&__ev, CT_ATTCHMT_DATA1, \
+					strlen(Data1) + 1, Data1, GFP_ATOMIC); \
+			if (Data2) \
+			kct_add_attchmt(&__ev, CT_ATTCHMT_DATA2, \
+					strlen(Data2) + 1, Data2, GFP_ATOMIC); \
+			if (Data3) \
+			kct_add_attchmt(&__ev, CT_ATTCHMT_DATA3, \
+					strlen(Data3) + 1, Data3, GFP_ATOMIC); \
+			if (Data4) \
+			kct_add_attchmt(&__ev, CT_ATTCHMT_DATA4, \
+					strlen(Data4) + 1, Data4, GFP_ATOMIC); \
+			if (Data5) \
+			kct_add_attchmt(&__ev, CT_ATTCHMT_DATA5, \
+					strlen(Data5) + 1, Data5, GFP_ATOMIC); \
+			if (filelist) \
+			kct_add_attchmt(&__ev, CT_ATTCHMT_FILELIST, \
+					strlen(filelist) + 1, filelist, GFP_ATOMIC); \
 			kct_log_event(__ev, GFP_ATOMIC); \
 		} \
 	} } while (0)
