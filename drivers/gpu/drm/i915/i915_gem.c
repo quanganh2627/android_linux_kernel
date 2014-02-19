@@ -1464,17 +1464,19 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	if (!obj->fault_mappable) {
 		int i;
 		for (i = 0; i < obj->base.size >> PAGE_SHIFT; i++) {
-			ret = vm_insert_pfn(vma,
-					    (unsigned long)vma->vm_start + i * PAGE_SIZE,
-					    pfn + i);
+			ret = vm_insert_pfn_with_pgprot(vma,
+							(unsigned long)vma->vm_start + i * PAGE_SIZE,
+							pfn + i,
+							vma->vm_page_prot);
 			if (ret)
 				break;
 		}
 		obj->fault_mappable = true;
 	} else
-		ret = vm_insert_pfn(vma,
-				    (unsigned long)vmf->virtual_address,
-				    pfn + page_offset);
+		ret = vm_insert_pfn_with_pgprot(vma,
+						(unsigned long)vmf->virtual_address,
+						pfn + page_offset,
+						vma->vm_page_prot);
 unpin:
 	i915_gem_object_unpin(obj);
 unlock:
