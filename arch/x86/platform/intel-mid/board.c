@@ -112,6 +112,7 @@
 #include "device_libs/platform_gc2235.h"
 #include "device_libs/platform_lm3559.h"
 #include "device_libs/platform_ov8830.h"
+#include "device_libs/platform_ov8858.h"
 #include "device_libs/platform_ov5693.h"
 #include "device_libs/platform_wm5102.h"
 #include "device_libs/platform_ap1302.h"
@@ -277,6 +278,8 @@ struct devs_id __initconst device_ids[] = {
 	{"mt9v113", SFI_DEV_TYPE_I2C, 0, &mt9v113_platform_data,
 					&intel_register_i2c_camera_device},
 	{"ov8830", SFI_DEV_TYPE_I2C, 0, &ov8830_platform_data,
+					&intel_register_i2c_camera_device},
+	{"ov8858", SFI_DEV_TYPE_I2C, 0, &ov8858_platform_data,
 					&intel_register_i2c_camera_device},
 	{"ov5693", SFI_DEV_TYPE_I2C, 0, &ov5693_platform_data,
 					&intel_register_i2c_camera_device},
