@@ -242,7 +242,7 @@ static void sst_stream_recovery(struct intel_sst_drv *sst)
 	}
 }
 
-static void sst_dump_lists(struct intel_sst_drv *sst)
+static void sst_dump_ipc_dispatch_lists(struct intel_sst_drv *sst)
 {
 	struct ipc_post *m, *_m;
 	unsigned long irq_flags;
@@ -258,6 +258,12 @@ static void sst_dump_lists(struct intel_sst_drv *sst)
 		kfree(m);
 	}
 	spin_unlock_irqrestore(&sst->ipc_spin_lock, irq_flags);
+}
+
+static void sst_dump_rx_lists(struct intel_sst_drv *sst)
+{
+	struct ipc_post *m, *_m;
+	unsigned long irq_flags;
 
 	spin_lock_irqsave(&sst->rx_msg_lock, irq_flags);
 	if (list_empty(&sst->rx_list))
@@ -415,7 +421,8 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	spin_lock(&sst_drv_ctx->pvt_id_lock);
 	sst_drv_ctx->pvt_id = 0;
 	spin_unlock(&sst_drv_ctx->pvt_id_lock);
-	sst_dump_lists(sst_drv_ctx);
+	sst_dump_ipc_dispatch_lists(sst_drv_ctx);
+	sst_dump_rx_lists(sst_drv_ctx);
 
 	if (sst_drv_ctx->fw_in_mem) {
 		pr_err("Clearing the cached FW copy...\n");
@@ -435,7 +442,8 @@ void sst_do_recovery(struct intel_sst_drv *sst)
 		sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
 		dump_sst_crash_area();
 
-	sst_dump_lists(sst_drv_ctx);
+	sst_dump_ipc_dispatch_lists(sst_drv_ctx);
+
 }
 
 /*
