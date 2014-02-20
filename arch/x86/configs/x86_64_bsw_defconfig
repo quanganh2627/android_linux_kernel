@@ -2341,6 +2341,8 @@ CONFIG_DVB_TUNER_DIB0090=m
 # Tools to develop new frontends
 #
 # CONFIG_DVB_DUMMY_FE is not set
+# CONFIG_REGULATOR_PMIC_SHADY_COVE is not set
+# CONFIG_MEDIA_SUPPORT is not set
 
 #
 # Graphics support
