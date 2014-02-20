@@ -152,7 +152,9 @@ static enum drm_connector_status vvx09f006a00_detect(
 
 static bool vvx09f006a00_mode_fixup(struct intel_dsi_device *dsi,
 		    const struct drm_display_mode *mode,
-		    struct drm_display_mode *adjusted_mode) {
+		    struct drm_display_mode *adjusted_mode)
+{
+	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
 
 	if (BYT_CR_CONFIG) {
 		adjusted_mode->hdisplay = BYT_MODESET_HDISPLAY;
@@ -165,7 +167,8 @@ static bool vvx09f006a00_mode_fixup(struct intel_dsi_device *dsi,
 		DRM_DEBUG_KMS("Panasonic panel fixup: %dx%d (adjusted mode)",
 			adjusted_mode->hdisplay, adjusted_mode->vdisplay);
 	}
-
+	intel_dsi->pclk = adjusted_mode->clock;
+	DRM_DEBUG_KMS("pclk : %d\n", intel_dsi->pclk);
 	return true;
 }
 
@@ -234,6 +237,7 @@ static void vvx09f006a00_dpms(struct intel_dsi_device *dsi, bool enable)
 bool vvx09f006a00_init(struct intel_dsi_device *dsi)
 {
 	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
+
 	DRM_DEBUG_KMS("Init: Panasonic panel\n");
 
 	if (!dsi) {
@@ -257,7 +261,8 @@ bool vvx09f006a00_init(struct intel_dsi_device *dsi)
 	intel_dsi->clk_hs_to_lp_count = 0x14;
 	intel_dsi->video_frmt_cfg_bits = 0;
 	intel_dsi->dphy_reg = 0x3c1fc51f;
-
+	intel_dsi->port = 0; /* PORT_A by default */
+	intel_dsi->burst_mode_ratio = 100;
 	intel_dsi->backlight_off_delay = 20;
 	intel_dsi->send_shutdown = true;
 	intel_dsi->shutdown_pkt_delay = 20;

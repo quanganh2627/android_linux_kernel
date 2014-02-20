@@ -77,6 +77,7 @@ int dsi_clk_from_pclk(struct intel_dsi *intel_dsi,
 	u32 pkt_pixel_size;		/* in bits */
 	struct drm_device *dev = intel_dsi->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	int pclk;
 
 	if (intel_dsi->pixel_format == VID_MODE_FORMAT_RGB888)
 		pkt_pixel_size = 24;
@@ -94,11 +95,12 @@ int dsi_clk_from_pclk(struct intel_dsi *intel_dsi,
 		*dsi_clk = 513;
 		return 0;
 	}
+	pclk = intel_dsi->pclk;
+	DRM_DEBUG_DRIVER("intel_dsi->pclk = %d\n", pclk);
 
 	/* DSI data rate = pixel clock * bits per pixel / lane count
 	   pixel clock is converted from KHz to Hz */
-	dsi_bit_clock_hz = (((mode->clock * 1000) * pkt_pixel_size) \
-				/ intel_dsi->lane_count);
+	dsi_bit_clock_hz = (((pclk * 1000) * pkt_pixel_size) / intel_dsi->lane_count);
 
 	/* return DSI data rate as Mbps */
 	*dsi_clk = dsi_bit_clock_hz / (1000 * 1000);
@@ -246,6 +248,9 @@ int intel_configure_dsi_pll(struct intel_dsi *intel_dsi,
 
 	dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI0_DSIPLL;
 
+	if (intel_dsi->dual_link)
+		dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI1_DSIPLL;
+
 	DRM_DEBUG_KMS("dsi pll div %08x, ctrl %08x\n",
 			dsi_mnp.dsi_pll_div, dsi_mnp.dsi_pll_ctrl);
 
@@ -287,12 +292,12 @@ int intel_enable_dsi_pll(struct intel_dsi *intel_dsi)
 
 	mutex_unlock(&dev_priv->dpio_lock);
 
-	if (wait_for(I915_READ(PIPECONF(PIPE_A)) & PIPECONF_DSI_PLL_LOCKED, 20)) {
-		DRM_ERROR("DSI PLL lock failed\n");
-		return -1;
-	}
+	tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
 
-	DRM_DEBUG_KMS("DSI PLL locked\n");
+	if (tmp & 0x1)
+		DRM_DEBUG_KMS("DSI PLL Locked\n");
+	else
+		DRM_DEBUG_DRIVER("DSI PLL Lock failed\n");
 	return 0;
 }
 

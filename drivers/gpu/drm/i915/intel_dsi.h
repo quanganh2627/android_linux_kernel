@@ -182,6 +182,7 @@ struct intel_dsi {
 	u8 escape_clk_div;
 	u32 lp_rx_timeout;
 	u8 turn_arnd_val;
+	u16 burst_mode_ratio;
 	u16 init_count;
 	u16 rst_timer_val;
 	u32 hs_to_lp_count;
@@ -191,6 +192,8 @@ struct intel_dsi {
 	u32 clk_hs_to_lp_count;
 	u32 video_frmt_cfg_bits;
 	u32 dphy_reg;
+	u32 pclk;
+	u16 port;
 
 	/* all delays in ms */
 	u8 backlight_off_delay;
