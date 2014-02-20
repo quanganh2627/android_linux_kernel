@@ -597,22 +597,22 @@ int intel_sprite_cb_adjust(drm_i915_private_t *dev_priv,
 	switch (cb_ptr->sprite_no) {
 	/* Sprite plane */
 	case SPRITEA:
-		if (is_sprite_enabled(dev_priv, 0, 0))
+		if (is_sprite_enabled(dev_priv, 0, 0) || dev_priv->is_resuming)
 			I915_WRITE(SPRITEA_CB_REG, cb_ptr->val);
 		break;
 
 	case SPRITEB:
-		if (is_sprite_enabled(dev_priv, 0, 1))
+		if (is_sprite_enabled(dev_priv, 0, 1) || dev_priv->is_resuming)
 			I915_WRITE(SPRITEB_CB_REG, cb_ptr->val);
 		break;
 
 	case SPRITEC:
-		if (is_sprite_enabled(dev_priv, 1, 0))
+		if (is_sprite_enabled(dev_priv, 1, 0) || dev_priv->is_resuming)
 			I915_WRITE(SPRITEC_CB_REG, cb_ptr->val);
 		break;
 
 	case SPRITED:
-		if (is_sprite_enabled(dev_priv, 1, 1))
+		if (is_sprite_enabled(dev_priv, 1, 1) || dev_priv->is_resuming)
 			I915_WRITE(SPRITED_CB_REG, cb_ptr->val);
 		break;
 	default:
@@ -635,22 +635,22 @@ int intel_sprite_hs_adjust(drm_i915_private_t *dev_priv,
 	switch (hs_ptr->sprite_no) {
 	/* Sprite plane */
 	case SPRITEA:
-		if (is_sprite_enabled(dev_priv, 0, 0))
+		if (is_sprite_enabled(dev_priv, 0, 0) || dev_priv->is_resuming)
 			I915_WRITE(SPRITEA_HS_REG, hs_ptr->val);
 		break;
 
 	case SPRITEB:
-		if (is_sprite_enabled(dev_priv, 0, 1))
+		if (is_sprite_enabled(dev_priv, 0, 1) || dev_priv->is_resuming)
 			I915_WRITE(SPRITEB_HS_REG, hs_ptr->val);
 		break;
 
 	case SPRITEC:
-		if (is_sprite_enabled(dev_priv, 1, 0))
+		if (is_sprite_enabled(dev_priv, 1, 0) || dev_priv->is_resuming)
 			I915_WRITE(SPRITEC_HS_REG, hs_ptr->val);
 		break;
 
 	case SPRITED:
-		if (is_sprite_enabled(dev_priv, 1, 1))
+		if (is_sprite_enabled(dev_priv, 1, 1) || dev_priv->is_resuming)
 			I915_WRITE(SPRITED_HS_REG, hs_ptr->val);
 		break;
 	default:

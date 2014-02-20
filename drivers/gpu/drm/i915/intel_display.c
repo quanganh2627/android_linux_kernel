@@ -10385,6 +10385,9 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	if (!dev_priv->audio_suspended)
 		DRM_ERROR("Audio active, CRTC will not be suspended\n");
 
+	/* Save Hue/Saturation/Brightness/Contrast status */
+	intel_save_clr_mgr_status(dev);
+
 	dev_priv->dpst.state = dev_priv->dpst.enabled;
 	if (dev_priv->dpst.state)
 		i915_dpst_disable_hist_interrupt(dev);

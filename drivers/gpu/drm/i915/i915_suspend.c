@@ -812,9 +812,6 @@ static int valleyview_freeze(struct drm_device *dev)
 		drm_modeset_unlock_all(dev);
 	}
 
-	/* Save Hue/Saturation/Brightness/Contrast status */
-	intel_save_clr_mgr_status(dev);
-
 	pci_save_state(dev->pdev);
 
 	/* i) Set Graphics Clocks to Forced ON */
