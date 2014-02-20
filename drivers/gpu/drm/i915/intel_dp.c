@@ -949,6 +949,7 @@ static void intel_dp_mode_set(struct intel_encoder *encoder)
 					PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
 			DRM_DEBUG_DRIVER("pfit val = %x", val);
 			I915_WRITE(PFIT_CONTROL, val);
+			crtc->config.gmch_pfit.control = val;
 			crtc->base.panning_en = true;
 		} else
 			DRM_DEBUG_DRIVER("Wrong panel fitter input src config");

@@ -3987,7 +3987,8 @@ static void i9xx_pfit_enable(struct intel_crtc *crtc)
 	 * The panel fitter should only be adjusted whilst the pipe is disabled,
 	 * according to register description and PRM.
 	 */
-	WARN_ON(I915_READ(PFIT_CONTROL) & PFIT_ENABLE);
+	if (I915_READ(PFIT_CONTROL) & PFIT_ENABLE)
+		return;
 	assert_pipe_disabled(dev_priv, crtc->pipe);
 
 	I915_WRITE(PFIT_PGM_RATIOS, pipe_config->gmch_pfit.pgm_ratios);

@@ -670,6 +670,8 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 
 	} else
 		DRM_DEBUG_DRIVER("Wrong pfit input src config");
+
+	intel_crtc->config.gmch_pfit.control = val;
 }
 
 static enum drm_connector_status
