@@ -186,7 +186,7 @@ static int sst_send_lpe_mixer_algo_params(void)
 	algo_param.str_id = stream_device_id;
 	algo_param.enable = 1;
 	algo_param.reserved = 0;
-	algo_param.size = sizeof(algo_param);
+	algo_param.size = sizeof(mixer_param);
 	mixer_param.type = SST_ALGO_PARAM_MIXER_STREAM_CFG;
 	mixer_param.input_stream_bitmap = input_mixer;
 	mixer_param.size = sizeof(input_mixer);
