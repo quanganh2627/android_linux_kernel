@@ -1121,7 +1121,7 @@ static int hsic_debugfs_init(struct usb_hcd *hcd)
 		}
 		file = debugfs_create_file(
 				"host_resume",
-				S_IWUSR | S_IWOTH,
+				S_IRUGO | S_IWUSR | S_IROTH,
 				hsic_debugfs_root,
 				hcd,
 				&hsic_debugfs_host_resume_fops);
