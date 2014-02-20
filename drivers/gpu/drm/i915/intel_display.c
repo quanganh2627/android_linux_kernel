@@ -10677,7 +10677,7 @@ static void intel_setup_outputs(struct drm_device *dev)
 		if (dev_priv->is_mipi_from_vbt)
 			intel_dsi_init(dev);
 		else
-			intel_dp_init(dev, DP_C, PORT_C);
+			intel_dp_init(dev, VLV_DISPLAY_BASE + DP_C, PORT_C);
 
 		intel_hdmi_init(dev, VLV_DISPLAY_BASE + GEN4_HDMIB,
 				PORT_B);
