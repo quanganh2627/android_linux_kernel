@@ -1331,9 +1331,6 @@ static void xhci_ush_pci_shutdown(struct pci_dev *dev)
 	if (test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags) &&
 			hcd->driver->shutdown) {
 		hcd->driver->shutdown(hcd);
-		if (hsic.rh_dev)
-			hsic_port_logical_disconnect(hsic.rh_dev,
-					HSIC_USH_PORT);
 		ush_hsic_port_disable();
 		pci_disable_device(dev);
 	}
