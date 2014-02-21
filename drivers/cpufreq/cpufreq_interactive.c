@@ -1294,6 +1294,8 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		tunables = common_tunables;
 
 	WARN_ON(!tunables && (event != CPUFREQ_GOV_POLICY_INIT));
+	if (!tunables && (event != CPUFREQ_GOV_POLICY_INIT))
+		return -EINVAL;
 
 	switch (event) {
 	case CPUFREQ_GOV_POLICY_INIT:
