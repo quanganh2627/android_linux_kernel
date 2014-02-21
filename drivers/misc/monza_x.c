@@ -349,6 +349,7 @@ static const struct file_operations monza_misc_fops = {
 static const struct i2c_device_id i2c_monza_ids[] = {
 	{ "MNZX2000", MONZAX_2K_ADDR_NUM },
 	{ "MNZX8000", MONZAX_8K_ADDR_NUM },
+	{ "IMPJ0003", MONZAX_8K_ADDR_NUM },
 	{ /* END OF LIST */ }
 };
 MODULE_DEVICE_TABLE(i2c, i2c_monza_ids);
@@ -356,6 +357,7 @@ MODULE_DEVICE_TABLE(i2c, i2c_monza_ids);
 static const struct acpi_device_id acpi_monza_ids[] = {
 	{ "MNZX2000", MONZAX_2K_ADDR_NUM },
 	{ "MNZX8000", MONZAX_8K_ADDR_NUM },
+	{ "IMPJ0003", MONZAX_8K_ADDR_NUM },
 	{}
 };
 MODULE_DEVICE_TABLE(acpi, acpi_monza_ids);
