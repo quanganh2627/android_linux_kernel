@@ -1676,7 +1676,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		 */
 		if ((host->flags & SDHCI_NEEDS_RETUNING) &&
 		    !(present_state & (SDHCI_DOING_WRITE | SDHCI_DOING_READ)) &&
-		    (mrq->cmd->opcode != MMC_SEND_STATUS)) {
+		    (present_state & SDHCI_DATA_0_LVL_MASK)) {
 			if (mmc->card) {
 				if (mmc_card_sdio(mmc->card) &&
 				    (mmc_cmd_type(mrq->cmd) != MMC_CMD_ADTC))
