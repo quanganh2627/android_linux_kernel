@@ -423,9 +423,10 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	sst_send_scu_reset_ipc(sst);
 
 	pr_err("reset the pvt id from val %d\n", sst_drv_ctx->pvt_id);
-	spin_lock(&sst_drv_ctx->pvt_id_lock);
+	spin_lock(&sst_drv_ctx->block_lock);
 	sst_drv_ctx->pvt_id = 0;
-	spin_unlock(&sst_drv_ctx->pvt_id_lock);
+
+	spin_unlock(&sst_drv_ctx->block_lock);
 	sst_dump_ipc_dispatch_lists(sst_drv_ctx);
 	sst_dump_rx_lists(sst_drv_ctx);
 

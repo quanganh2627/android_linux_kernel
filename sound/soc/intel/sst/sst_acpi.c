@@ -251,7 +251,6 @@ void sst_init_locks(struct intel_sst_drv *ctx)
 	spin_lock_init(&sst_drv_ctx->rx_msg_lock);
 	spin_lock_init(&ctx->ipc_spin_lock);
 	spin_lock_init(&ctx->block_lock);
-	spin_lock_init(&ctx->pvt_id_lock);
 }
 
 int sst_destroy_workqueue(struct intel_sst_drv *ctx)

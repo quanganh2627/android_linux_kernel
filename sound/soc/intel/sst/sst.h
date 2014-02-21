@@ -455,6 +455,7 @@ struct sst_vtsv_cache {
  * @streams : sst stream contexts
  * @list_lock : sst driver list lock (deprecated)
  * @ipc_spin_lock : spin lock to handle audio shim access and ipc queue
+ * @block_lock : spin lock to add block to block_list and assign pvt_id
  * @rx_msg_lock : spin lock to handle the rx messages from the DSP
  * @scard_ops : sst card ops
  * @pci : sst pci device struture
@@ -501,8 +502,8 @@ struct intel_sst_drv {
 	unsigned int		tstamp;
 	struct stream_info	streams[MAX_NUM_STREAMS+1]; /*str_id 0 is not used*/
 	spinlock_t		ipc_spin_lock; /* lock for Shim reg access and ipc queue */
-	spinlock_t              block_lock; /* lock for adding block to block_list */
-	spinlock_t              pvt_id_lock; /* lock for allocating private id */
+	/* lock for adding block to block_list and assigning pvt_id */
+	spinlock_t              block_lock;
 	spinlock_t		rx_msg_lock;
 	struct pci_dev		*pci;
 	struct device		*dev;
@@ -758,12 +759,12 @@ static inline unsigned int sst_assign_pvt_id(struct intel_sst_drv *sst_drv_ctx)
 {
 	unsigned int local;
 
-	spin_lock(&sst_drv_ctx->pvt_id_lock);
+	spin_lock(&sst_drv_ctx->block_lock);
 	sst_drv_ctx->pvt_id++;
 	if (sst_drv_ctx->pvt_id > MAX_BLOCKS)
 		sst_drv_ctx->pvt_id = 1;
 	local = sst_drv_ctx->pvt_id;
-	spin_unlock(&sst_drv_ctx->pvt_id_lock);
+	spin_unlock(&sst_drv_ctx->block_lock);
 	return local;
 }
 

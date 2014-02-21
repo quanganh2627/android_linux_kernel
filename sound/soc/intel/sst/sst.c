@@ -576,7 +576,6 @@ static int intel_sst_probe(struct pci_dev *pci,
 
 	spin_lock_init(&sst_drv_ctx->ipc_spin_lock);
 	spin_lock_init(&sst_drv_ctx->block_lock);
-	spin_lock_init(&sst_drv_ctx->pvt_id_lock);
 	spin_lock_init(&sst_drv_ctx->rx_msg_lock);
 
 	sst_drv_ctx->ipc_reg.ipcx = SST_IPCX + sst_drv_ctx->pdata->ipc_info->ipc_offset;
