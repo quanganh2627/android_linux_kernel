@@ -41,6 +41,8 @@ static u32 param_value;	/* value of certain flis param */
 static unsigned int pin_name;
 static char ops[OPS_STR_LEN];
 
+static int platform;
+
 struct intel_scu_flis_info {
 	struct pinstruct_t *pin_t;
 	struct pin_mmio_flis_t *mmio_flis_t;
@@ -82,8 +84,8 @@ void set_flis_value(u32 value, u32 offset)
 	 * There is one security region for Merrifield FLIS, which
 	 * are read only to OS side. Use IPC when write access is needed.
 	 */
-	if ((intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
-		intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)
+	if ((platform == INTEL_MID_CPU_CHIP_TANGIER ||
+		platform == INTEL_MID_CPU_CHIP_ANNIEDALE)
 			&& offset >= 0x1d00
 			&& offset <= 0x1d34) {
 		/* IPC call should not be called in atomic context */
@@ -226,7 +228,7 @@ int config_pin_flis(unsigned int name, enum flis_param_t param, u32 val)
 	if (name < 0 || name >= isfi->pin_num)
 		return -EINVAL;
 
-	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CLOVERVIEW) {
+	if (platform == INTEL_MID_CPU_CHIP_CLOVERVIEW) {
 		/* Check if the pin is configurable */
 		if (isfi->pin_t[name].valid == false)
 			return -EINVAL;
@@ -263,8 +265,8 @@ int config_pin_flis(unsigned int name, enum flis_param_t param, u32 val)
 			pr_err("update shim failed\n");
 			return ret;
 		}
-	} else if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
-		intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
+	} else if (platform == INTEL_MID_CPU_CHIP_TANGIER ||
+		platform == INTEL_MID_CPU_CHIP_ANNIEDALE) {
 		mmft = isfi->mmio_flis_t;
 		off = mmft[name].offset;
 
@@ -316,7 +318,7 @@ int get_pin_flis(unsigned int name, enum flis_param_t param, u32 *val)
 	if (name < 0 || name >= isfi->pin_num)
 		return -EINVAL;
 
-	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CLOVERVIEW) {
+	if (platform == INTEL_MID_CPU_CHIP_CLOVERVIEW) {
 		if (isfi->pin_t[name].valid == false)
 			return -EINVAL;
 
@@ -353,8 +355,8 @@ int get_pin_flis(unsigned int name, enum flis_param_t param, u32 *val)
 		*val = (data >> pos) & mask;
 
 		pr_debug("read: data = 0x%x, val = 0x%x\n", data, *val);
-	} else if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER ||
-		intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
+	} else if (platform == INTEL_MID_CPU_CHIP_TANGIER ||
+		platform == INTEL_MID_CPU_CHIP_ANNIEDALE) {
 		mmft = isfi->mmio_flis_t;
 		off = mmft[name].offset;
 
@@ -422,6 +424,7 @@ static void flis_generic_store(const char *buf, int type)
 	}
 }
 
+#ifdef CONFIG_X86_CTP
 static ssize_t shim_flis_addr_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
@@ -434,6 +437,7 @@ static ssize_t shim_flis_addr_show(struct device *dev,
 {
 	return snprintf(buf, PAGE_SIZE, "0x%x\n", shim_flis_addr);
 }
+#endif
 
 static ssize_t shim_offset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
@@ -472,19 +476,29 @@ static ssize_t shim_ops_store(struct device *dev,
 	if (ret != 1)
 		return -EINVAL;
 
-	if (!strncmp("read", shim_ops, OPS_STR_LEN)) {
-		ret = intel_scu_ipc_read_shim(&shim_data, shim_flis_addr,
-				shim_offset);
-	} else if (!strncmp("write", shim_ops, OPS_STR_LEN)) {
-		ret = intel_scu_ipc_write_shim(shim_data, shim_flis_addr,
-				shim_offset);
+	ret = 0;
+	if (!strncmp("get", shim_ops, OPS_STR_LEN)) {
+		if (platform == INTEL_MID_CPU_CHIP_CLOVERVIEW) {
+			ret = intel_scu_ipc_read_shim(&shim_data,
+					shim_flis_addr,	shim_offset);
+		} else {
+			/* use the same variable name to be compatible */
+			shim_data = get_flis_value(shim_offset);
+		}
+	} else if (!strncmp("set", shim_ops, OPS_STR_LEN)) {
+		if (platform == INTEL_MID_CPU_CHIP_CLOVERVIEW) {
+			ret = intel_scu_ipc_write_shim(shim_data,
+					shim_flis_addr,	shim_offset);
+		} else {
+			set_flis_value(shim_data, shim_offset);
+		}
 	} else {
 		dev_err(dev, "Not supported ops\n");
 		ret = -EINVAL;
 	}
 
 	if (ret) {
-		dev_err(dev, "shim config met error\n");
+		dev_err(dev, "get/set flis error, ret = %d\n", ret);
 		return ret;
 	}
 
@@ -560,15 +574,19 @@ static ssize_t ops_store(struct device *dev,
 	return size;
 }
 
+#ifdef CONFIG_X86_CTP
 static DEVICE_ATTR(flis_addr, S_IRUGO|S_IWUSR,
 		shim_flis_addr_show, shim_flis_addr_store);
+#endif
 static DEVICE_ATTR(offset, S_IRUGO|S_IWUSR,
 		shim_offset_show, shim_offset_store);
 static DEVICE_ATTR(data, S_IRUGO|S_IWUSR, shim_data_show, shim_data_store);
 static DEVICE_ATTR(flis_ops, S_IWUSR, NULL, shim_ops_store);
 
 static struct attribute *flis_attrs[] = {
+#ifdef CONFIG_X86_CTP
 	&dev_attr_flis_addr.attr,
+#endif
 	&dev_attr_offset.attr,
 	&dev_attr_data.attr,
 	&dev_attr_flis_ops.attr,
@@ -611,6 +629,7 @@ static int scu_flis_probe(struct platform_device *pdev)
 		goto out;
 	}
 
+	platform = intel_mid_identify_cpu();
 	isfi->pin_t = pdata->pin_t;
 	isfi->pin_num = pdata->pin_num;
 	isfi->shim_access = pdata->shim_access;
