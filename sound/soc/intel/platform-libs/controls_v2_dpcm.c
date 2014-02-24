@@ -132,6 +132,29 @@ static u8 sst_ssp_channel_map[SST_MAX_TDM_SLOTS] = {
 	0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, /* default tx map */
 };
 
+static void sst_send_slot_map(struct sst_data *sst)
+{
+	struct sst_param_sba_ssp_slot_map cmd;
+
+	pr_debug("Enter: %s", __func__);
+
+	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
+	cmd.header.command_id = SBA_SET_SSP_SLOT_MAP;
+	cmd.header.length = sizeof(struct sst_param_sba_ssp_slot_map)
+				- sizeof(struct sst_dsp_header);
+
+	cmd.param_id = SBA_SET_SSP_SLOT_MAP;
+	cmd.param_len = sizeof(cmd.rx_slot_map) + sizeof(cmd.tx_slot_map) + sizeof(cmd.ssp_index);
+	cmd.ssp_index = SSP_CODEC;
+
+	memcpy(cmd.rx_slot_map, &sst_ssp_slot_map[0], sizeof(cmd.rx_slot_map));
+	memcpy(cmd.tx_slot_map, &sst_ssp_channel_map[0], sizeof(cmd.tx_slot_map));
+
+	sst_fill_and_send_cmd(sst, SST_IPC_IA_SET_PARAMS, SST_FLAG_BLOCKED,
+			      SST_TASK_SBA, 0, &cmd,
+			      sizeof(cmd.header) + cmd.header.length);
+}
+
 static int sst_slot_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
@@ -165,12 +188,16 @@ static int sst_slot_get(struct snd_kcontrol *kcontrol,
 static int sst_slot_put(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct sst_algo_control *bc = (void *)kcontrol->private_value;
 	struct soc_enum *e = (void *)kcontrol->private_value;
 	int i;
 	unsigned int ctl_no = e->reg;
 	unsigned int is_tx = e->reg2;
 	unsigned int slot_channel_no;
 	unsigned int val, mux;
+
 	u8 *map = is_tx ? sst_ssp_channel_map : sst_ssp_slot_map;
 
 	val = 1 << ctl_no;
@@ -191,6 +218,9 @@ static int sst_slot_put(struct snd_kcontrol *kcontrol,
 
 	pr_debug("%s: %s %s map = %#x\n", __func__, is_tx ? "tx channel" : "rx slot",
 		 e->texts[mux], map[slot_channel_no]);
+
+	if (bc->w && bc->w->power)
+		sst_send_slot_map(sst);
 	return 0;
 }
 
@@ -723,29 +753,6 @@ static int sst_vb_trigger_event(struct snd_soc_dapm_widget *w,
 	if (!SND_SOC_DAPM_EVENT_ON(event))
 		sst_dsp->ops->power(false);
 	return 0;
-}
-
-static void sst_send_slot_map(struct sst_data *sst)
-{
-	struct sst_param_sba_ssp_slot_map cmd;
-
-	pr_debug("Enter: %s", __func__);
-
-	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
-	cmd.header.command_id = SBA_SET_SSP_SLOT_MAP;
-	cmd.header.length = sizeof(struct sst_param_sba_ssp_slot_map)
-				- sizeof(struct sst_dsp_header);
-
-	cmd.param_id = SBA_SET_SSP_SLOT_MAP;
-	cmd.param_len = sizeof(cmd.rx_slot_map) + sizeof(cmd.tx_slot_map) + sizeof(cmd.ssp_index);
-	cmd.ssp_index = SSP_CODEC;
-
-	memcpy(cmd.rx_slot_map, &sst_ssp_slot_map[0], sizeof(cmd.rx_slot_map));
-	memcpy(cmd.tx_slot_map, &sst_ssp_channel_map[0], sizeof(cmd.tx_slot_map));
-
-	sst_fill_and_send_cmd(sst, SST_IPC_IA_SET_PARAMS, SST_FLAG_BLOCKED,
-			      SST_TASK_SBA, 0, &cmd,
-			      sizeof(cmd.header) + cmd.header.length);
 }
 
 #define SST_SSP_CODEC_MUX		0
@@ -1869,6 +1876,14 @@ static int sst_fill_widget_module_info(struct snd_soc_dapm_widget *w,
 			 !strncmp(kctl->id.name, w->name, index)) {
 			struct sst_gain_mixer_control *mc = (void *)kctl->private_value;
 			mc->w = w;
+		} else if (strstr(kctl->id.name, "interleaver") &&
+			 !strncmp(kctl->id.name, w->name, index)) {
+			struct sst_algo_control *bc = (void *)kctl->private_value;
+			bc->w = w;
+		} else if (strstr(kctl->id.name, "deinterleaver") &&
+			 !strncmp(kctl->id.name, w->name, index)) {
+			struct sst_algo_control *bc = (void *)kctl->private_value;
+			bc->w = w;
 		}
 		if (ret < 0) {
 			up_read(&card->controls_rwsem);
