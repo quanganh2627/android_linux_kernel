@@ -105,20 +105,25 @@ late_initcall(pb_keys_init);
 
 #ifdef	CONFIG_ACPI
 enum {
-	NON_REPEAT_KEYS,
-	AUTO_REPEAT_KEYS,
+	PWRBTN_KEY,
+	ROLOCK_KEY,
+	VOL_KEYS,
 	KEY_TYPE_NUMS,
 };
 
-static struct gpio_keys_button lesskey_button_non_repeat[] = {
+static struct gpio_keys_button lesskey_button_powerbtn[] = {
 	{KEY_POWER,		-1, 1, "power_btn", EV_KEY, .acpi_idx = 0, 1},
 	{ },
 };
 
-static struct gpio_keys_button lesskey_button_auto_repeat[] = {
+static struct gpio_keys_button lesskey_button_rolock[] = {
+	{KEY_RO,		-1, 1, "rotationlock",	EV_KEY, .acpi_idx = 4},
+	{ },
+};
+
+static struct gpio_keys_button lesskey_button_vol[] = {
 	{KEY_VOLUMEUP,		-1, 1, "volume_up",	EV_KEY, .acpi_idx = 2},
 	{KEY_VOLUMEDOWN,	-1, 1, "volume_down",	EV_KEY, .acpi_idx = 3},
-	{KEY_RO,		-1, 1, "rotationlock",	EV_KEY, .acpi_idx = 4},
 };
 
 struct gpio_keys_init_data {
@@ -128,22 +133,29 @@ struct gpio_keys_init_data {
 
 static struct gpio_keys_init_data lesskey_init_data[KEY_TYPE_NUMS] = {
 	{
-		.keys_button = lesskey_button_non_repeat,
+		.keys_button = lesskey_button_powerbtn,
 		.nkeys = 1,
 	}, {
-		.keys_button = lesskey_button_auto_repeat,
-		.nkeys = sizeof(lesskey_button_auto_repeat) /
+		.keys_button = lesskey_button_rolock,
+		.nkeys = 1,
+	}, {
+		.keys_button = lesskey_button_vol,
+		.nkeys = sizeof(lesskey_button_vol) /
 			 sizeof(struct gpio_keys_button),
 	},
 };
 
 static struct gpio_keys_platform_data lesskey_keys[KEY_TYPE_NUMS] = {
 	{
-		.buttons	= lesskey_button_non_repeat,
+		.buttons	= lesskey_button_powerbtn,
 		.rep		= 0,
 		.nbuttons	= 0,
 	}, {
-		.buttons	= lesskey_button_auto_repeat,
+		.buttons	= lesskey_button_rolock,
+		.rep		= 0,
+		.nbuttons	= 0,
+	}, {
+		.buttons	= lesskey_button_vol,
 		.rep		= 1,
 		.nbuttons	= 0,
 	},
@@ -151,16 +163,22 @@ static struct gpio_keys_platform_data lesskey_keys[KEY_TYPE_NUMS] = {
 
 static struct platform_device lesskey_device[KEY_TYPE_NUMS] = {
 	{
-		.name		= "gpio-lesskey-nrpt",
-		.id		= -1,
+		.name		= "gpio-lesskey",
+		.id		= PLATFORM_DEVID_AUTO,
 		.dev		= {
-			.platform_data	= &lesskey_keys[NON_REPEAT_KEYS],
+			.platform_data	= &lesskey_keys[PWRBTN_KEY],
 		},
 	}, {
-		.name		= "gpio-lesskey-rpt",
-		.id		= -1,
+		.name		= "gpio-lesskey",
+		.id		= PLATFORM_DEVID_AUTO,
 		.dev		= {
-			.platform_data	= &lesskey_keys[AUTO_REPEAT_KEYS],
+			.platform_data	= &lesskey_keys[ROLOCK_KEY],
+		},
+	}, {
+		.name		= "gpio-lesskey",
+		.id		= PLATFORM_DEVID_AUTO,
+		.dev		= {
+			.platform_data	= &lesskey_keys[VOL_KEYS],
 		},
 	},
 };
@@ -182,9 +200,7 @@ lesskey_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 		for (i = 0; i < num; i++) {
 			gb[i].gpio = acpi_get_gpio_by_index(&pdev->dev,
 							gb[i].acpi_idx, &info);
-			pr_info("%s lesskey [%2d]: name = %s, gpio = %d\n",
-				 (type == NON_REPEAT_KEYS) ?
-				 "non repeat" : "auto repeat",
+			pr_info("lesskey [%2d]: name = %s, gpio = %d\n",
 				 i, gb[i].desc, gb[i].gpio);
 			if (gb[i].gpio < 0)
 				continue;
