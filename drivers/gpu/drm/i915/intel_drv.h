@@ -515,6 +515,7 @@ struct intel_hdmi {
 	enum panel_fitter pfit;
 	bool rgb_quant_range_selectable;
 	struct edid *edid;
+	struct intel_connector *attached_connector;
 	uint32_t edid_mode_count;
 	void (*write_infoframe)(struct drm_encoder *encoder,
 				enum hdmi_infoframe_type type,

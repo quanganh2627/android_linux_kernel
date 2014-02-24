@@ -82,9 +82,6 @@ void intel_cleanup_modes(struct drm_connector *connector)
 
 	list_for_each_entry_safe(mode, t, &connector->modes, head)
 		drm_mode_remove(connector, mode);
-
-	list_for_each_entry_safe(mode, t, &connector->user_modes, head)
-		drm_mode_remove(connector, mode);
 }
 
 

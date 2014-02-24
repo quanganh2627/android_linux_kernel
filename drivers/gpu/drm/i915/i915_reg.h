@@ -2181,6 +2181,8 @@ EDP_PSR_SW_TIMER
 						 PORTC_HOTPLUG_INT_STATUS | \
 						 PORTD_HOTPLUG_INT_STATUS)
 
+#define HPD_SHORT_PULSE	(1<<17)
+
 /* SDVO and HDMI port control.
  * The same register may be used for SDVO or HDMI */
 #define GEN3_SDVOB	0x61140
