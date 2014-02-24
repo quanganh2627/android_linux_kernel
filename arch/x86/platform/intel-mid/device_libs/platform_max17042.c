@@ -65,13 +65,19 @@ void max17042_i2c_reset_workaround(void)
 #else
 #define I2C_GPIO_PIN 27
 #endif
-	lnw_gpio_set_alt(I2C_GPIO_PIN, LNW_GPIO);
-	gpio_direction_output(I2C_GPIO_PIN, 0);
-	gpio_set_value(I2C_GPIO_PIN, 1);
+#define I2C0_GPIO_PIN_BYT_CR_V2 79
+
+	int i2c_gpio_pin = I2C_GPIO_PIN;
+	if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2) ||
+		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2))
+		i2c_gpio_pin = I2C0_GPIO_PIN_BYT_CR_V2;
+	lnw_gpio_set_alt(i2c_gpio_pin, LNW_GPIO);
+	gpio_direction_output(i2c_gpio_pin, 0);
+	gpio_set_value(i2c_gpio_pin, 1);
 	udelay(10);
-	gpio_set_value(I2C_GPIO_PIN, 0);
+	gpio_set_value(i2c_gpio_pin, 0);
 	udelay(10);
-	lnw_gpio_set_alt(I2C_GPIO_PIN, LNW_ALT_1);
+	lnw_gpio_set_alt(i2c_gpio_pin, LNW_ALT_1);
 }
 EXPORT_SYMBOL(max17042_i2c_reset_workaround);
 
