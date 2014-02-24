@@ -377,7 +377,7 @@ struct dwc_otg2 {
 		__rc;						\
 	})
 
-#define VBUS_TIMEOUT	300
+#define VBUS_TIMEOUT	100
 #define PCI_DEVICE_ID_DWC 0x119E
 #define PCI_DEVICE_ID_DWC_VLV 0x0F37
 
