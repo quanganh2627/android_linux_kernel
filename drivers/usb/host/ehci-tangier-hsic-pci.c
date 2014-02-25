@@ -1272,7 +1272,7 @@ static int ehci_hsic_probe(struct pci_dev *pdev,
 
 	hcd->hsic_notify = hsic_notify;
 
-	retval = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
+	retval = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED | IRQF_NO_SUSPEND);
 	if (retval != 0)
 		goto unmap_registers;
 	dev_set_drvdata(&pdev->dev, hcd);
