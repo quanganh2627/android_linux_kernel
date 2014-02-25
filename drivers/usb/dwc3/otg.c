@@ -907,10 +907,8 @@ static int dwc_otg2_set_peripheral(struct usb_otg *x,
 {
 	struct dwc_otg2 *otg;
 
-	if (!x) {
-		otg_err(otg, "otg is NULL!\n");
+	if (!x)
 		return -ENODEV;
-	}
 
 	otg = xceiv_to_dwc_otg2(x);
 	otg_dbg(otg, "\n");
@@ -931,10 +929,8 @@ static int dwc_otg2_set_host(struct usb_otg *x, struct usb_bus *host)
 {
 	struct dwc_otg2 *otg;
 
-	if (!x) {
-		otg_dbg(otg, "otg is NULL!\n");
+	if (!x)
 		return -ENODEV;
-	}
 
 	otg = xceiv_to_dwc_otg2(x);
 	otg_dbg(otg, "\n");
@@ -1095,7 +1091,7 @@ static struct dwc_otg2 *dwc3_otg_alloc(struct device *dev)
 
 	otg = kzalloc(sizeof(*otg), GFP_KERNEL);
 	if (!otg) {
-		otg_err(otg, "Alloc otg failed\n");
+		dev_err(dev, "Alloc otg failed\n");
 		return NULL;
 	}
 
@@ -1298,7 +1294,7 @@ static int dwc_otg_probe(struct pci_dev *pdev,
 
 	otg = dwc3_otg_alloc(&pdev->dev);
 	if (!otg) {
-		otg_err(otg, "dwc3 otg init failed\n");
+		dev_err(&pdev->dev, "dwc3 otg init failed\n");
 		goto err;
 	}
 
