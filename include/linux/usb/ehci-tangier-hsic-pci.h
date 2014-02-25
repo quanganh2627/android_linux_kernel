@@ -29,7 +29,6 @@
 /* Port Inactivity Duratoin is default value for L2 suspend */
 #define HSIC_PORT_INACTIVITYDURATION              500
 /* This is the default value for L2 autosuspend enable */
-#define HSIC_AUTOSUSPEND                          0
 #define HSIC_BUS_INACTIVITYDURATION               500
 #define HSIC_REMOTEWAKEUP                         1
 
