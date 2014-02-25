@@ -518,7 +518,6 @@ struct intel_sst_drv {
 	void			*fw_in_mem;
 	struct sst_runtime_param runtime_param;
 	unsigned int		device_input_mixer;
-	struct mutex		mixer_ctrl_lock;
 	struct dma_async_tx_descriptor *desc;
 	struct sst_sg_list	fw_sg_list, library_list;
 	struct intel_sst_ops	*ops;

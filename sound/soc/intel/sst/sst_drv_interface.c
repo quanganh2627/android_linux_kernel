@@ -176,7 +176,7 @@ static int sst_send_lpe_mixer_algo_params(void)
 		return retval;
 	}
 
-	mutex_lock(&sst_drv_ctx->mixer_ctrl_lock);
+	mutex_lock(&sst_drv_ctx->sst_lock);
 	input_mixer = (sst_drv_ctx->device_input_mixer)
 				& SST_INPUT_STREAM_MIXED;
 	pr_debug("Input Mixer settings %d", input_mixer);
@@ -190,7 +190,7 @@ static int sst_send_lpe_mixer_algo_params(void)
 	mixer_param.input_stream_bitmap = input_mixer;
 	mixer_param.size = sizeof(input_mixer);
 	algo_param.params = &mixer_param;
-	mutex_unlock(&sst_drv_ctx->mixer_ctrl_lock);
+	mutex_unlock(&sst_drv_ctx->sst_lock);
 	pr_debug("setting pp param\n");
 	pr_debug("Algo ID %d Str id %d Enable %d Size %d\n",
 			algo_param.algo_id, algo_param.str_id,
@@ -1001,9 +1001,9 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 		if (NULL == arg)
 			return -EINVAL;
 		pr_debug("LPE mixer algo param set %x\n", device_input_mixer);
-		mutex_lock(&sst_drv_ctx->mixer_ctrl_lock);
+		mutex_lock(&sst_drv_ctx->sst_lock);
 		sst_drv_ctx->device_input_mixer = device_input_mixer;
-		mutex_unlock(&sst_drv_ctx->mixer_ctrl_lock);
+		mutex_unlock(&sst_drv_ctx->sst_lock);
 		ret_val = sst_send_lpe_mixer_algo_params();
 		break;
 	}
