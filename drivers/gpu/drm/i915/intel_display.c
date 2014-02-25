@@ -5536,8 +5536,8 @@ void intel_iosf_rw(struct drm_i915_private *dev_priv,
 bool get_regulator(struct drm_device *dev,
 	struct drm_i915_private *dev_priv)
 {
-	dev_priv->v3p3s_reg = regulator_get(dev->dev, FFRD8_PR1_DISP_BKLGHT_REGULATOR);
-	if (IS_ERR(dev_priv->v3p3s_reg)) {
+	dev_priv->v3p3sx_reg = regulator_get(dev->dev, FFRD8_PR1_DISP_BKLGHT_REGULATOR);
+	if (IS_ERR(dev_priv->v3p3sx_reg)) {
 		DRM_ERROR("FFRD8_PR1_DISP_BKLGHT_REGULATOR: Regulator_get failed\n");
 		return false;
 	}
@@ -5677,11 +5677,11 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 			rgrt = get_regulator(dev, dev_priv);
 			if (!rgrt) {
 				DRM_ERROR("WARN! 3P3SX Regulator get failed\n");
-				dev_priv->v3p3s_reg = NULL;
+				dev_priv->v3p3sx_reg = NULL;
 				goto out;
 			}
 			/* FIXME:Remove this once regulator framework does default enable */
-			rgrt = regulator_enable(dev_priv->v3p3s_reg);
+			rgrt = regulator_enable(dev_priv->v3p3sx_reg);
 			if (rgrt)
 				DRM_ERROR("WARN! Failed to turn ON 3P3SX\n");
 		}
@@ -10419,8 +10419,8 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	int rgrt;
 
 	if (spid.hardware_id == BYT_TABLET_BLK_8PR1)
-		if (dev_priv->v3p3s_reg) {
-			rgrt = regulator_disable(dev_priv->v3p3s_reg);
+		if (dev_priv->v3p3sx_reg) {
+			rgrt = regulator_disable(dev_priv->v3p3sx_reg);
 			if (rgrt)
 				DRM_ERROR("Failed to turn OFF 3P3SX\n");
 		}
@@ -10483,8 +10483,8 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	dev_priv->late_resume = true;
 
 	if (spid.hardware_id == BYT_TABLET_BLK_8PR1)
-		if (dev_priv->v3p3s_reg) {
-			rgrt = regulator_enable(dev_priv->v3p3s_reg);
+		if (dev_priv->v3p3sx_reg) {
+			rgrt = regulator_enable(dev_priv->v3p3sx_reg);
 			if (rgrt)
 				DRM_ERROR("Failed to turn ON 3P3SX\n");
 		}

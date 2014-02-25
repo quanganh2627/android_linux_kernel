@@ -5980,6 +5980,6 @@ EDP_PSR_SW_TIMER
 /*
  * This rail is valid only for FFRD8 Baytrail.
  */
-#define FFRD8_PR1_DISP_BKLGHT_REGULATOR	"v3p3s"
+#define FFRD8_PR1_DISP_BKLGHT_REGULATOR	"v3p3sx"
 
 #endif /* _I915_REG_H_ */
