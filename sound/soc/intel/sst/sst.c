@@ -540,7 +540,6 @@ static int intel_sst_probe(struct pci_dev *pci,
 	if (0 != sst_driver_ops(sst_drv_ctx))
 		return -EINVAL;
 	ops = sst_drv_ctx->ops;
-	mutex_init(&sst_drv_ctx->stream_lock);
 	mutex_init(&sst_drv_ctx->sst_lock);
 
 	sst_drv_ctx->stream_cnt = 0;

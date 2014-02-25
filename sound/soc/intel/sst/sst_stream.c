@@ -407,9 +407,9 @@ int sst_pause_stream(int str_id)
 			str_info->status = STREAM_PAUSED;
 		} else if (retval == SST_ERR_INVALID_STREAM_ID) {
 			retval = -EINVAL;
-			mutex_lock(&sst_drv_ctx->stream_lock);
+			mutex_lock(&sst_drv_ctx->sst_lock);
 			sst_clean_stream(str_info);
-			mutex_unlock(&sst_drv_ctx->stream_lock);
+			mutex_unlock(&sst_drv_ctx->sst_lock);
 		}
 	} else {
 		retval = -EBADRQC;
@@ -480,9 +480,9 @@ int sst_resume_stream(int str_id)
 			str_info->prev = STREAM_PAUSED;
 		} else if (retval == -SST_ERR_INVALID_STREAM_ID) {
 			retval = -EINVAL;
-			mutex_lock(&sst_drv_ctx->stream_lock);
+			mutex_lock(&sst_drv_ctx->sst_lock);
 			sst_clean_stream(str_info);
-			mutex_unlock(&sst_drv_ctx->stream_lock);
+			mutex_unlock(&sst_drv_ctx->sst_lock);
 		}
 	} else {
 		retval = -EBADRQC;
@@ -703,9 +703,9 @@ int sst_free_stream(int str_id)
 		ops->post_message(&sst_drv_ctx->ipc_post_msg_wq);
 		retval = sst_wait_timeout(sst_drv_ctx, block);
 		pr_debug("sst: wait for free returned %d\n", retval);
-		mutex_lock(&sst_drv_ctx->stream_lock);
+		mutex_lock(&sst_drv_ctx->sst_lock);
 		sst_clean_stream(str_info);
-		mutex_unlock(&sst_drv_ctx->stream_lock);
+		mutex_unlock(&sst_drv_ctx->sst_lock);
 		pr_debug("SST DBG:Stream freed\n");
 		sst_free_block(sst_drv_ctx, block);
 	} else {

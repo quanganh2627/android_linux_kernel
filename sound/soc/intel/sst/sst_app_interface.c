@@ -58,15 +58,12 @@ int intel_sst_open_cntrl(struct inode *i_node, struct file *file_ptr)
 	unsigned int retval;
 
 	/* audio manager open */
-	mutex_lock(&sst_drv_ctx->stream_lock);
 	retval = intel_sst_check_device();
 	if (retval) {
-		mutex_unlock(&sst_drv_ctx->stream_lock);
 		return retval;
 	}
 	pr_debug("AM handle opened\n");
 
-	mutex_unlock(&sst_drv_ctx->stream_lock);
 	return retval;
 }
 
@@ -74,9 +71,7 @@ int intel_sst_open_cntrl(struct inode *i_node, struct file *file_ptr)
 int intel_sst_release_cntrl(struct inode *i_node, struct file *file_ptr)
 {
 	/* audio manager close */
-	mutex_lock(&sst_drv_ctx->stream_lock);
 	sst_pm_runtime_put(sst_drv_ctx);
-	mutex_unlock(&sst_drv_ctx->stream_lock);
 	pr_debug("AM handle closed\n");
 	return 0;
 }

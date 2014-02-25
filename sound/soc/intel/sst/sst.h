@@ -460,7 +460,6 @@ struct sst_vtsv_cache {
  * @pci : sst pci device struture
  * @dev : pointer to current device struct
  * @sst_lock : sst device lock
- * @stream_lock : sst stream lock
  * @pvt_id : sst private id
  * @stream_cnt : total sst active stream count
  * @pb_streams : total active pb streams
@@ -509,7 +508,6 @@ struct intel_sst_drv {
 	struct device		*dev;
 	unsigned int		pvt_id;
 	struct mutex            sst_lock;
-	struct mutex		stream_lock;
 	unsigned int		stream_cnt;
 	unsigned int		*fw_cntx;
 	unsigned int		fw_cntx_size;
