@@ -245,20 +245,9 @@ static int imx135_csi_configure(struct v4l2_subdev *sd, int flag)
 
 static char *imx135_msr_file_name(void)
 {
-	/*
-	 * drvb contains the SPID in the file name as:
-	 * sensor_name-vendorIdValue-platformFamilyIdValue-productLineIdValue.drvb
-	 */
-	if (spid.vendor_id == 0 && spid.platform_family_id == 0x4 &&
-	    spid.product_line_id == 0) {
-		return "00imx135-0-0x4-0.drvb";
-	} else {
-		pr_warn("drvb file name does not exists");
-	}
-
-	return 0;
+	static char buffer[32];
+	return camera_get_msr_filename(buffer, sizeof(buffer), "imx135", 0);
 }
-
 
 static struct camera_sensor_platform_data imx135_sensor_platform_data = {
 	.gpio_ctrl      = imx135_gpio_ctrl,
