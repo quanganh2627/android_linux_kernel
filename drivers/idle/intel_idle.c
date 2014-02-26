@@ -1131,7 +1131,7 @@ static int intel_idle_cpu_init(int cpu)
 	dev->state_count = 1;
 
 	for (cstate = 0; cstate < CPUIDLE_STATE_MAX; ++cstate) {
-		int num_substates, mwait_hint, mwait_cstate, mwait_substate;
+		int num_substates = 0, mwait_hint, mwait_cstate, mwait_substate;
 
 		if (cpuidle_state_table[cstate].enter == NULL)
 			continue;
