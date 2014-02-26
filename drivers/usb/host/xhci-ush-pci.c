@@ -33,6 +33,8 @@
 #include <linux/wakelock.h>
 #include <linux/jiffies.h>
 #include <linux/suspend.h>
+#include <linux/usb/phy.h>
+#include <linux/usb/otg.h>
 #include "xhci.h"
 #include "../core/usb.h"
 
@@ -1090,6 +1092,10 @@ static int hsic_get_gpio_num(struct pci_dev *pdev)
 
 	pdata = pdev->dev.platform_data;
 
+	if (gpio_is_valid(pdata->aux_gpio)
+		&& gpio_is_valid(pdata->wakeup_gpio))
+		return 0;
+
 	status = acpi_get_handle(NULL,
 			"\\_SB.PCI0.XHC1.RHUB.HSC1", &handle);
 	if (ACPI_FAILURE(status)) {
@@ -1150,6 +1156,7 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	struct hc_driver *driver;
 	struct usb_hcd *hcd;
 	struct ush_hsic_pdata *hsic_pdata;
+	struct usb_phy *usb_phy;
 
 	hsic_pdata = dev->dev.platform_data;
 	if (!hsic_pdata->has_modem) {
@@ -1248,6 +1255,12 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	if (retval)
 		goto put_usb3_hcd;
 	/* Roothub already marked as USB 3.0 speed */
+
+	/* CHT: pass host parameter to OTG */
+	usb_phy = usb_get_phy(USB_PHY_TYPE_USB2);
+	if (usb_phy)
+		otg_set_host(usb_phy->otg, &hcd->self);
+	usb_put_phy(usb_phy);
 
 	/* Enable Controller wakeup capability */
 	device_set_wakeup_enable(&dev->dev, true);
@@ -1581,6 +1594,14 @@ static DEFINE_PCI_DEVICE_TABLE(xhci_ush_pci_ids) = {
 		.subdevice =    PCI_ANY_ID,
 		.driver_data =  (unsigned long) &xhci_ush_pci_hc_driver,
 	},
+	{
+		.vendor =       PCI_VENDOR_ID_INTEL,
+		.device =       PCI_DEVICE_ID_INTEL_CHT_USH,
+		.subvendor =    PCI_ANY_ID,
+		.subdevice =    PCI_ANY_ID,
+		.driver_data =  (unsigned long) &xhci_ush_pci_hc_driver,
+	},
+
 	{ /* end: all zeroes */ }
 };
 

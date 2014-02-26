@@ -44,6 +44,15 @@ static struct ush_hsic_pdata *get_hsic_platform_data(struct pci_dev *pdev)
 			pdata->reenum_delay = USH_REENUM_DELAY;
 		break;
 
+	case PCI_DEVICE_ID_INTEL_CHT_USH:
+		dev_info(&pdev->dev,
+			" CherryTrail HSIC/SSIC device platform data configured\n");
+		pdata->has_modem = 1;
+		pdata->enabled = 1;
+		pdata->aux_gpio = 78;
+		pdata->wakeup_gpio = 105;
+		break;
+
 	default:
 		return NULL;
 		break;
@@ -61,6 +70,8 @@ static void hsic_pci_early_quirks(struct pci_dev *pci_dev)
 }
 
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BYT_USH,
+			hsic_pci_early_quirks);
+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CHT_USH,
 			hsic_pci_early_quirks);
 
 static void quirk_byt_ush_d3_delay(struct pci_dev *dev)
