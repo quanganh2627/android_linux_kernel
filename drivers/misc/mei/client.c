@@ -73,6 +73,24 @@ int mei_me_cl_by_id(struct mei_device *dev, u8 client_id)
 	return i;
 }
 
+/**
+ * mei_io_list_free - removes list entry belonging to cl and frees cb.
+ *
+ * @list: an instance of our list structure
+ * @cl:   host client
+ */
+void mei_io_list_free(struct mei_cl_cb *list, struct mei_cl *cl)
+{
+	struct mei_cl_cb *cb;
+	struct mei_cl_cb *next;
+
+	list_for_each_entry_safe(cb, next, &list->list, list) {
+		if (cb->cl && mei_cl_cmp_id(cl, cb->cl)) {
+			list_del(&cb->list);
+			mei_io_cb_free(cb);
+		}
+	}
+}
 
 /**
  * mei_io_list_flush - removes list entry belonging to cl.
@@ -197,8 +215,8 @@ int mei_cl_flush_queues(struct mei_cl *cl)
 
 	cl_dbg(dev, cl, "remove list entry belonging to cl\n");
 	mei_io_list_flush(&cl->dev->read_list, cl);
-	mei_io_list_flush(&cl->dev->write_list, cl);
-	mei_io_list_flush(&cl->dev->write_waiting_list, cl);
+	mei_io_list_free(&cl->dev->write_list, cl);
+	mei_io_list_free(&cl->dev->write_waiting_list, cl);
 	mei_io_list_flush(&cl->dev->ctrl_wr_list, cl);
 	mei_io_list_flush(&cl->dev->ctrl_rd_list, cl);
 	mei_io_list_flush(&cl->dev->amthif_cmd_list, cl);
