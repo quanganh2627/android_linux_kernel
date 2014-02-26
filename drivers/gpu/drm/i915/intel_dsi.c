@@ -636,6 +636,11 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 	I915_WRITE(MIPI_DEVICE_READY(pipe), 0x1);
 
 	I915_WRITE(MIPI_INTR_STAT(pipe), 0xFFFFFFFF);
+	/* Max packet return size limits the size of returning
+	* packet so that host processor can prevent buffer overflow
+	* condition when receiving data from peripheral. DCS read
+	* need this to be set.*/
+	I915_WRITE(MIPI_MAX_RETURN_PKT_SIZE(pipe), 0xff);
 
 	if ((adjusted_mode->hdisplay < PFIT_SIZE_LIMIT) &&
 	(adjusted_mode->vdisplay < PFIT_SIZE_LIMIT)) {
