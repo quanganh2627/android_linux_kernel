@@ -42,6 +42,7 @@ extern void intel_register_i2c_camera_device(
 				struct sfi_device_table_entry *pentry,
 				struct devs_id *dev)
 				__attribute__((weak));
+char *camera_get_msr_filename(char *buf, int buf_size, char *sensor, int cam);
 
 /*
  * FIXME! This PMIC power access workaround for CHT
@@ -64,5 +65,6 @@ struct vprog_status {
 };
 
 int camera_set_pmic_power(enum camera_pmic_pin pin, bool flag);
+
 #endif
 #endif

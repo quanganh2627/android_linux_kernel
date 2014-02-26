@@ -510,6 +510,17 @@ int camera_set_pmic_power(enum camera_pmic_pin pin, bool flag)
 EXPORT_SYMBOL_GPL(camera_set_pmic_power);
 #endif
 
+#define HEXPREF(x)	((x) != 0 ? "0x" : "")
+#define HEX(x)		HEXPREF(x), (x)
+
+char *camera_get_msr_filename(char *buf, int buf_size, char *sensor, int cam)
+{
+	snprintf(buf, buf_size, "%02d%s-%s%x-%s%x-%s%x.drvb",
+		 cam, sensor, HEX(spid.vendor_id),
+		 HEX(spid.platform_family_id), HEX(spid.product_line_id));
+	return buf;
+}
+
 #ifdef CONFIG_ACPI
 void __init camera_init_device(void)
 {
