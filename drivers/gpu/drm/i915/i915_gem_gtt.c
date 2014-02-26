@@ -629,6 +629,15 @@ void i915_gem_gtt_bind_object(struct drm_i915_gem_object *obj,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	const unsigned long entry = i915_gem_obj_ggtt_offset(obj) >> PAGE_SHIFT;
 
+	/* Map the scratch page into the GTT entries of the object */
+	if ((unsigned long)(obj->pages) == (unsigned long)obj) {
+		dev_priv->gtt.base.clear_range(&dev_priv->gtt.base,
+				       entry,
+				       obj->base.size >> PAGE_SHIFT);
+		obj->has_global_gtt_mapping = 1;
+		return;
+	}
+
 	dev_priv->gtt.base.insert_entries(&dev_priv->gtt.base, obj->pages,
 					  entry,
 					  cache_level,

@@ -1811,6 +1811,17 @@ i915_gem_object_put_pages(struct drm_i915_gem_object *obj)
 	 * lists early. */
 	list_del(&obj->global_list);
 
+	/*
+	 * If so far the object was backed up by a scratch page, then remove
+	 * that association & make it reusable as a normal Gem object
+	 */
+	if ((unsigned long)obj->pages == (unsigned long)(obj)) {
+		obj->pages = NULL;
+		obj->base.read_domains = obj->base.write_domain =
+							I915_GEM_DOMAIN_CPU;
+		return 0;
+	}
+
 	ops->put_pages(obj);
 	obj->pages = NULL;
 
@@ -3806,7 +3817,12 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	if (ret)
 		goto err_unpin_display;
 
-	i915_gem_object_flush_cpu_write_domain(obj, true);
+	/*
+	 * Check if object is backed up by a scratch page, in that case CPU
+	 * cache flush is not required, thus skip it.
+	 */
+	if ((unsigned long)(obj->pages) != (unsigned long)obj)
+		i915_gem_object_flush_cpu_write_domain(obj, true);
 
 	old_write_domain = obj->base.write_domain;
 	old_read_domains = obj->base.read_domains;

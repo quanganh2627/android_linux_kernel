@@ -46,6 +46,7 @@
 #include <linux/dma_remapping.h>
 #include <linux/regulator/consumer.h>
 #include <asm/spid.h>
+#include <linux/shmem_fs.h>
 
 #define MAX_BRIGHTNESS	255
 
@@ -8346,6 +8347,76 @@ static void intel_crtc_destroy(struct drm_crtc *crtc)
 	kfree(intel_crtc);
 }
 
+static inline void
+intel_use_srcatch_page_for_fb(struct drm_i915_gem_object *obj)
+{
+	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+	int ret;
+
+	/* A fb being flipped without having any allocated backing physical
+	 * space is most probably going to be used as a blanking buffer (black
+	 * colored). So instead of allocating the real backing physical space
+	 * for this buffer, we can try to currently back this object by a
+	 * scratch page, which is already allocated.
+	 * So we check if no shmem data pages have been allocated to the fb
+	 * we can back it by a scratch page and thus save time by avoiding
+	 * allocation of backing physical space & subsequent CPU cache flush.
+	 */
+	if (obj->base.filp) {
+		struct inode *inode = file_inode(obj->base.filp);
+		struct shmem_inode_info *info = SHMEM_I(inode);
+		if (!inode)
+			DRM_ERROR("No inode\n");
+		spin_lock(&info->lock);
+		ret = info->alloced;
+		spin_unlock(&info->lock);
+		if ((ret == 0) && (obj->pages == NULL)) {
+			/*
+			 * Set the 'pages' field with the object pointer
+			 * itself, this will avoid the need of a new field in
+			 * obj structure to identify the object backed up by a
+			 * scratch page and will also avoid the call to
+			 * 'get_pages', thus also saving on the time required
+			 * for allocation of 'scatterlist' structure.
+			 */
+			obj->pages = (struct sg_table *)(obj);
+
+			/*
+			 * To avoid calls to gtt prepare & finish, as those
+			 * will dereference the 'pages' field
+			 */
+			obj->has_dma_mapping = 1;
+			list_add_tail(&obj->global_list,
+					&dev_priv->mm.unbound_list);
+			trace_printk("Using Scratch page for obj %p\n", obj);
+		}
+	}
+}
+
+static inline void
+intel_drop_srcatch_page_for_fb(struct drm_i915_gem_object *obj)
+{
+	int ret;
+	/*
+	 * Unmap the object backed up by scratch page, as it is no
+	 * longer being scanned out and thus it can be now allowed
+	 * to be used as a normal object.
+	 * Assumption: The User space will ensure that only when the
+	 * object is no longer being scanned out, it will be reused
+	 * for rendering. This is a valid assumption as there is no
+	 * such handling in driver for other regular fb objects also.
+	 */
+	if ((unsigned long)obj->pages ==
+				(unsigned long)obj) {
+		ret = i915_gem_object_ggtt_unbind(obj);
+		/* EBUSY is ok: this means that pin count is still not zero */
+		if (ret && ret != -EBUSY)
+			DRM_ERROR("unbind error %d\n", ret);
+		i915_gem_object_put_pages(obj);
+		obj->has_dma_mapping = 0;
+	}
+}
+
 void intel_unpin_work_fn(struct work_struct *__work)
 {
 	struct intel_unpin_work *work =
@@ -8355,6 +8426,7 @@ void intel_unpin_work_fn(struct work_struct *__work)
 
 	mutex_lock(&dev->struct_mutex);
 	intel_unpin_fb_obj(work->old_fb_obj);
+	intel_drop_srcatch_page_for_fb(work->old_fb_obj);
 	drm_gem_object_unreference(&work->pending_flip_obj->base);
 	drm_gem_object_unreference(&work->old_fb_obj->base);
 
@@ -8693,6 +8765,7 @@ static int intel_gen7_queue_mmio_flip(struct drm_device *dev,
 	struct i915_flip_work *work = &flip_works[intel_crtc->plane];
 	int ret;
 
+	intel_use_srcatch_page_for_fb(obj);
 	ret = intel_pin_and_fence_fb_obj(dev, obj, obj->ring);
 	if (ret)
 		goto err;
