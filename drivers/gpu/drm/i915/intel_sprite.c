@@ -406,6 +406,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 
 
 	I915_WRITE(SPCNTR(pipe, plane), sprctl);
+	i915_update_plane_stat(dev_priv, pipe, plane, true, SPRITE_PLANE);
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), i915_gem_obj_ggtt_offset(obj) +
 			     sprsurf_offset);
 	if (event == NULL)
@@ -423,6 +424,7 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 
 	I915_WRITE(SPCNTR(pipe, plane), I915_READ(SPCNTR(pipe, plane)) &
 		   ~SP_ENABLE);
+	i915_update_plane_stat(dev_priv, pipe, plane, false, SPRITE_PLANE);
 	/*
 	 * Check if Max Fifo configuration is required when sprite
 	 * is disabled.
@@ -870,12 +872,15 @@ ilk_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 }
 
 static void
-intel_enable_primary(struct drm_crtc *crtc)
+intel_enable_primary(struct drm_plane *dplane, struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_plane *intel_plane = to_intel_plane(dplane);
 	int reg = DSPCNTR(intel_crtc->plane);
+	int plane = intel_crtc->plane;
+	int pipe = intel_plane->pipe;
 
 	if (!intel_crtc->primary_disabled)
 		return;
@@ -884,15 +889,18 @@ intel_enable_primary(struct drm_crtc *crtc)
 	intel_update_fbc(dev);
 
 	I915_WRITE(reg, I915_READ(reg) | DISPLAY_PLANE_ENABLE);
+	i915_update_plane_stat(dev_priv, pipe, plane, true, DISPLAY_PLANE);
 }
 
 static void
-intel_disable_primary(struct drm_crtc *crtc)
+intel_disable_primary(struct drm_plane *dplane, struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_plane *intel_plane = to_intel_plane(dplane);
 	int plane = intel_crtc->plane;
+	int pipe = intel_plane->pipe;
 	int reg = DSPCNTR(plane);
 
 	if (intel_crtc->primary_disabled)
@@ -900,6 +908,7 @@ intel_disable_primary(struct drm_crtc *crtc)
 
 	I915_WRITE(reg, I915_READ(reg) & ~DISPLAY_PLANE_ENABLE);
 	I915_WRITE(DSPSURF(plane), I915_READ(DSPSURF(plane)));
+	i915_update_plane_stat(dev_priv, pipe, plane, false, DISPLAY_PLANE);
 
 	intel_crtc->primary_disabled = true;
 	intel_update_fbc(dev);
@@ -1022,9 +1031,9 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		return -EINVAL;
 
 	if (event == NULL)
-		intel_enable_primary(crtc);
+		intel_enable_primary(plane, crtc);
 	else
-		intel_disable_primary(crtc);
+		intel_disable_primary(plane, crtc);
 	intel_fb = to_intel_framebuffer(fb);
 	obj = intel_fb->obj;
 
@@ -1242,7 +1251,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	 */
 	if (!IS_VALLEYVIEW(dev)) {
 		if (!disable_primary)
-			intel_enable_primary(crtc);
+			intel_enable_primary(plane, crtc);
 	}
 
 	if (visible) {
@@ -1254,7 +1263,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 
 	if (!IS_VALLEYVIEW(dev)) {
 		if (disable_primary)
-			intel_disable_primary(crtc);
+			intel_disable_primary(plane, crtc);
 	}
 
 	/* Unpin old obj after new one is active to avoid ugliness */
@@ -1343,11 +1352,12 @@ intel_disable_plane(struct drm_plane *plane)
 	INIT_WORK(&intel_plane_wq->work, intel_disable_plane_unpin_work_fn);
 
 	/* If MAX FIFO enabled disable */
-	if (I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN)
-		I915_WRITE(FW_BLC_SELF_VLV,
-			   I915_READ(FW_BLC_SELF_VLV) & ~FW_CSPWRDWNEN);
+	if (dev_priv->maxfifo_enabled) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+	}
 
-	intel_enable_primary(plane->crtc);
+	intel_enable_primary(plane, plane->crtc);
 	intel_plane->disable_plane(plane, plane->crtc);
 
 	intel_plane_wq->base.dev = plane->dev;

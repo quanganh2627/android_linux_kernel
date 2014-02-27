@@ -56,6 +56,11 @@
 #define DRIVER_DESC		"Intel Graphics"
 #define DRIVER_DATE		"20080730"
 
+enum planes {
+	DISPLAY_PLANE = 0,
+	SPRITE_PLANE,
+};
+
 enum pipe {
 	PIPE_A = 0,
 	PIPE_B,
@@ -1287,6 +1292,15 @@ struct i915_package_c8 {
 	} regsave;
 };
 
+struct i915_plane_stat {
+	bool primary;
+	bool secondary;
+	bool sprite_a;
+	bool sprite_b;
+	bool sprite_c;
+	bool sprite_d;
+};
+
 typedef struct drm_i915_private {
 	struct drm_device *dev;
 	struct kmem_cache *slab;
@@ -1347,6 +1361,7 @@ typedef struct drm_i915_private {
 	bool clockspread;
 	bool clockbend;
 	bool unplug;
+	bool maxfifo_enabled;
 	u32 gt_irq_mask;
 	u32 pm_irq_mask;
 
@@ -1585,6 +1600,7 @@ typedef struct drm_i915_private {
 	uint32_t watchdog_threshold[I915_NUM_RINGS];
 
 	struct i915_perfmon perfmon;
+	struct i915_plane_stat plane_stat;
 } drm_i915_private_t;
 
 static inline struct drm_i915_private *to_i915(const struct drm_device *dev)

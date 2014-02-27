@@ -393,6 +393,59 @@ static bool check_live_status(struct drm_i915_private *dev_priv)
 		return true;
 }
 
+void i915_update_plane_stat(struct drm_i915_private *dev_priv, int pipe,
+		int plane, bool enable, int planes)
+{
+	switch (pipe) {
+	case 0:
+		if (planes == DISPLAY_PLANE) {
+			if (enable)
+				dev_priv->plane_stat.primary = true;
+			else
+				dev_priv->plane_stat.primary = false;
+		} else {
+			switch (plane) {
+			case 0:
+				if (enable)
+					dev_priv->plane_stat.sprite_a = true;
+				else
+					dev_priv->plane_stat.sprite_a = false;
+				break;
+			case 1:
+				if (enable)
+					dev_priv->plane_stat.sprite_b = true;
+				else
+					dev_priv->plane_stat.sprite_b = false;
+				break;
+			}
+		}
+		break;
+	case 1:
+		if (planes == DISPLAY_PLANE) {
+			if (enable)
+				dev_priv->plane_stat.secondary = true;
+			else
+				dev_priv->plane_stat.secondary = false;
+		} else {
+			switch (plane) {
+			case 0:
+				if (enable)
+					dev_priv->plane_stat.sprite_c = true;
+				else
+					dev_priv->plane_stat.sprite_c = false;
+				break;
+			case 1:
+				if (enable)
+					dev_priv->plane_stat.sprite_d = true;
+				else
+					dev_priv->plane_stat.sprite_d = false;
+				break;
+			}
+		}
+		break;
+	}
+}
+
 static const intel_limit_t *intel_ironlake_limit(struct drm_crtc *crtc,
 						int refclk)
 {
@@ -1243,17 +1296,17 @@ bool is_maxfifo_needed(struct drm_i915_private *dev_priv)
 {
 	int cnt = 0;
 
-	if (is_plane_enabled(dev_priv, PLANE_A))
+	if (dev_priv->plane_stat.primary)
 		cnt++;
-	if (is_plane_enabled(dev_priv, PLANE_B))
+	if (dev_priv->plane_stat.secondary)
 		cnt++;
-	if (is_sprite_enabled(dev_priv, PIPE_A, PLANE_A))
+	if (dev_priv->plane_stat.sprite_a)
 		cnt++;
-	if (is_sprite_enabled(dev_priv, PIPE_A, PLANE_B))
+	if (dev_priv->plane_stat.sprite_b)
 		cnt++;
-	if (is_sprite_enabled(dev_priv, PIPE_B, PLANE_A))
+	if (dev_priv->plane_stat.sprite_c)
 		cnt++;
-	if (is_sprite_enabled(dev_priv, PIPE_B, PLANE_B))
+	if (dev_priv->plane_stat.sprite_d)
 		cnt++;
 
 	if (cnt == 1)
@@ -1936,6 +1989,7 @@ static void intel_enable_plane(struct drm_i915_private *dev_priv,
 		return;
 
 	I915_WRITE(reg, val | DISPLAY_PLANE_ENABLE);
+	i915_update_plane_stat(dev_priv, pipe, plane, true, DISPLAY_PLANE);
 	intel_flush_display_plane(dev_priv, plane);
 	/* No need to wait in case of mipi.
 	 * Since data will flow only when port is enabled.
@@ -1967,11 +2021,13 @@ static void intel_disable_plane(struct drm_i915_private *dev_priv,
 		return;
 
 	/* If MAX FIFO enabled disable */
-	if (I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN)
-		I915_WRITE(FW_BLC_SELF_VLV,
-			   I915_READ(FW_BLC_SELF_VLV) & ~FW_CSPWRDWNEN);
+	if (dev_priv->maxfifo_enabled) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+	}
 
 	I915_WRITE(reg, val & ~DISPLAY_PLANE_ENABLE);
+	i915_update_plane_stat(dev_priv, pipe, plane, false, DISPLAY_PLANE);
 	intel_flush_display_plane(dev_priv, plane);
 	intel_wait_for_vblank(dev_priv->dev, pipe);
 
