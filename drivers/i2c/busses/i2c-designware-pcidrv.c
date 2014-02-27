@@ -190,8 +190,8 @@ static int i2c_dw_pci_runtime_idle(struct device *dev)
 	int err = pm_schedule_suspend(dev, 500);
 	dev_dbg(dev, "runtime_idle called\n");
 
-	if (err)
-		return err;
+	if (err != 0)
+		return 0;
 	return -EBUSY;
 }
 
