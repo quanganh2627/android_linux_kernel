@@ -3179,7 +3179,6 @@ static int rt5640_set_bias_level(struct snd_soc_codec *codec,
 		snd_soc_write(codec, RT5640_PWR_MIXER, 0x0000);
 		snd_soc_write(codec, RT5640_PWR_ANLG1, 0x0000);
 		snd_soc_write(codec, RT5640_PWR_ANLG2, 0x0000);
-		snd_soc_write(codec, RT5640_ADDA_CLK1, 0x7774);
 		/* Turn off the Voice DSP */
 		snd_soc_update_bits(codec, RT5640_DSP_CTRL3,
 			RT5640_DSP_PD_PIN_MASK, RT5640_DSP_PD_PIN_LO);

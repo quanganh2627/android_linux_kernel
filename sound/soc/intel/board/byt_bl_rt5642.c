@@ -536,10 +536,13 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 		pr_debug("Platform clk turned ON\n");
 		snd_soc_codec_set_sysclk(codec, RT5640_SCLK_S_PLL1,
 				0, BYT_PLAT_CLK_3_HZ, SND_SOC_CLOCK_IN);
+		snd_soc_write(codec, RT5640_ADDA_CLK1, 0x0014);
 	} else {
 		/* Set codec clock source to internal clock before
 		   turning off the platform clock. Codec needs clock
-		   for Jack detection and button press */
+		   for Jack detection and button press. Also scale down
+		   ADC/DAC clock */
+		snd_soc_write(codec, RT5640_ADDA_CLK1, 0x7774);
 		snd_soc_codec_set_sysclk(codec, RT5640_SCLK_S_RCCLK,
 				0, 0, SND_SOC_CLOCK_IN);
 		vlv2_plat_configure_clock(VLV2_PLAT_CLK_AUDIO,
