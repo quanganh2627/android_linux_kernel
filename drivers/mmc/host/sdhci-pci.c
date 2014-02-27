@@ -2485,12 +2485,20 @@ static void sdhci_pci_remove(struct pci_dev *pdev)
 static void sdhci_pci_shutdown(struct pci_dev *pdev)
 {
 	struct sdhci_pci_chip *chip;
+	struct sdhci_pci_slot *slot;
 	int i;
 
 	chip = pci_get_drvdata(pdev);
 
 	if (!chip || !chip->pdev)
 		return;
+
+	for (i = 0; i < chip->num_slots; i++) {
+		slot = chip->slots[i];
+		if (slot && slot->data)
+			if (slot->data->cleanup)
+				slot->data->cleanup(slot->data);
+	}
 
 	switch (chip->pdev->device) {
 	case PCI_DEVICE_ID_INTEL_CLV_SDIO0:
