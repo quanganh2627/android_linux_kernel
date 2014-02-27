@@ -186,10 +186,10 @@ EXPORT_SYMBOL(sync_pt_create);
 
 void sync_pt_free(struct sync_pt *pt)
 {
+	sync_timeline_remove_pt(pt);
+
 	if (pt->parent->ops->free_pt)
 		pt->parent->ops->free_pt(pt);
-
-	sync_timeline_remove_pt(pt);
 
 	kref_put(&pt->parent->kref, sync_timeline_free);
 
