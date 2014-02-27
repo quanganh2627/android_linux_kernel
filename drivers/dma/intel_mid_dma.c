@@ -813,7 +813,7 @@ static int intel_mid_dma_device_control(struct dma_chan *chan,
 	 */
 	if (cmd == DMA_PAUSE) {
 		midc->in_use = 0;
-		pm_runtime_put(mid->dev);
+		pm_runtime_put_sync(mid->dev);
 		return 0;
 	}
 
@@ -1413,7 +1413,7 @@ static void intel_mid_dma_free_chan_resources(struct dma_chan *chan)
 
 	/* Disable the channel */
 	iowrite32(DISABLE_CHANNEL(midc->ch_id), mid->dma_base + DMA_CHAN_EN);
-	pm_runtime_put(mid->dev);
+	pm_runtime_put_sync(mid->dev);
 }
 
 /**
@@ -1443,7 +1443,7 @@ static int intel_mid_dma_alloc_chan_resources(struct dma_chan *chan)
 	/* ASSERT:  channel is idle */
 	if (midc->in_use == true) {
 		pr_err("ERR_MDMA: ch not idle\n");
-		pm_runtime_put(mid->dev);
+		pm_runtime_put_sync(mid->dev);
 		return -EIO;
 	}
 	dma_cookie_init(chan);
@@ -1454,7 +1454,7 @@ static int intel_mid_dma_alloc_chan_resources(struct dma_chan *chan)
 		desc = dma_pool_alloc(mid->dma_pool, GFP_KERNEL, &phys);
 		if (!desc) {
 			pr_err("ERR_MDMA: desc failed\n");
-			pm_runtime_put(mid->dev);
+			pm_runtime_put_sync(mid->dev);
 			return -ENOMEM;
 			/*check*/
 		}
