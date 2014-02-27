@@ -1208,26 +1208,36 @@ static int sst_alloc_hostless_stream(const struct sst_pcm_format *pcm_params,
 	return ret_val;
 }
 
-static int sst_aware_event(struct snd_soc_dapm_widget *w,
-			   struct snd_kcontrol *k, int event)
+static int sst_hostless_stream_event(struct snd_soc_dapm_widget *w,
+					struct snd_kcontrol *k, int event)
 {
 	struct sst_ids *ids = w->priv;
-#define MERR_DPCM_AWARE_STRID 25
+
+#define MERR_DPCM_HOSTLESS_STRID 25
 	if (SND_SOC_DAPM_EVENT_ON(event))
 		/* ALLOC */
 		/* FIXME: HACK - FW shouldn't require alloc for aware */
 		return sst_alloc_hostless_stream(ids->pcm_fmt,
-						 MERR_DPCM_AWARE_STRID,
+						 MERR_DPCM_HOSTLESS_STRID,
 						 ids->location_id >> SST_PATH_ID_SHIFT,
 						 ids->task_id);
 	else
 		/* FREE */
-		return sst_dsp->ops->close(MERR_DPCM_AWARE_STRID);
+		return sst_dsp->ops->close(MERR_DPCM_HOSTLESS_STRID);
 }
 
 static const struct snd_kcontrol_new sst_mix_sw_aware =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 0, 1, 0,
 		sst_mix_get, sst_mix_put);
+
+static const struct snd_kcontrol_new sst_mix_sw_vad =
+	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 0, 1, 0,
+		sst_mix_get, sst_mix_put);
+
+static const struct snd_kcontrol_new sst_vad_enroll[] = {
+	SOC_SINGLE_BOOL_EXT("SST VTSV Enroll", 0, sst_vtsv_enroll_get,
+					sst_vtsv_enroll_set),
+};
 
 static const struct snd_kcontrol_new sst_mix_sw_tone_gen =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 1, 1, 0,
@@ -1247,10 +1257,16 @@ static const struct sst_pcm_format aware_stream_fmt = {
 	.channels_max = 1,
 };
 
+static const struct sst_pcm_format vad_stream_fmt = {
+	.sample_bits = 16,
+	.rate_min = 16000,
+	.channels_max = 1,
+};
+
 static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("tone"),
-	SST_DAPM_OUTPUT("aware", SST_PATH_INDEX_AWARE_OUT, SST_TASK_AWARE, &aware_stream_fmt, sst_aware_event),
-	SND_SOC_DAPM_OUTPUT("vad"),
+	SST_DAPM_OUTPUT("aware", SST_PATH_INDEX_AWARE_OUT, SST_TASK_AWARE, &aware_stream_fmt, sst_hostless_stream_event),
+	SST_DAPM_OUTPUT("vad", SST_PATH_INDEX_VAD_OUT, SST_TASK_AWARE, &vad_stream_fmt, sst_hostless_stream_event),
 	SST_AIF_IN("modem_in",  sst_set_be_modules),
 	SST_AIF_IN("codec_in0", sst_set_be_modules),
 	SST_AIF_IN("codec_in1", sst_set_be_modules),
@@ -1361,6 +1377,8 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MUX("ssp1_out mux 0", SND_SOC_NOPM, 0, 0, &sst_bt_fm_mux),
 	SND_SOC_DAPM_SWITCH("aware_out aware 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_aware),
+	SND_SOC_DAPM_SWITCH("vad_out vad 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_vad),
+
 	SND_SOC_DAPM_SWITCH("tone_in tone_generator 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_tone_gen),
 
 	SND_SOC_DAPM_SUPPLY("VBTimer", SND_SOC_NOPM, 0, 0,
@@ -1417,7 +1435,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"aware_out aware 0", "switch", "aware_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("aware_out mix 0"),
 	{"vad", NULL, "vad_out"},
-	{"vad_out", NULL, "vad_out mix 0"},
+	{"vad_out", NULL, "vad_out vad 0"},
+	{"vad_out vad 0", "switch", "vad_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("vad_out mix 0"),
 
 	{"codec_out0", NULL, "codec_out0 mix 0"},
@@ -1465,6 +1484,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"Deepbuffer Playback", NULL, "VBTimer"},
 	{"Compress Playback", NULL, "VBTimer"},
 	{"VOIP Playback", NULL, "VBTimer"},
+	{"vad", NULL, "VBTimer"},
 	{"aware", NULL, "VBTimer"},
 	{"modem_in", NULL, "VBTimer"},
 	{"modem_out", NULL, "VBTimer"},
@@ -1668,6 +1688,8 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 		SST_PATH_INDEX_VAD_OUT, 0, SST_TASK_SBA, SBA_VB_SET_FIR),
 	SST_ALGO_KCONTROL_BYTES("vad_out", "iir", 300, SST_MODULE_ID_IIR_24,
 		SST_PATH_INDEX_VAD_OUT, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
+	SST_ALGO_KCONTROL_BYTES("vad_out", "vad", 28, SST_MODULE_ID_ALGO_VTSV,
+		SST_PATH_INDEX_VAD_OUT, 0, SST_TASK_AWARE, VAD_ENV_CLASS_PARAMS),
 	SST_ALGO_KCONTROL_BYTES("sprot_loop_out", "lpro", 192, SST_MODULE_ID_SPROT,
 		SST_PATH_INDEX_SPROT_LOOP_OUT, 0, SST_TASK_SBA, SBA_VB_LPRO),
 	SST_ALGO_KCONTROL_BYTES("codec_in0", "dcr", 60, SST_MODULE_ID_FILT_DCR,
@@ -1921,6 +1943,8 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 			ARRAY_SIZE(sst_mux_controls));
 	snd_soc_add_platform_controls(platform, sst_debug_controls,
 			ARRAY_SIZE(sst_debug_controls));
+	snd_soc_add_platform_controls(platform, sst_vad_enroll,
+			ARRAY_SIZE(sst_vad_enroll));
 
 	/* initialize the names of the probe points */
 	for (i = 0; i < SST_NUM_PROBE_CONNECTION_PTS; i++)

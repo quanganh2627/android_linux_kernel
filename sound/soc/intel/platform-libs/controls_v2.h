@@ -356,6 +356,7 @@ enum sst_gain_index {
 enum sst_module_id {
 	SST_MODULE_ID_GAIN_CELL		  = 0x0067,
 	SST_MODULE_ID_SPROT		  = 0x006D,
+	SST_MODULE_ID_ALGO_VTSV		  = 0x0073,
 	SST_MODULE_ID_NR		  = 0x0076,
 	SST_MODULE_ID_BWX		  = 0x0077,
 	SST_MODULE_ID_DRP		  = 0x0078,
@@ -434,6 +435,7 @@ enum sst_cmd {
 	SBA_VB_SET_IIR          = 129,
 	SBA_SET_SSP_SLOT_MAP	= 130,
 	AWARE_ENV_CLASS_PARAMS	= 130,
+	VAD_ENV_CLASS_PARAMS	= 2049,
 };
 
 enum sst_dsp_switch {
@@ -712,4 +714,6 @@ struct sst_probe_config {
 
 int sst_mix_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
 int sst_mix_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
+int sst_vtsv_enroll_set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
+int sst_vtsv_enroll_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
 #endif

@@ -1669,7 +1669,7 @@ static int sst_compr_vol_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int sst_vtsv_enroll_set(struct snd_kcontrol *kcontrol,
+int sst_vtsv_enroll_set(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
@@ -1685,7 +1685,7 @@ static int sst_vtsv_enroll_set(struct snd_kcontrol *kcontrol,
 	return ret;
 }
 
-static int sst_vtsv_enroll_get(struct snd_kcontrol *kcontrol,
+int sst_vtsv_enroll_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
