@@ -2066,16 +2066,12 @@ static int dma_runtime_idle(struct device *dev)
 {
 	struct middma_device *device = dev_get_drvdata(dev);
 	int i;
-	int err;
 
 	for (i = 0; i < device->max_chan; i++) {
 		if (device->ch[i].in_use)
 			return -EAGAIN;
 	}
-	err = pm_schedule_suspend(dev, 0);
-	if (err)
-		return err;
-	return -EBUSY;
+	return pm_schedule_suspend(dev, 0);;
 }
 
 /******************************************************************************
