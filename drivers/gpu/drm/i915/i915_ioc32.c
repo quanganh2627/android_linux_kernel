@@ -230,7 +230,7 @@ long i915_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if ((nr >= DRM_COMMAND_VXD_BASE) &&
 				(nr < DRM_COMMAND_VXD_BASE + 0x10)) {
 			BUG_ON(!dev_priv->vxd_ioctl);
-			return dev_priv->vxd_ioctl(filp, cmd, arg);
+			ret = dev_priv->vxd_ioctl(filp, cmd, arg);
 		} else
 #endif
 		{
