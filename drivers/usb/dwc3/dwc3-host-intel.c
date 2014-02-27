@@ -42,6 +42,7 @@ static int dwc3_suspend_host(struct usb_hcd *hcd);
 static int dwc3_resume_host(struct usb_hcd *hcd);
 
 static struct dwc3_xhci_hcd {
+	struct wake_lock wakelock;
 	struct xhci_hcd *xhci;
 	struct work_struct reset_hcd;
 	int otg_irqnum;
@@ -168,8 +169,12 @@ static void dwc3_host_reset(struct work_struct *data)
 		return;
 	hcd = dwc3_xhci.xhci->main_hcd;
 
+	/* Need hold wakelock to prevent the S3 interrupt
+	 * the reset work.*/
+	wake_lock(&dwc3_xhci.wakelock);
 	__dwc3_stop_host(hcd);
 	dwc3_start_host(hcd);
+	wake_unlock(&dwc3_xhci.wakelock);
 }
 
 static void dwc_xhci_enable_phy_auto_resume(struct usb_hcd *hcd, bool enable)
@@ -612,6 +617,8 @@ static int xhci_dwc_drv_probe(struct platform_device *pdev)
 	/* Enable wakeup irq */
 	hcd->has_wakeup_irq = 1;
 	INIT_WORK(&dwc3_xhci.reset_hcd, dwc3_host_reset);
+	wake_lock_init(&dwc3_xhci.wakelock, WAKE_LOCK_SUSPEND,
+			"dwc3_host_wakelock");
 
 	platform_set_drvdata(pdev, hcd);
 	pm_runtime_no_callbacks(hcd->self.controller);
@@ -636,6 +643,7 @@ static int xhci_dwc_drv_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(hcd->self.controller);
 	pm_runtime_set_suspended(hcd->self.controller);
+	wake_lock_destroy(&dwc3_xhci.wakelock);
 	return 0;
 }
 

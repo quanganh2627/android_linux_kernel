@@ -188,7 +188,6 @@ struct intel_dwc_otg_pdata {
 
 #define DATACON_TIMEOUT		400
 #define DATACON_INTERVAL	10
-#define VBUS_TIMEOUT	300
 #define PCI_DEVICE_ID_DWC 0x119E
 
 #define VENDOR_ID_MASK (0x03 << 6)

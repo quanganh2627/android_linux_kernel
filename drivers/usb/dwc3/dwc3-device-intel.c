@@ -184,7 +184,6 @@ static irqreturn_t dwc3_quirks_process_event_buf(struct dwc3 *dwc, u32 buf)
 {
 	struct dwc3_event_buffer *evt;
 	u32 count;
-	u32 reg;
 	int left;
 
 	evt = dwc->ev_buffs[buf];
