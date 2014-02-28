@@ -32,9 +32,8 @@
 #define DMA_SIZE_CTP 0x1000
 #define DMA_SIZE_MRFLD 0x4000
 #define SST_CHECKPOINT_OFFSET 0x1C00
-#define SST_CHECKPOINT_OFFSET_MRFLD 0x0C10
+#define SST_CHECKPOINT_OFFSET_MRFLD 0x0C00
 #define CHECKPOINT_DUMP_SZ 256
-#define CHECKPOINT_DUMP_SZ_MRFLD 64
 
 #define SST_V1_MAILBOX_RECV	0x800
 #define SST_V2_MAILBOX_RECV	0x400
@@ -157,7 +156,7 @@ static struct sst_platform_debugfs_data mrfld_debugfs_data = {
 	.num_ssp = 3,
 	.num_dma = 2,
 	.checkpoint_offset = SST_CHECKPOINT_OFFSET_MRFLD,
-	.checkpoint_size = CHECKPOINT_DUMP_SZ_MRFLD,
+	.checkpoint_size = CHECKPOINT_DUMP_SZ,
 };
 
 static const struct sst_ipc_info mrfld_ipc_info = {
