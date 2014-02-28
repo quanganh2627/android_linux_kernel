@@ -31,6 +31,7 @@
 #include "platform_max17042.h"
 #include "platform_bq24192.h"
 #include "platform_smb347.h"
+#include <asm/intel_em_config.h>
 
 #define MRFL_SMIP_SRAM_ADDR		0xFFFCE000
 #define MOFD_SMIP_SRAM_ADDR		0xFFFC5C00
@@ -431,12 +432,18 @@ static void init_callbacks(struct max17042_platform_data *pdata)
 
 static bool max17042_is_valid_batid(void)
 {
+	struct em_config_oem0_data data;
 	bool ret = true;
 #ifdef CONFIG_CHARGER_SMB347
 	 if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
 		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1))
 		ret = smb347_is_valid_batid();
 #endif
+	if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2) ||
+		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2))
+		if (!em_config_get_oem0_data(&data))
+			ret = false;
+
 	return ret;
 }
 
