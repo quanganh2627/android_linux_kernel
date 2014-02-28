@@ -39,6 +39,7 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include <linux/input.h>
+#include <asm/intel-mid.h>
 
 #include <linux/mfd/wm8994/core.h>
 #include <linux/mfd/wm8994/registers.h>
@@ -339,6 +340,12 @@ static int mrfld_8958_set_vflex_vsel(struct snd_soc_dapm_widget *w,
 	vflexvsel = (pmic_id == PMIC_CHIP_ID_A0_VAL) ? VFLEXVSEL_A0_4P5V : VFLEXVSEL_B0_VSYS_PT;
 	pr_debug("pmic_id %#x vflexvsel %#x\n", pmic_id,
 		SND_SOC_DAPM_EVENT_ON(event) ? VFLEXVSEL_5V : vflexvsel);
+
+	/*FIXME: seems to be issue with bypass mode in MOOR, for now
+		force the bias off volate as VFLEXVSEL_5V */
+	if ((INTEL_MID_BOARD(1, PHONE, MOFD)) ||
+			(INTEL_MID_BOARD(1, TABLET, MOFD)))
+		vflexvsel = VFLEXVSEL_5V;
 
 	if (SND_SOC_DAPM_EVENT_ON(event))
 		retval = intel_scu_ipc_iowrite8(VFLEXCNT, VFLEXVSEL_5V);
