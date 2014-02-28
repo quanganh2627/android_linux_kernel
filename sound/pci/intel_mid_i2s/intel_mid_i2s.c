@@ -1003,7 +1003,7 @@ struct intel_mid_i2s_hdl *intel_mid_i2s_open_pci(
 
 open_error:
 	put_device(found_device);
-	pm_runtime_put(drv_data->ssp_dev);
+	pm_runtime_put_sync(drv_data->ssp_dev);
 	mutex_unlock(&drv_data->mutex);
 	return NULL;
 }
@@ -1136,7 +1136,7 @@ void intel_mid_i2s_close(struct intel_mid_i2s_hdl *drv_data)
 	clear_bit(I2S_PORT_OPENED, &drv_data->flags);
 
 	/* pm runtime */
-	pm_runtime_put(drv_data->ssp_dev);
+	pm_runtime_put_sync(drv_data->ssp_dev);
 
 	mutex_unlock(&drv_data->mutex);
 }
