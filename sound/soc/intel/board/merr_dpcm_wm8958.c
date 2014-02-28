@@ -554,6 +554,8 @@ static int mrfld_8958_init(struct snd_soc_pcm_runtime *runtime)
 	snd_soc_dapm_nc_pin(&card->dapm, "IN1RN");
 	snd_soc_dapm_nc_pin(&card->dapm, "IN1RP");
 
+	/* Force enable VMID to avoid cold latency constraints */
+	snd_soc_dapm_force_enable_pin(&card->dapm, "VMID");
 	snd_soc_dapm_sync(&card->dapm);
 
 	codec = mrfld_8958_get_codec(card);
@@ -779,14 +781,48 @@ struct snd_soc_dai_link mrfld_8958_msic_dailink[] = {
 #ifdef CONFIG_PM_SLEEP
 static int snd_mrfld_8958_prepare(struct device *dev)
 {
-	pr_debug("In %s device name\n", __func__);
+	struct snd_soc_card *card = dev_get_drvdata(dev);
+	struct snd_soc_codec *codec;
+	struct snd_soc_dapm_context *dapm;
+
+	pr_debug("In %s\n", __func__);
+
+	codec = mrfld_8958_get_codec(card);
+	if (!codec) {
+		pr_err("%s: couldn't find the codec pointer!\n", __func__);
+		return -EAGAIN;
+	}
+
+	pr_debug("found codec %s\n", codec->name);
+	dapm = &codec->dapm;
+
+	snd_soc_dapm_disable_pin(dapm, "VMID");
+	snd_soc_dapm_sync(dapm);
+
 	snd_soc_suspend(dev);
 	return 0;
 }
 
 static void snd_mrfld_8958_complete(struct device *dev)
 {
+	struct snd_soc_card *card = dev_get_drvdata(dev);
+	struct snd_soc_codec *codec;
+	struct snd_soc_dapm_context *dapm;
+
 	pr_debug("In %s\n", __func__);
+
+	codec = mrfld_8958_get_codec(card);
+	if (!codec) {
+		pr_err("%s: couldn't find the codec pointer!\n", __func__);
+		return;
+	}
+
+	pr_debug("found codec %s\n", codec->name);
+	dapm = &codec->dapm;
+
+	snd_soc_dapm_force_enable_pin(dapm, "VMID");
+	snd_soc_dapm_sync(dapm);
+
 	snd_soc_resume(dev);
 	return;
 }
