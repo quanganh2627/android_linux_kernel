@@ -487,6 +487,7 @@ static void wm8958_custom_mic_id(void *data, u16 status)
 
 		wm8994->mic_detecting = false;
 		wm8994->jack_mic = true;
+		wm8994->headphone_detected = false;
 
 		snd_soc_jack_report(wm8994->micdet[0].jack, SND_JACK_HEADSET,
 				    SND_JACK_HEADSET);
@@ -502,6 +503,8 @@ static void wm8958_custom_mic_id(void *data, u16 status)
 		 * or headset is detected)
 		 * */
 		wm8994->mic_detecting = true;
+		wm8994->jack_mic = false;
+		wm8994->headphone_detected = true;
 
 		snd_soc_jack_report(wm8994->micdet[0].jack, SND_JACK_HEADPHONE,
 				    SND_JACK_HEADSET);
