@@ -413,6 +413,7 @@ static struct hsu_port_cfg hsu_port_cfgs[][hsu_port_max] = {
 			.index = 0,
 			.name = HSU_BT_PORT,
 			.idle = 20,
+			.hw_ctrl_cts = 1,
 			.hw_init = intel_mid_hsu_init,
 			.hw_set_alt = intel_mid_hsu_switch,
 			.hw_set_rts = intel_mid_hsu_rts,
