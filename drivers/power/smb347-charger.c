@@ -953,12 +953,6 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 	static int notify_chrg, notify_usb;
 	int ret, vbus_present, power_ok;
 
-	/*
-	 * CHIP reloads the charger registers during unplug
-	 * and holds the I2C line and typical time is 5ms for
-	 * reload
-	 */
-	mdelay(5);
 	ret = smb347_read(smb, STAT_D);
 	if (ret < 0) {
 		dev_err(&smb->client->dev, "%s:i2c read error", __func__);
@@ -1167,10 +1161,6 @@ static int sm347_reload_setting(struct smb347_charger *smb)
 	int ret, i, loop_count;
 	int reg_offset = 0;
 
-	/* delay reloading, as chip is also writing at the time*/
-
-	mdelay(5);
-
 	mutex_lock(&smb->lock);
 	ret = smb347_set_writable(smb, true);
 	if (ret < 0)
@@ -1333,13 +1323,6 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 	int stat_c, irqstat_c, irqstat_d, irqstat_e, irqstat_f;
 	int irqstat_a, irqstat_b, stat_a;
 	irqreturn_t ret = IRQ_NONE;
-
-	/*
-	 * CHIP reloads the charger registers during unplug
-	 * and holds the I2C line and typical time is 5ms for
-	 * reload
-	 */
-	mdelay(5);
 
 	stat_c = smb347_read(smb, STAT_C);
 	if (stat_c < 0) {
@@ -1529,7 +1512,7 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 		ret = IRQ_HANDLED;
 	}
 
-	if (irqstat_f & (IRQSTAT_F_OTG_DET_IRQ | IRQSTAT_F_OTG_DET_STAT)) {
+	if (irqstat_f & IRQSTAT_F_OTG_DET_IRQ) {
 		ret = smb347_read(smb, STAT_B);
 		dev_info(&smb->client->dev, "stat_b = %x", ret);
 		if (ret < 0)
