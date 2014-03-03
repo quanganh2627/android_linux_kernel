@@ -12,6 +12,7 @@
 
 #include <linux/gpio.h>
 #include <linux/delay.h>
+#include <linux/i2c.h>
 #include <linux/atomisp_platform.h>
 #include <linux/regulator/consumer.h>
 #include <asm/intel_scu_ipcutil.h>
@@ -38,10 +39,41 @@
 #define CLK_ON	0x1
 #define CLK_OFF	0x2
 #endif
-
 #ifdef CONFIG_CRYSTAL_COVE
+#define ALDO1_SEL_REG	0x28
+#define ALDO1_CTRL3_REG	0x13
+#define ALDO1_2P8V	0x16
+#define ALDO1_CTRL3_SHIFT 0x05
+
+#define ELDO2_SEL_REG	0x1a
+#define ELDO2_CTRL2_REG 0x12
+#define ELDO2_1P8V	0x16
+#define ELDO2_CTRL2_SHIFT 0x01
+
+#define LDO9_REG	0x49
+#define LDO9_2P8V_ON	0x2f
+#define LDO9_2P8V_OFF	0x2e
+
+#define LDO10_REG	0x4a
+#define LDO10_1P8V_ON	0x59
+#define LDO10_1P8V_OFF	0x58
+
 static struct regulator *v1p8_reg;
 static struct regulator *v2p8_reg;
+
+/* PMIC HID */
+#define PMIC_HID_ROHM	"INT33FD:00"
+#define PMIC_HID_XPOWER	"INT33F4:00"
+#define PMIC_HID_TI	"INT33F5:00"
+
+enum pmic_ids {
+	PMIC_ROHM = 0,
+	PMIC_XPOWER,
+	PMIC_TI,
+	PMIC_MAX
+};
+
+static enum pmic_ids pmic_id;
 #endif
 
 static int camera_vprog1_on;
@@ -51,6 +83,135 @@ static int gp_camera1_reset;
 /*
  * OV2722 platform data
  */
+
+#ifdef CONFIG_CRYSTAL_COVE
+static int match_name(struct device *dev, void *data)
+{
+	const char *name = data;
+	struct i2c_client *client = to_i2c_client(dev);
+	return !strncmp(client->name, name, strlen(client->name));
+}
+
+static struct i2c_client *i2c_find_client_by_name(char *name)
+{
+	struct device *dev = bus_find_device(&i2c_bus_type, NULL,
+						name, match_name);
+	return dev ? to_i2c_client(dev) : NULL;
+}
+
+static enum pmic_ids camera_pmic_probe()
+{
+	/* search by client name */
+	struct i2c_client *client;
+	if (spid.hardware_id != BYT_TABLET_BLK_CRV2 ||
+		i2c_find_client_by_name(PMIC_HID_ROHM))
+		return PMIC_ROHM;
+
+	client = i2c_find_client_by_name(PMIC_HID_XPOWER);
+	if (client)
+		return PMIC_XPOWER;
+
+	client = i2c_find_client_by_name(PMIC_HID_TI);
+	if (client)
+		return PMIC_TI;
+
+	return PMIC_MAX;
+}
+
+static int camera_pmic_set(bool flag)
+{
+	int val;
+	int ret = 0;
+	if (pmic_id == PMIC_MAX) {
+		pmic_id = camera_pmic_probe();
+		if (pmic_id == PMIC_MAX)
+			return -EINVAL;
+	}
+
+	if (flag) {
+		switch (pmic_id) {
+		case PMIC_ROHM:
+			ret = regulator_enable(v2p8_reg);
+			if (ret)
+				return ret;
+
+			ret = regulator_enable(v1p8_reg);
+			if (ret)
+				regulator_disable(v2p8_reg);
+			break;
+		case PMIC_XPOWER:
+			/* ALDO1 */
+			ret = intel_mid_pmic_writeb(ALDO1_SEL_REG, ALDO1_2P8V);
+			if (ret)
+				return ret;
+
+			/* PMIC Output CTRL 3 for ALDO1 */
+			val = intel_mid_pmic_readb(ALDO1_CTRL3_REG);
+			val |= (1 << ALDO1_CTRL3_SHIFT);
+			ret = intel_mid_pmic_writeb(ALDO1_CTRL3_REG, val);
+			if (ret)
+				return ret;
+
+			/* ELDO2 */
+			ret = intel_mid_pmic_writeb(ELDO2_SEL_REG, ELDO2_1P8V);
+			if (ret)
+				return ret;
+
+			/* PMIC Output CTRL 2 for ELDO2 */
+			val = intel_mid_pmic_readb(ELDO2_CTRL2_REG);
+			val |= (1 << ELDO2_CTRL2_SHIFT);
+			ret = intel_mid_pmic_writeb(ELDO2_CTRL2_REG, val);
+			break;
+		case PMIC_TI:
+			/* LDO9 */
+			ret = intel_mid_pmic_writeb(LDO9_REG, LDO9_2P8V_ON);
+			if (ret)
+				return ret;
+
+			/* LDO10 */
+			ret = intel_mid_pmic_writeb(LDO10_REG, LDO10_1P8V_ON);
+			if (ret)
+				return ret;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+	} else {
+		switch (pmic_id) {
+		case PMIC_ROHM:
+			ret = regulator_disable(v2p8_reg);
+			ret += regulator_disable(v1p8_reg);
+			break;
+		case PMIC_XPOWER:
+			val = intel_mid_pmic_readb(ALDO1_CTRL3_REG);
+			val &= ~(1 << ALDO1_CTRL3_SHIFT);
+			ret = intel_mid_pmic_writeb(ALDO1_CTRL3_REG, val);
+			if (ret)
+				return ret;
+
+			val = intel_mid_pmic_readb(ELDO2_CTRL2_REG);
+			val &= ~(1 << ELDO2_CTRL2_SHIFT);
+			ret = intel_mid_pmic_writeb(ELDO2_CTRL2_REG, val);
+			break;
+		case PMIC_TI:
+			/* LDO9 */
+			ret = intel_mid_pmic_writeb(LDO9_REG, LDO9_2P8V_OFF);
+			if (ret)
+				return ret;
+
+			/* LDO10 */
+			ret = intel_mid_pmic_writeb(LDO10_REG, LDO10_1P8V_OFF);
+			if (ret)
+				return ret;
+			break;
+		default:
+			return -EINVAL;
+		}
+	}
+	return ret;
+}
+#endif
 
 static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
@@ -240,17 +401,11 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 	if (flag) {
 		if (!camera_vprog1_on) {
 #ifdef CONFIG_CRYSTAL_COVE
-			ret = regulator_enable(v2p8_reg);
+			ret = camera_pmic_set(flag);
 			if (ret) {
 				dev_err(&client->dev,
-						"Failed to enable regulator v2p8\n");
+						"Failed to enable regulator\n");
 				return ret;
-			}
-			ret = regulator_enable(v1p8_reg);
-			if (ret) {
-				regulator_disable(v2p8_reg);
-				dev_err(&client->dev,
-						"Failed to enable regulator v1p8\n");
 			}
 #elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
 			ret = intel_scu_ipc_msic_vprog1(1);
@@ -264,14 +419,12 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 	} else {
 		if (camera_vprog1_on) {
 #ifdef CONFIG_CRYSTAL_COVE
-			ret = regulator_disable(v2p8_reg);
-			if (ret)
-				dev_warn(&client->dev,
-						"Failed to disable regulator v2p8\n");
-			ret = regulator_disable(v1p8_reg);
-			if (ret)
-				dev_warn(&client->dev,
-						"Failed to disable regulator v1p8\n");
+			ret = camera_pmic_set(flag);
+			if (ret) {
+				dev_err(&client->dev,
+						"Failed to enable regulator\n");
+				return ret;
+			}
 #elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
 			ret = intel_scu_ipc_msic_vprog1(0);
 #else
@@ -295,6 +448,10 @@ static int ov2722_csi_configure(struct v4l2_subdev *sd, int flag)
 #ifdef CONFIG_CRYSTAL_COVE
 static int ov2722_platform_init(struct i2c_client *client)
 {
+	pmic_id = camera_pmic_probe();
+	if (pmic_id != PMIC_ROHM)
+		return 0;
+
 	v1p8_reg = regulator_get(&client->dev, "v1p8sx");
 	if (IS_ERR(v1p8_reg)) {
 		dev_err(&client->dev, "v1p8s regulator_get failed\n");
@@ -313,6 +470,9 @@ static int ov2722_platform_init(struct i2c_client *client)
 
 static int ov2722_platform_deinit(void)
 {
+	if (pmic_id != PMIC_ROHM)
+		return 0;
+
 	regulator_put(v1p8_reg);
 	regulator_put(v2p8_reg);
 
@@ -335,5 +495,8 @@ void *ov2722_platform_data(void *info)
 {
 	gp_camera1_power_down = -1;
 	gp_camera1_reset = -1;
+#ifdef CONFIG_CRYSTAL_COVE
+	pmic_id = PMIC_MAX;
+#endif
 	return &ov2722_sensor_platform_data;
 }
