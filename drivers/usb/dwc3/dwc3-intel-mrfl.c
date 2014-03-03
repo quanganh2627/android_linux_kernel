@@ -1098,12 +1098,19 @@ int dwc3_intel_prepare_start_peripheral(struct dwc_otg2 *otg)
 int dwc3_intel_suspend(struct dwc_otg2 *otg)
 {
 	struct pci_dev *pci_dev;
+	struct usb_hcd *hcd = NULL;
 	pci_power_t state = PCI_D3cold;
 
 	if (!otg)
 		return 0;
 
+	hcd = container_of(otg->otg.host, struct usb_hcd, self);
+
 	pci_dev = to_pci_dev(otg->dev);
+
+	if (otg->state == DWC_STATE_A_HOST &&
+			otg->suspend_host)
+		otg->suspend_host(hcd);
 
 	if (otg->state == DWC_STATE_B_PERIPHERAL ||
 			otg->state == DWC_STATE_A_HOST)
@@ -1125,11 +1132,13 @@ int dwc3_intel_suspend(struct dwc_otg2 *otg)
 int dwc3_intel_resume(struct dwc_otg2 *otg)
 {
 	struct pci_dev *pci_dev;
+	struct usb_hcd *hcd = NULL;
 	u32 data;
 
 	if (!otg)
 		return 0;
 
+	hcd = container_of(otg->otg.host, struct usb_hcd, self);
 	/* After resume from D0i3cold. The UTMI PHY D+ drive issue
 	 * reproduced due to all setting be reseted. So switch to OTG
 	 * mode avoid D+ drive too early.
@@ -1173,6 +1182,11 @@ int dwc3_intel_resume(struct dwc_otg2 *otg)
 	 * Without this debounce, will met fabric error randomly.
 	 **/
 	mdelay(1);
+
+	if (otg->state == DWC_STATE_A_HOST &&
+			otg->resume_host)
+		otg->resume_host(hcd);
+
 
 	return 0;
 }

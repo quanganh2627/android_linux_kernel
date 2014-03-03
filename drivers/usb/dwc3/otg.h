@@ -352,6 +352,12 @@ struct dwc_otg2 {
 	int (*stop_device)(struct usb_gadget *);
 	int (*vbus_draw) (struct usb_gadget *, unsigned ma);
 
+	/* host driver suspend/resume flow callback which
+	 * need host driver to register them if need call by
+	 * otg driver.*/
+	int (*suspend_host) (struct usb_hcd *hcd);
+	int (*resume_host) (struct usb_hcd *hcd);
+
 	/* Vendor driver private date */
 	void *otg_data;
 };
