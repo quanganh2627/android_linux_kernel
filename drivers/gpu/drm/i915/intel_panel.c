@@ -869,9 +869,11 @@ void intel_panel_destroy_backlight(struct drm_device *dev)
 #endif
 
 int intel_panel_init(struct intel_panel *panel,
-		     struct drm_display_mode *fixed_mode)
+			struct drm_display_mode *fixed_mode,
+			struct drm_display_mode *downclock_mode)
 {
 	panel->fixed_mode = fixed_mode;
+	panel->downclock_mode = downclock_mode;
 
 	return 0;
 }

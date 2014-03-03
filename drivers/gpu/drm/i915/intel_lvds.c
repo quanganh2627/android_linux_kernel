@@ -861,6 +861,7 @@ void intel_lvds_init(struct drm_device *dev)
 	struct drm_encoder *encoder;
 	struct drm_display_mode *scan; /* *modes, *bios_mode; */
 	struct drm_display_mode *fixed_mode = NULL;
+	struct drm_display_mode *downclock_mode = NULL;
 	struct edid *edid;
 	struct drm_crtc *crtc;
 	u32 lvds;
@@ -1001,11 +1002,9 @@ void intel_lvds_init(struct drm_device *dev)
 
 			fixed_mode = drm_mode_duplicate(dev, scan);
 			if (fixed_mode) {
-				intel_connector->panel.downclock_mode =
-					intel_find_panel_downclock(dev,
+				downclock_mode = intel_find_panel_downclock(dev,
 					fixed_mode, connector);
-				if (intel_connector->panel.downclock_mode !=
-					NULL &&	i915_lvds_downclock) {
+				if (downclock_mode != NULL && i915_lvds_downclock) {
 					/* We found the downclock for LVDS. */
 					dev_priv->lvds_downclock_avail = true;
 					dev_priv->lvds_downclock =
@@ -1082,7 +1081,7 @@ out:
 	}
 	drm_sysfs_connector_add(connector);
 
-	intel_panel_init(&intel_connector->panel, fixed_mode);
+	intel_panel_init(&intel_connector->panel, fixed_mode, downclock_mode);
 	intel_panel_setup_backlight(connector);
 
 	return;

@@ -3814,7 +3814,7 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 
 	ironlake_edp_panel_vdd_off(intel_dp, false);
 
-	intel_panel_init(&intel_connector->panel, fixed_mode);
+	intel_panel_init(&intel_connector->panel, fixed_mode, NULL);
 	intel_panel_setup_backlight(connector);
 
 	return true;
