@@ -186,7 +186,7 @@ struct intel_dwc_otg_pdata {
 #define PMIC_USBPHYCTRL_D0		(1 << 0)
 #define APBFC_EXIOTG3_MISC0_REG			0xF90FF85C
 
-#define DATACON_TIMEOUT		400
+#define DATACON_TIMEOUT		750
 #define DATACON_INTERVAL	10
 #define PCI_DEVICE_ID_DWC 0x119E
 
