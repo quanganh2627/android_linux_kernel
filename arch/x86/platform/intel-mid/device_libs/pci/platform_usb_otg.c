@@ -81,6 +81,7 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 	case PCI_DEVICE_ID_INTEL_MRFL_DWC3_OTG:
 		if (INTEL_MID_BOARD(1, PHONE, MOFD)) {
 			dwc_otg_pdata.pmic_type = SHADY_COVE;
+			dwc_otg_pdata.using_vusbphy = 0;
 			dwc_otg_pdata.charger_detect_enable = 0;
 			dwc_otg_pdata.usb2_phy_type = get_usb2_phy_type();
 			 dwc_otg_pdata.charging_compliance =
@@ -92,6 +93,7 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 
 		} else if (INTEL_MID_BOARD(1, PHONE, MRFL)) {
 			dwc_otg_pdata.pmic_type = BASIN_COVE;
+			dwc_otg_pdata.using_vusbphy = 1;
 			dwc_otg_pdata.charger_detect_enable = 1;
 			dwc_otg_pdata.device_hibernation = 1;
 
@@ -103,6 +105,7 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 		} else if (intel_mid_identify_sim() ==
 				INTEL_MID_CPU_SIMULATION_HVP) {
 			dwc_otg_pdata.pmic_type = NO_PMIC;
+			dwc_otg_pdata.using_vusbphy = 0;
 			dwc_otg_pdata.is_hvp = 1;
 			dwc_otg_pdata.charger_detect_enable = 0;
 			dwc_otg_pdata.usb2_phy_type = USB2_PHY_ULPI;

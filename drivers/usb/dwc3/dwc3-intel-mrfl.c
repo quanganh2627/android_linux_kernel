@@ -358,31 +358,46 @@ static void disable_phy_auto_resume(struct dwc_otg2 *otg)
 	otg_write(otg, GUSB2PHYCFG0, data);
 }
 
-/* This function will control VUSBPHY to power gate/ungate USBPHY */
+/* This function will control VUSBPHY to power gate/ungate USBPHY.
+ * If current platform haven't using VUSBPHY, then assert/deassert
+ * USBRST_N pin to make PHY enter reset state.
+ */
 static int enable_usb_phy(struct dwc_otg2 *otg, bool on_off)
 {
 	int ret;
+	u16 addr;
+	u8 mask, bits;
+	struct intel_dwc_otg_pdata *data;
+
+	if (!otg || !otg->otg_data)
+		return -EINVAL;
 
 	/* UTMI phy have no power control so far. So can't disable it. */
 	if (is_utmi_phy(otg))
 		return 0;
 
-	if (on_off) {
-		ret = intel_scu_ipc_update_register(PMIC_VLDOCNT,
-				0xff, PMIC_VLDOCNT_VUSBPHYEN);
-		if (ret)
-			otg_err(otg, "Fail to enable VBUSPHY\n");
-
-		/* Debounce 10ms for turn on VUSBPHY */
-		usleep_range(10000, 11000);
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+	if (data->using_vusbphy) {
+		addr = PMIC_VLDOCNT;
+		mask = PMIC_VLDOCNT_VUSBPHYEN;
 	} else {
-		ret = intel_scu_ipc_update_register(PMIC_VLDOCNT,
-				0x00, PMIC_VLDOCNT_VUSBPHYEN);
-		if (ret)
-			otg_err(otg, "Fail to disable VBUSPHY\n");
+		addr = PMIC_USBPHYCTRL;
+		mask = PMIC_USBPHYCTRL_D0;
 	}
 
-	return 0;
+	if (on_off)
+		bits = mask;
+	else
+		bits = 0x00;
+
+	ret = intel_scu_ipc_update_register(addr,
+			bits, mask);
+
+	/* Debounce 10ms for turn on VUSBPHY */
+	if (on_off)
+		usleep_range(10000, 11000);
+
+	return ret;
 }
 
 int basin_cove_get_id(struct dwc_otg2 *otg)

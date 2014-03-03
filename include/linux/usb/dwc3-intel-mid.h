@@ -47,6 +47,10 @@ struct intel_dwc_otg_pdata {
 	 * They impact the eye diagram qulity. And every
 	 * platform have different value.*/
 	int ulpi_eye_calibrate;
+
+	/* If the VUSBPHY power rail using for providing
+	 * power for USB PHY. */
+	int using_vusbphy;
 };
 
 /* timeout for disconnect from a suspended host */
