@@ -1507,6 +1507,7 @@ static int aic31xx_get_acpi_data(struct aic31xx_priv *aic31xx)
 	dev_dbg(aic31xx->dev, "element 9 %llx\n", element->integer.value);
 
 end:
+	ACPI_FREE(pdata_buffer.pointer);
 	return ret;
 
 }
