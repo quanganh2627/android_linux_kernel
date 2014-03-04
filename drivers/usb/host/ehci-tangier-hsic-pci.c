@@ -29,6 +29,8 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 
+#define INIT_TASK_PID	1
+
 static struct pci_dev	*pci_dev;
 
 static int ehci_hsic_start_host(struct pci_dev  *pdev);
@@ -1303,6 +1305,11 @@ static int ehci_hsic_probe(struct pci_dev *pdev,
 	hsic.s3_rt_state = RESUMED;
 	s3_wake_lock();
 	hsic_debugfs_init(hcd);
+
+	if (current->pid == INIT_TASK_PID) {
+		dev_info(&pdev->dev, "disable hsic on driver init!\n");
+		ehci_hsic_stop_host(pdev);
+	}
 
 	return retval;
 unmap_registers:
