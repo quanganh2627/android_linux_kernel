@@ -965,6 +965,10 @@ extern void intel_edp_psr_enable(struct intel_dp *intel_dp);
 extern void intel_edp_psr_disable(struct intel_dp *intel_dp);
 extern void intel_edp_psr_update(struct drm_device *dev);
 extern void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate);
+extern void intel_init_drrs_idleness_detection(struct drm_device *dev,
+				struct intel_connector *connector);
+extern void intel_update_drrs(struct drm_device *dev);
+extern void intel_disable_drrs(struct drm_device *dev);
 extern void hsw_disable_lcpll(struct drm_i915_private *dev_priv,
 			      bool switch_to_fclk, bool allow_power_down);
 extern void hsw_restore_lcpll(struct drm_i915_private *dev_priv);

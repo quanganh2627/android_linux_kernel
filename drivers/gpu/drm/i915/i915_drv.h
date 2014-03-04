@@ -674,6 +674,12 @@ enum no_psr_reason {
 
 struct i915_drrs {
 	struct intel_connector *connector;
+	bool is_clone;
+	struct intel_drrs_work {
+		struct delayed_work work;
+		struct drm_crtc *crtc;
+		int interval;
+	} *drrs_work;
 };
 
 enum intel_pch {
@@ -2092,6 +2098,7 @@ extern int i915_pc8_timeout __read_mostly;
 extern bool i915_prefault_disable __read_mostly;
 extern int i915_enable_kernel_batch_copy __read_mostly;
 extern int i915_enable_cmd_parser __read_mostly;
+extern int i915_drrs_interval __read_mostly;
 
 extern int i915_suspend(struct drm_device *dev, pm_message_t state);
 extern int i915_resume(struct drm_device *dev);
