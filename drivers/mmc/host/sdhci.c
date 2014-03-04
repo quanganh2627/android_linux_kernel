@@ -3779,23 +3779,16 @@ int sdhci_suspend_host(struct sdhci_host *host)
 
 	sdhci_disable_card_detection(host);
 
+	ret = mmc_suspend_host(host->mmc);
+	if (ret) {
+		sdhci_enable_card_detection(host);
+		goto out;
+	}
+
 	/* Disable tuning since we are suspending */
 	if (host->flags & SDHCI_USING_RETUNING_TIMER) {
 		del_timer_sync(&host->tuning_timer);
 		host->flags &= ~SDHCI_NEEDS_RETUNING;
-	}
-
-	ret = mmc_suspend_host(host->mmc);
-	if (ret) {
-		if (host->flags & SDHCI_USING_RETUNING_TIMER) {
-			host->flags |= SDHCI_NEEDS_RETUNING;
-			mod_timer(&host->tuning_timer, jiffies +
-					host->tuning_count * HZ);
-		}
-
-		sdhci_enable_card_detection(host);
-
-		goto out;
 	}
 
 	if (!device_may_wakeup(mmc_dev(host->mmc))) {
