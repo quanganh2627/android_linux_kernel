@@ -218,10 +218,30 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 
 	/* Clear the older Z-order */
 	val = I915_READ(SPCNTR(pipe, 0));
+	/*
+	 * Re-Visit: Disable maxfifo when we are moving from a single plane
+	 * scenario to a multiple plane. Before even enabling plane or the
+	 * z-order maxfifo should be disabled.
+	 */
+	if (dev_priv->maxfifo_enabled && !(val & SPRITE_ZORDER_ENABLE)) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+		intel_wait_for_vblank(dev, pipe);
+	}
 	val &= ~(SPRITE_FORCE_BOTTOM | SPRITE_ZORDER_ENABLE);
 	I915_WRITE(SPCNTR(pipe, 0), val);
 
 	val = I915_READ(SPCNTR(pipe, 1));
+	/*
+	 * Re-Visit: Disable maxfifo when we are moving from a single plane
+	 * scenario to a multiple plane. Before even enabling plane or the
+	 * z-order maxfifo should be disabled.
+	 */
+	if (dev_priv->maxfifo_enabled && !(val & SPRITE_ZORDER_ENABLE)) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+		intel_wait_for_vblank(dev, pipe);
+	}
 	val &= ~(SPRITE_FORCE_BOTTOM | SPRITE_ZORDER_ENABLE);
 	I915_WRITE(SPCNTR(pipe, 1), val);
 
