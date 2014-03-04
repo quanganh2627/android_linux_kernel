@@ -246,6 +246,10 @@ static int adc_to_temp(int direct, uint16_t adc_val, unsigned long *tp)
 		return 0;
 	}
 
+	/* This is just to satisfy the KW issues #28365, #28369 */
+	if (indx == 0)
+		return -EINVAL;
+
 	/*
 	 * The ADC code is in between two values directly defined in the
 	 * table. So, do linear interpolation to calculate the temperature.
