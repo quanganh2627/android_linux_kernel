@@ -194,6 +194,9 @@ static int sdhci_acpi_get_tuning_count(struct sdhci_host *host)
 	if (!strcmp(hid, "80860F14") && !strcmp(uid, "1"))
 		tuning_count = 8;
 
+	if (info)
+		ACPI_FREE(info);
+
 	return tuning_count;
 }
 
