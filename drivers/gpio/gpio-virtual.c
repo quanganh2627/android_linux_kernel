@@ -82,8 +82,11 @@ static void acpi_virtual_gpio_request_interrupts(struct virtual_gpio_data *gd)
 		return;
 
 	status = acpi_get_event_resources(handle, &buf);
-	if (ACPI_FAILURE(status))
+	if (ACPI_FAILURE(status)) {
+		if (buf.pointer)
+			ACPI_FREE(buf.pointer);
 		return;
+	}
 
 	/*
 	 * If a GPIO interrupt has an ACPI event handler method, set
@@ -123,6 +126,8 @@ static void acpi_virtual_gpio_request_interrupts(struct virtual_gpio_data *gd)
 				"Failed to request IRQ %d ACPI event handler\n",
 				gd->irq);
 	}
+	if (buf.pointer)
+		ACPI_FREE(buf.pointer);
 }
 
 static int virtual_gpio_probe(struct platform_device *pdev)
