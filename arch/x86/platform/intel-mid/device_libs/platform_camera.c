@@ -24,6 +24,7 @@
 #include "platform_ov5693.h"
 #include "platform_lm3554.h"
 #include "platform_ap1302.h"
+#include "platform_pixter.h"
 #ifdef CONFIG_CRYSTAL_COVE
 #include <linux/mfd/intel_mid_pmic.h>
 #endif
@@ -54,6 +55,9 @@ const struct intel_v4l2_subdev_id v4l2_ids[] = {
 	{"xactor_a", SOC_CAMERA, ATOMISP_CAMERA_PORT_PRIMARY},
 	{"xactor_b", SOC_CAMERA, ATOMISP_CAMERA_PORT_SECONDARY},
 	{"xactor_c", SOC_CAMERA, ATOMISP_CAMERA_PORT_TERTIARY},
+	{"pixter_0", PIXTER_0_TYPE, ATOMISP_CAMERA_PORT_PRIMARY},
+	{"pixter_1", PIXTER_1_TYPE, ATOMISP_CAMERA_PORT_SECONDARY},
+	{"pixter_2", PIXTER_2_TYPE, ATOMISP_CAMERA_PORT_TERTIARY},
 	{},
 };
 
