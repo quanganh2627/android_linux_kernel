@@ -45,6 +45,8 @@ static struct dwc3_xhci_hcd {
 	struct wake_lock wakelock;
 	struct xhci_hcd *xhci;
 	struct work_struct reset_hcd;
+	struct work_struct poll_loopback;
+	int is_rx_test;
 	int otg_irqnum;
 	bool host_started;
 	bool comp_test_enable;
@@ -155,6 +157,32 @@ static int if_usb_devices_connected(struct xhci_hcd *xhci)
 		return 1;
 
 	return 0;
+}
+
+/* For USB3 host electronic compliance test. Controller have to enter
+ * Loopback mode for RX test. But controller easier enter compliance
+ * mode by mistake. So driver need to trigger warm reset until enter
+ * loopback mode successful.
+ **/
+static void dwc3_poll_lp(struct work_struct *data)
+{
+	__le32 __iomem **addr;
+	u32 pls, val;
+
+	if (!dwc3_xhci.comp_test_enable || !dwc3_xhci.xhci)
+		return;
+
+	addr = dwc3_xhci.xhci->usb3_ports;
+	val = xhci_readl(dwc3_xhci.xhci, addr[0]);
+	pls = val & PORT_PLS_MASK;
+
+	if (pls == XDEV_COMP && dwc3_xhci.is_rx_test)
+		writel(val | PORT_WR, addr[0]);
+
+	if (!dwc3_xhci.is_rx_test || pls == XDEV_LOOPBACK)
+		return;
+	else
+		schedule_work(&dwc3_xhci.poll_loopback);
 }
 
 /* Do xHCI driver reinitialize when met fatal errors */
@@ -344,6 +372,17 @@ store_host_comp_test(struct device *_dev,
 		((char *) buf)[count-1] = 0;
 
 	switch (buf[0]) {
+	case 'R':
+			if (!dwc3_xhci.comp_test_enable)
+				break;
+			dwc3_xhci.is_rx_test = 1;
+			schedule_work(&dwc3_xhci.poll_loopback);
+			break;
+	case 'T':
+			dwc3_xhci.is_rx_test = 0;
+			if (!dwc3_xhci.comp_test_enable)
+				break;
+			break;
 	case '0':
 		if (dwc3_xhci.comp_test_enable) {
 			dev_dbg(hcd->self.controller, "run xHC\n");
@@ -617,6 +656,7 @@ static int xhci_dwc_drv_probe(struct platform_device *pdev)
 	/* Enable wakeup irq */
 	hcd->has_wakeup_irq = 1;
 	INIT_WORK(&dwc3_xhci.reset_hcd, dwc3_host_reset);
+	INIT_WORK(&dwc3_xhci.poll_loopback, dwc3_poll_lp);
 	wake_lock_init(&dwc3_xhci.wakelock, WAKE_LOCK_SUSPEND,
 			"dwc3_host_wakelock");
 
