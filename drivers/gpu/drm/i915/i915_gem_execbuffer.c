@@ -1444,7 +1444,10 @@ err:
 	mutex_unlock(&dev->struct_mutex);
 
 pre_mutex_err:
-	kfree(cliprects);
+	if (INTEL_INFO(dev)->gen >= 5)
+		kfree(priv_data);
+	else
+		kfree(cliprects);
 	return ret;
 }
 
