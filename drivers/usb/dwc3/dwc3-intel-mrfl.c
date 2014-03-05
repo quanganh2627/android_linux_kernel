@@ -396,8 +396,6 @@ int basin_cove_get_id(struct dwc_otg2 *otg)
 	if (ret)
 		otg_err(otg, "Fail to enable ACA&ID detection logic\n");
 
-	mdelay(50);
-
 	ret = intel_scu_ipc_ioread8(PMIC_USBIDSTS, &idsts);
 	if (ret) {
 		otg_err(otg, "Fail to read id\n");
