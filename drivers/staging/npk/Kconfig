@@ -1,0 +1,23 @@
+config INTEL_NORTHPEAK
+       tristate "North Peak PCI driver"
+       depends on PCI
+       default n
+       ---help---
+	North Peak PCI driver for North Peak device configuration
+	and trace access.
+
+config INTEL_NORTHPEAK_UTIL
+       tristate "North Peak Utility driver"
+       depends on INTEL_NORTHPEAK
+       default n
+       ---help---
+	North Peak utility driver provides register access through
+	ioctl commands to configure the North Peak device.
+
+config INTEL_NORTHPEAK_TRACE
+       tristate "North Peak Trace driver"
+       depends on INTEL_NORTHPEAK
+       default n
+       ---help---
+	North Peak trace driver provides access to Noth Peak trace
+	buffer through ioctl commands.
