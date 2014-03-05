@@ -672,6 +672,10 @@ enum no_psr_reason {
 	PSR_HSW_NOT_DDIA,
 };
 
+struct i915_drrs {
+	struct intel_connector *connector;
+};
+
 enum intel_pch {
 	PCH_NONE = 0,	/* No PCH present */
 	PCH_IBX,	/* Ibexpeak PCH */
@@ -1395,6 +1399,7 @@ typedef struct drm_i915_private {
 	int num_plane;
 
 	struct i915_fbc fbc;
+	struct i915_drrs drrs;
 	struct intel_opregion opregion;
 	struct intel_vbt_data vbt;
 
