@@ -86,7 +86,7 @@ static void usb2phy_eye_optimization(struct dwc_otg2 *otg)
 	struct intel_dwc_otg_pdata *data;
 
 	if (!otg || !otg->otg_data)
-		return -EINVAL;
+		return;
 
 	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
 
@@ -726,39 +726,6 @@ static int dwc3_intel_notify_charger_type(struct dwc_otg2 *otg,
 			&cap);
 
 	return ret;
-}
-
-static void dwc3_phy_soft_reset(struct dwc_otg2 *otg)
-{
-	u32 val;
-
-	val = otg_read(otg, GCTL);
-	val |= GCTL_CORESOFTRESET;
-	otg_write(otg, GCTL, val);
-
-	val = otg_read(otg, GUSB3PIPECTL0);
-	val |= GUSB3PIPECTL_PHYSOFTRST;
-	otg_write(otg, GUSB3PIPECTL0, val);
-
-	val = otg_read(otg, GUSB2PHYCFG0);
-	val |= GUSB2PHYCFG_PHYSOFTRST;
-	otg_write(otg, GUSB2PHYCFG0, val);
-
-	msleep(50);
-
-	val = otg_read(otg, GUSB3PIPECTL0);
-	val &= ~GUSB3PIPECTL_PHYSOFTRST;
-	otg_write(otg, GUSB3PIPECTL0, val);
-
-	val = otg_read(otg, GUSB2PHYCFG0);
-	val &= ~GUSB2PHYCFG_PHYSOFTRST;
-	otg_write(otg, GUSB2PHYCFG0, val);
-
-	msleep(100);
-
-	val = otg_read(otg, GCTL);
-	val &= ~GCTL_CORESOFTRESET;
-	otg_write(otg, GCTL, val);
 }
 
 static enum power_supply_charger_cable_type
