@@ -282,6 +282,7 @@ struct atomisp_3a_statistics {
 	struct atomisp_grid_info  grid_info;
 	struct atomisp_3a_output __user *data;
 	struct atomisp_3a_rgby_output __user *rgby_data;
+	uint32_t exp_id; /* exposure ID */
 };
 #else /* CSS20 */
 struct atomisp_3a_statistics {
