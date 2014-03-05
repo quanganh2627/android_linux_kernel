@@ -521,10 +521,10 @@ void intel_panel_actually_set_mipi_backlight(struct drm_device *dev, u32 level)
 		/* FixMe: if level is zero still a pulse is observed consuming
 		power. To fix this issue if requested level is zero then
 		disable pwm and enabled it again if brightness changes */
-		lpio_bl_write_bits(0, LPIO_PWM_CTRL, (0xff - level), 0xFF);
+		lpio_bl_write_bits(0, LPIO_PWM_CTRL, (0xff - level * 0xff / max), 0xFF);
 		lpio_bl_update(0, LPIO_PWM_CTRL);
 	} else
-		intel_mid_pmic_writeb(0x4E, level*0xff/max);
+		intel_mid_pmic_writeb(0x4E, level * 0xff / max);
 #else
 	DRM_ERROR("Non PMIC MIPI Backlight control is not supported yet\n");
 #endif

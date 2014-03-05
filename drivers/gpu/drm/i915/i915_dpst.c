@@ -51,6 +51,30 @@
  * hardware.
  */
 
+static u32
+get_internal_display_resolution(struct drm_device *dev)
+{
+	struct intel_connector *intel_connector = NULL;
+	struct drm_connector *connector;
+	struct intel_panel *panel;
+	u32 res = 0;
+
+	list_for_each_entry(connector, &dev->mode_config.connector_list, head)
+	{
+		intel_connector = to_intel_connector(connector);
+		if (intel_connector && intel_connector->encoder
+			&& (intel_connector->encoder->type == INTEL_OUTPUT_EDP
+			|| intel_connector->encoder->type == INTEL_OUTPUT_DSI)) {
+
+			panel = &intel_connector->panel;
+			if (panel != NULL)
+				res = panel->fixed_mode->hdisplay *
+					panel->fixed_mode->vdisplay;
+		}
+	}
+	return res;
+}
+
 static int
 i915_dpst_clear_hist_interrupt(struct drm_device *dev)
 {
@@ -201,25 +225,16 @@ i915_dpst_init(struct drm_device *dev,
 		struct dpst_initialize_context *ioctl_data)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
-	struct drm_crtc *crtc;
-	struct drm_display_mode *mode = NULL;
 	u32 blm_hist_guard, gb_val;
+	u32 panel_res = get_internal_display_resolution(dev);
 
-	/* Get information about current display mode */
-	crtc = intel_get_crtc_for_pipe(dev, PIPE_A);
-	if (crtc) {
-		mode = intel_crtc_mode_get(dev, crtc);
-		if (mode) {
-			gb_val = (DEFAULT_GUARDBAND_VAL *
-					mode->hdisplay * mode->vdisplay)/1000;
+	if (panel_res == 0)
+		return -EINVAL;
 
-			ioctl_data->init_data.threshold_gb = gb_val;
-			ioctl_data->init_data.image_res =
-					mode->hdisplay*mode->vdisplay;
-			/*mode is allocated by kzalloc, need be freed*/
-			kfree(mode);
-		}
-	}
+	gb_val = (DEFAULT_GUARDBAND_VAL * panel_res)/1000;
+
+	ioctl_data->init_data.threshold_gb = gb_val;
+	ioctl_data->init_data.image_res = panel_res;
 
 	/* Store info needed to talk to user mode */
 	dev_priv->dpst.task = current;
