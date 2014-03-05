@@ -648,6 +648,9 @@ static int dwc3_intel_set_power(struct usb_phy *_otg,
 
 	/* Covert macro to integer number*/
 	switch (ma) {
+	case OTG_USB2_0MA:
+		ma = 0;
+		break;
 	case OTG_USB2_100MA:
 		ma = 100;
 		break;

@@ -545,7 +545,8 @@ static int dwc3_intel_byt_set_power(struct usb_phy *_otg,
 	if (!data)
 		return -EINVAL;
 
-	if (ma == OTG_USB2_100MA ||
+	if (ma == OTG_USB2_0MA ||
+		ma == OTG_USB2_100MA ||
 		ma == OTG_USB3_150MA ||
 		ma == OTG_USB2_500MA ||
 		ma == OTG_USB3_900MA ||
@@ -616,6 +617,9 @@ static int dwc3_intel_byt_set_power(struct usb_phy *_otg,
 
 	/* Covert macro to integer number*/
 	switch (ma) {
+	case OTG_USB2_0MA:
+		ma = 0;
+		break;
 	case OTG_USB2_100MA:
 		ma = 100;
 		break;

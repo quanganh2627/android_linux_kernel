@@ -2742,28 +2742,28 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 		dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(512);
 		dwc->gadget.ep0->maxpacket = 512;
 		dwc->gadget.speed = USB_SPEED_SUPER;
-		__dwc3_vbus_draw(dwc, OTG_USB3_150MA);
 		break;
 	case DWC3_DCFG_HIGHSPEED:
 		dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
 		dwc->gadget.ep0->maxpacket = 64;
 		dwc->gadget.speed = USB_SPEED_HIGH;
-		__dwc3_vbus_draw(dwc, OTG_USB2_100MA);
 		break;
 	case DWC3_DCFG_FULLSPEED2:
 	case DWC3_DCFG_FULLSPEED1:
 		dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
 		dwc->gadget.ep0->maxpacket = 64;
 		dwc->gadget.speed = USB_SPEED_FULL;
-		__dwc3_vbus_draw(dwc, OTG_USB2_100MA);
 		break;
 	case DWC3_DCFG_LOWSPEED:
 		dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(8);
 		dwc->gadget.ep0->maxpacket = 8;
 		dwc->gadget.speed = USB_SPEED_LOW;
-		__dwc3_vbus_draw(dwc, OTG_USB2_100MA);
 		break;
 	}
+
+	/* Follow OTG2.0 spec. Unconfigured state, max charging cap should
+	 * not exceed 2.5ma. */
+	__dwc3_vbus_draw(dwc, OTG_USB2_0MA);
 
 	/* Enable USB2 LPM Capability */
 
