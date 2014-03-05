@@ -115,6 +115,7 @@
 #include "device_libs/platform_wm5102.h"
 #include "device_libs/platform_ap1302.h"
 #include "device_libs/platform_csi_xactor.h"
+#include "device_libs/platform_pixter.h"
 
 /*
  * SPI devices
@@ -309,6 +310,12 @@ struct devs_id __initconst device_ids[] = {
 	{"xactor_c", SFI_DEV_TYPE_I2C, 0, &csi_xactor_c_platform_data,
 					&intel_register_i2c_camera_device},
 #endif
+	{"pixter_0", SFI_DEV_TYPE_I2C, 0, &pixter_0_platform_data,
+					&intel_register_i2c_camera_device},
+	{"pixter_1", SFI_DEV_TYPE_I2C, 0, &pixter_1_platform_data,
+					&intel_register_i2c_camera_device},
+	{"pixter_2", SFI_DEV_TYPE_I2C, 0, &pixter_2_platform_data,
+					&intel_register_i2c_camera_device},
 	{"audience_es305", SFI_DEV_TYPE_I2C, 0, &audience_platform_data,
 						NULL},
 	{"wm8994", SFI_DEV_TYPE_I2C, 0, &wm8994_platform_data, NULL},
