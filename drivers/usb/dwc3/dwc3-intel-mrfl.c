@@ -373,7 +373,8 @@ static int enable_usb_phy(struct dwc_otg2 *otg, bool on_off)
 		if (ret)
 			otg_err(otg, "Fail to enable VBUSPHY\n");
 
-		msleep(20);
+		/* Debounce 10ms for turn on VUSBPHY */
+		usleep_range(10000, 11000);
 	} else {
 		ret = intel_scu_ipc_update_register(PMIC_VLDOCNT,
 				0x00, PMIC_VLDOCNT_VUSBPHYEN);
@@ -783,7 +784,6 @@ static enum power_supply_charger_cable_type
 	 * Power on PHY
 	 */
 	enable_usb_phy(otg, true);
-	dwc3_phy_soft_reset(otg);
 
 	if (is_basin_cove(otg)) {
 		/* Enable ACA:
@@ -852,6 +852,9 @@ static enum power_supply_charger_cable_type
 	val = dwc3_intel_get_id(otg);
 	if (val != RID_FLOAT) {
 		type = dwc3_intel_aca_check(otg);
+		goto cleanup;
+	} else if (val == RID_GND) {
+		type = POWER_SUPPLY_CHARGER_TYPE_B_DEVICE;
 		goto cleanup;
 	}
 
