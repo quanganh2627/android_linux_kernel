@@ -233,6 +233,8 @@ struct intel_panel {
 	struct drm_display_mode *fixed_mode;
 	struct drm_display_mode *downclock_mode;
 	int fitting_mode;
+	bool edp_downclock_avail;
+	int edp_downclock;
 };
 
 struct intel_connector {
@@ -529,6 +531,26 @@ struct intel_hdmi {
 #define DP_LINK_CONFIGURATION_SIZE	9
 #define EDP_PSR_RECEIVER_CAP_SIZE	2
 
+/*
+ * HIGH_RR is the highest eDP panel refresh rate read from EDID
+ * LOW_RR is the lowest eDP panel refresh rate found from EDID
+ * parsing for same resolution.
+ */
+enum edp_drrs_refresh_rate_type {
+	DRRS_HIGH_RR,
+	DRRS_LOW_RR,
+	DRRS_MAX_RR, /* RR count */
+};
+
+/*
+ * The drrs_info struct will represent the DRRS feature for eDP
+ * panel.
+ */
+struct drrs_info {
+	enum drrs_support_type type;
+	enum edp_drrs_refresh_rate_type refresh_rate_type;
+};
+
 struct intel_dp {
 	uint32_t output_reg;
 	uint32_t aux_ch_ctl_reg;
@@ -556,6 +578,7 @@ struct intel_dp {
 	bool want_panel_vdd;
 	bool psr_setup_done;
 	struct intel_connector *attached_connector;
+	struct drrs_info drrs_state;
 };
 
 struct intel_digital_port {

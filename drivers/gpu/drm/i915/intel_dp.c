@@ -3742,6 +3742,49 @@ intel_dp_init_panel_power_sequencer_registers(struct drm_device *dev,
 		      I915_READ(pp_div_reg));
 }
 
+static struct drm_display_mode *
+intel_dp_drrs_init(struct intel_digital_port *intel_dig_port,
+			struct intel_connector *intel_connector,
+			struct drm_display_mode *fixed_mode) {
+	struct drm_connector *connector = &intel_connector->base;
+	struct intel_dp *intel_dp = &intel_dig_port->dp;
+	struct drm_device *dev = intel_dig_port->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_display_mode *downclock_mode = NULL;
+
+	/*
+	 * Check if PSR is supported by panel and enabled
+	 * if so, DRRS is reported as not supported.
+	 */
+	if (INTEL_INFO(dev)->gen < 8 &&	intel_edp_is_psr_enabled(dev)) {
+		DRM_INFO("eDP panel has PSR enabled. Cannot support DRRS\n");
+		return downclock_mode;
+	}
+
+	/* First check if DRRS is enabled from VBT struct */
+	if (dev_priv->vbt.drrs_type == DRRS_NOT_SUPPORTED) {
+		DRM_INFO("VBT doesn't support DRRS\n");
+		return downclock_mode;
+	}
+
+	downclock_mode = intel_find_panel_downclock(dev,
+					fixed_mode, connector);
+
+	if (downclock_mode != NULL &&
+		dev_priv->vbt.drrs_type == SEAMLESS_DRRS_SUPPORT) {
+		intel_connector->panel.edp_downclock_avail = true;
+		intel_connector->panel.edp_downclock =
+						downclock_mode->clock;
+
+		intel_dp->drrs_state.type = dev_priv->vbt.drrs_type;
+
+		intel_dp->drrs_state.refresh_rate_type = DRRS_HIGH_RR;
+		DRM_INFO("SEAMLESS DRRS supported for eDP panel.\n");
+	}
+
+	return downclock_mode;
+}
+
 static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 				     struct intel_connector *intel_connector)
 {
@@ -3750,10 +3793,13 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 	struct drm_device *dev = intel_dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_display_mode *fixed_mode = NULL;
+	struct drm_display_mode *downclock_mode = NULL;
 	struct edp_power_seq power_seq = { 0 };
 	bool has_dpcd;
 	struct drm_display_mode *scan;
 	struct edid *edid;
+
+	intel_dp->drrs_state.type = DRRS_NOT_SUPPORTED;
 
 	if (!is_edp(intel_dp))
 		return true;
@@ -3800,6 +3846,9 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 	list_for_each_entry(scan, &connector->probed_modes, head) {
 		if ((scan->type & DRM_MODE_TYPE_PREFERRED)) {
 			fixed_mode = drm_mode_duplicate(dev, scan);
+			if (INTEL_INFO(dev)->gen > 6)
+				downclock_mode = intel_dp_drrs_init(intel_dig_port,
+						intel_connector, fixed_mode);
 			break;
 		}
 	}
