@@ -583,15 +583,15 @@ static void chv_update_irq_type(struct chv_gpio *cg, unsigned type,
 	value &= ~CV_INV_RX_DATA;
 
 	if (type & IRQ_TYPE_EDGE_BOTH) {
-		if (type == IRQ_TYPE_EDGE_BOTH)
+		if ((type & IRQ_TYPE_EDGE_BOTH) == IRQ_TYPE_EDGE_BOTH)
 			value |= CV_TRIG_EDGE_BOTH;
-		else if (type == IRQ_TYPE_EDGE_RISING)
+		else if (type & IRQ_TYPE_EDGE_RISING)
 			value |= CV_TRIG_EDGE_RISING;
-		else if (type == IRQ_TYPE_EDGE_FALLING)
+		else if (type & IRQ_TYPE_EDGE_FALLING)
 			value |= CV_TRIG_EDGE_FALLING;
 	} else if (type & IRQ_TYPE_LEVEL_MASK) {
 			value |= CV_TRIG_LEVEL;
-		if (type == IRQ_TYPE_LEVEL_LOW)
+		if (type & IRQ_TYPE_LEVEL_LOW)
 			value |= CV_INV_RX_DATA;
 	}
 
