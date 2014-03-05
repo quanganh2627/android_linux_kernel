@@ -368,6 +368,11 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 
 	sprctl |= SP_ENABLE;
 
+	/* disable current DRRS work scheduled and restart
+	 * to push work by another x seconds
+	 */
+	intel_update_drrs(dev);
+
 	intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size, true,
 				       src_w != crtc_w || src_h != crtc_h);
 
@@ -908,6 +913,7 @@ intel_enable_primary(struct drm_plane *dplane, struct drm_crtc *crtc)
 	intel_crtc->primary_disabled = false;
 	intel_update_fbc(dev);
 	intel_update_drrs(dev);
+	intel_update_watermarks(dev);
 
 	I915_WRITE(reg, I915_READ(reg) | DISPLAY_PLANE_ENABLE);
 	i915_update_plane_stat(dev_priv, pipe, plane, true, DISPLAY_PLANE);

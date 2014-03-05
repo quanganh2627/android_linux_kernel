@@ -4125,6 +4125,7 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	intel_enable_plane(dev_priv, plane, pipe);
 	intel_enable_planes(crtc);
 	intel_crtc_update_cursor(crtc, true);
+	intel_update_drrs(dev);
 
 	intel_update_fbc(dev);
 
@@ -4297,6 +4298,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 		vlv_punit_write32_bits(dev_priv, VLV_IOSFSB_PWRGT_CNT_CTRL,
 		VLV_PWRGT_DPIO_RX_LANES_MASK, VLV_PWRGT_DPIO_RX_LANES_MASK);
 	}
+	intel_update_drrs(dev);
 }
 
 #define BNDSPRDOFF ((vlv_ccu_read(dev_priv, CCU_ICLK_GATE_CTRL_REG) & (ICLKGTCTRL_SSON | ICLKGTCTRL_BNDON)) != (ICLKGTCTRL_SSON | ICLKGTCTRL_BNDON))
@@ -8367,6 +8369,8 @@ void intel_unpin_work_fn(struct work_struct *__work)
 	 * to push work by another x seconds
 	 */
 	intel_update_drrs(dev);
+	intel_update_watermarks(dev);
+
 	mutex_unlock(&dev->struct_mutex);
 
 	BUG_ON(atomic_read(&to_intel_crtc(work->crtc)->unpin_work_count) == 0);

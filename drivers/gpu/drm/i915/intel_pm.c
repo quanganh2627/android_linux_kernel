@@ -635,6 +635,9 @@ static void intel_drrs_work_fn(struct work_struct *__work)
 
 	intel_dp_set_drrs_state(work->crtc->dev,
 		dev_priv->drrs.connector->panel.downclock_mode->vrefresh);
+
+	/* Update Watermark Values */
+	intel_update_watermarks(dev);
 }
 
 static void intel_cancel_drrs_work(struct drm_i915_private *dev_priv)
@@ -686,6 +689,9 @@ void intel_disable_drrs(struct drm_device *dev)
 		intel_dp_set_drrs_state(dev,
 			dev_priv->drrs.connector->panel.fixed_mode->vrefresh);
 	}
+
+	/* Update Watermark Values */
+	intel_update_watermarks(dev);
 }
 
 /*
@@ -709,7 +715,7 @@ void intel_update_drrs(struct drm_device *dev)
 		return;
 
 	list_for_each_entry(tmp_crtc, &dev->mode_config.crtc_list, head) {
-		if (tmp_crtc != NULL && intel_crtc_active(tmp_crtc)) {
+		if (intel_crtc_active(tmp_crtc)) {
 			if (crtc) {
 				DRM_DEBUG_KMS(
 				"more than one pipe active, disabling DRRS\n");
