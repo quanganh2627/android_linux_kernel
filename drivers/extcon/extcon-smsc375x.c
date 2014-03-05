@@ -193,8 +193,16 @@ static int smsc375x_detect_dev(struct smsc375x_chip *chip)
 	else
 		stat = ret;
 
-	if (!(stat & STAT_CHRG_DET_DONE))
+	if (!(stat & STAT_CHRG_DET_DONE)) {
 		dev_info(&chip->client->dev, "DET failed");
+		/*
+		 * when over voltage happens, charger detect
+		 * flow is not finished. And no need to send
+		 * notification to charger driver.
+		 */
+		if (stat & (STAT_OVLO_STAT | STAT_OVLO_LATCH))
+			return 0;
+	}
 
 	ret = smsc375x_read_reg(client, SMSC375X_REG_CFG);
 	if (ret < 0)
