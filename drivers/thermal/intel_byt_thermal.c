@@ -29,6 +29,7 @@
 #include <linux/thermal.h>
 #include <linux/seq_file.h>
 #include <linux/interrupt.h>
+#include <linux/completion.h>
 #include <linux/platform_device.h>
 
 #include <linux/mfd/intel_mid_pmic.h>
@@ -93,6 +94,14 @@
 #define LEVEL_ALERT0		0
 #define LEVEL_ALERT1		1
 #define LEVEL_ALERT2		2
+
+/*
+ * LOW event is defined as 0 (implicit)
+ * HIGH event is defined as 1 (implicit)
+ * Hence this event is defined as 2.
+ */
+#define EMUL_TEMP_EVENT		2
+#define TEMP_WRITE_TIMEOUT	(2 * HZ)
 
 /* Constants defined in CrystalCove PMIC spec */
 #define PMIC_DIE_SENSOR		3
@@ -164,6 +173,8 @@ static DEFINE_MUTEX(thrm_update_lock);
 
 struct thermal_device_info {
 	struct intel_mid_thermal_sensor *sensor;
+	long trip_temp[NUM_ALERT_LEVELS];
+	struct completion temp_write_complete;
 	int sensor_index;
 };
 
@@ -179,6 +190,7 @@ struct thermal_data {
 	int cached_vals[PMIC_THERMAL_SENSORS];
 	/* Details obtained from platform data */
 	int num_sensors;
+	int num_virtual_sensors;
 	unsigned int irq;
 	struct intel_mid_thermal_sensor *sensors;
 };
@@ -652,9 +664,8 @@ static ssize_t store_trip_temp(struct thermal_zone_device *tzd,
 		return -EINVAL;
 	}
 
-	/* Calibrate w.r.t slope & intercept values */
-	trip_temp = (trip_temp - td_info->sensor->intercept) /
-				td_info->sensor->slope;
+	/* Convert to C */
+	trip_temp /= 1000;
 
 	/* Minimum Tcrit for PMIC DIE is different from that of others */
 	if (td_info->sensor->direct)
@@ -688,6 +699,12 @@ static ssize_t store_trip_temp(struct thermal_zone_device *tzd,
 
 	mutex_unlock(&tdata->thrm_irq_lock);
 
+	/* Store the trip point value written into the register */
+	ret = adc_to_temp(td_info->sensor->direct, adc_val,
+			&td_info->trip_temp[trip]);
+	if (ret)
+		dev_err("adc_to_temp for trip%d failed:%d\n", trip, ret);
+
 	mutex_unlock(&thrm_update_lock);
 	return ret;
 }
@@ -696,7 +713,6 @@ static ssize_t show_trip_temp(struct thermal_zone_device *tzd,
 				int trip, long *trip_temp)
 {
 	int ret = -EINVAL, adc_val;
-	bool need_calibration = true;
 	struct thermal_device_info *td_info = tzd->devdata;
 	int alert_reg_l = alert_regs_l[trip][td_info->sensor_index];
 
@@ -707,18 +723,6 @@ static ssize_t show_trip_temp(struct thermal_zone_device *tzd,
 		goto exit;
 
 	ret = adc_to_temp(td_info->sensor->direct, adc_val, trip_temp);
-	if (ret)
-		goto exit;
-
-	if (adc_val == adc_code[0][0] ||
-		adc_val == adc_code[0][TABLE_LENGTH - 1]) {
-		need_calibration = false;
-	}
-
-	/* Calibrate w.r.t slope & intercept values */
-	if (need_calibration && td_info->sensor->temp_correlation)
-		ret = td_info->sensor->temp_correlation(td_info->sensor,
-						*trip_temp, trip_temp);
 exit:
 	mutex_unlock(&thrm_update_lock);
 	return ret;
@@ -780,14 +784,46 @@ static int update_temp(struct thermal_zone_device *tzd, long *temp)
 
 	ret = adc_to_temp(td_info->sensor->direct,
 				tdata->cached_vals[indx], temp);
-	if (ret)
-		return ret;
-
-	if (td_info->sensor->temp_correlation) {
-		ret = td_info->sensor->temp_correlation(td_info->sensor,
-							*temp, temp);
-	}
 	return ret;
+}
+
+static ssize_t show_emul_temp(struct thermal_zone_device *tzd, long *temp)
+{
+	int ret = 0;
+	char *thermal_event[3];
+	unsigned long timeout;
+	struct thermal_device_info *td_info = tzd->devdata;
+
+	thermal_event[0] = kasprintf(GFP_KERNEL, "NAME=%s", tzd->type);
+	thermal_event[1] = kasprintf(GFP_KERNEL, "EVENT=%d", EMUL_TEMP_EVENT);
+	thermal_event[2] = NULL;
+
+	kobject_uevent_env(&tzd->device.kobj, KOBJ_CHANGE, thermal_event);
+
+	INIT_COMPLETION(td_info->temp_write_complete);
+	timeout = wait_for_completion_timeout(&td_info->temp_write_complete,
+						TEMP_WRITE_TIMEOUT);
+	if (timeout == 0) {
+		/* Waiting timed out */
+		ret = -ETIMEDOUT;
+		goto exit;
+	}
+
+	*temp = tzd->emul_temperature;
+exit:
+	kfree(thermal_event[1]);
+	kfree(thermal_event[0]);
+	return ret;
+}
+
+static ssize_t store_emul_temp(struct thermal_zone_device *tzd,
+				unsigned long temp)
+{
+	struct thermal_device_info *td_info = tzd->devdata;
+
+	tzd->emul_temperature = temp;
+	complete(&td_info->temp_write_complete);
+	return 0;
 }
 
 static ssize_t show_temp(struct thermal_zone_device *tzd, long *temp)
@@ -851,6 +887,7 @@ static struct thermal_device_info *initialize_sensor(int index,
 	td_info->sensor = sensor;
 	td_info->sensor_index = index;
 
+	init_completion(&td_info->temp_write_complete);
 	return td_info;
 }
 
@@ -861,8 +898,17 @@ static void notify_thermal_event(struct thermal_event te)
 	char *thermal_event[5];
 
 	struct thermal_zone_device *tzd = tdata->tzd[te.sensor];
+	struct thermal_device_info *td_info = tzd->devdata;
 
 	mutex_lock(&thrm_update_lock);
+
+	/*
+	 * We want to get the 'latest' temperature value after an
+	 * interrupt. So, make sure update_temp() actually samples and
+	 * returns the 'latest' temperature values; and not
+	 * the previously cached ones.
+	 */
+	tdata->is_initialized = false;
 
 	/*
 	 * Read the current Temperature and send it to user land;
@@ -876,6 +922,26 @@ static void notify_thermal_event(struct thermal_event te)
 
 	pr_info("Thermal Event: sensor: %s, cur_temp: %ld, event: %d, level: %d\n",
 			tzd->type, cur_temp, te.event, te.level);
+	/*
+	 * Send UEvents only when temperature goes below
+	 * ALERT0 or goes above ALERT1. No UEvents for
+	 * ALERT2 as the actions are taken by Hardware.
+	 */
+	if (te.level == LEVEL_ALERT2 ||
+			(te.event == 1 && te.level == LEVEL_ALERT0) ||
+			(te.event == 0 && te.level == LEVEL_ALERT1)) {
+		goto exit;
+	}
+
+	/*
+	 * For Cold-to-Hot events, make sure the temperature is
+	 * 'at least' as high as the programmed threshold.
+	 */
+	if (te.event == 1) {
+		if (cur_temp < td_info->trip_temp[te.level])
+			cur_temp = td_info->trip_temp[te.level];
+	}
+
 	thermal_event[0] = kasprintf(GFP_KERNEL, "NAME=%s", tzd->type);
 	thermal_event[1] = kasprintf(GFP_KERNEL, "TEMP=%ld", cur_temp);
 	thermal_event[2] = kasprintf(GFP_KERNEL, "EVENT=%d", te.event);
@@ -998,43 +1064,10 @@ exit:
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_DEBUG_THERMAL
-static int read_slope(struct thermal_zone_device *tzd, long *slope)
-{
-	struct thermal_device_info *td_info = tzd->devdata;
-
-	*slope = td_info->sensor->slope;
-
-	return 0;
-}
-
-static int update_slope(struct thermal_zone_device *tzd, long slope)
-{
-	struct thermal_device_info *td_info = tzd->devdata;
-
-	td_info->sensor->slope = slope;
-
-	return 0;
-}
-
-static int read_intercept(struct thermal_zone_device *tzd, long *intercept)
-{
-	struct thermal_device_info *td_info = tzd->devdata;
-
-	*intercept = td_info->sensor->intercept;
-
-	return 0;
-}
-
-static int update_intercept(struct thermal_zone_device *tzd, long intercept)
-{
-	struct thermal_device_info *td_info = tzd->devdata;
-
-	td_info->sensor->intercept = intercept;
-
-	return 0;
-}
-#endif
+static struct thermal_zone_device_ops tzd_emul_ops = {
+	.get_temp = show_emul_temp,
+	.set_emul_temp = store_emul_temp,
+};
 
 static struct thermal_zone_device_ops tzd_ops = {
 	.get_temp = show_temp,
@@ -1043,18 +1076,12 @@ static struct thermal_zone_device_ops tzd_ops = {
 	.set_trip_temp = store_trip_temp,
 	.get_trip_hyst = show_trip_hyst,
 	.set_trip_hyst = store_trip_hyst,
-#ifdef CONFIG_DEBUG_THERMAL
-	.get_slope = read_slope,
-	.set_slope = update_slope,
-	.get_intercept = read_intercept,
-	.set_intercept = update_intercept,
-#endif
 };
 
 static int byt_thermal_probe(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
 	int i, size, ret;
+	int total_sensors; /* real + virtual sensors */
 	struct intel_mid_thermal_platform_data *pdata;
 
 	pdata = pdev->dev.platform_data;
@@ -1071,12 +1098,17 @@ static int byt_thermal_probe(struct platform_device *pdev)
 
 	tdata->pdev = pdev;
 	tdata->num_sensors = pdata->num_sensors;
+	tdata->num_virtual_sensors = pdata->num_virtual_sensors;
 	tdata->sensors = pdata->sensors;
 	tdata->irq = platform_get_irq(pdev, 0);
 	platform_set_drvdata(pdev, tdata);
 	mutex_init(&tdata->thrm_irq_lock);
 
-	size = sizeof(struct thermal_zone_device *) * tdata->num_sensors;
+	total_sensors = tdata->num_sensors;
+#ifdef CONFIG_THERMAL_EMULATION
+	total_sensors += tdata->num_virtual_sensors;
+#endif
+	size = sizeof(struct thermal_zone_device *) * total_sensors;
 	tdata->tzd = kzalloc(size, GFP_KERNEL);
 	if (!tdata->tzd) {
 		dev_err(&pdev->dev, "kzalloc failed\n");
@@ -1115,13 +1147,22 @@ static int byt_thermal_probe(struct platform_device *pdev)
 	}
 
 	/* Register each sensor with the generic thermal framework */
-	for (i = 0; i < tdata->num_sensors; i++) {
-		tdata->tzd[i] = thermal_zone_device_register(
-				tdata->sensors[i].name,
-				NUM_ALERT_LEVELS, ALERT_RW_MASK,
-				initialize_sensor(i, &tdata->sensors[i]),
-				&tzd_ops,
-				NULL, 0, 0);
+	for (i = 0; i < total_sensors; i++) {
+		if (i < tdata->num_sensors) {
+			tdata->tzd[i] = thermal_zone_device_register(
+					tdata->sensors[i].name,
+					NUM_ALERT_LEVELS, ALERT_RW_MASK,
+					initialize_sensor(i, &tdata->sensors[i]),
+					&tzd_ops,
+					NULL, 0, 0);
+		} else {
+			tdata->tzd[i] = thermal_zone_device_register(
+					tdata->sensors[i].name,
+					0, 0,
+					initialize_sensor(i, &tdata->sensors[i]),
+					&tzd_emul_ops,
+					NULL, 0, 0);
+		}
 		if (IS_ERR(tdata->tzd[i])) {
 			ret = PTR_ERR(tdata->tzd[i]);
 			dev_err(&pdev->dev,
@@ -1180,13 +1221,19 @@ static int byt_thermal_suspend(struct device *dev)
 
 static int byt_thermal_remove(struct platform_device *pdev)
 {
-	int i;
+	int i, total_sensors;
 	struct thermal_data *tdata = platform_get_drvdata(pdev);
 
 	if (!tdata)
 		return 0;
 
-	for (i = 0; i < tdata->num_sensors; i++)
+	total_sensors = tdata->num_sensors;
+
+#ifdef CONFIG_THERMAL_EMULATION
+	total_sensors += tdata->num_virtual_sensors;
+#endif
+
+	for (i = 0; i < total_sensors; i++)
 		thermal_zone_device_unregister(tdata->tzd[i]);
 
 	iio_channel_release_all(tdata->iio_chan);

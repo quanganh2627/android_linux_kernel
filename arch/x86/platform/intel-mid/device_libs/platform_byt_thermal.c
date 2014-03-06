@@ -29,48 +29,32 @@ enum {
 	byt_ec_thermal,
 };
 
-/* Correlation function to do Y=mX+C */
-static int linear_correlation(void *info, long temp, long *res)
-{
-	struct intel_mid_thermal_sensor *sensor = info;
-
-	if (!sensor)
-		return -EINVAL;
-
-	*res = ((temp * sensor->slope) / 1000) + sensor->intercept;
-
-	return 0;
-}
-
 static struct intel_mid_thermal_sensor byt_sensors[] = {
 	{
-		.name = "skin1",
+		.name = "SYSTHERM0",
 		.index = 0,
-		.slope = 873,
-		.intercept = -4139,
-		.temp_correlation = linear_correlation,
 	},
 	{
 		.name = "SYSTHERM1",
 		.index = 1,
-		.slope = 1000,
-		.intercept = 0,
-		.temp_correlation = linear_correlation,
 	},
 	{
-		.name = "skin0",
+		.name = "SYSTHERM2",
 		.index = 2,
-		.slope = 553,
-		.intercept = 11848,
-		.temp_correlation = linear_correlation,
 	},
 	{
 		.name = "PMICDIE",
 		.index = 3,
-		.slope = 1000,
-		.intercept = 0,
 		.direct = true,
-		.temp_correlation = linear_correlation,
+	},
+	/* Virtual Sensors should always be at the end */
+	{
+		.name = "FrontSkin",
+		.index = 4,
+	},
+	{
+		.name = "BackSkin",
+		.index = 5,
 	},
 };
 
@@ -110,6 +94,7 @@ static struct intel_mid_thermal_platform_data pdata[] = {
 	[byt_thermal] = {
 		.num_sensors = 4,
 		.sensors = byt_sensors,
+		.num_virtual_sensors = 2,
 	},
 	[byt_ec_thermal] = {
 		.num_sensors = 7,
