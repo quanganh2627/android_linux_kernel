@@ -57,6 +57,7 @@ enum flis_param_t {
 #define R50Kohms	(2 << 4)
 #define R910ohms	(3 << 4)
 
+#define NONE		(0 << 8)
 #define UP_2K		(PULL_UP | R2Kohms)
 #define UP_20K		(PULL_UP | R20Kohms)
 #define UP_50K		(PULL_UP | R50Kohms)
