@@ -22,6 +22,7 @@
 #include <linux/poll.h>
 #include <linux/mei.h>
 #include <linux/mei_cl_bus.h>
+#include <linux/sizes.h>
 
 #include "hw.h"
 #include "hbm.h"
@@ -43,6 +44,8 @@
 
 #define MEI_RD_MSG_BUF_SIZE           (128 * sizeof(u32))
 
+/* write buffer limit multiplier (per hw client) in bytes */
+#define MEI_WRITE_BUF_LIMIT      SZ_128K
 
 /*
  * AMTHI Client UUID
@@ -362,6 +365,7 @@ enum mei_pg_state {
  * @hbuf_depth - depth of hardware host/write buffer is slots
  * @hbuf_is_ready - query if the host host/write buffer is ready
  * @wr_msg - the buffer for hbm control messages
+ * @write_mem_limit - limit write buffers, counted in bytes
  * @wr_ext_msg - the buffer for hbm control responses (set in read cycle)
  */
 struct mei_device {
@@ -418,6 +422,9 @@ struct mei_device {
 	/* write buffer */
 	u8 hbuf_depth;
 	bool hbuf_is_ready;
+
+	/* limit write buffers*/
+	size_t write_mem_limit;
 
 	/* used for control messages */
 	struct {
