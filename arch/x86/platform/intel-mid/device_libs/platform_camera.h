@@ -35,6 +35,8 @@ extern const struct intel_v4l2_subdev_id v4l2_ids[] __attribute__((weak));
 #define GP_CAMERA_0_RESET               "camera_0_reset"
 #define GP_CAMERA_1_RESET               "camera_1_reset"
 #define GP_CAMERA_MUX_CONTROL		"camera_mux"
+#define GP_CAMERA_2_3_RESET		"cam_2_3_reset"
+#define GP_CAMERA_ISP1_POWERDOWN	"isp1_powerdown"
 
 extern int camera_sensor_gpio(int gpio, char *name, int dir, int value);
 extern int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
