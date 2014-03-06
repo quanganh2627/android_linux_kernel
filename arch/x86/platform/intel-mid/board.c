@@ -265,6 +265,10 @@ struct devs_id __initconst device_ids[] = {
 		&panel_handler},
 	{"PNC_JDI_25x16", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
+	{"PNC_SDC_16x25", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
+	{"PNC_SDC_25x16", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
 
 	{"ctp_lt_wm8994", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
 						&ipc_device_handler},

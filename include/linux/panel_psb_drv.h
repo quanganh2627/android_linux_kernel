@@ -50,6 +50,8 @@ enum panel_type {
 	SHARP_10x19_DUAL_CMD,
 	SHARP_25x16_VID,
 	SHARP_25x16_CMD,
+	SDC_16x25_CMD,
+	SDC_25x16_CMD,
 	GCT_DETECT
 };
 
@@ -73,7 +75,9 @@ static struct support_panel_list_t
 		{SHARP_25x16_VID, "PNV_SHARP_25x16"},
 		{SHARP_25x16_CMD, "PNC_SHARP_25x16"},
 		{JDI_25x16_VID, "PNV_JDI_25x16"},
-		{JDI_25x16_CMD, "PNC_JDI_25x16"}
+		{JDI_25x16_CMD, "PNC_JDI_25x16"},
+		{SDC_16x25_CMD, "PNC_SDC_16x25"},
+		{SDC_25x16_CMD, "PNC_SDC_25x16"}
 	};
 
 #define NUM_SUPPORT_PANELS (sizeof( \
