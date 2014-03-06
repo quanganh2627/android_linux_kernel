@@ -2416,7 +2416,8 @@ out:
 	} else {
 		host->flags &= ~SDHCI_NEEDS_RETUNING;
 		/* Reload the new initial value for timer */
-		if (host->tuning_mode == SDHCI_TUNING_MODE_1)
+		if ((host->tuning_mode == SDHCI_TUNING_MODE_1) &&
+				host->tuning_count)
 			mod_timer(&host->tuning_timer, jiffies +
 				host->tuning_count * HZ);
 	}
@@ -4344,15 +4345,20 @@ int sdhci_add_host(struct sdhci_host *host)
 	/* Initial value for re-tuning timer count */
 	host->tuning_count = (caps[1] & SDHCI_RETUNING_TIMER_COUNT_MASK) >>
 			      SDHCI_RETUNING_TIMER_COUNT_SHIFT;
-	if (host->tuning_count == 0 && host->ops->get_tuning_count)
+	if ((host->tuning_count == 0 || host->tuning_count ==
+				SDHCI_OTHER_TUNING_SOURCE) &&
+			host->ops->get_tuning_count)
 		host->tuning_count = host->ops->get_tuning_count(host);
 
 	/*
 	 * In case Re-tuning Timer is not disabled, the actual value of
 	 * re-tuning timer will be 2 ^ (n - 1).
 	 */
-	if (host->tuning_count)
+	if (host->tuning_count && host->tuning_count <= SDHCI_MAX_TUNING_TIMER)
 		host->tuning_count = 1 << (host->tuning_count - 1);
+	else
+		/* disable tuning timer */
+		host->tuning_count = 0;
 
 	/* Re-tuning mode supported by the Host Controller */
 	host->tuning_mode = (caps[1] & SDHCI_RETUNING_MODE_MASK) >>
