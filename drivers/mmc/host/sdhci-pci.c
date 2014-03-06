@@ -100,6 +100,7 @@ struct sdhci_pci_slot {
 	bool			dev_power;
 	struct mutex		power_lock;
 	bool			dma_enabled;
+	unsigned int		tuning_count;
 };
 
 struct sdhci_pci_chip {
@@ -647,6 +648,7 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 			MMC_CAP2_CACHE_CTRL;
 		slot->host->mmc->qos = kzalloc(sizeof(struct pm_qos_request),
 				GFP_KERNEL);
+		slot->tuning_count = 8;
 		break;
 	default:
 		break;
@@ -832,6 +834,7 @@ static int intel_mrfl_mmc_probe_slot(struct sdhci_pci_slot *slot)
 					SDHCI_QUIRK2_TUNING_POLL;
 		}
 		mrfl_ioapic_rte_reg_addr_map(slot);
+		slot->tuning_count = 8;
 		break;
 	case INTEL_MRFL_SD:
 		slot->host->quirks2 |= SDHCI_QUIRK2_WAIT_FOR_IDLE;
@@ -1916,20 +1919,8 @@ static void  sdhci_platform_reset_exit(struct sdhci_host *host, u8 mask)
 static int sdhci_pci_get_tuning_count(struct sdhci_host *host)
 {
 	struct sdhci_pci_slot *slot = sdhci_priv(host);
-	int tuning_count = 0;
 
-	switch (slot->chip->pdev->device) {
-	case PCI_DEVICE_ID_INTEL_BYT_EMMC45:
-		tuning_count = 4; /* using 8 seconds, this can be tuning */
-		break;
-	case PCI_DEVICE_ID_INTEL_MRFL_MMC:
-		tuning_count = 8; /* using 128 seconds, this can be tuning */
-		break;
-	default:
-		break;
-	}
-
-	return tuning_count;
+	return slot->tuning_count;
 }
 
 static int sdhci_gpio_buf_check(struct sdhci_host *host, unsigned int clk)
