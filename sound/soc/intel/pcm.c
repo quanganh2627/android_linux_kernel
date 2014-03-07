@@ -29,6 +29,7 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -45,6 +46,13 @@ struct device *sst_pdev;
 struct sst_device *sst_dsp;
 extern struct snd_compr_ops sst_platform_compr_ops;
 extern struct snd_effect_ops effects_ops;
+
+/* module parameters */
+static int dpcm_enable;
+
+/* dpcm_enable should be =0 for mofd_v0 and =1 for mofd_v1 */
+module_param(dpcm_enable, int, 0644);
+MODULE_PARM_DESC(dpcm_enable, "DPCM module parameter");
 
 static DEFINE_MUTEX(sst_dsp_lock);
 
@@ -100,9 +108,8 @@ static int sst_media_digital_mute(struct snd_soc_dai *dai, int mute, int stream)
 
 	pr_debug("%s: enter, mute=%d dai-name=%s dir=%d\n", __func__, mute, dai->name, stream);
 
-#if IS_BUILTIN(CONFIG_SST_DPCM)
+	if (dpcm_enable == 1)
 		sst_send_pipe_gains(dai, stream, mute);
-#endif
 
 	return 0;
 }
@@ -424,25 +431,23 @@ out_ops:
 
 static void sst_free_stream_in_use(struct sst_dev_stream_map *map, int str_id)
 {
-#if IS_BUILTIN(CONFIG_SST_DPCM)
-	return;
-#else
-	if ((map[str_id].dev_num == MERR_SALTBAY_AUDIO) ||
-	    (map[str_id].dev_num == MERR_SALTBAY_PROBE)) {
+	if (dpcm_enable == 1)
+		return;
 
+	if ((map[str_id].dev_num == MERR_SALTBAY_AUDIO) ||
+			(map[str_id].dev_num == MERR_SALTBAY_PROBE)) {
 		/* Do nothing in capture for audio device */
 		if ((map[str_id].dev_num == MERR_SALTBAY_AUDIO) &&
-		    (map[str_id].direction == SNDRV_PCM_STREAM_CAPTURE))
+				(map[str_id].direction == SNDRV_PCM_STREAM_CAPTURE))
 			return;
 		if ((map[str_id].task_id == SST_TASK_ID_MEDIA) &&
-		    (map[str_id].status == SST_DEV_MAP_IN_USE)) {
+				(map[str_id].status == SST_DEV_MAP_IN_USE)) {
 			pr_debug("str_id %d device_id 0x%x\n", str_id, map[str_id].device_id);
 			map[str_id].status = SST_DEV_MAP_FREE;
 			map[str_id].device_id = PIPE_RSVD;
 		}
 	}
 	return;
-#endif
 }
 
 static void sst_media_close(struct snd_pcm_substream *substream,
@@ -469,11 +474,9 @@ static int sst_dpcm_probe_cmd(struct snd_soc_platform *platform,
 		struct snd_pcm_substream *substream, u16 pipe_id, bool on)
 {
 	int ret = 0;
-#if IS_BUILTIN(CONFIG_SST_DPCM)
-	if (substream->pcm->device == MERR_DPCM_PROBE)
-		ret = sst_dpcm_probe_send(platform, pipe_id, substream->number,
-					      substream->stream, on);
-#endif
+	if ((dpcm_enable == 1) && (substream->pcm->device == MERR_DPCM_PROBE))
+			ret = sst_dpcm_probe_send(platform, pipe_id, substream->number,
+					substream->stream, on);
 	return ret;
 }
 
@@ -965,11 +968,10 @@ static int sst_soc_probe(struct snd_soc_platform *platform)
 			INTEL_MID_BOARD(1, TABLET, MRFL) ||
 			INTEL_MID_BOARD(1, PHONE, MOFD) ||
 			INTEL_MID_BOARD(1, TABLET, MOFD)) {
-#if IS_BUILTIN(CONFIG_SST_DPCM)
-		ret = sst_dsp_init_v2_dpcm(platform);
-#else
-		ret = sst_dsp_init(platform);
-#endif
+		if (dpcm_enable == 1)
+			ret = sst_dsp_init_v2_dpcm(platform);
+		else
+			ret = sst_dsp_init(platform);
 		if (ret)
 			return ret;
 		ret = snd_soc_register_effect(platform->card, &effects_ops);
