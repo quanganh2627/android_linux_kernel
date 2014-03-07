@@ -535,7 +535,7 @@ static const struct snd_soc_dapm_route byt_audio_map[] = {
 	{"Ext Spk", NULL, "SPK"},
 	{"micbias", NULL, "Internal Mic"},
 	/* Headset Mic: Headset Mic with bias */
-	{"micbias", NULL, "Headset Mic"},
+	{"MIC1RP", NULL, "Headset Mic"},
 
 	/* Headset Stereophone(Headphone): HSOL, HSOR */
 	{"Headphone", NULL, "HPL"},

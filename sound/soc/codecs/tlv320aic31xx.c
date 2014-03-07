@@ -668,7 +668,6 @@ aic31xx_audio_map[] = {
 	{"Left Output Mixer", "From MIC1LP", "MIC1LP"},
 	{"Left Output Mixer", "From MIC1RP", "MIC1RP"},
 	{"MIC1LP", NULL, "micbias"},
-	{"MIC1RP", NULL, "micbias"},
 
 	/* Right Output */
 	{"Right Output Mixer", "From DAC_R", "Right DAC"},
