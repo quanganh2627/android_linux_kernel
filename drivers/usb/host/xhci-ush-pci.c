@@ -1330,8 +1330,15 @@ static void xhci_ush_pci_shutdown(struct pci_dev *dev)
 
 	if (test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags) &&
 			hcd->driver->shutdown) {
+		disable_irq(gpio_to_irq(hsic.aux_gpio));
+		disable_irq(gpio_to_irq(hsic.wakeup_gpio));
 		hcd->driver->shutdown(hcd);
-		ush_hsic_port_disable();
+		if (hsic.rh_dev) {
+			dev_dbg(&pci_dev->dev,
+				"%s: disable port\n", __func__);
+			clear_port_feature(hsic.rh_dev, HSIC_USH_PORT,
+					USB_PORT_FEAT_POWER);
+		}
 		pci_disable_device(dev);
 	}
 }
