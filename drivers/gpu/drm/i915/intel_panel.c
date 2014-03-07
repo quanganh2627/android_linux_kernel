@@ -621,6 +621,35 @@ void intel_panel_disable_backlight(struct drm_device *dev)
 	spin_unlock_irqrestore(&dev_priv->backlight.lock, flags);
 }
 
+static uint32_t compute_pwm_base(uint16_t freq)
+{
+	uint32_t base_unit;
+
+	if (freq < 400)
+		freq = 400;
+	/*The PWM block is clocked by the 25MHz oscillator clock.
+	* The output frequency can be estimated with the equation:
+	* Target frequency = XOSC * Base_unit_value/256
+	*/
+	base_unit = (freq * 256) / 25;
+
+	/* Also Base_unit_value need to converted to QM.N notation
+	* to program the value in register
+	* Using the following for converting to Q8.8 notation
+	* For QM.N representation, consider a floating point variable 'a' :
+	* Step 1: Calculate b = a* 2^N , where N is the fractional length of the variable.
+	* Note that a is represented in decimal.
+	* Step 2: Round the value of 'b' to the nearest integer value. For example:
+	* RoundOff (1.05) --> 1
+	* RoundOff (1.5)  --> 2
+	* Step 3: Convert 'b' from decimal to binary representation and name the new variable 'c'
+	*/
+	base_unit = base_unit * 256;
+	base_unit = DIV_ROUND_CLOSEST(base_unit, 1000000);
+
+	return base_unit;
+}
+
 void intel_panel_enable_backlight(struct drm_device *dev,
 				  enum pipe pipe)
 {
@@ -628,21 +657,23 @@ void intel_panel_enable_backlight(struct drm_device *dev,
 	enum transcoder cpu_transcoder =
 		intel_pipe_to_cpu_transcoder(dev_priv, pipe);
 	unsigned long flags;
+	uint32_t pwm_base;
 
 	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi) {
 #ifdef CONFIG_CRYSTAL_COVE
-
 		uint32_t val;
 		if (BYT_CR_CONFIG) {
 			/* GPIOC_94 config to PWM0 function */
-
-
 			val = vlv_gps_core_read(dev_priv, 0x40A0);
 			vlv_gps_core_write(dev_priv, 0x40A0, 0x2000CC01);
 			vlv_gps_core_write(dev_priv, 0x40A8, 0x5);
 
-			/* PWM enable */
-			lpio_bl_write(0, LPIO_PWM_CTRL, 0x20c00);
+			/* PWM enable
+			* Assuming only 1 LFP
+			*/
+			pwm_base = compute_pwm_base(dev_priv->vbt.pwm_frequency);
+			pwm_base = pwm_base << 8;
+			lpio_bl_write(0, LPIO_PWM_CTRL, pwm_base);
 			lpio_bl_update(0, LPIO_PWM_CTRL);
 			lpio_bl_write_bits(0, LPIO_PWM_CTRL, 0x80000000,
 							0x80000000);

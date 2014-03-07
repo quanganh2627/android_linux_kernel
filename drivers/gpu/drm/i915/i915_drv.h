@@ -1221,6 +1221,8 @@ struct intel_vbt_data {
 	} dsi;
 
 	int crt_ddc_pin;
+	/* Assuming only 1 LFP */
+	u16 pwm_frequency;
 
 	int child_dev_num;
 	struct child_device_config *child_dev;
