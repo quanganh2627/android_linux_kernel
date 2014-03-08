@@ -1083,6 +1083,7 @@ int dwc3_intel_prepare_start_peripheral(struct dwc_otg2 *otg)
 
 int dwc3_intel_suspend(struct dwc_otg2 *otg)
 {
+	int ret;
 	struct pci_dev *pci_dev;
 	struct usb_hcd *hcd = NULL;
 	pci_power_t state = PCI_D3cold;
@@ -1110,8 +1111,18 @@ int dwc3_intel_suspend(struct dwc_otg2 *otg)
 	}
 
 	pci_disable_device(pci_dev);
+	if ((state == PCI_D3cold) && is_utmi_phy(otg)) {
+		/* Important!!  Whenever the VUSBPHY rail is disabled, SW
+		 * must assert USBRST# to isolate the SOC’s DP/DM pins from the
+		 * outside world.  There is a risk of damage to the SOC if a
+		 * peripheral were to bias DP/DM to 3.3V when the SOC is
+		 * unpowered. */
+		ret = intel_scu_ipc_update_register(PMIC_USBPHYCTRL,
+				0x0, USBPHYRSTB);
+		if (ret)
+			otg_err(otg, "%s: ipc update failed\n", __func__);
+	}
 	pci_set_power_state(pci_dev, state);
-
 	return 0;
 }
 
@@ -1120,6 +1131,7 @@ int dwc3_intel_resume(struct dwc_otg2 *otg)
 	struct pci_dev *pci_dev;
 	struct usb_hcd *hcd = NULL;
 	u32 data;
+	int ret;
 
 	if (!otg)
 		return 0;
@@ -1129,8 +1141,18 @@ int dwc3_intel_resume(struct dwc_otg2 *otg)
 	 * reproduced due to all setting be reseted. So switch to OTG
 	 * mode avoid D+ drive too early.
 	 */
-	if (otg->state == DWC_STATE_B_IDLE &&
+	if ((otg->state == DWC_STATE_B_IDLE ||
+		otg->state == DWC_STATE_CHARGING ||
+		otg->state == DWC_STATE_WAIT_VBUS_FALL ||
+		otg->state == DWC_STATE_WAIT_VBUS_RAISE) &&
 			is_utmi_phy(otg)) {
+		/* Reconnect DP/DM between Pmic and SOC for support host
+		 * and device mode. */
+		ret = intel_scu_ipc_update_register(PMIC_USBPHYCTRL,
+				USBPHYRSTB, USBPHYRSTB);
+		if (ret)
+			otg_err(otg, "%s: ipc update failed\n", __func__);
+
 		otg_write(otg, OEVTEN, 0);
 		otg_write(otg, OCTL, 0);
 		dwc3_switch_mode(otg, GCTL_PRT_CAP_DIR_OTG);

@@ -179,6 +179,7 @@ struct intel_dwc_otg_pdata {
 #define PMIC_I2COVRCTRL				0x58
 #define PMIC_I2COVRCTL_I2CWR		0x01
 
+#define USBPHYRSTB				(1 << 0)
 #define USBPHYCTRL_D0			(1 << 0)
 #define PMIC_USBIDCTRL				0x19
 #define USBIDCTRL_ACA_DETEN_D1	(1 << 1)
