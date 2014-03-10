@@ -1004,13 +1004,13 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 	cmd.header.command_id = SBA_VB_SET_SPEECH_PATH;
 	cmd.header.length = sizeof(struct sst_cmd_set_speech_path)
 				- sizeof(struct sst_dsp_header);
-	cmd.config.sample_length = 0;
-	cmd.config.rate = 0;		/* 8 khz */
-	cmd.config.format = 0;
+	cmd.config.cfg.s_length = 0;
+	cmd.config.cfg.rate = 0;		/* 8 khz */
+	cmd.config.cfg.format = 0;
 
 	is_wideband = get_mux_state(sst, SST_MUX_REG, SST_VOICE_MODE_SHIFT);
 	if (is_wideband)
-		cmd.config.rate = 1;	/* 16 khz */
+		cmd.config.cfg.rate = 1;	/* 16 khz */
 
 	if ((SND_SOC_DAPM_EVENT_ON(event) && (speech_active == 1)) ||
 			(SND_SOC_DAPM_EVENT_OFF(event) && (speech_active == 0)))
@@ -1096,10 +1096,10 @@ static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
 	cmd.header.command_id = SBA_SET_MEDIA_LOOP_MAP;
 	cmd.header.length = sizeof(struct sst_cmd_sba_set_media_loop_map)
 				 - sizeof(struct sst_dsp_header);
-	cmd.param.part.rate = 2; /* 48khz */
+	cmd.param.part.cfg.rate = 2; /* 48khz */
 
-	cmd.param.part.format = ids->format; /* stereo/Mono */
-	cmd.param.part.sample_length = 1; /* 24bit left justified*/
+	cmd.param.part.cfg.format = ids->format; /* stereo/Mono */
+	cmd.param.part.cfg.s_length = 1; /* 24bit left justified*/
 	cmd.map = 0; /* Algo sequence: Gain - DRP - FIR - IIR  */
 
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
@@ -1185,9 +1185,9 @@ static int sst_send_probe_cmd(struct sst_data *sst, u16 probe_pipe_id,
 	cmd.probe_out = 0;
 
 	cmd.probe_mode = mode;
-	cmd.sample_length = probe_cfg->cfg.s_length;
-	cmd.rate = probe_cfg->cfg.rate;
-	cmd.format = probe_cfg->cfg.format;
+	cmd.cfg.s_length = probe_cfg->cfg.s_length;
+	cmd.cfg.rate = probe_cfg->cfg.rate;
+	cmd.cfg.format = probe_cfg->cfg.format;
 	cmd.sm_buf_id = 1;
 
 	return sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,

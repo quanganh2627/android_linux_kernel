@@ -561,14 +561,18 @@ struct sst_cmd_set_media_path {
 	u16    switch_state;
 } __packed;
 
+struct pcm_cfg {
+		u8 s_length:2;
+		u8 rate:3;
+		u8 format:3;
+} __packed;
+
 struct sst_cmd_set_speech_path {
 	struct sst_dsp_header header;
 	u16    switch_state;
 	struct {
 		u16 rsvd:8;
-		u16 sample_length:2;
-		u16 rate:3;
-		u16 format:3;
+		struct pcm_cfg cfg;
 	} config;
 } __packed;
 
@@ -610,9 +614,7 @@ struct sst_cmd_sba_vb_start {
 union sba_media_loop_params {
 	struct {
 		u16 rsvd:8;
-		u16 sample_length:2;
-		u16 rate:3;
-		u16 format:3;
+		struct pcm_cfg cfg;
 	} part;
 	u16 full;
 } __packed;
@@ -728,9 +730,7 @@ struct sst_cmd_probe {
 	u16 rsvd_2:5;
 	u16 probe_mode:2;
 	u16 rsvd_3:1;
-	u16 sample_length:2;
-	u16 rate:3;
-	u16 format:3;
+	struct pcm_cfg cfg;
 
 	u16 sm_buf_id;
 
@@ -743,11 +743,7 @@ struct sst_probe_config {
 	u16 loc_id;
 	u16 mod_id;
 	u8 task_id;
-	struct pcm_cfg {
-		u8 s_length:2;
-		u8 rate:3;
-		u8 format:3;
-	} cfg;
+	struct pcm_cfg cfg;
 };
 
 int sst_mix_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
