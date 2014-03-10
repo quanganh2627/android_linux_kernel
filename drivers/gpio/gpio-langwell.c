@@ -45,9 +45,6 @@
 #define IRQ_TYPE_EDGE	(1 << 0)
 #define IRQ_TYPE_LEVEL	(1 << 1)
 
-#define TANGIER_I2C_FLIS_START	0x1D00
-#define TANGIER_I2C_FLIS_END	0x1D3C
-
 /*
  * Langwell chip has 64 pins and thus there are 2 32bit registers to control
  * each feature, while Penwell chip has 96 pins for each block, and need 3 32bit
@@ -157,6 +154,9 @@ static struct gpio_flis_pair gpio_flis_ann_mapping_table[] = {
 	{ 70,	0x1500 },
 	{ 72,	-EINVAL }, /* No GPIO 73-76 in pin list */
 	{ 77,	0x0D00 },
+	{ 87,   0x0D2C },
+	{ 88,   0x0D28 },
+	{ 89,   0x0D30 },
 	{ 97,	0x2130 },
 	{ 98,	-EINVAL }, /* No GPIO 98-101 in pin list */
 	{ 102,	0x1910 },
@@ -165,7 +165,7 @@ static struct gpio_flis_pair gpio_flis_ann_mapping_table[] = {
 	{ 136,	-EINVAL }, /* No GPIO 136-153 in pin list */
 	{ 154,	0x2134 },
 	{ 162,	0x2548 },
-	{ 164,	0x3914 },
+	{ 164,	0x3D14 },
 	{ 176,	0x2500 },
 
 };
@@ -178,8 +178,8 @@ static struct gpio_flis_pair gpio_flis_ann_mapping_table[] = {
  */
 static inline bool is_merr_i2c_flis(u32 offset)
 {
-	return ((offset >= TANGIER_I2C_FLIS_START)
-		&& (offset <= TANGIER_I2C_FLIS_END));
+	return ((offset >= I2C_FLIS_START)
+		&& (offset <= I2C_FLIS_END));
 }
 
 static u32 get_flis_offset_by_gpio(int gpio)

@@ -86,8 +86,8 @@ void set_flis_value(u32 value, u32 offset)
 	 */
 	if ((platform == INTEL_MID_CPU_CHIP_TANGIER ||
 		platform == INTEL_MID_CPU_CHIP_ANNIEDALE)
-			&& offset >= 0x1d00
-			&& offset <= 0x1d34) {
+			&& offset >= I2C_FLIS_START
+			&& offset <= I2C_FLIS_END) {
 		/* IPC call should not be called in atomic context */
 		might_sleep();
 		rpmsg_send_generic_raw_command(RP_INDIRECT_WRITE, 0,

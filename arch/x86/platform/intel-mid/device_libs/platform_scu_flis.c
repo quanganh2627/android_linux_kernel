@@ -657,10 +657,10 @@ static struct pin_mmio_flis_t ann_pin_mmio_flis_table[ANN_PIN_TABLE_SIZE] = {
 	[ann_gp_sdio_1_clk] = { writable, 0xD34 },
 	[ann_gp_sdio_1_cmd] = { writable, 0xD38 },
 	[ann_gp_sdio_1_dat_0] = { writable, 0xD3C },
-	[ann_gp_sdio_1_dat_1] = { writable, 0xD38 },
-	[ann_gp_sdio_1_dat_2] = { writable, 0xD3C },
-	[ann_gp_sdio_1_dat_3] = { writable, 0xD40 },
-	[ann_gp_sdio_1_powerdown_b] = { writable, 0xD44 },
+	[ann_gp_sdio_1_dat_1] = { writable, 0xD40 },
+	[ann_gp_sdio_1_dat_2] = { writable, 0xD44 },
+	[ann_gp_sdio_1_dat_3] = { writable, 0xD48 },
+	[ann_gp_sdio_1_powerdown_b] = { writable, 0xD4C },
 
 	/* gpiossp */
 	[ann_gp_ssp_3_clk] = { writable, 0x1900 },

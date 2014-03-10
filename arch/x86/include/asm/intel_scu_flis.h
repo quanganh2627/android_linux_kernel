@@ -837,6 +837,9 @@ struct intel_scu_flis_platform_data {
 	bool shim_access;
 };
 
+#define I2C_FLIS_START	0x1D00
+#define I2C_FLIS_END	0x1D3C
+
 #define OPS_STR_LEN 10
 
 enum {
