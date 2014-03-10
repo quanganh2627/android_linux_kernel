@@ -446,16 +446,6 @@ static const struct intel_device_info intel_haswell_m_info = {
 	.has_vebox_ring = 1,
 };
 
-static const struct intel_device_info intel_cherryview_info = {
-	.gen = 8, .num_pipes = 2,
-	.need_gfx_hws = 1, .has_hotplug = 1,
-	.has_bsd_ring = 1,
-	.has_blt_ring = 1,
-	.is_valleyview = 1,
-	.display_mmio_offset = VLV_DISPLAY_BASE,
-};
-
-
 static const struct pci_device_id pciidlist[] = {		/* aka */
 	INTEL_VGA_DEVICE(0x3577, &intel_i830_info),		/* I830_M */
 	INTEL_VGA_DEVICE(0x2562, &intel_845g_info),		/* 845_G */
@@ -568,10 +558,6 @@ static const struct pci_device_id pciidlist[] = {		/* aka */
 	INTEL_VGA_DEVICE(0x0f33, &intel_valleyview_m_info),
 	INTEL_VGA_DEVICE(0x0157, &intel_valleyview_m_info),
 	INTEL_VGA_DEVICE(0x0155, &intel_valleyview_d_info),
-	INTEL_VGA_DEVICE(0x22b0, &intel_cherryview_info),
-	INTEL_VGA_DEVICE(0x22b1, &intel_cherryview_info),
-	INTEL_VGA_DEVICE(0x22b2, &intel_cherryview_info),
-	INTEL_VGA_DEVICE(0x22b3, &intel_cherryview_info),
 	{0, 0, 0}
 };
 

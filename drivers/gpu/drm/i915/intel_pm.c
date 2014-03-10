@@ -5606,37 +5606,6 @@ static void valleyview_init_clock_gating(struct drm_device *dev)
 	I915_WRITE(GEN7_UCGCTL7, GEN7_ENABLE_UCGCTL_MASK);
 }
 
-static void cherryview_init_clock_gating(struct drm_device *dev)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	int pipe;
-
-	I915_WRITE(DSPCLK_GATE_D, VRHUNIT_CLOCK_GATE_DISABLE);
-
-	for_each_pipe(pipe) {
-		I915_WRITE(DSPCNTR(pipe),
-			   I915_READ(DSPCNTR(pipe)) |
-			   DISPPLANE_TRICKLE_FEED_DISABLE);
-		intel_flush_display_plane(dev_priv, pipe);
-	}
-
-	/*
-	 * On ValleyView, the GUnit needs to signal the GT
-	 * when flip and other events complete.  So enable
-	 * all the GUnit->GT interrupts here
-	 */
-	I915_WRITE(VLV_DPFLIPSTAT,
-		   PIPEB_LINE_COMPARE_INT_EN | PIPEB_HLINE_INT_EN |
-		   PIPEB_VBLANK_INT_EN | SPRITED_FLIPDONE_INT_EN |
-		   SPRITEC_FLIPDONE_INT_EN | PLANEB_FLIPDONE_INT_EN |
-		   PIPEA_LINE_COMPARE_INT_EN | PIPEA_HLINE_INT_EN |
-		   PIPEA_VBLANK_INT_EN | SPRITEB_FLIPDONE_INT_EN |
-		   SPRITEA_FLIPDONE_INT_EN | PLANEA_FLIPDONE_INT_EN |
-		   PIPEC_LINE_COMPARE_INT_EN | PIPEC_HLINE_INT_EN |
-		   PIPEC_VBLANK_INT_EN | SPRITEF_FLIPDONE_INT_EN |
-		   SPRITEE_FLIPDONE_INT_EN | PLANEC_FLIPDONE_INT_EN);
-}
-
 static void g4x_init_clock_gating(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -6115,10 +6084,6 @@ void intel_init_pm(struct drm_device *dev)
 			dev_priv->display.init_clock_gating = haswell_init_clock_gating;
 		} else
 			dev_priv->display.update_wm = NULL;
-	} else if (IS_CHERRYVIEW(dev)) {
-		dev_priv->display.update_wm = valleyview_update_wm;
-		dev_priv->display.init_clock_gating =
-			cherryview_init_clock_gating;
 	} else if (IS_VALLEYVIEW(dev)) {
 		dev_priv->display.update_wm = valleyview_update_wm;
 		dev_priv->display.update_sprite_wm = valleyview_update_sprite_wm;
