@@ -246,10 +246,17 @@ static int pwrsrc_extcon_dev_reg_callback(struct notifier_block *nb,
 					unsigned long event, void *data)
 {
 	struct pwrsrc_info *info = container_of(nb, struct pwrsrc_info, nb);
+	int mask = 0;
 
 	/* check if there is other extcon cables */
 	if (extcon_num_of_cable_devs(EXTCON_CABLE_SDP)) {
 		dev_info(&info->pdev->dev, "unregistering otg device\n");
+		/* Send VBUS disconnect as another cable detection
+		 * driver registered to extcon framework and notifies
+		 * OTG on cable connect */
+		if (info->otg)
+			atomic_notifier_call_chain(&info->otg->notifier,
+				USB_EVENT_VBUS, &mask);
 		/* Set VBUS supply mode to SW control mode */
 		intel_mid_pmic_writeb(CRYSTALCOVE_VBUSCNTL_REG, 0x02);
 		if (info->nb.notifier_call) {
