@@ -51,7 +51,7 @@ static int imx175_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	int ret;
 
-	if (!IS_BYT) {
+	if (!IS_BYT && !IS_CHT) {
 		if (camera_reset < 0) {
 			ret = camera_sensor_gpio(-1, GP_CAMERA_0_RESET,
 					GPIOF_DIR_OUT, 1);
@@ -133,7 +133,7 @@ static int imx175_power_ctrl(struct v4l2_subdev *sd, int flag)
 	int ret = 0;
 
 #ifdef CONFIG_CRYSTAL_COVE
-	if (!v1p8_reg || !v2p8_reg) {
+	if (!IS_CHT && (!v1p8_reg || !v2p8_reg)) {
 		dev_err(&client->dev,
 				"not avaiable regulator\n");
 		return -EINVAL;
@@ -238,6 +238,8 @@ static int imx175_csi_configure(struct v4l2_subdev *sd, int flag)
 #ifdef CONFIG_CRYSTAL_COVE
 static int imx175_platform_init(struct i2c_client *client)
 {
+	if (IS_CHT)
+		return 0;
 	v1p8_reg = regulator_get(&client->dev, "v1p8sx");
 	if (IS_ERR(v1p8_reg)) {
 		dev_err(&client->dev, "v1p8s regulator_get failed\n");
@@ -256,6 +258,8 @@ static int imx175_platform_init(struct i2c_client *client)
 
 static int imx175_platform_deinit(void)
 {
+	if (IS_CHT)
+		return 0;
 	regulator_put(v1p8_reg);
 	regulator_put(v2p8_reg);
 

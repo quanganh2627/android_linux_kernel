@@ -25,16 +25,12 @@
 #include "platform_camera.h"
 #include "platform_ov5693.h"
 
-/* workround - pin defined for byt */
-#define CAMERA_0_RESET	126
-#define CAMERA_1P8_EN	128
+/* workround - pin defined for cht */
+#define CAMERA_0_RESET	150
+#define CAMERA_1P8_EN	153
 #ifdef CONFIG_VLV2_PLAT_CLK
 #define OSC_CAM0_CLK 0x0
 #define CLK_19P2MHz 0x1
-#endif
-#ifdef CONFIG_CRYSTAL_COVE
-#define VPROG_2P8V 0x66
-#define VPROG_1P8V 0x5D
 #endif
 static int camera_vprog1_on;
 static int camera_reset;

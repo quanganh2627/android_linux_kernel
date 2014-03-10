@@ -218,7 +218,7 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	int ret;
 	int pin;
 
-	if (!IS_BYT) {
+	if (!IS_BYT && !IS_CHT) {
 		if (gp_camera1_power_down < 0) {
 			ret = camera_sensor_gpio(-1, GP_CAMERA_1_POWER_DOWN,
 					GPIOF_DIR_OUT, 1);
@@ -354,7 +354,7 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 	int ret = 0;
 
 #ifdef CONFIG_CRYSTAL_COVE
-	if (!v1p8_reg || !v2p8_reg) {
+	if (!IS_CHT && (!v1p8_reg || !v2p8_reg)) {
 		dev_err(&client->dev,
 				"not avaiable regulator\n");
 		return -EINVAL;
@@ -448,6 +448,9 @@ static int ov2722_csi_configure(struct v4l2_subdev *sd, int flag)
 #ifdef CONFIG_CRYSTAL_COVE
 static int ov2722_platform_init(struct i2c_client *client)
 {
+	if (IS_CHT)
+		return 0;
+
 	pmic_id = camera_pmic_probe();
 	if (pmic_id != PMIC_ROHM)
 		return 0;
@@ -470,6 +473,8 @@ static int ov2722_platform_init(struct i2c_client *client)
 
 static int ov2722_platform_deinit(void)
 {
+	if (IS_CHT)
+		return 0;
 	if (pmic_id != PMIC_ROHM)
 		return 0;
 

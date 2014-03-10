@@ -23,7 +23,7 @@ void *lm3554_platform_data_func(void *info)
 {
 	static struct lm3554_platform_data platform_data;
 
-	if (!IS_BYT) {
+	if (!IS_BYT && !IS_CHT) {
 		platform_data.gpio_reset  = get_gpio_by_name("GP_FLASH_RESET");
 		platform_data.gpio_strobe = get_gpio_by_name("GP_FLASH_STROBE");
 		platform_data.gpio_torch  = get_gpio_by_name("GP_FLASH_TORCH");
