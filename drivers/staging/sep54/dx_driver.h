@@ -58,13 +58,6 @@
 /* Note: If DEBUG macro is undefined, SeP prints would not be printed
  * but the host driver would still ack the characters.                */
 
-#ifdef HVP_BUG			/* TODO for chaabi irq bug */
-/* if "SEP_INTERRUPT_BY_TIMER" is defined then host interrupt will be
- * scheduled by host timer and NOT by SEP interrupt controller. Use this
- * option for debugging only */
-#define SEP_INTERRUPT_BY_TIMER
-#endif
-
 #define MODULE_NAME "sep54"
 
 /* PCI ID's */
@@ -81,7 +74,6 @@
 #define SEP_POWERON_TIMEOUT     10000
 #define SEP_SLEEP_ENABLE 5
 
-#define SEP_RUNTIME_PM
 #define SEP_AUTOSUSPEND_DELAY 5000
 
 /* GPR that holds SeP state */
