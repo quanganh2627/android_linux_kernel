@@ -78,7 +78,7 @@
 #define DISPLAY_POS		6
 
 #define DSP_SSS_CHT		0x36
-#define DSP_SSS_POS_CHT		0x16
+#define DSP_SSS_POS_CHT		16
 
 #define MAX_POWER_ISLANDS	16
 #define ISLAND_UP		0x0
