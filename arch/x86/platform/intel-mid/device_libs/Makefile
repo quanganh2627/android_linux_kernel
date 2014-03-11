@@ -104,6 +104,7 @@ obj-$(subst m,y,$(CONFIG_VIDEO_LM3554))					+= platform_lm3554.o
 obj-$(subst m,y,$(CONFIG_VIDEO_LM3559))					+= platform_lm3559.o
 obj-$(subst m,y,$(CONFIG_VIDEO_AP1302))					+= platform_ap1302.o
 obj-$(subst m,y,$(CONFIG_VIDEO_CSI_XACTOR))				+= platform_csi_xactor.o
+obj-$(subst m,y,$(CONFIG_VIDEO_PIXTER))					+= platform_pixter.o
 endif
 
 obj-$(subst m,y,$(CONFIG_EXTCON_USB))					+= platform_extcon_usb.o
