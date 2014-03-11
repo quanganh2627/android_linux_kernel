@@ -546,7 +546,7 @@ static enum dwc_otg_state do_charger_detection(struct dwc_otg2 *otg)
 
 static enum dwc_otg_state do_connector_id_status(struct dwc_otg2 *otg)
 {
-	int ret;
+	int ret, id;
 	unsigned long flags;
 	u32 events = 0, user_events = 0;
 	u32 otg_mask = 0, user_mask = 0;
@@ -586,11 +586,14 @@ stay_b_idle:
 		 * It will cause the first ID change event lost.
 		 * So need to check real ID currently.
 		 */
-		if (get_id(otg) == RID_FLOAT) {
+		id = get_id(otg);
+		if (id == RID_FLOAT) {
 			otg_dbg(otg, "Stay DWC_STATE_INIT\n");
 			goto stay_b_idle;
-		}
-		return DWC_STATE_WAIT_VBUS_RAISE;
+		} else if (id == RID_GND)
+			return DWC_STATE_A_HOST;
+		else
+			return DWC_STATE_CHARGER_DETECTION;
 	}
 
 	if (user_events & USER_ID_A_CHANGE_EVENT) {
@@ -815,10 +818,6 @@ int otg_main_thread(void *data)
 		case DWC_STATE_CHARGER_DETECTION:
 			otg_dbg(otg, "DWC_STATE_CHARGER_DETECTION\n");
 			next = do_charger_detection(otg);
-			break;
-		case DWC_STATE_WAIT_VBUS_RAISE:
-			otg_dbg(otg, "DWC_STATE_WAIT_VBUS_RAISE\n");
-			next = do_wait_vbus_raise(otg);
 			break;
 		case DWC_STATE_WAIT_VBUS_FALL:
 			otg_dbg(otg, "DWC_STATE_WAIT_VBUS_FALL\n");

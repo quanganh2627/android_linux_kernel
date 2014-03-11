@@ -818,11 +818,11 @@ static enum power_supply_charger_cable_type
 	 * Check ID pin state.
 	 */
 	val = dwc3_intel_get_id(otg);
-	if (val != RID_FLOAT) {
-		type = dwc3_intel_aca_check(otg);
-		goto cleanup;
-	} else if (val == RID_GND) {
+	if (val == RID_GND) {
 		type = POWER_SUPPLY_CHARGER_TYPE_B_DEVICE;
+		goto cleanup;
+	} else if (val != RID_FLOAT) {
+		type = dwc3_intel_aca_check(otg);
 		goto cleanup;
 	}
 
