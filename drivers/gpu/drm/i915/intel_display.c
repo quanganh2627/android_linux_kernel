@@ -10544,6 +10544,11 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	if (dev_priv->dpst.state)
 		i915_dpst_enable_hist_interrupt(dev);
 
+	DRM_DEBUG_PM("Value in iClk5val = %x\n",
+		vlv_ccu_read(dev_priv, CCU_ICLK5_REG));
+	DRM_DEBUG_PM("Value in iClkgtval = %x\n",
+		vlv_ccu_read(dev_priv, CCU_ICLK_GATE_CTRL_REG));
+
 	return 0;
 }
 

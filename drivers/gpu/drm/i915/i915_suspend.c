@@ -935,6 +935,8 @@ static int valleyview_thaw(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int error = 0;
 	u32 reg;
+	struct intel_program_clock_bending clockbend;
+	struct intel_program_clock_spread clockspread;
 
 	dev_priv->is_resuming = true;
 
@@ -1019,6 +1021,15 @@ static int valleyview_thaw(struct drm_device *dev)
 	I915_WRITE(VLV_GTLC_SURVIVABILITY_REG, reg);
 
 	program_pfi_credits(dev_priv, true);
+
+	/* Disable both bend spread initially */
+	dev_priv->clockspread = false;
+	dev_priv->clockbend = false;
+	dev_priv->unplug = false;
+	valleyview_program_clock_bending(
+			dev_priv, &clockbend);
+	valleyview_program_clock_spread(
+			dev_priv, &clockspread);
 
 	return error;
 }
