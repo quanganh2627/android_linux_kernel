@@ -581,18 +581,16 @@ static int ehci_pci_suspend(struct usb_hcd *hcd, bool do_wakeup)
 			struct pci_dev  *pdev =
 				to_pci_dev(hcd->self.controller);
 
-			if (pdev->device != 0x119D) {
-				hostpc_reg = &ehci->regs->hostpc[port];
-				temp = ehci_readl(ehci, hostpc_reg);
+			hostpc_reg = &ehci->regs->hostpc[port];
+			temp = ehci_readl(ehci, hostpc_reg);
 
-				if (!(temp & HOSTPC_PHCD))
-					ehci_writel(ehci, temp | HOSTPC_PHCD,
-							hostpc_reg);
-				temp = ehci_readl(ehci, hostpc_reg);
-				ehci_dbg(ehci, "Port %d PHY low-power mode %s\n",
-					port, (temp & HOSTPC_PHCD) ?
-						"succeeded" : "failed");
-			}
+			if (!(temp & HOSTPC_PHCD))
+				ehci_writel(ehci, temp | HOSTPC_PHCD,
+						hostpc_reg);
+			temp = ehci_readl(ehci, hostpc_reg);
+			ehci_dbg(ehci, "Port %d PHY low-power mode %s\n",
+				port, (temp & HOSTPC_PHCD) ?
+					"succeeded" : "failed");
 		}
 		spin_unlock_irqrestore(&ehci->lock, flags);
 	}
