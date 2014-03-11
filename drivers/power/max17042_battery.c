@@ -143,6 +143,8 @@
 #define BYTE_VALUE			1
 #define WORD_VALUE			0
 
+/* Time interval to write temperature values from host, if needed (in milliseconds) */
+#define TEMP_WRITE_INTERVAL		120000
 enum max17042_register {
 	MAX17042_STATUS		= 0x00,
 	MAX17042_VALRT_Th	= 0x01,
@@ -291,6 +293,7 @@ struct max17042_chip {
 
 	struct work_struct	init_worker;
 	struct work_struct	evt_worker;
+	struct delayed_work	temp_worker;
 
 	bool plat_rebooting;
 	/*
@@ -1602,6 +1605,8 @@ static void set_chip_config(struct max17042_chip *chip)
 			chip->pdata->save_config_data = NULL;
 		}
 	}
+	if (fg_conf_data->cfg & CONFIG_TEX_BIT_ENBL)
+		schedule_delayed_work(&chip->temp_worker, 0);
 	chip->pdata->is_init_done = 1;
 	configure_interrupts(chip);
 
@@ -1616,6 +1621,16 @@ static void max17042_init_worker(struct work_struct *work)
 
 	dev_info(&chip->client->dev, "%s\n", __func__);
 	max17042_restore_conf_data(chip);
+}
+
+static void max17042_temp_worker(struct work_struct *w)
+{
+	struct delayed_work *work = to_delayed_work(w);
+	struct max17042_chip *chip = container_of(work,
+				struct max17042_chip, temp_worker);
+	int temp;
+	read_batt_pack_temp(chip, &temp);
+	schedule_delayed_work(&chip->temp_worker, TEMP_WRITE_INTERVAL);
 }
 
 /* Set the SOC threshold interrupt to offset percentage in S0 state */
@@ -2195,6 +2210,8 @@ static int max17042_probe(struct i2c_client *client,
 	init_battery_props(chip);
 	INIT_WORK(&chip->init_worker, max17042_init_worker);
 	INIT_WORK(&chip->evt_worker, max17042_evt_worker);
+	INIT_DEFERRABLE_WORK(&chip->temp_worker, max17042_temp_worker);
+
 	mutex_init(&chip->batt_lock);
 	mutex_init(&chip->init_lock);
 
@@ -2331,6 +2348,8 @@ static int max17042_suspend(struct device *dev)
 		disable_irq(chip->client->irq);
 		enable_irq_wake(chip->client->irq);
 	}
+	if (fg_conf_data->cfg & CONFIG_TEX_BIT_ENBL)
+		cancel_delayed_work_sync(&chip->temp_worker);
 
 	/* max17042 IC automatically goes into shutdown mode
 	 * if the SCL and SDA were held low for more than
@@ -2369,6 +2388,8 @@ static int max17042_resume(struct device *dev)
 	}
 	/* update battery status and health */
 	schedule_work(&chip->evt_worker);
+	if (fg_conf_data->cfg & CONFIG_TEX_BIT_ENBL)
+		schedule_delayed_work(&chip->temp_worker, 0);
 
 	/* max17042 IC automatically wakes up if any edge
 	 * on SDCl or SDA if we set I2CSH of CONFG reg
