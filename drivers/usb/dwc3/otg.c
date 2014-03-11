@@ -698,6 +698,9 @@ stay_host:
 				/* ACA_DOCK plug out, receive
 				 * id change prior to vBus change
 				 */
+				dwc_otg_notify_charger_type(otg,
+					POWER_SUPPLY_CHARGER_EVENT_DISCONNECT);
+
 				stop_host(otg);
 			} else {
 				/* Normal USB device plug out */
