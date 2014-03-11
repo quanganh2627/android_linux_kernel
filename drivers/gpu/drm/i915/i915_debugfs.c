@@ -3725,6 +3725,11 @@ i915_iosf_read_api(struct file *filp,
 			len = scnprintf(buf, sizeof(buf),
 				"0x%x: 0x%x\n", (unsigned int) iosf_reg,
 						(unsigned int) iosf_val);
+		} else if (strcmp(port, IOSF_CCU_TOKEN) == 0) {
+			iosf_val = vlv_ccu_read(dev_priv, iosf_reg);
+			len = scnprintf(buf, sizeof(buf),
+				"0x%x: 0x%x\n", (unsigned int) iosf_reg,
+						(unsigned int) iosf_val);
 		}
 	} else {
 		len = scnprintf(buf, sizeof(buf),
