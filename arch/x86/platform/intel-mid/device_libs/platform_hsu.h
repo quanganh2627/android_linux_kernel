@@ -24,6 +24,11 @@ enum {
 };
 #endif
 
+enum {
+	ext_gpio = 0,
+	hsu_rxd,
+};
+
 #define HSU_BT_PORT "hsu_bt_port"
 #define HSU_MODEM_PORT "hsu_modem_port"
 #define HSU_GPS_PORT "hsu_gps_port"
@@ -46,6 +51,7 @@ struct hsu_port_pin_cfg {
 	char *name;
 	int id;
 	int wake_gpio;
+	int wake_src;
 	int rx_gpio;
 	int rx_alt;
 	int tx_gpio;
