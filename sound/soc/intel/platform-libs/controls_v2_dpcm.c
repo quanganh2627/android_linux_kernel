@@ -155,12 +155,28 @@ static void sst_send_slot_map(struct sst_data *sst)
 			      sizeof(cmd.header) + cmd.header.length);
 }
 
+int sst_slot_enum_info(struct snd_kcontrol *kcontrol,
+		       struct snd_ctl_elem_info *uinfo)
+{
+	struct sst_enum *e = (struct sst_enum *)kcontrol->private_value;
+
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
+	uinfo->count = 1;
+	uinfo->value.enumerated.items = e->max;
+
+	if (uinfo->value.enumerated.item > e->max - 1)
+		uinfo->value.enumerated.item = e->max - 1;
+	strcpy(uinfo->value.enumerated.name,
+		e->texts[uinfo->value.enumerated.item]);
+	return 0;
+}
+
 static int sst_slot_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
-	struct soc_enum *e = (void *)kcontrol->private_value;
+	struct sst_enum *e = (void *)kcontrol->private_value;
 	unsigned int ctl_no = e->reg;
-	unsigned int is_tx = e->reg2;
+	unsigned int is_tx = e->tx;
 	unsigned int val, mux;
 	u8 *map = is_tx ? sst_ssp_channel_map : sst_ssp_slot_map;
 
@@ -190,11 +206,10 @@ static int sst_slot_put(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
-	struct sst_algo_control *bc = (void *)kcontrol->private_value;
-	struct soc_enum *e = (void *)kcontrol->private_value;
+	struct sst_enum *e = (void *)kcontrol->private_value;
 	int i;
 	unsigned int ctl_no = e->reg;
-	unsigned int is_tx = e->reg2;
+	unsigned int is_tx = e->tx;
 	unsigned int slot_channel_no;
 	unsigned int val, mux;
 
@@ -219,7 +234,7 @@ static int sst_slot_put(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: %s %s map = %#x\n", __func__, is_tx ? "tx channel" : "rx slot",
 		 e->texts[mux], map[slot_channel_no]);
 
-	if (bc->w && bc->w->power)
+	if (e->w && e->w->power)
 		sst_send_slot_map(sst);
 	return 0;
 }
@@ -1524,11 +1539,11 @@ static const char * const channel_names[] = {
 };
 
 #define SST_INTERLEAVER(xpname, slot_name, slotno) \
-	SST_SSP_SLOT_CTL(xpname, "interleaver", slot_name, slotno, 1, \
+	SST_SSP_SLOT_CTL(xpname, "interleaver", slot_name, slotno, true, \
 			 channel_names, sst_slot_get, sst_slot_put)
 
 #define SST_DEINTERLEAVER(xpname, channel_name, channel_no) \
-	SST_SSP_SLOT_CTL(xpname, "deinterleaver", channel_name, channel_no, 0, \
+	SST_SSP_SLOT_CTL(xpname, "deinterleaver", channel_name, channel_no, false, \
 			 slot_names, sst_slot_get, sst_slot_put)
 
 static const struct snd_kcontrol_new sst_slot_controls[] = {
@@ -1884,12 +1899,12 @@ static int sst_fill_widget_module_info(struct snd_soc_dapm_widget *w,
 			mc->w = w;
 		} else if (strstr(kctl->id.name, "interleaver") &&
 			 !strncmp(kctl->id.name, w->name, index)) {
-			struct sst_algo_control *bc = (void *)kctl->private_value;
-			bc->w = w;
+			struct sst_enum *e = (void *)kctl->private_value;
+			e->w = w;
 		} else if (strstr(kctl->id.name, "deinterleaver") &&
 			 !strncmp(kctl->id.name, w->name, index)) {
-			struct sst_algo_control *bc = (void *)kctl->private_value;
-			bc->w = w;
+			struct sst_enum *e = (void *)kctl->private_value;
+			e->w = w;
 		}
 		if (ret < 0) {
 			up_read(&card->controls_rwsem);

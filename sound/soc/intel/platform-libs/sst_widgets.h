@@ -311,17 +311,28 @@ struct sst_algo_control {
 			  sst_algo_control_get, sst_algo_control_set)
 
 
+struct sst_enum {
+	bool tx;
+	unsigned short reg;
+	unsigned int max;
+	const char * const *texts;
+	struct snd_soc_dapm_widget *w;
+};
+
 /* only 4 slots/channels supported atm */
 #define SST_SSP_SLOT_ENUM(s_ch_no, is_tx, xtexts) \
-	(struct soc_enum){ .reg = s_ch_no, .reg2 = is_tx, .max = 4+1, .texts = xtexts, }
+	(struct sst_enum){ .reg = s_ch_no, .tx = is_tx, .max = 4+1, .texts = xtexts, }
 
 #define SST_SLOT_CTL_NAME(xpname, xmname, s_ch_name) \
 	xpname " " xmname " " s_ch_name
 
 #define SST_SSP_SLOT_CTL(xpname, xmname, s_ch_name, s_ch_no, is_tx, xtexts, xget, xput) \
-	SOC_DAPM_ENUM_EXT(SST_SLOT_CTL_NAME(xpname, xmname, s_ch_name), \
-			  SST_SSP_SLOT_ENUM(s_ch_no, is_tx, xtexts), \
-			  xget, xput)
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, \
+	.name = SST_SLOT_CTL_NAME(xpname, xmname, s_ch_name), \
+	.info = sst_slot_enum_info, \
+	.get = xget, .put = xput, \
+	.private_value = (unsigned long)&SST_SSP_SLOT_ENUM(s_ch_no, is_tx, xtexts), \
+}
 
 #define SST_MUX_CTL_NAME(xpname, xinstance) \
 	xpname " " #xinstance
