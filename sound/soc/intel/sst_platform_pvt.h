@@ -84,6 +84,7 @@ int sst_dsp_init(struct snd_soc_platform *platform);
 int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform);
 int sst_send_pipe_gains(struct snd_soc_dai *dai, int stream, int mute);
 void send_ssp_cmd(struct snd_soc_platform *platform, const char *id, bool enable);
+void sst_handle_vb_timer(struct snd_soc_platform *platform, bool enable);
 
 unsigned int sst_soc_read(struct snd_soc_platform *platform, unsigned int reg);
 int sst_soc_write(struct snd_soc_platform *platform, unsigned int reg, unsigned int val);

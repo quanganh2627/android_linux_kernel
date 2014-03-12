@@ -562,8 +562,10 @@ static int sst_enable_ssp(struct snd_pcm_substream *substream,
 {
 	pr_debug("In %s :dai=%s pb=%d cp= %d dai_active=%d id=%d\n", __func__,
 		dai->name, dai->playback_active, dai->capture_active, dai->active,  dai->id);
-	if (!dai->active)
+	if (!dai->active) {
+		sst_handle_vb_timer(dai->platform, true);
 		send_ssp_cmd(dai->platform, dai->name, 1);
+	}
 	return 0;
 }
 
@@ -572,8 +574,10 @@ static void sst_disable_ssp(struct snd_pcm_substream *substream,
 {
 	pr_debug("In %s :dai=%s pb=%d cp= %d dai_active=%d id=%d\n", __func__,
 		dai->name, dai->playback_active, dai->capture_active, dai->active, dai->id);
-	if (!dai->active)
+	if (!dai->active) {
 		send_ssp_cmd(dai->platform, dai->name, 0);
+		sst_handle_vb_timer(dai->platform, false);
+	}
 }
 
 static struct snd_soc_dai_ops sst_media_dai_ops = {

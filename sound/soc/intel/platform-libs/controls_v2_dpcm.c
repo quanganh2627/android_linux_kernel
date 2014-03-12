@@ -55,17 +55,25 @@ static inline void sst_fill_byte_control(char *param,
 			     byte_data, len + sizeof(*byte_data));
 }
 
+static int sst_fill_and_send_cmd_unlocked(struct sst_data *sst,
+				 u8 ipc_msg, u8 block, u8 task_id, u8 pipe_id,
+				 void *cmd_data, u16 len)
+{
+	sst_fill_byte_control(sst->byte_stream, ipc_msg, block, task_id, pipe_id,
+			      len, cmd_data);
+	return sst_dsp->ops->set_generic_params(SST_SET_BYTE_STREAM,
+						sst->byte_stream);
+}
+
 static int sst_fill_and_send_cmd(struct sst_data *sst,
 				 u8 ipc_msg, u8 block, u8 task_id, u8 pipe_id,
 				 void *cmd_data, u16 len)
 {
-	int ret = 0;
+	int ret;
 
 	mutex_lock(&sst->lock);
-	sst_fill_byte_control(sst->byte_stream, ipc_msg, block, task_id, pipe_id,
-			      len, cmd_data);
-	ret = sst_dsp->ops->set_generic_params(SST_SET_BYTE_STREAM,
-					       sst->byte_stream);
+	ret = sst_fill_and_send_cmd_unlocked(sst, ipc_msg, block, task_id, pipe_id,
+					     cmd_data, len);
 	mutex_unlock(&sst->lock);
 
 	return ret;
@@ -743,31 +751,42 @@ SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_bt_controls, SST_MIX_BT);
 SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_fm_controls, SST_MIX_FM);
 SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_modem_controls, SST_MIX_MODEM);
 
-static int sst_vb_trigger_event(struct snd_soc_dapm_widget *w,
-			struct snd_kcontrol *k, int event)
+void sst_handle_vb_timer(struct snd_soc_platform *p, bool enable)
 {
 	struct sst_cmd_generic cmd;
-	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(p);
+	static int timer_usage;
 
-	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
-	if (SND_SOC_DAPM_EVENT_ON(event))
+	if (enable)
 		cmd.header.command_id = SBA_VB_START;
 	else
 		cmd.header.command_id = SBA_IDLE;
+	pr_debug("%s: enable=%u, usage=%d\n", __func__, enable, timer_usage);
 
 	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
 	cmd.header.length = 0;
 
-	if (SND_SOC_DAPM_EVENT_ON(event))
+	if (enable)
 		sst_dsp->ops->power(true);
 
-	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
-			      SST_TASK_SBA, 0, &cmd,
-			      sizeof(cmd.header) + cmd.header.length);
+	mutex_lock(&sst->lock);
+	if (enable)
+		timer_usage++;
+	else
+		timer_usage--;
 
-	if (!SND_SOC_DAPM_EVENT_ON(event))
+	/* Send the command only if this call is the first enable or last
+	 * disable
+	 */
+	if ((enable && (timer_usage == 1)) ||
+	    (!enable && (timer_usage == 0)))
+		sst_fill_and_send_cmd_unlocked(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
+				      SST_TASK_SBA, 0, &cmd,
+				      sizeof(cmd.header) + cmd.header.length);
+	mutex_unlock(&sst->lock);
+
+	if (!enable)
 		sst_dsp->ops->power(false);
-	return 0;
 }
 
 #define SST_SSP_CODEC_MUX		0
@@ -1402,10 +1421,6 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SND_SOC_DAPM_SWITCH("vad_out vad 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_vad),
 
 	SND_SOC_DAPM_SWITCH("tone_in tone_generator 0", SND_SOC_NOPM, 0, 0, &sst_mix_sw_tone_gen),
-
-	SND_SOC_DAPM_SUPPLY("VBTimer", SND_SOC_NOPM, 0, 0,
-			    sst_vb_trigger_event,
-			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 };
 
 static const struct snd_soc_dapm_route intercon[] = {
@@ -1500,19 +1515,6 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 	/* TODO: add sidetone inputs */
 	/* TODO: add Low Latency stream support */
-
-	{"Headset Capture", NULL, "VBTimer"},
-	{"Headset Playback", NULL, "VBTimer"},
-	{"Deepbuffer Playback", NULL, "VBTimer"},
-	{"Compress Playback", NULL, "VBTimer"},
-	{"VOIP Playback", NULL, "VBTimer"},
-	{"vad", NULL, "VBTimer"},
-	{"aware", NULL, "VBTimer"},
-	{"modem_in", NULL, "VBTimer"},
-	{"modem_out", NULL, "VBTimer"},
-	{"bt_fm_in", NULL, "VBTimer"},
-	{"bt_fm_out", NULL, "VBTimer"},
-	{"tone", NULL, "VBTimer"},
 };
 
 static const char * const sst_nb_wb_texts[] = {
