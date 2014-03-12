@@ -1217,8 +1217,11 @@ static ssize_t sst_debug_ipc_write(struct file *file,
 
 		if (msg_id == IPC_GET_PARAMS) {
 			unsigned char *r = block->data;
-			memcpy(ctx->debugfs.get_params_data, r, dsp_hdr->length);
-			ctx->debugfs.get_params_len = dsp_hdr->length;
+			/* Copy the IPC header first and then append dsp header
+			 * and payload data*/
+			memcpy(ctx->debugfs.get_params_data, &msg->mrfld_header.full, sizeof(msg->mrfld_header.full));
+			memcpy(ctx->debugfs.get_params_data + sizeof(msg->mrfld_header.full), r, dsp_hdr->length);
+			ctx->debugfs.get_params_len = sizeof(msg->mrfld_header.full) + dsp_hdr->length;
 		}
 
 	}
@@ -1246,6 +1249,7 @@ static const struct file_operations sst_debug_ipc_ops = {
 	.open = simple_open,
 	.write = sst_debug_ipc_write,
 	.read = sst_debug_ipc_read,
+	.llseek = default_llseek,
 };
 
 struct sst_debug {
