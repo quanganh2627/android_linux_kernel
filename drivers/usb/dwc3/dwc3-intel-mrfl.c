@@ -998,8 +998,8 @@ static int dwc3_intel_handle_notification(struct notifier_block *nb,
 				cap->chrg_type = POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK;
 
 		if (!(cap->chrg_type & valid_chrg_type)) {
-			otg_err(otg, "Invalid charger type!\n");
-			state = NOTIFY_BAD;
+			otg_err(otg, "Ignore invalid charger type!\n");
+			state = NOTIFY_DONE;
 			goto done;
 		}
 
