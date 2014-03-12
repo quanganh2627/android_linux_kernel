@@ -433,7 +433,7 @@ static int monza_probe(struct i2c_client *client,
 	 */
 	sysfs_bin_attr_init(&monza->bin);
 	monza->bin.attr.name = "monzax_data";
-	monza->bin.attr.mode = S_IRUGO | S_IWUSR;
+	monza->bin.attr.mode = S_IRUSR | S_IWUSR;
 	monza->bin.read = monza_bin_read;
 	monza->bin.write = monza_bin_write;
 	if (monza->num_addr == MONZAX_2K_ADDR_NUM)
