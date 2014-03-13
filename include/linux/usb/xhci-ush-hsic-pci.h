@@ -16,7 +16,6 @@
 #define HSIC_ENABLE_SIZE      2
 #define HSIC_DURATION_SIZE    7
 #define HSIC_DELAY_SIZE       8
-#define HSIC_USH_PORT         5
 
 #define HSIC_AUTOSUSPEND                     0
 #define HSIC_PORT_INACTIVITYDURATION              500
@@ -73,6 +72,7 @@ struct ush_hsic_priv {
 	struct wake_lock            s3_wake_lock;
 	enum wlock_state            s3_wlock_state;
 	enum wlock_state            s3_rt_state;
+	int		hsic_port_num;
 };
 
 enum {
@@ -83,9 +83,11 @@ enum {
 struct ush_hsic_pdata {
 	unsigned                has_modem:1;     /* has modem or not */
 	unsigned                enabled:1;       /* enable flag */
+	unsigned		no_power_gate:1; /* no power gating on d3 */
 	int                     aux_gpio;
 	int                     wakeup_gpio;
 	int                     reenum_delay;
+	int			hsic_port_num;
 };
 
 static int hsic_notify(struct notifier_block *self,

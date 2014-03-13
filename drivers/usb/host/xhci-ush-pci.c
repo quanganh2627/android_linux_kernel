@@ -290,7 +290,7 @@ static unsigned int is_ush_hsic(struct usb_device *udev)
 			pdev->device, udev->portnum);
 	/* Ignore and only valid for HSIC. Filter out
 	 * the USB devices added by other USB2 host driver */
-	if (pdev->device != USH_PCI_ID)
+	if (pdev->device != USH_PCI_ID && pdev->device != PCI_DEVICE_ID_INTEL_CHT_USH)
 		return 0;
 
 	/* Ignore USB devices on external hub */
@@ -341,7 +341,7 @@ static void hsicdev_add(struct usb_device *udev)
 			hsic.autosuspend_enable = 0;
 		}
 	} else {
-		if (udev->portnum != HSIC_USH_PORT) {
+		if (udev->portnum != hsic.hsic_port_num) {
 			pr_debug("%s ignore ush ports %d\n",
 				__func__, udev->portnum);
 			return;
@@ -403,7 +403,7 @@ static void hsicdev_remove(struct usb_device *udev)
 			hsic.rh_dev = NULL;
 		}
 	} else {
-		if (udev->portnum != HSIC_USH_PORT) {
+		if (udev->portnum != hsic.hsic_port_num) {
 			pr_debug("%s ignore ush ports %d\n",
 				__func__, udev->portnum);
 			return;
@@ -441,7 +441,7 @@ static void hsic_port_suspend(struct usb_device *udev)
 		return;
 	}
 
-	if (udev->portnum != HSIC_USH_PORT) {
+	if (udev->portnum != hsic.hsic_port_num) {
 		pr_debug("%s ignore ush ports %d\n",
 			__func__, udev->portnum);
 		return;
@@ -461,7 +461,7 @@ static void hsic_port_resume(struct usb_device *udev)
 		return;
 	}
 
-	if (udev->portnum != HSIC_USH_PORT) {
+	if (udev->portnum != hsic.hsic_port_num) {
 		pr_debug("%s ignore ush ports %d\n",
 			__func__, udev->portnum);
 		return;
@@ -528,7 +528,7 @@ static void ush_hsic_port_disable(void)
 		dev_dbg(&pci_dev->dev,
 			"%s----> disable port\n", __func__);
 		usb_disable_autosuspend(hsic.rh_dev);
-		clear_port_feature(hsic.rh_dev, HSIC_USH_PORT,
+		clear_port_feature(hsic.rh_dev, hsic.hsic_port_num,
 				USB_PORT_FEAT_POWER);
 	}
 	s3_wake_unlock();
@@ -551,7 +551,7 @@ static void ush_hsic_port_enable(void)
 			"%s----> enable port\n", __func__);
 		printk(KERN_ERR "%s----> Enable PP\n", __func__);
 		usb_disable_autosuspend(hsic.rh_dev);
-		set_port_feature(hsic.rh_dev, HSIC_USH_PORT,
+		set_port_feature(hsic.rh_dev, hsic.hsic_port_num,
 				USB_PORT_FEAT_POWER);
 	}
 	s3_wake_lock();
@@ -582,7 +582,7 @@ static void hsic_aux_work(struct work_struct *work)
 
 	if (hsic.port_disconnect == 0)
 		hsic_port_logical_disconnect(hsic.rh_dev,
-				HSIC_USH_PORT);
+				hsic.hsic_port_num);
 	else
 		ush_hsic_port_disable();
 	usleep_range(hsic.reenumeration_delay,
@@ -787,7 +787,7 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 
 	if (hsic.port_disconnect == 0)
 		hsic_port_logical_disconnect(hsic.rh_dev,
-				HSIC_USH_PORT);
+				hsic.hsic_port_num);
 	else
 		ush_hsic_port_disable();
 
@@ -1144,6 +1144,29 @@ static int hsic_get_gpio_num(struct pci_dev *pdev)
 	return 0;
 }
 
+static void xhci_no_power_gate_on_d3(struct pci_dev *dev, struct usb_hcd *hcd)
+{
+	u32 reg;
+
+	dev_info(&dev->dev, "Disable Power gating xHCI\n");
+
+	/* Clear D3_hot_en */
+	pci_read_config_dword(dev, 0x9c, &reg);
+	dev_info(&dev->dev, "pci config + 0x9c = 0x%08x\n", reg);
+	reg &= ~BIT(18);
+	pci_write_config_dword(dev, 0x9c, reg);
+	pci_read_config_dword(dev, 0x9c, &reg);
+	dev_info(&dev->dev, "After write, pci config + 0x9c = 0x%08x\n", reg);
+
+	/* Enable Legacy PME_en */
+	reg = readl(hcd->regs + 0x80a4);
+	dev_info(&dev->dev, "MMIO + 0x80A4 = 0x%08x\n", reg);
+	reg |= BIT(30);
+	writel(reg, hcd->regs + 0x80a4);
+	reg = readl(hcd->regs + 0x80a4);
+	dev_info(&dev->dev, "After write MMIO + 0x80A4 = 0x%08x\n", reg);
+}
+
 /*
  * We need to register our own PCI probe function (instead of the USB core's
  * function) in order to create a second roothub under xHCI.
@@ -1174,6 +1197,7 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	hsic.hsic_s3_entry_nb.notifier_call = hsic_s3_entry_notify;
 	register_pm_notifier(&hsic.hsic_s3_entry_nb);
 
+	hsic.hsic_port_num = hsic_pdata->hsic_port_num;
 	retval = hsic_get_gpio_num(pci_dev);
 	if (retval < 0) {
 		dev_err(&dev->dev, "failed to get gpio value\n");
@@ -1271,6 +1295,12 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	if (!pci_dev_run_wake(dev))
 		pm_runtime_put_noidle(&dev->dev);
 
+	/* WORKAROUND: CHT A1 can't resume from D3 correctly if controller
+	 * is power gated in D3
+	 */
+	if (hsic_pdata->no_power_gate)
+		xhci_no_power_gate_on_d3(dev, hcd);
+
 	pm_runtime_allow(&dev->dev);
 	hsic.port_disconnect = 0;
 	hsic_enable = 1;
@@ -1340,7 +1370,7 @@ static void xhci_ush_pci_shutdown(struct pci_dev *dev)
 		if (hsic.rh_dev) {
 			dev_dbg(&pci_dev->dev,
 				"%s: disable port\n", __func__);
-			clear_port_feature(hsic.rh_dev, HSIC_USH_PORT,
+			clear_port_feature(hsic.rh_dev, hsic.hsic_port_num,
 					USB_PORT_FEAT_POWER);
 		}
 		pci_disable_device(dev);
