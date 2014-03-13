@@ -2480,7 +2480,7 @@ EDP_PSR_SW_TIMER
 /* DPST related registers */
 #define BLC_HIST_CTL	(dev_priv->info->display_mmio_offset + 0x61260)
 #define IE_HISTOGRAM_ENABLE             (1<<31)
-#define IE_MOD_TABLE_ENABLE             (1<<27)
+#define IE_MOD_TABLE_ENABLE             (1<<30)
 #define HSV_INTENSITY_MODE              (1<<24)
 #define ENHANCEMENT_MODE_MULT           (2<<13)
 #define BIN_REG_FUNCTION_SELECT_IE      (1<<11)

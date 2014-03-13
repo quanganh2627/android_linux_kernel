@@ -158,16 +158,6 @@ i915_dpst_apply_luma(struct drm_device *dev,
 	if (dev_priv->early_suspended)
 		return -EINVAL;
 
-	/* Backlight settings */
-	dev_priv->dpst.blc_adjustment =
-	ioctl_data->ie_container.dpst_blc_factor;
-
-	level = i915_dpst_compute_brightness(dev, dev_priv->backlight.level);
-	if (dev_priv->is_mipi)
-		intel_panel_actually_set_mipi_backlight(dev, level);
-	else
-		intel_panel_actually_set_backlight(dev, level);
-
 	/* Setup register to access image enhancement value from
 	 * index 0.*/
 	blm_hist_ctl = I915_READ(BLC_HIST_CTL);
@@ -181,6 +171,21 @@ i915_dpst_apply_luma(struct drm_device *dev,
 			dpst_ie_st.factor_present[i] * 0x200 / 10000;
 		I915_WRITE(BLC_HIST_BIN, diet_factor);
 	}
+
+	/* Backlight settings */
+	dev_priv->dpst.blc_adjustment =
+	ioctl_data->ie_container.dpst_blc_factor;
+
+	level = i915_dpst_compute_brightness(dev, dev_priv->backlight.level);
+	if (dev_priv->is_mipi)
+		intel_panel_actually_set_mipi_backlight(dev, level);
+	else
+		intel_panel_actually_set_backlight(dev, level);
+
+	/* Enable Image Enhancement Table */
+	blm_hist_ctl = I915_READ(BLC_HIST_CTL);
+	blm_hist_ctl |= IE_MOD_TABLE_ENABLE | ENHANCEMENT_MODE_MULT;
+	I915_WRITE(BLC_HIST_CTL, blm_hist_ctl);
 
 	return 0;
 }
