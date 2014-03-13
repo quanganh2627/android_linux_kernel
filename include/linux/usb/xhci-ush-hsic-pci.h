@@ -71,7 +71,7 @@ struct ush_hsic_priv {
 	struct notifier_block       hsic_s3_entry_nb;
 	struct wake_lock            s3_wake_lock;
 	enum wlock_state            s3_wlock_state;
-	enum wlock_state            s3_rt_state;
+	enum s3_state               s3_rt_state;
 	int		hsic_port_num;
 };
 
