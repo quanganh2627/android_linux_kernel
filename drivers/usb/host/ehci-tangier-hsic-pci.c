@@ -350,6 +350,7 @@ static irqreturn_t hsic_aux_gpio_irq(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
+	cancel_delayed_work(&hsic.wakeup_work);
 	if (delayed_work_pending(&hsic.hsic_aux)) {
 		dev_dbg(dev,
 			"%s---->Delayed work pending\n", __func__);
@@ -519,6 +520,7 @@ static void hsic_notify(struct usb_device *udev, unsigned action)
 			hsic.modem_dev = udev;
 			pm_runtime_set_autosuspend_delay
 				(&udev->dev, hsic.port_inactivityDuration);
+			udev->persist_enabled = 0;
 
 			if (hsic.remoteWakeup_enable) {
 				pr_debug("%s Modem dev remote wakeup enabled\n",
