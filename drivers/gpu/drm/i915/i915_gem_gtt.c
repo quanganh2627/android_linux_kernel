@@ -976,7 +976,7 @@ static int gen6_gmch_probe(struct drm_device *dev,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	phys_addr_t gtt_bus_addr;
 	unsigned int gtt_size;
-	u16 snb_gmch_ctl;
+	u16 snb_gmch_ctl = 0;
 	int ret;
 
 	*mappable_base = pci_resource_start(dev->pdev, 2);

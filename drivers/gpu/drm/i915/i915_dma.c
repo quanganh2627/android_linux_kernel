@@ -1139,7 +1139,7 @@ intel_alloc_mchbar_resource(struct drm_device *dev)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	int reg = INTEL_INFO(dev)->gen >= 4 ? MCHBAR_I965 : MCHBAR_I915;
-	u32 temp_lo, temp_hi = 0;
+	u32 temp_lo = 0, temp_hi = 0;
 	u64 mchbar_addr;
 	int ret;
 
@@ -1185,7 +1185,7 @@ intel_setup_mchbar(struct drm_device *dev)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	int mchbar_reg = INTEL_INFO(dev)->gen >= 4 ? MCHBAR_I965 : MCHBAR_I915;
-	u32 temp;
+	u32 temp = 0;
 	bool enabled;
 
 	dev_priv->mchbar_need_disable = false;
@@ -1222,7 +1222,7 @@ intel_teardown_mchbar(struct drm_device *dev)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	int mchbar_reg = INTEL_INFO(dev)->gen >= 4 ? MCHBAR_I965 : MCHBAR_I915;
-	u32 temp;
+	u32 temp = 0;
 
 	if (dev_priv->mchbar_need_disable) {
 		if (IS_I915G(dev) || IS_I915GM(dev)) {

@@ -2050,9 +2050,10 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 {
 	struct drm_device *dev = obj->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 seqno = intel_ring_get_seqno(ring);
+	u32 seqno;
 
 	BUG_ON(ring == NULL);
+	seqno = intel_ring_get_seqno(ring);
 	if (obj->ring != ring && obj->last_write_seqno) {
 		/* Keep the seqno relative to the current ring */
 		obj->last_write_seqno = seqno;

@@ -451,7 +451,7 @@ static u32 intel_panel_get_backlight(struct drm_device *dev)
 			val >>= 1;
 
 		if (is_backlight_combination_mode(dev)) {
-			u8 lbpc;
+			u8 lbpc = 0;
 
 			pci_read_config_byte(dev->pdev, PCI_LBPC, &lbpc);
 			val *= lbpc;
