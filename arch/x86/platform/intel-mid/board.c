@@ -83,6 +83,7 @@
 #include "device_libs/platform_bq24261.h"
 #include "device_libs/platform_r69001.h"
 #include "device_libs/platform_pn544.h"
+#include "device_libs/platform_fdp.h"
 #include "device_libs/platform_l3g4200d.h"
 #include "device_libs/platform_lis3dh.h"
 #include "device_libs/platform_lsm303.h"
@@ -204,6 +205,7 @@ struct devs_id __initconst device_ids[] = {
 	{"bq24192", SFI_DEV_TYPE_I2C, 1, &bq24192_platform_data},
 	{"bq24261_charger", SFI_DEV_TYPE_I2C, 1, &bq24261_platform_data, NULL},
 	{"pn544", SFI_DEV_TYPE_I2C, 0, &pn544_platform_data, NULL},
+	{"fdp", SFI_DEV_TYPE_I2C, 0, &fdp_platform_data, NULL},
 	{"l3gd20", SFI_DEV_TYPE_I2C, 0, &l3g4200d_platform_data, NULL},
 	{"l3g4200d", SFI_DEV_TYPE_I2C, 0, &l3g4200d_platform_data},
 	{"lps331ap", SFI_DEV_TYPE_I2C, 0, &no_platform_data},
