@@ -123,3 +123,24 @@ void *m10mo_platform_data(void *info)
 	return &m10mo_sensor_platform_data;
 }
 
+#ifdef CONFIG_VIDEO_M10MO_FAKE_SFI_TABLE
+static struct sfi_device_table_entry m10mo_entry = {
+	.type = SFI_DEV_TYPE_I2C,
+	.host_num = 4,
+	.addr = 0x1F,
+	.irq = 0x0,
+	.max_freq = 0x0,
+	.name = "m10mo",
+};
+
+static int __init platform_m10mo_module_init(void)
+{
+	struct devs_id *dev;
+	dev = get_device_id(m10mo_entry.type, m10mo_entry.name);
+	if (dev && dev->device_handler)
+		dev->device_handler(&m10mo_entry, dev);
+	return 0;
+}
+
+module_init(platform_m10mo_module_init);
+#endif /* CONFIG_M10MO_FAKE_SFI_TABLE */
