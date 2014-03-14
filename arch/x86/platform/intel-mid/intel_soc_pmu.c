@@ -920,32 +920,30 @@ int set_enable_s0ix(const char *val, struct kernel_param *kp)
 	if (platform_is(INTEL_ATOM_MRFLD) || platform_is(INTEL_ATOM_MOORFLD)) {
 		if (!enable_s0ix) {
 			mid_pmu_cxt->cstate_ignore =
-				~((1 << CPUIDLE_STATE_MAX) - 1);
+				~((1 << (CPUIDLE_STATE_MAX-1)) - 1);
 
 			/* Ignore C2, C3, C5 states */
 			mid_pmu_cxt->cstate_ignore |= (1 << 1);
 			mid_pmu_cxt->cstate_ignore |= (1 << 2);
 			mid_pmu_cxt->cstate_ignore |= (1 << 4);
 
-			/* For now ignore C7, C8, C9, C10 states */
+			/* For now ignore C7, C8, C9 states */
 			mid_pmu_cxt->cstate_ignore |= (1 << 6);
 			mid_pmu_cxt->cstate_ignore |= (1 << 7);
 			mid_pmu_cxt->cstate_ignore |= (1 << 8);
-			mid_pmu_cxt->cstate_ignore |= (1 << 9);
 
 			/* Restrict platform Cx state to C6 */
 			pm_qos_update_request(mid_pmu_cxt->cstate_qos,
 						(CSTATE_EXIT_LATENCY_S0i1-1));
 		} else {
 			mid_pmu_cxt->cstate_ignore =
-				~((1 << CPUIDLE_STATE_MAX) - 1);
+				~((1 << (CPUIDLE_STATE_MAX-1)) - 1);
 
-			/* Ignore C2, C3, C5, C8 and C10 states */
+			/* Ignore C2, C3, C5, C8 states */
 			mid_pmu_cxt->cstate_ignore |= (1 << 1);
 			mid_pmu_cxt->cstate_ignore |= (1 << 2);
 			mid_pmu_cxt->cstate_ignore |= (1 << 4);
 			mid_pmu_cxt->cstate_ignore |= (1 << 7);
-			mid_pmu_cxt->cstate_ignore |= (1 << 9);
 
 			pm_qos_update_request(mid_pmu_cxt->cstate_qos,
 							PM_QOS_DEFAULT_VALUE);

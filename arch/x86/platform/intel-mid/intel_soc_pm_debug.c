@@ -2078,7 +2078,7 @@ static int cstate_ignore_add_show(struct seq_file *s, void *unused)
 {
 	int i;
 	seq_printf(s, "CSTATES IGNORED: ");
-	for (i = 0; i < CPUIDLE_STATE_MAX; i++)
+	for (i = 0; i < (CPUIDLE_STATE_MAX-1); i++)
 		if ((mid_pmu_cxt->cstate_ignore & (1 << i)))
 			seq_printf(s, "%d, ", i+1);
 
@@ -2114,11 +2114,11 @@ static ssize_t cstate_ignore_add_write(struct file *file,
 		return -EINVAL;
 
 	if (cstate == MAX_CSTATES_POSSIBLE) {
-		mid_pmu_cxt->cstate_ignore = ((1 << CPUIDLE_STATE_MAX) - 1);
+		mid_pmu_cxt->cstate_ignore = ((1 << (CPUIDLE_STATE_MAX-1)) - 1);
 		pm_qos_update_request(mid_pmu_cxt->cstate_qos,
 					CSTATE_EXIT_LATENCY_C1 - 1);
 	} else {
-		u32 cstate_exit_latency[CPUIDLE_STATE_MAX+1];
+		u32 cstate_exit_latency[CPUIDLE_STATE_MAX];
 		u32 local_cstate_allowed;
 		int max_cstate_allowed;
 
@@ -2140,12 +2140,11 @@ static ssize_t cstate_ignore_add_write(struct file *file,
 		cstate_exit_latency[7] = CSTATE_EXIT_LATENCY_S0i2;
 		cstate_exit_latency[8] = CSTATE_EXIT_LATENCY_S0i3;
 		cstate_exit_latency[9] = PM_QOS_DEFAULT_VALUE;
-		cstate_exit_latency[10] = PM_QOS_DEFAULT_VALUE;
 
 		local_cstate_allowed = ~mid_pmu_cxt->cstate_ignore;
 
 		/* restrict to max c-states */
-		local_cstate_allowed &= ((1<<CPUIDLE_STATE_MAX)-1);
+		local_cstate_allowed &= ((1<<(CPUIDLE_STATE_MAX-1))-1);
 
 		/* If no states allowed will return 0 */
 		max_cstate_allowed = fls(local_cstate_allowed);
@@ -2173,7 +2172,7 @@ static int cstate_ignore_remove_show(struct seq_file *s, void *unused)
 {
 	int i;
 	seq_printf(s, "CSTATES ALLOWED: ");
-	for (i = 0; i < CPUIDLE_STATE_MAX; i++)
+	for (i = 0; i < (CPUIDLE_STATE_MAX-1); i++)
 		if (!(mid_pmu_cxt->cstate_ignore & (1 << i)))
 			seq_printf(s, "%d, ", i+1);
 
@@ -2210,18 +2209,17 @@ static ssize_t cstate_ignore_remove_write(struct file *file,
 
 	if (cstate == MAX_CSTATES_POSSIBLE) {
 		mid_pmu_cxt->cstate_ignore =
-				~((1 << CPUIDLE_STATE_MAX) - 1);
-		/* Ignore C2, C3, C5, C8 and C10 states */
+				~((1 << (CPUIDLE_STATE_MAX-1)) - 1);
+		/* Ignore C2, C3, C5, C8 states */
 		mid_pmu_cxt->cstate_ignore |= (1 << 1);
 		mid_pmu_cxt->cstate_ignore |= (1 << 2);
 		mid_pmu_cxt->cstate_ignore |= (1 << 4);
 		mid_pmu_cxt->cstate_ignore |= (1 << 7);
-		mid_pmu_cxt->cstate_ignore |= (1 << 9);
 
 		pm_qos_update_request(mid_pmu_cxt->cstate_qos,
 						PM_QOS_DEFAULT_VALUE);
 	} else {
-		u32 cstate_exit_latency[CPUIDLE_STATE_MAX+1];
+		u32 cstate_exit_latency[CPUIDLE_STATE_MAX];
 		u32 local_cstate_allowed;
 		int max_cstate_allowed;
 
@@ -2236,7 +2234,6 @@ static ssize_t cstate_ignore_remove_write(struct file *file,
 		cstate_exit_latency[7] = CSTATE_EXIT_LATENCY_S0i2;
 		cstate_exit_latency[8] = CSTATE_EXIT_LATENCY_S0i3;
 		cstate_exit_latency[9] = PM_QOS_DEFAULT_VALUE;
-		cstate_exit_latency[10] = PM_QOS_DEFAULT_VALUE;
 
 		/* 0 is C1 state */
 		cstate--;
@@ -2245,16 +2242,15 @@ static ssize_t cstate_ignore_remove_write(struct file *file,
 		/* by default remove C1 from ignore list */
 		mid_pmu_cxt->cstate_ignore &= ~(1 << 0);
 
-		/* Ignore C2, C3, C5, C8 and C10 states */
+		/* Ignore C2, C3, C5, C8 states */
 		mid_pmu_cxt->cstate_ignore |= (1 << 1);
 		mid_pmu_cxt->cstate_ignore |= (1 << 2);
 		mid_pmu_cxt->cstate_ignore |= (1 << 4);
 		mid_pmu_cxt->cstate_ignore |= (1 << 7);
-		mid_pmu_cxt->cstate_ignore |= (1 << 9);
 
 		local_cstate_allowed = ~mid_pmu_cxt->cstate_ignore;
 		/* restrict to max c-states */
-		local_cstate_allowed &= ((1<<CPUIDLE_STATE_MAX)-1);
+		local_cstate_allowed &= ((1<<(CPUIDLE_STATE_MAX-1))-1);
 
 		/* If no states allowed will return 0 */
 		max_cstate_allowed = fls(local_cstate_allowed);
@@ -2316,11 +2312,16 @@ static const struct file_operations s3_ctrl_ops = {
 	.release	= single_release,
 };
 
-
+/*
+ * cstate: c1=1, c2=2, ..., c6=6, c7=7, c8=7, c9=7
+ *         for s0i1/s0i2/s0i3 cstate=7.
+ * index: this is the index in cpuidle_driver cstates table
+ *        where c1 is the 2nd element of the table
+ */
 unsigned int pmu_get_new_cstate(unsigned int cstate, int *index)
 {
-	static int cstate_index_table[CPUIDLE_STATE_MAX] = {
-					1, 1, 1, 1, 1, 2, 3, 3, 4, 4};
+	static int cstate_index_table[CPUIDLE_STATE_MAX-1] = {
+					1, 1, 1, 1, 1, 2, 3, 3, 4};
 	unsigned int new_cstate = cstate;
 	u32 local_cstate = (u32)(cstate);
 	u32 local_cstate_allowed = ~mid_pmu_cxt->cstate_ignore;
@@ -2328,6 +2329,7 @@ unsigned int pmu_get_new_cstate(unsigned int cstate, int *index)
 
 	if (platform_is(INTEL_ATOM_MRFLD) || platform_is(INTEL_ATOM_MOORFLD)) {
 		/* cstate is also 7 for C9 so correct */
+		/* this is supposing that C9 is the 4th cstate allowed */
 		if ((local_cstate == 7) && (*index == 4))
 			local_cstate = 9;
 
@@ -2335,7 +2337,7 @@ unsigned int pmu_get_new_cstate(unsigned int cstate, int *index)
 		cstate_mask = (u32)((1 << local_cstate)-1);
 		/* in case if cstate == 0 which should not be the case*/
 		cstate_mask |= 1;
-		local_cstate_allowed	&= ((1<<CPUIDLE_STATE_MAX)-1);
+		local_cstate_allowed	&= ((1<<(CPUIDLE_STATE_MAX-1))-1);
 		local_cstate_allowed	&= cstate_mask;
 		if (!could_do_s0ix())
 			local_cstate_allowed &= cstate_no_s0ix_mask;
@@ -2483,28 +2485,26 @@ void pmu_stats_init(void)
 		/* If s0ix is disabled then restrict to C6 */
 		if (!enable_s0ix) {
 			mid_pmu_cxt->cstate_ignore =
-				~((1 << CPUIDLE_STATE_MAX) - 1);
+				~((1 << (CPUIDLE_STATE_MAX-1)) - 1);
 
 			/* Ignore C2, C3, C5 states */
 			mid_pmu_cxt->cstate_ignore |= (1 << 1);
 			mid_pmu_cxt->cstate_ignore |= (1 << 2);
 			mid_pmu_cxt->cstate_ignore |= (1 << 4);
 
-			/* For now ignore C7, C8, C9, C10 states */
+			/* For now ignore C7, C8, C9 states */
 			mid_pmu_cxt->cstate_ignore |= (1 << 6);
 			mid_pmu_cxt->cstate_ignore |= (1 << 7);
 			mid_pmu_cxt->cstate_ignore |= (1 << 8);
-			mid_pmu_cxt->cstate_ignore |= (1 << 9);
 		} else {
 			mid_pmu_cxt->cstate_ignore =
-				~((1 << CPUIDLE_STATE_MAX) - 1);
+				~((1 << (CPUIDLE_STATE_MAX-1)) - 1);
 
-			/* Ignore C2, C3, C5, C8 and C10 states */
+			/* Ignore C2, C3, C5, C8 states */
 			mid_pmu_cxt->cstate_ignore |= (1 << 1);
 			mid_pmu_cxt->cstate_ignore |= (1 << 2);
 			mid_pmu_cxt->cstate_ignore |= (1 << 4);
 			mid_pmu_cxt->cstate_ignore |= (1 << 7);
-			mid_pmu_cxt->cstate_ignore |= (1 << 9);
 		}
 
 		mid_pmu_cxt->cstate_qos =
