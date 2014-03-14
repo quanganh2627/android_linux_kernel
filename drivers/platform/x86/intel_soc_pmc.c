@@ -186,6 +186,7 @@ struct pmc_dev {
 	u32 state_resi_offset[STATE_MAX];
 	u32 residency_total;
 	u32 s3_count;
+	struct platform_device *tco_wdt_dev;
 };
 
 char *states[] = {
@@ -376,11 +377,8 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 	    reg_func_dis2, tmp;
 	u8 bit;
 	u32 ignore_flag;
-	char **d3_device;
-	struct nc_device *nc_devices;
-	unsigned int base_class, sub_class;
-	struct pci_dev *dev = NULL;
-	u16 pmcsr;
+	const char **d3_device;
+	const struct nc_device *nc_devices;
 
 	pmc_cxt->residency_total = 0;
 
@@ -722,6 +720,14 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 
 	pci_set_drvdata(pdev, pmc_cxt);
 
+	/* Register the Watchdog device */
+	pmc_cxt->tco_wdt_dev = platform_device_register_data(&pdev->dev,
+							     "iTCO_wdt",
+							     -1, NULL, 0);
+	if (IS_ERR(pmc_cxt->tco_wdt_dev))
+		dev_err(&pdev->dev,
+			"Failed to create iTCO_wdt platform device\n");
+
 	/* /sys/kernel/debug/mid_pmu_states */
 	d1 = debugfs_create_file("mid_pmu_states", S_IFREG | S_IRUGO,
 				NULL, pmc_cxt, &devices_state_operations);
@@ -763,6 +769,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	return 0;
 
 err_release_region:
+	platform_device_unregister(pmc_cxt->tco_wdt_dev);
 	pci_release_region(pdev, PMC_MMIO_BAR);
 exit_err:
 	dev_err(&pdev->dev, "Initialization failed\n");
