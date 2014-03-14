@@ -259,6 +259,9 @@ static int imx134_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		gpio_set_value(camera_reset, 0);
 		/* 1us - Falling time of REGEN after XCLR H -> L */
 		udelay(1);
+
+		gpio_free(camera_reset);
+		camera_reset = -1;
 	}
 
 	return 0;
