@@ -167,6 +167,7 @@ struct camera_sensor_platform_data {
 	int (*platform_deinit)(void);
 	char *(*msr_file_name)(void);
 	struct atomisp_camera_caps *(*get_camera_caps)(void);
+	int (*gpio_intr_ctrl)(struct v4l2_subdev *subdev);
 };
 
 struct camera_af_platform_data {
