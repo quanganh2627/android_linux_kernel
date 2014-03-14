@@ -711,8 +711,11 @@ static void acm_port_shutdown(struct tty_port *port)
 		usb_autopm_get_interface(acm->control);
 		acm_set_control(acm, acm->ctrlout = 0);
 		usb_kill_urb(acm->ctrlurb);
-		for (i = 0; i < ACM_NW; i++)
+		acm->transmitting = 0;
+		for (i = 0; i < ACM_NW; i++) {
 			usb_kill_urb(acm->wb[i].urb);
+			acm->wb[i].use = 0;
+		}
 		for (i = 0; i < acm->rx_buflimit; i++)
 			usb_kill_urb(acm->read_urbs[i]);
 		acm->control->needs_remote_wakeup = 0;
@@ -739,6 +742,8 @@ static void acm_tty_close(struct tty_struct *tty, struct file *filp)
 {
 	struct acm *acm = tty->driver_data;
 	dev_dbg(&acm->control->dev, "%s\n", __func__);
+	/* Set flow_stopped to enable flush buffer*/
+	tty->flow_stopped = 1;
 	tty_port_close(&acm->port, tty, filp);
 }
 
@@ -799,6 +804,30 @@ static int acm_tty_chars_in_buffer(struct tty_struct *tty)
 	 * This is inaccurate (overcounts), but it works.
 	 */
 	return (ACM_NW - acm_wb_is_avail(acm)) * acm->writesize;
+}
+
+static void acm_tty_flush_buffer(struct tty_struct *tty)
+{
+	struct acm *acm = tty->driver_data;
+	struct acm_wb *wb;
+	struct delayed_wb *d_wb, *nd_wb;
+
+	/* flush delayed write buffer */
+	if (!acm->disconnected) {
+		usb_autopm_get_interface(acm->control);
+		spin_lock_irq(&acm->write_lock);
+		list_for_each_entry_safe(d_wb, nd_wb,
+				&acm->delayed_wb_list, list) {
+			wb = d_wb->wb;
+			list_del(&d_wb->list);
+			kfree(d_wb);
+			spin_unlock_irq(&acm->write_lock);
+			acm_start_wb(acm, wb);
+			spin_lock_irq(&acm->write_lock);
+		}
+		spin_unlock_irq(&acm->write_lock);
+		usb_autopm_put_interface(acm->control);
+	}
 }
 
 static void acm_tty_throttle(struct tty_struct *tty)
@@ -1911,6 +1940,7 @@ static const struct tty_operations acm_ops = {
 	.throttle =		acm_tty_throttle,
 	.unthrottle =		acm_tty_unthrottle,
 	.chars_in_buffer =	acm_tty_chars_in_buffer,
+	.flush_buffer =		acm_tty_flush_buffer,
 	.break_ctl =		acm_tty_break_ctl,
 	.set_termios =		acm_tty_set_termios,
 	.tiocmget =		acm_tty_tiocmget,
