@@ -115,6 +115,7 @@
 #include "device_libs/platform_wm5102.h"
 #include "device_libs/platform_ap1302.h"
 #include "device_libs/platform_csi_xactor.h"
+#include "device_libs/platform_m10mo.h"
 #include "device_libs/platform_pixter.h"
 
 /*
@@ -301,6 +302,8 @@ struct devs_id __initconst device_ids[] = {
 	{"lm3560", SFI_DEV_TYPE_I2C, 0, &lm3559_platform_data_func,
 					&intel_register_i2c_camera_device},
 	{"ap1302", SFI_DEV_TYPE_I2C, 0, &ap1302_platform_data,
+					&intel_register_i2c_camera_device},
+	{"m10mo", SFI_DEV_TYPE_I2C, 0, &m10mo_platform_data,
 					&intel_register_i2c_camera_device},
 #if defined(CONFIG_VIDEO_CSI_XACTOR_MODULE) || defined(CONFIG_VIDEO_CSI_XACTOR)
 	{"xactor_a", SFI_DEV_TYPE_I2C, 0, &csi_xactor_a_platform_data,
