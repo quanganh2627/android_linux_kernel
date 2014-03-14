@@ -15,6 +15,27 @@
 #ifndef MEDIA_CSS2600_H
 #define MEDIA_CSS2600_H
 
+#include <linux/i2c.h>
+
 #define CSS2600_ISYS_MAX_CSI2_LANES		4
+
+struct css2600_isys_csi2_config {
+	unsigned int nlanes;
+	unsigned int port;
+};
+
+struct css2600_isys_subdev_i2c_info {
+	struct i2c_board_info board_info;
+	int i2c_adapter_id;
+};
+
+struct css2600_isys_subdev_info {
+	struct css2600_isys_csi2_config *csi2;
+	struct css2600_isys_subdev_i2c_info i2c;
+};
+
+struct css2600_isys_subdev_pdata {
+	struct css2600_isys_subdev_info **subdevs;
+};
 
 #endif /* MEDIA_CSS2600_H */
