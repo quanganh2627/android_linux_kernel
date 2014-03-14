@@ -9132,9 +9132,9 @@ compute_baseline_pipe_bpp(struct intel_crtc *crtc,
 	}
 		if (intel_encoder->type == INTEL_OUTPUT_DSI) {
 			if (dev_priv->mipi.panel_bpp == PIPE_24BPP)
-				bpp = DISPLAY_8BPC;
+				bpp = DISPLAY_8BPC*3;
 		else
-				bpp = DISPLAY_6BPC;
+				bpp = DISPLAY_6BPC*3;
 			}
 
 		}
@@ -9288,7 +9288,7 @@ encoder_retry:
 	}
 
 	pipe_config->dither = pipe_config->pipe_bpp != plane_bpp;
-	DRM_ERROR("plane bpp: %i, pipe bpp: %i, dithering: %i\n",
+	DRM_DEBUG_KMS("plane bpp: %i, pipe bpp: %i, dithering: %i\n",
 		      plane_bpp, pipe_config->pipe_bpp, pipe_config->dither);
 
 	return pipe_config;
