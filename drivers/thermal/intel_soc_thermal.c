@@ -64,7 +64,15 @@
 #define PKG_TURBO_POWER_LIMIT	0x610
 #define PKG_TURBO_CFG		0x670
 #define MSR_THERM_CFG1		0x673
-#define CPU_PWR_BUDGET_CTL	0x02
+
+/* TODO: Shadow register used in MOOR.
+ * Below ifdef is a workaround.
+ * This is tracked in HSD:4380040 */
+#ifdef CONFIG_INTEL_MOOR_THERMAL
+	#define CPU_PWR_BUDGET_CTL	0xdf
+#else
+	#define CPU_PWR_BUDGET_CTL	0x02
+#endif
 
 /* PKG_TURBO_PL1 holds PL1 in terms of 32mW */
 #define PL_UNIT_MW		32
