@@ -1238,6 +1238,9 @@ static int pxa2xx_spi_probe(struct platform_device *pdev)
 		goto out_error_master_alloc;
 	}
 
+	/* Fixme: disable dma, only enable pio mode */
+	platform_info->enable_dma = 0;
+
 	/* Setup DMA if requested */
 	drv_data->tx_channel = -1;
 	drv_data->rx_channel = -1;
