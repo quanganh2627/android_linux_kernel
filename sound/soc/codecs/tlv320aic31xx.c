@@ -188,7 +188,7 @@ static const struct snd_kcontrol_new aic31xx_snd_controls[] = {
 static const struct snd_kcontrol_new aic311x_snd_controls[] = {
 	/* SP Class-D driver output stage gain Control */
 	SOC_DOUBLE_R_TLV("SP Driver Gain", AIC31XX_SPLGAIN,
-			AIC31XX_SPRGAIN, 3, 0x04, 0, class_D_drv_tlv),
+			AIC31XX_SPRGAIN, 3, 0x03, 0, class_D_drv_tlv),
 	/* SP Analog Gain Volume Control */
 	SOC_DOUBLE_R_TLV("Analog Channel Gain", AIC31XX_LANALOGSPL,
 			AIC31XX_RANALOGSPR, 0, 0x7F, 1, sp_vol_tlv),
@@ -200,7 +200,7 @@ static const struct snd_kcontrol_new aic311x_snd_controls[] = {
 static const struct snd_kcontrol_new aic310x_snd_controls[] = {
 	/* SP Class-D driver output stage gain Control */
 	SOC_SINGLE_TLV("SP Driver Gain", AIC31XX_SPLGAIN,
-			3, 0x04, 0, class_D_drv_tlv),
+			3, 0x03, 0, class_D_drv_tlv),
 	/* SP Analog Gain Volume Control */
 	SOC_SINGLE_TLV("Left Analog Channel Gain", AIC31XX_LANALOGSPL,
 			0, 0x7F, 1, sp_vol_tlv),
