@@ -917,6 +917,7 @@ void intel_lvds_init(struct drm_device *dev)
 	u32 lvds;
 	int pipe;
 	u8 pin;
+	struct i2c_adapter *i2c = NULL;
 
 	if (!intel_lvds_supported(dev))
 		return;
@@ -1013,7 +1014,13 @@ void intel_lvds_init(struct drm_device *dev)
 	 * Attempt to get the fixed panel mode from DDC.  Assume that the
 	 * preferred mode is the right one.
 	 */
-	edid = drm_get_edid(connector, intel_gmbus_get_adapter(dev_priv, pin));
+	i2c = intel_gmbus_get_adapter(dev_priv, pin);
+	if (i2c == NULL) {
+		kfree(lvds_encoder);
+		kfree(lvds_connector);
+		return;
+	}
+	edid = drm_get_edid(connector, i2c);
 	if (edid) {
 		if (drm_add_edid_modes(connector, edid)) {
 			drm_mode_connector_update_edid_property(connector,

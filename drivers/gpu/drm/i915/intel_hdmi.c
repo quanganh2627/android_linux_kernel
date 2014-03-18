@@ -1316,10 +1316,12 @@ intel_hdmi_detect_audio(struct drm_connector *connector)
 	struct drm_i915_private *dev_priv = connector->dev->dev_private;
 	struct edid *edid;
 	bool has_audio = false;
+	struct i2c_adapter *i2c;
 
-	edid = drm_get_edid(connector,
-			    intel_gmbus_get_adapter(dev_priv,
-						    intel_hdmi->ddc_bus));
+	i2c = intel_gmbus_get_adapter(dev_priv, intel_hdmi->ddc_bus);
+	if (i2c == NULL)
+		return false;
+	edid = drm_get_edid(connector, i2c);
 	if (edid) {
 		if (edid->input & DRM_EDID_INPUT_DIGITAL)
 			has_audio = drm_detect_monitor_audio(edid);
