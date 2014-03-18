@@ -333,6 +333,15 @@ static void smsc375x_otg_event_worker(struct work_struct *work)
 	if (ret < 0)
 		dev_warn(&chip->client->dev, "id vbus control failed\n");
 
+	/*
+	 * As we are not getting SMSC INT in case
+	 * 5V boost enablement.
+	 * Follwoing WA is added to enable Host mode
+	 * on CR V2.1 by invoking the VBUS worker.
+	 */
+	msleep(5000);
+	schedule_work(&chip->vbus_work);
+
 	pm_runtime_put_sync(&chip->client->dev);
 }
 
@@ -407,7 +416,18 @@ static void smsc375x_pwrsrc_event_worker(struct work_struct *work)
 
 	pm_runtime_get_sync(&chip->client->dev);
 
-	smsc375x_detect_dev(chip);
+	/*
+	 * Sometimes SMSC INT triggering is only
+	 * happening after reading the status bits.
+	 * So we are reading the status register as WA
+	 * to invoke teh MUX INT in case of connect events.
+	 */
+	if (!chip->pdata->is_vbus_online())
+		ret = smsc375x_detect_dev(chip);
+	else
+		ret = smsc375x_read_reg(chip->client, SMSC375X_REG_STAT);
+	if (ret < 0)
+		dev_warn(&chip->client->dev, "pwrsrc evt error\n");
 
 	pm_runtime_put_sync(&chip->client->dev);
 }
@@ -420,9 +440,7 @@ static int smsc375x_handle_pwrsrc_notification(struct notifier_block *nb,
 
 	dev_info(&chip->client->dev, "[PWRSRC notification]: %lu\n", event);
 
-	/* disconnect event */
-	if (!event)
-		schedule_work(&chip->vbus_work);
+	schedule_work(&chip->vbus_work);
 
 	return NOTIFY_OK;
 }
