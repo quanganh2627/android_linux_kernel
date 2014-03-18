@@ -11,6 +11,7 @@
 
 #include <asm/intel_scu_ipcutil.h>
 #include <asm/intel-mid.h>
+#include <asm/intel_scu_flis.h>
 #include <linux/atomisp_platform.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
@@ -71,6 +72,10 @@ static int m10mo_gpio_intr_ctrl(struct v4l2_subdev *sd)
 		pr_err("Failed to request interrupt gpio(pin %d)\n", pin);
 		return -EINVAL;
 	}
+
+	config_pin_flis(ann_gp_camerasb_3, PULL, UP_50K);
+	config_pin_flis(ann_gp_camerasb_3, MUX, MUX_EN_INPUT_EN | INPUT_EN);
+
 	ret = gpio_direction_input(pin);
 
 	flag = gpio_get_value(pin);
