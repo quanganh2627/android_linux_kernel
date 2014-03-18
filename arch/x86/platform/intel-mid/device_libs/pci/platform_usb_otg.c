@@ -81,14 +81,16 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 	case PCI_DEVICE_ID_INTEL_MRFL_DWC3_OTG:
 		if (INTEL_MID_BOARD(1, PHONE, MOFD)) {
 			dwc_otg_pdata.pmic_type = SHADY_COVE;
-			dwc_otg_pdata.using_vusbphy = 0;
 			dwc_otg_pdata.charger_detect_enable = 0;
 			dwc_otg_pdata.usb2_phy_type = get_usb2_phy_type();
 			 dwc_otg_pdata.charging_compliance =
 				dwc_otg_get_usbspecoverride(MOFD_SMIP_VIOLATE_BC_ADDR);
 
-			if (dwc_otg_pdata.usb2_phy_type == USB2_PHY_ULPI)
+			if (dwc_otg_pdata.usb2_phy_type == USB2_PHY_ULPI) {
 				dwc_otg_pdata.charger_detect_enable = 1;
+				dwc_otg_pdata.using_vusbphy = 0;
+			} else
+				dwc_otg_pdata.using_vusbphy = 1;
 			dwc_otg_pdata.ulpi_eye_calibrate = 0x7F;
 
 		} else if (INTEL_MID_BOARD(1, PHONE, MRFL)) {

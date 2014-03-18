@@ -372,10 +372,6 @@ static int enable_usb_phy(struct dwc_otg2 *otg, bool on_off)
 	if (!otg || !otg->otg_data)
 		return -EINVAL;
 
-	/* UTMI phy have no power control so far. So can't disable it. */
-	if (is_utmi_phy(otg))
-		return 0;
-
 	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
 	if (data->using_vusbphy) {
 		addr = PMIC_VLDOCNT;
