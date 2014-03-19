@@ -352,6 +352,7 @@ static void hsicdev_add(struct usb_device *udev)
 		hsic.modem_dev = udev;
 		pm_runtime_set_autosuspend_delay
 			(&udev->dev, hsic.port_inactivityDuration);
+		udev->persist_enabled = 0;
 
 		if (hsic.remoteWakeup_enable) {
 			pr_debug("%s Modem dev remote wakeup enabled\n",
