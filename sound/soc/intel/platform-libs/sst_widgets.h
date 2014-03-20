@@ -77,6 +77,8 @@ struct sst_ids {
 	u8  task_id;
 	u8  format;
 	u8  reg;
+	const char *parent_wname;
+	struct snd_soc_dapm_widget *parent_w;
 	struct list_head algo_list;
 	struct list_head gain_list;
 	const struct sst_pcm_format *pcm_fmt;
@@ -126,6 +128,14 @@ struct sst_ids {
 	.priv = (void *)&(struct sst_ids) { .task_id = wtask, .location_id = wloc_id, }	\
 }
 
+#define SST_LINKED_PATH(wname, wtask, wloc_id, linked_wname, wevent, wflags)		\
+{	.id = snd_soc_dapm_pga, .name = wname, .reg = SND_SOC_NOPM, .shift = 0,		\
+	.invert = 0, .kcontrol_news = NULL, .num_kcontrols = 0,				\
+	.event = wevent, .event_flags = wflags,						\
+	.priv = (void *)&(struct sst_ids) { .task_id = wtask, .location_id = wloc_id,	\
+					.parent_wname = linked_wname}			\
+}
+
 #define SST_PATH_MEDIA_LOOP(wname, wtask, wloc_id, wformat, wevent, wflags)             \
 {	.id = snd_soc_dapm_pga, .name = wname, .reg = SND_SOC_NOPM, .shift = 0,         \
 	.invert = 0, .kcontrol_news = NULL, .num_kcontrols = 0,                         \
@@ -138,8 +148,16 @@ struct sst_ids {
 #define SST_PATH_INPUT(name, task_id, loc_id, event)					\
 	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD)
 
+#define SST_PATH_LINKED_INPUT(name, task_id, loc_id, linked_wname, event)		\
+	SST_LINKED_PATH(name, task_id, loc_id, linked_wname, event,			\
+					SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD)
+
 #define SST_PATH_OUTPUT(name, task_id, loc_id, event)					\
 	SST_PATH(name, task_id, loc_id, event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD)
+
+#define SST_PATH_LINKED_OUTPUT(name, task_id, loc_id, linked_wname, event)		\
+	SST_LINKED_PATH(name, task_id, loc_id, linked_wname, event,			\
+					SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD)
 
 #define SST_PATH_MEDIA_LOOP_OUTPUT(name, task_id, loc_id, format, event)		\
 	SST_PATH_MEDIA_LOOP(name, task_id, loc_id, format, event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD)

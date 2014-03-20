@@ -1924,6 +1924,21 @@ static int sst_fill_widget_module_info(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void sst_fill_linked_widgets(struct snd_soc_platform *platform,
+						struct sst_ids *ids)
+{
+	struct snd_soc_dapm_widget *w;
+	struct snd_soc_dapm_context *dapm = &platform->dapm;
+
+	unsigned int len = strlen(ids->parent_wname);
+	list_for_each_entry(w, &dapm->card->widgets, list) {
+		if (!strncmp(ids->parent_wname, w->name, len)) {
+			ids->parent_w = w;
+			break;
+		}
+	}
+}
+
 static int sst_map_modules_to_pipe(struct snd_soc_platform *platform)
 {
 	struct snd_soc_dapm_widget *w;
@@ -1940,6 +1955,9 @@ static int sst_map_modules_to_pipe(struct snd_soc_platform *platform)
 			ret = sst_fill_widget_module_info(w, platform);
 			if (ret < 0)
 				return ret;
+			/* fill linked widgets */
+			if (ids->parent_wname !=  NULL)
+				sst_fill_linked_widgets(platform, ids);
 		}
 	}
 	return 0;
