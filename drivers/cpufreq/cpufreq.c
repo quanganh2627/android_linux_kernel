@@ -1076,6 +1076,10 @@ static int cpufreq_nominate_new_policy_cpu(struct cpufreq_policy *data,
 
 	/* first sibling now owns the new sysfs dir */
 	cpu_dev = get_cpu_device(cpumask_first(data->cpus));
+	if (!cpu_dev) {
+		pr_err("%s: unable to get the cpu device\n", __func__);
+		return -ENODEV;
+	}
 
 	/* Don't touch sysfs files during light-weight tear-down */
 	if (frozen)
