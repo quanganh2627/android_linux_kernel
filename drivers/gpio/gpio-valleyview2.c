@@ -898,7 +898,6 @@ vlv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 
 	return 0;
 err:
-	kfree(vg);
 	return ret;
 }
 

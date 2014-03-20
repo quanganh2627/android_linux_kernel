@@ -1304,8 +1304,6 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 	struct device *dev = &pdev->dev;
 	struct gpio_bank_pnp *bank;
 	int ret = 0;
-	int gpio_base;
-	char path[GPIO_PATH_MAX];
 	int nbanks = sizeof(chv_banks_pnp) / sizeof(struct gpio_bank_pnp);
 	struct gpio_debug *debug;
 
@@ -1331,15 +1329,6 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 		ret = -ENODEV;
 		goto err;
 	}
-
-	snprintf(path, sizeof(path), "\\_SB.%s", bank->name);
-	/*
-	gpio_base = acpi_get_gpio(path, 0);
-	if (gpio_base < 0)
-		dev_err(dev, "Can't get base from ACPI GPIO chip %s", path);
-
-	bank->gpio_base = gpio_base;
-	*/
 
 	mem_rc = pnp_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem_rc) {
@@ -1428,7 +1417,6 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 
 	return 0;
 err:
-	kfree(cg);
 	return ret;
 }
 
