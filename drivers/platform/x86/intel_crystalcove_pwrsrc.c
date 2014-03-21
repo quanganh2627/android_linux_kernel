@@ -420,7 +420,7 @@ static int __init crystalcove_pwrsrc_init(void)
 {
 	return platform_driver_register(&crystalcove_pwrsrc_driver);
 }
-fs_initcall(crystalcove_pwrsrc_init);
+device_initcall(crystalcove_pwrsrc_init);
 
 static void __exit crystalcove_pwrsrc_exit(void)
 {

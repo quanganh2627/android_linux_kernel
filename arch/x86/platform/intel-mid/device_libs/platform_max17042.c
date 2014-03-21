@@ -366,7 +366,8 @@ static void init_tgain_toff(struct max17042_platform_data *pdata)
 	} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||
 		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR0) ||
 		INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
-		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1)) {
+		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1) ||
+		INTEL_MID_BOARD(1, TABLET, CHT)) {
 		pdata->tgain = NTC_10K_NCP15X_TGAIN;
 		pdata->toff = NTC_10K_NCP15X_TOFF;
 	} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2) ||
@@ -428,11 +429,11 @@ static void init_callbacks(struct max17042_platform_data *pdata)
 		pdata->battery_pack_temp = pmic_get_battery_pack_temp;
 		pdata->get_vmin_threshold = mrfl_get_vsys_min;
 		pdata->get_vmax_threshold = mrfl_get_volt_max;
-	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
+	} else if (INTEL_MID_BOARD(1, TABLET, BYT) ||
+		 INTEL_MID_BOARD(1, TABLET, CHT)) {
 		pdata->get_vmin_threshold = byt_get_vsys_min;
 		pdata->get_vmax_threshold = byt_get_vbatt_max;
 	}
-
 	pdata->reset_i2c_lines = max17042_i2c_reset_workaround;
 }
 
@@ -440,10 +441,17 @@ static bool max17042_is_valid_batid(void)
 {
 	struct em_config_oem0_data data;
 	bool ret = true;
+
 #ifdef CONFIG_CHARGER_SMB347
 	 if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
 		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1))
 		ret = smb347_is_valid_batid();
+	/* WA for enabling charging */
+	if (INTEL_MID_BOARD(1, TABLET, CHT)) {
+		ret = smb347_is_valid_batid();
+		pr_info("%s: found valid batid %u", __func__, ret);
+		ret = true; /* force valid batid */
+	}
 #endif
 	if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2) ||
 		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2))
@@ -456,6 +464,7 @@ static bool max17042_is_valid_batid(void)
 static void init_platform_params(struct max17042_platform_data *pdata)
 {
 	pdata->fg_algo_model = 100;
+
 	if (INTEL_MID_BOARD(1, PHONE, MFLD)) {
 		/* MFLD phones */
 		if (!(INTEL_MID_BOARD(2, PHONE, MFLD, LEX, ENG)) ||
@@ -511,7 +520,8 @@ static void init_platform_params(struct max17042_platform_data *pdata)
 			pdata->soc_intr_mode_enabled = true;
 			pdata->valid_battery = true;
 		}
-	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
+	} else if (INTEL_MID_BOARD(1, TABLET, BYT) ||
+			INTEL_MID_BOARD(1, TABLET, CHT)) {
 		if (max17042_is_valid_batid()) {
 			snprintf(pdata->battid, (BATTID_LEN + 1),
 						"%s", "INTN0001");
@@ -540,6 +550,7 @@ static void init_platform_params(struct max17042_platform_data *pdata)
 static void init_platform_thresholds(struct max17042_platform_data *pdata)
 {
 	u8 shutdown_method;
+
 	if (INTEL_MID_BOARD(2, TABLET, MFLD, RR, ENG) ||
 		INTEL_MID_BOARD(2, TABLET, MFLD, RR, PRO)) {
 		pdata->temp_min_lim = 0;
@@ -574,7 +585,8 @@ static void init_platform_thresholds(struct max17042_platform_data *pdata)
 	} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||
 		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR0) ||
 		INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
-		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1)) {
+		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1) ||
+		INTEL_MID_BOARD(1, TABLET, CHT)) {
 		pdata->is_volt_shutdown = true;
 		pdata->reset_chip = true;
 		pdata->temp_min_lim = BYT_FFRD8_TEMP_MIN_LIM;
@@ -598,8 +610,10 @@ void *max17042_platform_data(void *info)
 	struct i2c_board_info *i2c_info = (struct i2c_board_info *)info;
 	int intr = get_gpio_by_name("max_fg_alert");
 
-	if (!INTEL_MID_BOARD(1, TABLET, BYT))
+#ifndef CONFIG_ACPI
+	if (i2c_info)
 		i2c_info->irq = intr + INTEL_MID_IRQ_OFFSET;
+#endif
 
 	init_tgain_toff(&platform_data);
 	init_callbacks(&platform_data);

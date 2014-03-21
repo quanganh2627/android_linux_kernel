@@ -2127,14 +2127,13 @@ static int max17042_probe(struct i2c_client *client,
 
 #ifdef CONFIG_ACPI
 	client->dev.platform_data = max17042_platform_data(NULL);
-	dev_info(&client->dev, "%s: %d: dev->irq = %d\n",
-			 __func__, __LINE__, client->irq);
 	gpio = acpi_get_gpio_by_index(&client->dev, 0, &gpio_info);
-	dev_info(&client->dev, "%s: %d: gpio no = %d\n",
-			 __func__, __LINE__, gpio);
 	client->irq = gpio_to_irq(gpio);
-	dev_info(&client->dev, "%s: %d: irq = %d\n",
-			 __func__, __LINE__, client->irq);
+	ret = gpio_request_one(gpio, GPIOF_IN, client->name);
+	if (ret < 0) {
+		dev_warn(&client->dev, "gpio request failed.");
+		return -EIO;
+	}
 #endif
 	if (!client->dev.platform_data) {
 		dev_err(&client->dev, "Platform Data is NULL");
