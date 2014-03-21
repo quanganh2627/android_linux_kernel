@@ -8069,7 +8069,6 @@ static void i9xx_crtc_clock_get(struct intel_crtc *crtc,
 		default:
 			DRM_DEBUG_KMS("Unknown DPLL mode %08x in programmed "
 				  "mode\n", (int)(dpll & DPLL_MODE_MASK));
-			pipe_config->adjusted_mode.clock = 0;
 			return;
 		}
 
@@ -10359,34 +10358,6 @@ static void intel_shared_dpll_init(struct drm_device *dev)
 		      dev_priv->num_shared_dpll);
 }
 
-/*
-Simulate like a hpd event at sleep/resume
-hpd_on =0 >  while suspend, this will clear the modes
-hpd_on =1 >  only at resume  */
-void i915_simulate_hpd(struct drm_device *dev, int hpd_on)
-{
-	struct drm_connector *connector = NULL;
-
-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
-		if (connector->polled == DRM_CONNECTOR_POLL_HPD) {
-			if (hpd_on) {
-				/* Resuming, detect and read modes again */
-				connector->funcs->fill_modes(connector,
-				dev->mode_config.max_width,
-				dev->mode_config.max_height);
-			} else {
-				/* Suspend, reset previous detects and modes */
-				if (connector->funcs->reset)
-					connector->funcs->reset(connector);
-			}
-			DRM_DEBUG_KMS("Simulated HPD %s for connector %s\n",
-			(hpd_on ? "On" : "Off"),
-			drm_get_connector_name(connector));
-		}
-	}
-	drm_sysfs_hotplug_event(dev);
-}
-
 extern void intel_cancel_fbc_work(struct drm_i915_private *dev_priv);
 static int display_disable_wq(struct drm_device *drm_dev)
 {
@@ -10466,9 +10437,6 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 	if (dev_priv->dpst.state)
 		i915_dpst_disable_hist_interrupt(dev);
 
-	/* Force a re-detection on Hot-pluggable displays */
-	i915_simulate_hpd(dev, false);
-
 	/* ignore lid events during suspend */
 	mutex_lock(&dev_priv->modeset_restore_lock);
 	dev_priv->modeset_restore = MODESET_SUSPENDED;
@@ -10509,9 +10477,6 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	int rgrt;
 
 	i915_rpm_get_disp(dev);
-
-	/* Re-detect hot pluggable displays */
-	i915_simulate_hpd(dev, true);
 
 	dev_priv->s0ixstat = true;
 	dev_priv->late_resume = true;
@@ -10618,6 +10583,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	dev_priv->clockspread = false;
 	dev_priv->clockbend = false;
 	dev_priv->unplug = false;
+	dev_priv->audio_suspended = true;
 	valleyview_program_clock_bending(
 			dev_priv, &clockbend);
 	valleyview_program_clock_spread(
@@ -11552,6 +11518,9 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list,
 			    base.head) {
+		if (crtc->pipe == PIPE_B && !dev_priv->audio_suspended)
+			continue;
+
 		memset(&crtc->config, 0, sizeof(crtc->config));
 
 		crtc->active = dev_priv->display.get_pipe_config(crtc,
