@@ -15,9 +15,13 @@
 #include <linux/atomisp_platform.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#include <linux/lnw_gpio.h>
 #include <linux/interrupt.h>
 #include <linux/regulator/consumer.h>
 #include <media/v4l2-subdev.h>
+#include <media/m10mo_atomisp.h>
+#include <linux/spi/spi.h>
+#include <linux/spi/intel_mid_ssp_spi.h>
 #include "platform_camera.h"
 #include "platform_m10mo.h"
 
@@ -110,14 +114,109 @@ static int m10mo_csi_configure(struct v4l2_subdev *sd, int flag)
 }
 
 static struct camera_sensor_platform_data m10mo_sensor_platform_data = {
-	.gpio_ctrl      = m10mo_gpio_ctrl,
+	.gpio_ctrl	= m10mo_gpio_ctrl,
 	.gpio_intr_ctrl	= m10mo_gpio_intr_ctrl,
-	.flisclk_ctrl   = m10mo_flisclk_ctrl,
-	.csi_cfg        = m10mo_csi_configure,
+	.flisclk_ctrl	= m10mo_flisclk_ctrl,
+	.csi_cfg	= m10mo_csi_configure,
 };
+
+/*
+ * Configure these based on the board. Currently we don't get these
+ * from BIOS / IAFW
+ */
+static void spi_one_time_setup(struct m10mo_atomisp_spi_platform_data *data);
+
+/* Board data for mofd VV board. SPI requires HW modifications */
+static struct m10mo_atomisp_spi_platform_data m10mo_spi_board_data = {
+	.setup = spi_one_time_setup,
+	.spi_enabled = false, /* By default SPI is not available */
+	.spi_bus_num = 6,
+	.spi_cs_gpio = 117,
+	.spi_speed_hz = 10000000,
+	/* Set flis values to -1 if the data is correct in pin cfg xml */
+	.spi_clock_flis = ann_gp_ssp_6_clk,
+	.spi_dataout_flis = ann_gp_ssp_6_txd,
+	.spi_datain_flis = ann_gp_ssp_6_rxd,
+	.spi_cs_flis = ann_gp_ssp_6_fs,
+};
+
+static int cs_chip_select = -1;
+
+static void spi_one_time_setup(struct m10mo_atomisp_spi_platform_data *data)
+{
+	/* Setup SPI interface */
+	if (gpio_request(m10mo_spi_board_data.spi_cs_gpio, "m10mo_spi_cs")) {
+		pr_err("Can't allocate gpio for m10mo spi chip select.\n");
+		pr_err("Disabling FW update over the SPI\n");
+		m10mo_spi_board_data.spi_enabled = false;
+		return;
+	}
+
+	cs_chip_select = m10mo_spi_board_data.spi_cs_gpio;
+	lnw_gpio_set_alt(cs_chip_select, LNW_GPIO);
+	gpio_direction_output(cs_chip_select, 0);
+
+	/* Setup flis configuration if requested to do so */
+	if (m10mo_spi_board_data.spi_clock_flis != -1)
+		config_pin_flis(m10mo_spi_board_data.spi_clock_flis, MUX,
+				MUX_EN_OUTPUT_EN | OUTPUT_EN);
+
+	if (m10mo_spi_board_data.spi_dataout_flis != -1)
+		config_pin_flis(m10mo_spi_board_data.spi_dataout_flis, MUX,
+				MUX_EN_OUTPUT_EN | OUTPUT_EN);
+
+	if (m10mo_spi_board_data.spi_datain_flis != -1)
+		config_pin_flis(m10mo_spi_board_data.spi_datain_flis,
+				MUX, MUX_EN_INPUT_EN | INPUT_EN);
+
+	if (m10mo_spi_board_data.spi_cs_flis != -1)
+		config_pin_flis(m10mo_spi_board_data.spi_cs_flis,
+				MUX, MUX_EN_OUTPUT_EN | OUTPUT_EN);
+}
+
+static void spi_cs_control(u32 command)
+{
+	if (cs_chip_select == -1)
+		return;
+
+	/* CS must be set high during transmission */
+	if (command == CS_ASSERT)
+		gpio_set_value(cs_chip_select, 1);
+	else
+		gpio_set_value(cs_chip_select, 0);
+};
+
+static struct intel_mid_ssp_spi_chip spi_chip = {
+	.burst_size = DFLT_FIFO_BURST_SIZE,
+	.timeout = DFLT_TIMEOUT_VAL,
+	.dma_enabled = false,
+	.cs_control = spi_cs_control,
+};
+
+static struct spi_board_info m10mo_spi_info[] = {
+	{
+		.modalias		= "m10mo_spi",
+		.mode			= SPI_MODE_0,
+		.chip_select		= 0,
+		.controller_data	= &spi_chip,
+		.platform_data		= &m10mo_spi_board_data,
+	}
+};
+
+static void setup_m10mo_spi(void)
+{
+	m10mo_spi_info[0].bus_num = m10mo_spi_board_data.spi_bus_num;
+	m10mo_spi_info[0].max_speed_hz = m10mo_spi_board_data.spi_speed_hz;
+	/* register SPI interface for the FW update */
+	spi_register_board_info(m10mo_spi_info,
+				ARRAY_SIZE(m10mo_spi_info));
+}
 
 void *m10mo_platform_data(void *info)
 {
+
+	setup_m10mo_spi();
+
 	camera_reset = -1;
 	camera_power_down = -1;
 	return &m10mo_sensor_platform_data;
