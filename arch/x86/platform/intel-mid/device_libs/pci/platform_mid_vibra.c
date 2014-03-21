@@ -71,9 +71,7 @@ static struct mid_vibra_pdata *get_vibra_platform_data(struct pci_dev *pdev)
 	case PCI_DEVICE_ID_INTEL_VIBRA_MOOR:
 		/* Mountain Praire board uses DRV2605, same as Saltbay */
 		if (SPID_HARDWARE_ID(MOFD, PHONE, MP, VVA) ||
-				SPID_HARDWARE_ID(MOFD, PHONE, MP, VVA) ||
-				SPID_HARDWARE_ID(MOFD, PHONE, MP, VVA) ||
-				SPID_HARDWARE_ID(MOFD, PHONE, MP, VVA))
+				SPID_HARDWARE_ID(MOFD, PHONE, MP, VVB))
 			pdata = &mrfld_vibra_pci_data;
 		else
 			pdata = &moor_pr_vibra_pci_data; /*PR uses DRV2603*/
