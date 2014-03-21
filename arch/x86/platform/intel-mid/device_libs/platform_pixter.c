@@ -13,41 +13,20 @@
 
 static int pixter_0_csi_configure(struct v4l2_subdev *sd, int flag)
 {
-	static const int LANES = PIXTER_0_LANES;
-
-	if (PIXTER_0_TYPE == RAW_CAMERA)
-		return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_PRIMARY,
-			LANES, ATOMISP_INPUT_FORMAT_RAW_10,
-			atomisp_bayer_order_rggb, flag);
-	else
-		return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_PRIMARY,
-			LANES, ATOMISP_INPUT_FORMAT_YUV422_8, 0, flag);
+	return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_PRIMARY,
+			PIXTER_0_LANES, PIXTER_0_FORMAT, PIXTER_0_BAYER, flag);
 }
 
 static int pixter_1_csi_configure(struct v4l2_subdev *sd, int flag)
 {
-	static const int LANES = PIXTER_1_LANES;
-
-	if (PIXTER_1_TYPE == RAW_CAMERA)
-		return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_SECONDARY,
-			LANES, ATOMISP_INPUT_FORMAT_RAW_10,
-			atomisp_bayer_order_rggb, flag);
-	else
-		return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_SECONDARY,
-			LANES, ATOMISP_INPUT_FORMAT_YUV422_8, 0, flag);
+	return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_SECONDARY,
+			PIXTER_1_LANES, PIXTER_1_FORMAT, PIXTER_1_BAYER, flag);
 }
 
 static int pixter_2_csi_configure(struct v4l2_subdev *sd, int flag)
 {
-	static const int LANES = PIXTER_2_LANES;
-
-	if (PIXTER_2_TYPE == RAW_CAMERA)
-		return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_TERTIARY,
-			LANES, ATOMISP_INPUT_FORMAT_RAW_10,
-			atomisp_bayer_order_rggb, flag);
-	else
-		return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_TERTIARY,
-			LANES, ATOMISP_INPUT_FORMAT_YUV422_8, 0, flag);
+	return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_TERTIARY,
+			PIXTER_2_LANES, PIXTER_2_FORMAT, PIXTER_2_BAYER, flag);
 }
 
 static struct atomisp_camera_caps pixter_camera_caps[3];
@@ -119,6 +98,7 @@ static struct sfi_device_table_entry pixter_dev1 = {
 	.name = "pixter_1"
 };
 
+#if 0
 static struct sfi_device_table_entry pixter_dev2 = {
 	.type = SFI_DEV_TYPE_I2C,
 	.host_num = 4,
@@ -126,7 +106,9 @@ static struct sfi_device_table_entry pixter_dev2 = {
 	.irq = 0,
 	.name = "pixter_2"
 };
+#endif
 
+#ifndef CONFIG_ACPI
 static int __init platform_pixter_module_init(void)
 {
 	struct devs_id *dev;
@@ -146,3 +128,5 @@ static int __init platform_pixter_module_init(void)
 }
 
 module_init(platform_pixter_module_init);
+#endif
+

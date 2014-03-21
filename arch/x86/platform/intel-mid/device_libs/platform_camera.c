@@ -155,6 +155,21 @@ static struct camera_device_table cht_ffd_cam_table[] = {
 			&intel_register_i2c_camera_device}
 	}
 };
+
+#ifdef CONFIG_PIXTER
+static struct camera_device_table pixter_cam_table[] = {
+	{
+		{SFI_DEV_TYPE_I2C, 4, 0x70, 0x0, 0x0, "pixter_0"},
+		{"pixter_0", SFI_DEV_TYPE_I2C, 0, &pixter_0_platform_data,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 4, 0x72, 0x0, 0x0, "pixter_1"},
+		{"pixter_1", SFI_DEV_TYPE_I2C, 0, &pixter_1_platform_data,
+			&intel_register_i2c_camera_device}
+	}
+}
+#endif
+
 #endif
 static struct atomisp_camera_caps default_camera_caps;
 /*
@@ -540,6 +555,7 @@ void __init camera_init_device(void)
 	struct camera_device_table *table = NULL;
 	int entry_num = 0;
 	int i;
+#ifndef CONFIG_PIXTER
 	if (INTEL_MID_BOARD(1, TABLET, BYT)) {
 		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
 		    spid.hardware_id == BYT_TABLET_BLK_8PR1) {
@@ -567,6 +583,10 @@ void __init camera_init_device(void)
 		} else
 			pr_warn("unknown CHT platform variant.\n");
 	}
+#else
+	table = pixter_cam_table;
+	entry_num = ARRAY_SIZE(pixter_cam_table);
+#endif
 
 	for (i = 0; i < entry_num; i++, table++) {
 		if (table->dev.device_handler)
