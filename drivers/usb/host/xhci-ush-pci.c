@@ -1114,7 +1114,6 @@ static int hsic_get_gpio_num(struct pci_dev *pdev)
 			return -ENODEV;
 		}
 	}
-	ACPI_HANDLE_SET(&pdev->dev, handle);
 
 	/* Get the GPIO value from ACPI table */
 	pdata->aux_gpio = acpi_get_gpio_by_index(&pdev->dev, 0, NULL);
