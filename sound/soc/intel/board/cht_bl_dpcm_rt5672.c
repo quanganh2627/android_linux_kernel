@@ -39,7 +39,7 @@
 #include <sound/jack.h>
 #include "../../codecs/rt5670.h"
 
-#define CHT_PLAT_CLK_3_HZ	25000000
+#define CHT_PLAT_CLK_3_HZ	19200000
 
 #define CHT_INTR_DEBOUNCE               0
 #define CHT_HS_INSERT_DET_DELAY         500
