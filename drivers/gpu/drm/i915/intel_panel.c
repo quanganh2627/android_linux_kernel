@@ -578,6 +578,9 @@ void intel_panel_disable_backlight(struct drm_device *dev)
 
 #ifdef CONFIG_CRYSTAL_COVE
 		if (BYT_CR_CONFIG) {
+			/* cancel any delayed work scheduled */
+			cancel_delayed_work_sync(&dev_priv->bkl_delay_enable_work);
+
 			/* disable the backlight enable signal */
 			vlv_gpio_nc_write(dev_priv, 0x40E0, 0x2000CC00);
 			vlv_gpio_nc_write(dev_priv, 0x40E8, 0x00000004);
@@ -620,6 +623,28 @@ void intel_panel_disable_backlight(struct drm_device *dev)
 
 	spin_unlock_irqrestore(&dev_priv->backlight.lock, flags);
 }
+#ifdef CONFIG_CRYSTAL_COVE
+static void scheduled_led_chip_programming(struct work_struct *work)
+{
+	lp855x_ext_write_byte(LP8556_CFG9,
+			LP8556_VBOOST_MAX_NA_21V |
+			LP8556_JUMP_DIS |
+			LP8556_JMP_TSHOLD_10P |
+			LP8556_JMP_VOLT_0_5V);
+	lp855x_ext_write_byte(LP8556_CFG5,
+			LP8556_PWM_DRECT_DIS |
+			LP8556_PS_MODE_5P5D |
+			LP8556_PWM_FREQ_9616HZ);
+	lp855x_ext_write_byte(LP8556_CFG7,
+			LP8556_RSRVD_76 |
+			LP8556_DRV3_EN |
+			LP8556_DRV2_EN |
+			LP8556_RSRVD_32 |
+			LP8556_IBOOST_LIM_1_8A_NA);
+	lp855x_ext_write_byte(LP8556_LEDSTREN,
+			LP8556_5LEDSTR);
+}
+#endif
 
 static uint32_t compute_pwm_base(uint16_t freq)
 {
@@ -684,28 +709,10 @@ void intel_panel_enable_backlight(struct drm_device *dev,
 			vlv_gpio_nc_write(dev_priv, 0x40E8, 0x00000005);
 			udelay(500);
 
-			if (lpdata) {
+			if (lpdata)
+				schedule_delayed_work(&dev_priv->bkl_delay_enable_work,
+						msecs_to_jiffies(30));
 
-				msleep(30);
-
-				lp855x_ext_write_byte(LP8556_CFG9,
-							LP8556_VBOOST_MAX_NA_21V |
-							LP8556_JUMP_DIS |
-							LP8556_JMP_TSHOLD_10P |
-							LP8556_JMP_VOLT_0_5V);
-				lp855x_ext_write_byte(LP8556_CFG5,
-							LP8556_PWM_DRECT_DIS |
-							LP8556_PS_MODE_5P5D |
-							LP8556_PWM_FREQ_9616HZ);
-				lp855x_ext_write_byte(LP8556_CFG7,
-							LP8556_RSRVD_76 |
-							LP8556_DRV3_EN |
-							LP8556_DRV2_EN |
-							LP8556_RSRVD_32 |
-							LP8556_IBOOST_LIM_1_8A_NA);
-				lp855x_ext_write_byte(LP8556_LEDSTREN,
-							LP8556_5LEDSTR);
-				}
 		} else {
 			intel_mid_pmic_writeb(0x4B, 0xFF);
 			intel_mid_pmic_writeb(0x51, 0x01);
@@ -796,6 +803,12 @@ static void intel_panel_init_backlight(struct drm_device *dev)
 
 	dev_priv->backlight.level = intel_panel_get_backlight(dev);
 	dev_priv->backlight.enabled = dev_priv->backlight.level != 0;
+
+#ifdef CONFIG_CRYSTAL_COVE
+	if (BYT_CR_CONFIG)
+		INIT_DELAYED_WORK(&dev_priv->bkl_delay_enable_work,
+				scheduled_led_chip_programming);
+#endif
 }
 
 enum drm_connector_status

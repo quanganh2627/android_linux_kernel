@@ -1459,6 +1459,7 @@ typedef struct drm_i915_private {
 #endif
 	} dpst;
 
+	struct delayed_work bkl_delay_enable_work;
 	/* PCH chipset type */
 	enum intel_pch pch_type;
 	unsigned short pch_id;
