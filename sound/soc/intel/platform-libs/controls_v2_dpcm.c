@@ -1027,6 +1027,20 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 
 }
 
+static int sst_set_linked_pipe(struct snd_soc_dapm_widget *w,
+		       struct snd_kcontrol *k, int event)
+{
+	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+	struct sst_ids *ids = w->priv;
+	pr_debug("%s: widget=%s\n", __func__, w->name);
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		if (ids->parent_w && ids->parent_w->power)
+			sst_find_and_send_pipe_algo(w->platform, w);
+			sst_set_pipe_gain(ids, sst, 0);
+	}
+	return 0;
+}
+
 static int sst_set_media_path(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *k, int event)
 {
@@ -1351,13 +1365,13 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_PATH_INPUT("tone_in", SST_TASK_SBA, SST_SWM_IN_TONE, sst_tone_generator_event),
 
 	/* TODO: need to send command */
-	SST_PATH_INPUT("sidetone_in", SST_TASK_SBA, SST_SWM_IN_SIDETONE, NULL),
 	SST_PATH_INPUT("bt_in", SST_TASK_SBA, SST_SWM_IN_BT, NULL),
 	SST_PATH_INPUT("fm_in", SST_TASK_SBA, SST_SWM_IN_FM, NULL),
 	SST_PATH_OUTPUT("bt_out", SST_TASK_SBA, SST_SWM_OUT_BT, NULL),
 	SST_PATH_OUTPUT("fm_out", SST_TASK_SBA, SST_SWM_OUT_FM, NULL),
 
 	/* SBA Voice Paths */
+	SST_PATH_LINKED_INPUT("sidetone_in", SST_TASK_SBA, SST_SWM_IN_SIDETONE, "speech_out", sst_set_linked_pipe),
 	SST_PATH_INPUT("speech_in", SST_TASK_SBA, SST_SWM_IN_SPEECH, sst_set_speech_path),
 	SST_PATH_INPUT("txspeech_in", SST_TASK_SBA, SST_SWM_IN_TXSPEECH, sst_set_speech_path),
 	SST_PATH_OUTPUT("hf_sns_out", SST_TASK_SBA, SST_SWM_OUT_HF_SNS, sst_set_speech_path),
@@ -1497,6 +1511,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"txspeech_in", NULL, "hf_sns_out"},
 	{"txspeech_in", NULL, "hf_out"},
 	{"txspeech_in", NULL, "speech_out"},
+	{"sidetone_in", NULL, "speech_out"},
 
 	{"hf_sns_out", NULL, "hf_sns_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("hf_sns_out mix 0"),
