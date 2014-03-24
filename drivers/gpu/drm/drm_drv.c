@@ -561,7 +561,7 @@ long drm_ioctl(struct file *filp,
 				retcode = -EFAULT;
 				goto err_i1;
 			}
-		} else
+		} else if (cmd & IOC_OUT)
 			memset(kdata, 0, usize);
 
 		if (ioctl->flags & DRM_UNLOCKED)
