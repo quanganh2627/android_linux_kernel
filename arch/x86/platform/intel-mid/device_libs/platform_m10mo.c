@@ -113,11 +113,22 @@ static int m10mo_csi_configure(struct v4l2_subdev *sd, int flag)
 		ATOMISP_INPUT_FORMAT_YUV422_8, 0, flag);
 }
 
+static struct m10mo_fw_id fw_ids[] = {
+	{ "TEST", M10MO_FW_TYPE_1 },
+	{ "", M10MO_FW_TYPE_0},
+};
+
+static struct m10mo_sensor_private_data sensor_data = {
+	.ref_clock_rate = 24000000, /* for dev board external xtal */
+	.fw_ids = fw_ids,
+};
+
 static struct camera_sensor_platform_data m10mo_sensor_platform_data = {
 	.gpio_ctrl	= m10mo_gpio_ctrl,
 	.gpio_intr_ctrl	= m10mo_gpio_intr_ctrl,
 	.flisclk_ctrl	= m10mo_flisclk_ctrl,
 	.csi_cfg	= m10mo_csi_configure,
+	.sensor_private_data = &sensor_data,
 };
 
 /*
