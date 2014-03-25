@@ -581,12 +581,10 @@ void __init camera_init_device(void)
 		   INTEL_MID_BOARD(1, PHONE, CHT)) {
 		if (spid.hardware_id == CHT_TABLET_RVP1 ||
 		    spid.hardware_id == CHT_TABLET_RVP2 ||
-		    spid.hardware_id == CHT_TABLET_RVP3) {
-			table = cht_rvp_cam_table;
-			entry_num = ARRAY_SIZE(cht_rvp_cam_table);
-		} else if (spid.hardware_id == CHT_TABLET_FRD_PR0 ||
-			   spid.hardware_id == CHT_TABLET_FRD_PR1 ||
-			   spid.hardware_id == CHT_TABLET_FRD_PR2) {
+		    spid.hardware_id == CHT_TABLET_RVP3 ||
+		    spid.hardware_id == CHT_TABLET_FRD_PR0 ||
+		    spid.hardware_id == CHT_TABLET_FRD_PR1 ||
+		    spid.hardware_id == CHT_TABLET_FRD_PR2) {
 			table = cht_ffd_cam_table;
 			entry_num = ARRAY_SIZE(cht_ffd_cam_table);
 		} else

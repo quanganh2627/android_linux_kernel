@@ -47,7 +47,10 @@
 	spid.hardware_id == BYT_TABLET_BLK_CRV2 ||\
 	spid.hardware_id == CHT_TABLET_FRD_PR0 ||\
 	spid.hardware_id == CHT_TABLET_FRD_PR1 ||\
-	spid.hardware_id == CHT_TABLET_FRD_PR2)
+	spid.hardware_id == CHT_TABLET_FRD_PR2 ||\
+	spid.hardware_id == CHT_TABLET_RVP1 ||\
+	spid.hardware_id == CHT_TABLET_RVP2 ||\
+	spid.hardware_id == CHT_TABLET_RVP3)
 
 #ifdef CONFIG_CRYSTAL_COVE
 #define ALDO1_SEL_REG	0x28
