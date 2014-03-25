@@ -97,7 +97,6 @@ i915_dpst_enable_hist_interrupt(struct drm_device *dev)
 	/* Enable histogram logic to collect data */
 	blm_hist_ctl = I915_READ(BLC_HIST_CTL);
 	blm_hist_ctl |= IE_HISTOGRAM_ENABLE | HSV_INTENSITY_MODE;
-	blm_hist_ctl |= IE_MOD_TABLE_ENABLE | ENHANCEMENT_MODE_MULT;
 	I915_WRITE(BLC_HIST_CTL, blm_hist_ctl);
 
 	/* Wait for VBLANK since the histogram enabling logic takes affect
@@ -136,7 +135,6 @@ i915_dpst_disable_hist_interrupt(struct drm_device *dev)
 	/* Disable histogram logic */
 	blm_hist_ctl = I915_READ(BLC_HIST_CTL);
 	blm_hist_ctl &= ~IE_HISTOGRAM_ENABLE;
-	blm_hist_ctl &= ~IE_MOD_TABLE_ENABLE;
 	I915_WRITE(BLC_HIST_CTL, blm_hist_ctl);
 
 	/* Setting blc level to what it would be without dpst adjustment */
