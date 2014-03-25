@@ -75,6 +75,7 @@ static void acpi_virtual_gpio_request_interrupts(struct virtual_gpio_data *gd)
 	unsigned int pin;
 	int ret;
 	char ev_name[5];
+	unsigned long irq_flags;
 
 	handle = ACPI_HANDLE(dev);
 	if (!handle)
@@ -108,10 +109,13 @@ static void acpi_virtual_gpio_request_interrupts(struct virtual_gpio_data *gd)
 		if (ACPI_FAILURE(status))
 			continue;
 
-		/* Assume BIOS sets the triggering, so no flags */
+		irq_flags = IRQF_SHARED | IRQF_NO_SUSPEND;
+		if (acpi_gbl_reduced_hardware)
+			irq_flags = 0;
+
 		ret = devm_request_irq(dev, gd->irq,
 						virtual_gpio_irq_handler_isr,
-						0,
+						irq_flags,
 						VIRTUAL_GPIO_DRIVER_NAME,
 						ev_handle);
 		if (ret)
