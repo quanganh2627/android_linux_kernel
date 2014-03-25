@@ -33,5 +33,19 @@ struct m10mo_atomisp_spi_platform_data {
 	int spi_cs_flis;
 };
 
+#define M10MO_FW_TYPE_0 0
+#define M10MO_FW_TYPE_1 1
+#define M10MO_MAX_FW_ID_STRING 12
+
+struct m10mo_fw_id {
+	char id_string[M10MO_MAX_FW_ID_STRING];
+	int fw_type;
+};
+
+struct m10mo_sensor_private_data {
+	int ref_clock_rate;
+	struct m10mo_fw_id *fw_ids;
+};
+
 #endif
 
