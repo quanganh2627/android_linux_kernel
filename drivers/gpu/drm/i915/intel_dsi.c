@@ -161,7 +161,6 @@ void intel_dsi_device_ready(struct intel_encoder *encoder)
 	band_gap_reset(dev_priv);
 
 #ifdef CONFIG_CRYSTAL_COVE
-	/* Panel Enable */
 	if (BYT_CR_CONFIG) {
 		/*  cabc disable */
 		vlv_gpio_nc_write(dev_priv, GPIO_NC_9_PCONF0, 0x2000CC00);

@@ -680,7 +680,7 @@ struct mipi_config {
 	u32 cmd_mode:1;
 	u32 vtm:2;
 	u32 cabc:1;
-	u32 pwm_blc:1;
+	u32 pmic_soc_blc:1;
 
 	/* Bit 13:10
 	 * 000 - Reserved, 001 - RGB565, 002 - RGB666,

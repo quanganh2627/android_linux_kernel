@@ -542,8 +542,10 @@ void intel_panel_actually_set_backlight(struct drm_device *dev, u32 level)
 
 void intel_panel_actually_set_mipi_backlight(struct drm_device *dev, u32 level)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 #ifdef CONFIG_CRYSTAL_COVE
-	if (BYT_CR_CONFIG) {
+	/* For BYT-CR */
+	if (dev_priv->vbt.dsi.config->pmic_soc_blc) {
 		/* FixMe: if level is zero still a pulse is observed consuming
 		power. To fix this issue if requested level is zero then
 		disable pwm and enabled it again if brightness changes */
@@ -603,7 +605,7 @@ void intel_panel_disable_backlight(struct drm_device *dev)
 		intel_panel_actually_set_mipi_backlight(dev, 0);
 
 #ifdef CONFIG_CRYSTAL_COVE
-		if (BYT_CR_CONFIG) {
+		if (dev_priv->vbt.dsi.config->pmic_soc_blc) {
 			/* cancel any delayed work scheduled */
 			cancel_delayed_work_sync(&dev_priv->bkl_delay_enable_work);
 
@@ -713,7 +715,8 @@ void intel_panel_enable_backlight(struct drm_device *dev,
 	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi) {
 #ifdef CONFIG_CRYSTAL_COVE
 		uint32_t val;
-		if (BYT_CR_CONFIG) {
+		/* For BYT-CR */
+		if (dev_priv->vbt.dsi.config->pmic_soc_blc) {
 			/* GPIOC_94 config to PWM0 function */
 			val = vlv_gps_core_read(dev_priv, 0x40A0);
 			vlv_gps_core_write(dev_priv, 0x40A0, 0x2000CC01);
