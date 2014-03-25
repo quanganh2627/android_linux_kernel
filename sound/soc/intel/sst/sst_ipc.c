@@ -662,6 +662,8 @@ void sst_process_reply_mrfld(struct ipc_post *msg)
 	void *data;
 	union ipc_header_high msg_high;
 	u32 msg_low;
+	struct ipc_dsp_hdr *dsp_hdr;
+	unsigned int cmd_id;
 
 	msg_high = msg->mrfld_header.p.header_high;
 	msg_low = msg->mrfld_header.p.header_low_payload;
@@ -697,10 +699,16 @@ void sst_process_reply_mrfld(struct ipc_post *msg)
 		if (!data)
 			goto end;
 		memcpy(data, (void *) msg->mailbox_data, msg_low);
+		/* Copy command id so that we can use to put sst to reset */
+		dsp_hdr = (struct ipc_dsp_hdr *)data;
+		cmd_id = dsp_hdr->cmd_id;
+		pr_debug("cmd_id %d\n", dsp_hdr->cmd_id);
 		if (sst_wake_up_block(sst_drv_ctx, msg_high.part.result,
 				msg_high.part.drv_id,
 				msg_high.part.msg_id, data, msg_low))
 			kfree(data);
+		if (cmd_id == IPC_SST_VB_RESET)
+			sst_set_fw_state_locked(sst_drv_ctx, SST_RESET);
 	} else {
 		sst_wake_up_block(sst_drv_ctx, msg_high.part.result,
 				msg_high.part.drv_id,
