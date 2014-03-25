@@ -457,43 +457,6 @@ int sst_alloc_drv_context(struct device *dev)
 	return 0;
 }
 
-static ssize_t sst_sysfs_get_recovery(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
-
-	return sprintf(buf, "%d\n", ctx->sst_state);
-}
-
-
-static ssize_t sst_sysfs_set_recovery(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t len)
-{
-	long val;
-	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
-
-	if (kstrtol(buf, 0, &val))
-		return -EINVAL;
-
-	if (val == 1) {
-		if (!atomic_read(&ctx->pm_usage_count)) {
-			pr_debug("%s: set sst state to RESET...\n", __func__);
-			sst_set_fw_state_locked(ctx, SST_RESET);
-		} else {
-			pr_err("%s: not setting sst state... %d\n", __func__,
-					atomic_read(&ctx->pm_usage_count));
-			pr_err("Unrecoverable state....\n");
-			BUG();
-			return -EPERM;
-		}
-	}
-
-	return len;
-}
-
-static DEVICE_ATTR(audio_recovery, S_IRUGO | S_IWUSR,
-			sst_sysfs_get_recovery, sst_sysfs_set_recovery);
-
 int sst_request_firmware_async(struct intel_sst_drv *ctx)
 {
 	int ret = 0;
@@ -846,19 +809,9 @@ static int intel_sst_probe(struct pci_dev *pci,
 	pm_qos_add_request(sst_drv_ctx->qos, PM_QOS_CPU_DMA_LATENCY,
 				PM_QOS_DEFAULT_VALUE);
 
-	ret = device_create_file(sst_drv_ctx->dev, &dev_attr_audio_recovery);
-	if (ret) {
-		pr_err("could not create sysfs %s file\n",
-			dev_attr_audio_recovery.attr.name);
-		goto do_free_qos;
-	}
-
 	pr_info("%s successfully done!\n", __func__);
 	return ret;
 
-do_free_qos:
-	pm_qos_remove_request(sst_drv_ctx->qos);
-	kfree(sst_drv_ctx->qos);
 do_free_misc:
 	misc_deregister(&lpe_ctrl);
 do_free_irq:
@@ -934,7 +887,6 @@ static void intel_sst_remove(struct pci_dev *pci)
 	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
 		kfree(sst_drv_ctx->probe_bytes);
 
-	device_remove_file(sst_drv_ctx->dev, &dev_attr_audio_recovery);
 	kfree(sst_drv_ctx->fw_cntx);
 	kfree(sst_drv_ctx->runtime_param.param.addr);
 	flush_scheduled_work();
