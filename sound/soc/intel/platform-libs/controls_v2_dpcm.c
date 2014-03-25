@@ -1775,6 +1775,8 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 	SST_ALGO_KCONTROL_BYTES("fm_in", "dcr", 60, SST_MODULE_ID_FILT_DCR,
 		SST_PATH_INDEX_FM_IN, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
 	/* Uplink */
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "algo_lock", 2, SST_MODULE_ID_VOICE_UL,
+		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_ALGO_LOCK),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "fir_speech", 134, SST_MODULE_ID_FIR_16,
 		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_FIR),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "fir_hf_sns", 134, SST_MODULE_ID_FIR_16,
@@ -1811,6 +1813,8 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 		SST_PATH_INDEX_SPEECH_OUT, 0, SST_TASK_FBA_UL, FBA_VB_NLF),
 
 	/* Downlink */
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "algo_lock", 2, SST_MODULE_ID_VOICE_DL,
+		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_ALGO_LOCK),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "ana", 52, SST_MODULE_ID_ANA,
 		SST_PATH_INDEX_SPEECH_IN, 0, SST_TASK_FBA_DL, FBA_VB_ANA),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_in", "dl_module", "fir", 134, SST_MODULE_ID_FIR_16,
