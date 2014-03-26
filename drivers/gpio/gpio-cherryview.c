@@ -750,7 +750,7 @@ static int chv_gpio_direction_output(struct gpio_chip *chip,
 
 	reg_val = chv_readl(reg) & (~CV_GPIO_CFG_MASK);
 	/* Disable RX and Enable TX */
-	value |= CV_GPIO_TX_EN;
+	reg_val |= CV_GPIO_TX_EN;
 
 	/* Control TX State */
 	if (value)
