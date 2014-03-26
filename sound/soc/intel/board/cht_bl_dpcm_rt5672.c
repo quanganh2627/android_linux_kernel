@@ -483,6 +483,10 @@ static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 
 	pr_debug("Enter:%s", __func__);
 
+	/* proceed only if dai is valid */
+	if (strncmp(codec_dai->name, "rt5670-aif1", 11))
+		return 0;
+
 	/* TDM 4 slot 24 bit set the Rx and Tx bitmask to 4 active slots as 0xF */
 	ret = snd_soc_dai_set_tdm_slot(codec_dai, 0xF, 0xF, 4, SNDRV_PCM_FORMAT_GSM);
 	if (ret < 0) {
@@ -521,6 +525,14 @@ static int cht_compr_set_params(struct snd_compr_stream *cstream)
 {
 	return 0;
 }
+
+static const struct snd_soc_pcm_stream cht_dai_params = {
+	.formats = SNDRV_PCM_FMTBIT_S24_LE,
+	.rate_min = 48000,
+	.rate_max = 48000,
+	.channels_min = 2,
+	.channels_max = 2,
+};
 
 static int cht_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 			    struct snd_pcm_hw_params *params)
@@ -736,7 +748,40 @@ static struct snd_soc_dai_link cht_dailink[] = {
 		.playback_count = 8,
 		.capture_count = 8,
 	},
-		/* back ends */
+	/* CODEC<->CODEC link */
+	{
+		.name = "Cherrytrail Codec-Loop Port",
+		.stream_name = "Cherrytrail Codec-Loop",
+		.cpu_dai_name = "ssp2-port",
+		.platform_name = "sst-platform",
+		.codec_dai_name = "rt5670-aif1",
+		.codec_name = "rt5670.2-001c",
+		.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF
+			| SND_SOC_DAIFMT_CBS_CFS,
+		.params = &cht_dai_params,
+		.dsp_loopback = true,
+	},
+	{
+		.name = "Cherrytrail Modem-Loop Port",
+		.stream_name = "Cherrytrail Modem-Loop",
+		.cpu_dai_name = "ssp0-port",
+		.platform_name = "sst-platform",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.params = &cht_dai_params,
+		.dsp_loopback = true,
+	},
+	{
+		.name = "Cherrytrail BTFM-Loop Port",
+		.stream_name = "Cherrytrail BTFM-Loop",
+		.cpu_dai_name = "ssp1-port",
+		.platform_name = "sst-platform",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.params = &cht_dai_params,
+		.dsp_loopback = true,
+	},
+	/* back ends */
 	{
 		.name = "SSP2-Codec",
 		.be_id = 1,
