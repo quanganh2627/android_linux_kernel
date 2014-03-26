@@ -124,6 +124,26 @@ DEFINE_EVENT(tp2e_generic_class, tp2e_scu_recov_event,
 		)
 	);
 
+DEFINE_EVENT(tp2e_generic_class, tp2e_iwlwifi_driver_event,
+	TP_PROTO(
+		enum tp2e_ev_type ev_type,
+		char *submitter_name,
+		char *ev_name,
+		char *data0,
+		char *data1,
+		char *data2,
+		char *data3,
+		char *data4,
+		char *data5,
+		char *filelist
+		),
+
+	TP_ARGS(
+		ev_type, submitter_name, ev_name,
+		data0, data1, data2, data3, data4, data5, filelist
+		)
+	);
+
 #endif /* _TRACE_TP2E_H || TRACE_HEADER_MULTI_READ */
 
 /* This part must be outside protection */
