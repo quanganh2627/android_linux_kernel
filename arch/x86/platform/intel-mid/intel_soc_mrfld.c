@@ -20,8 +20,13 @@
 
 #include "intel_soc_pmu.h"
 
-u32 __iomem *residency[SYS_STATE_MAX];
-u32 __iomem *s0ix_counter[SYS_STATE_MAX];
+u8 __iomem *s0ix_counters;
+
+int s0ix_counter_reg_map[] = {0x0, 0xAC, 0xB0, 0xA8, 0xA4, 0xC0,
+	0xBC, 0xB8, 0xB4, 0x8C, 0x90, 0x98};
+
+int s0ix_residency_reg_map[] = {0x0, 0xD8, 0xE0, 0xD0, 0xC8, 0x100,
+	0xF8, 0xF0, 0xE8, 0x68, 0x70, 0x80};
 
 /* list of north complex devices */
 char *mrfl_nc_devices[] = {
@@ -77,38 +82,11 @@ static int mrfld_pmu_init(void)
 
 	mid_pmu_cxt->os_sss[2] &= ~SSMSK(D0I3_MASK, PMU_SSP4_LSS_35-32);
 
-	/* Map S0ix residency counters */
-	residency[SYS_STATE_S0I1] = ioremap_nocache(S0I1_RES_ADDR, sizeof(u64));
-	if (residency[SYS_STATE_S0I1] == NULL)
-		goto err1;
-	residency[SYS_STATE_LPMP3] = ioremap_nocache(LPMP3_RES_ADDR,
-								sizeof(u64));
-	if (residency[SYS_STATE_LPMP3] == NULL)
-		goto err2;
-	residency[SYS_STATE_S0I2] = ioremap_nocache(S0I2_RES_ADDR, sizeof(u64));
-	if (residency[SYS_STATE_S0I2] == NULL)
-		goto err3;
-	residency[SYS_STATE_S0I3] = ioremap_nocache(S0I3_RES_ADDR, sizeof(u64));
-	if (residency[SYS_STATE_S0I3] == NULL)
-		goto err4;
+	s0ix_counters = devm_ioremap_nocache(&mid_pmu_cxt->pmu_dev->dev,
+		S0IX_COUNTERS_BASE, S0IX_COUNTERS_SIZE);
+	if (!s0ix_counters)
+		goto err;
 
-	/* Map S0ix iteration counters */
-	s0ix_counter[SYS_STATE_S0I1] = ioremap_nocache(S0I1_COUNT_ADDR,
-								sizeof(u32));
-	if (s0ix_counter[SYS_STATE_S0I1] == NULL)
-		goto err5;
-	s0ix_counter[SYS_STATE_LPMP3] = ioremap_nocache(LPMP3_COUNT_ADDR,
-								sizeof(u32));
-	if (s0ix_counter[SYS_STATE_LPMP3] == NULL)
-		goto err6;
-	s0ix_counter[SYS_STATE_S0I2] = ioremap_nocache(S0I2_COUNT_ADDR,
-								sizeof(u32));
-	if (s0ix_counter[SYS_STATE_S0I2] == NULL)
-		goto err7;
-	s0ix_counter[SYS_STATE_S0I3] = ioremap_nocache(S0I3_COUNT_ADDR,
-								sizeof(u32));
-	if (s0ix_counter[SYS_STATE_S0I3] == NULL)
-		goto err8;
 	/* Keep PSH LSS's 00, 33, 34 in D0i0 if PM is disabled */
 	if (!enable_s0ix && !enable_s3) {
 		mid_pmu_cxt->os_sss[2] &=
@@ -124,31 +102,7 @@ static int mrfld_pmu_init(void)
 
 	return PMU_SUCCESS;
 
-err8:
-	iounmap(s0ix_counter[SYS_STATE_S0I3]);
-	s0ix_counter[SYS_STATE_S0I3] = NULL;
-err7:
-	iounmap(s0ix_counter[SYS_STATE_S0I2]);
-	s0ix_counter[SYS_STATE_S0I2] = NULL;
-err6:
-	iounmap(s0ix_counter[SYS_STATE_LPMP3]);
-	s0ix_counter[SYS_STATE_LPMP3] = NULL;
-err5:
-	iounmap(s0ix_counter[SYS_STATE_S0I1]);
-	s0ix_counter[SYS_STATE_S0I1] = NULL;
-err4:
-	iounmap(residency[SYS_STATE_S0I3]);
-	residency[SYS_STATE_S0I3] = NULL;
-err3:
-	iounmap(residency[SYS_STATE_S0I2]);
-	residency[SYS_STATE_S0I2] = NULL;
-err2:
-	iounmap(residency[SYS_STATE_LPMP3]);
-	residency[SYS_STATE_LPMP3] = NULL;
-err1:
-	iounmap(residency[SYS_STATE_S0I1]);
-	residency[SYS_STATE_S0I1] = NULL;
-
+err:
 	pr_err("Cannot map memory to read S0ix residency and count\n");
 	return PMU_FAILED;
 }

@@ -1319,6 +1319,16 @@ static unsigned long long cur_s0ix_cnt[SYS_STATE_MAX];
 static u32 S3_count;
 static unsigned long long S3_res;
 
+static inline u32 s0ix_count_read(int state)
+{
+	return readl(s0ix_counters + s0ix_counter_reg_map[state]);
+}
+
+static inline u64 s0ix_residency_read(int state)
+{
+	return readq(s0ix_counters + s0ix_residency_reg_map[state]);
+}
+
 static void pmu_stat_seq_printf(struct seq_file *s, int type, char *typestr,
 							long long uptime)
 {
@@ -1337,7 +1347,7 @@ static void pmu_stat_seq_printf(struct seq_file *s, int type, char *typestr,
 		for (t = SYS_STATE_S0I1; t <= SYS_STATE_S3; t++)
 			time += cur_s0ix_res[t];
 	} else if (type < SYS_STATE_S3) {
-		t = readq(residency[type]);
+		t = s0ix_residency_read(type);
 		if (t < prev_s0ix_res[type])
 			t += (((unsigned long long)~0) - prev_s0ix_res[type]);
 		else
@@ -1404,7 +1414,7 @@ static void pmu_stat_seq_printf(struct seq_file *s, int type, char *typestr,
 		if (scu_val == 0) /* S0I0 residency 100% */
 			scu_val = 1;
 	} else if (type < SYS_STATE_S3) {
-		scu_val = readl(s0ix_counter[type]);
+		scu_val = s0ix_count_read(type);
 		if (scu_val < prev_s0ix_cnt[type])
 			scu_val += (((u32)~0) - prev_s0ix_cnt[type]);
 		else
@@ -1456,7 +1466,7 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 
 	seq_printf(s, "cmd_error_int count: %d\n", mid_pmu_cxt->cmd_error_int);
 
-	seq_printf(s, "\ttime(secs)\tresidency(%%)\tcount\tAvg.Res(Sec)\n");
+	seq_printf(s, "\t\t\ttime(secs)\tresidency(%%)\tcount\tAvg.Res(Sec)\n");
 
 	down(&mid_pmu_cxt->scu_ready_sem);
 	/* Dump S0ix residency counters */
@@ -1472,12 +1482,19 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 
 	uptime =  cpu_clock(0);
 	uptime -= mid_pmu_cxt->pmu_init_time;
-	pmu_stat_seq_printf(s, SYS_STATE_S0I1, "s0i1", uptime);
-	pmu_stat_seq_printf(s, SYS_STATE_LPMP3, "lpmp3", uptime);
-	pmu_stat_seq_printf(s, SYS_STATE_S0I2, "s0i2", uptime);
-	pmu_stat_seq_printf(s, SYS_STATE_S0I3, "s0i3", uptime);
-	pmu_stat_seq_printf(s, SYS_STATE_S3, "s3", uptime);
-	pmu_stat_seq_printf(s, SYS_STATE_S0I0, "s0", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I1, "s0i1             ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I1_LPMP3, "s0i1-lpe         ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I1_PSH, "s0i1-psh         ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I1_DISP, "s0i1-disp        ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I1_LPMP3_PSH, "s0i1-lpe-psh     ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I1_LPMP3_DISP, "s0i1-lpe-disp    ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I1_PSH, "s0i1-psh-disp    ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I1_LPMP3_PSH_DISP, "s0i1-lpe-psh-disp", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I2, "s0i2             ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I3, "s0i3             ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I3_PSH_RET, "s0i3-psh-ret     ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S3, "s3               ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I0, "s0               ", uptime);
 
 	val = do_div(uptime, NANO_SEC);
 	seq_printf(s, "\n\nTotal time: %5lu.%03lu Sec\n", (unsigned long)uptime,
@@ -1652,15 +1669,29 @@ static ssize_t devices_state_write(struct file *file,
 			printk(KERN_ERR "IPC command to DUMP S0ix count failed\n");
 
 		mid_pmu_cxt->pmu_init_time = cpu_clock(0);
-		prev_s0ix_cnt[SYS_STATE_S0I1] = readl(s0ix_counter[SYS_STATE_S0I1]);
-		prev_s0ix_cnt[SYS_STATE_LPMP3] = readl(s0ix_counter[SYS_STATE_LPMP3]);
-		prev_s0ix_cnt[SYS_STATE_S0I2] = readl(s0ix_counter[SYS_STATE_S0I2]);
-		prev_s0ix_cnt[SYS_STATE_S0I3] = readl(s0ix_counter[SYS_STATE_S0I3]);
+		prev_s0ix_cnt[SYS_STATE_S0I1] = s0ix_count_read(SYS_STATE_S0I1);
+		prev_s0ix_cnt[SYS_STATE_S0I1_LPMP3] = s0ix_count_read(SYS_STATE_S0I1_LPMP3);
+		prev_s0ix_cnt[SYS_STATE_S0I1_PSH] = s0ix_count_read(SYS_STATE_S0I1_PSH);
+		prev_s0ix_cnt[SYS_STATE_S0I1_DISP] = s0ix_count_read(SYS_STATE_S0I1_DISP);
+		prev_s0ix_cnt[SYS_STATE_S0I1_LPMP3_PSH] = s0ix_count_read(SYS_STATE_S0I1_LPMP3_PSH);
+		prev_s0ix_cnt[SYS_STATE_S0I1_LPMP3_DISP] = s0ix_count_read(SYS_STATE_S0I1_LPMP3_DISP);
+		prev_s0ix_cnt[SYS_STATE_S0I1_PSH_DISP] = s0ix_count_read(SYS_STATE_S0I1_PSH_DISP);
+		prev_s0ix_cnt[SYS_STATE_S0I1_LPMP3_PSH_DISP] = s0ix_count_read(SYS_STATE_S0I1_LPMP3_PSH_DISP);
+		prev_s0ix_cnt[SYS_STATE_S0I2] = s0ix_count_read(SYS_STATE_S0I2);
+		prev_s0ix_cnt[SYS_STATE_S0I3] = s0ix_count_read(SYS_STATE_S0I3);
+		prev_s0ix_cnt[SYS_STATE_S0I3_PSH_RET] = s0ix_count_read(SYS_STATE_S0I3_PSH_RET);
 		prev_s0ix_cnt[SYS_STATE_S3] = 0;
-		prev_s0ix_res[SYS_STATE_S0I1] = readq(residency[SYS_STATE_S0I1]);
-		prev_s0ix_res[SYS_STATE_LPMP3] = readq(residency[SYS_STATE_LPMP3]);
-		prev_s0ix_res[SYS_STATE_S0I2] = readq(residency[SYS_STATE_S0I2]);
-		prev_s0ix_res[SYS_STATE_S0I3] = readq(residency[SYS_STATE_S0I3]);
+		prev_s0ix_res[SYS_STATE_S0I1] = s0ix_residency_read(SYS_STATE_S0I1);
+		prev_s0ix_res[SYS_STATE_S0I1_LPMP3] = s0ix_residency_read(SYS_STATE_S0I1_LPMP3);
+		prev_s0ix_res[SYS_STATE_S0I1_PSH] = s0ix_residency_read(SYS_STATE_S0I1_PSH);
+		prev_s0ix_res[SYS_STATE_S0I1_DISP] = s0ix_residency_read(SYS_STATE_S0I1_DISP);
+		prev_s0ix_res[SYS_STATE_S0I1_LPMP3_PSH] = s0ix_residency_read(SYS_STATE_S0I1_LPMP3_PSH);
+		prev_s0ix_res[SYS_STATE_S0I1_LPMP3_DISP] = s0ix_residency_read(SYS_STATE_S0I1_LPMP3_DISP);
+		prev_s0ix_res[SYS_STATE_S0I1_PSH_DISP] = s0ix_residency_read(SYS_STATE_S0I1_PSH_DISP);
+		prev_s0ix_res[SYS_STATE_S0I1_LPMP3_PSH_DISP] = s0ix_residency_read(SYS_STATE_S0I1_LPMP3_PSH_DISP);
+		prev_s0ix_res[SYS_STATE_S0I2] = s0ix_residency_read(SYS_STATE_S0I2);
+		prev_s0ix_res[SYS_STATE_S0I3] = s0ix_residency_read(SYS_STATE_S0I3);
+		prev_s0ix_res[SYS_STATE_S0I3_PSH_RET] = s0ix_residency_read(SYS_STATE_S0I3_PSH_RET);
 		prev_s0ix_res[SYS_STATE_S3] = 0 ;
 
 		/* D0i0 time stats clear */
@@ -2461,12 +2492,12 @@ void pmu_s3_stats_update(int enter)
 	up(&mid_pmu_cxt->scu_ready_sem);
 
 	if (enter == 1) {
-		S3_count  = readl(s0ix_counter[SYS_STATE_S0I3]);
-		S3_res = readq(residency[SYS_STATE_S0I3]);
+		S3_count  = s0ix_count_read(SYS_STATE_S0I3);
+		S3_res = s0ix_residency_read(SYS_STATE_S0I3);
 	} else {
 		prev_s0ix_cnt[SYS_STATE_S3] +=
-			(readl(s0ix_counter[SYS_STATE_S0I3])) - S3_count;
-		prev_s0ix_res[SYS_STATE_S3] += (readq(residency[SYS_STATE_S0I3])) - S3_res;
+			(s0ix_count_read(SYS_STATE_S0I3)) - S3_count;
+		prev_s0ix_res[SYS_STATE_S3] += (s0ix_residency_read(SYS_STATE_S0I3)) - S3_res;
 	}
 
 #endif
