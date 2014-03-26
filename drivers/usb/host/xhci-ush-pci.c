@@ -334,11 +334,11 @@ static void hsicdev_add(struct usb_device *udev)
 		if (udev->speed == USB_SPEED_HIGH) {
 			pr_debug("%s rh device set\n", __func__);
 			hsic.rh_dev = udev;
-			pr_debug("%s Disable autosuspend\n", __func__);
+			pr_debug("%s Enable autosuspend\n", __func__);
 			pm_runtime_set_autosuspend_delay(&udev->dev,
 				hsic.bus_inactivityDuration);
-			usb_disable_autosuspend(udev);
-			hsic.autosuspend_enable = 0;
+			usb_enable_autosuspend(udev);
+			hsic.autosuspend_enable = 1;
 		}
 	} else {
 		if (udev->portnum != hsic.hsic_port_num) {
@@ -383,7 +383,6 @@ static void hsicdev_add(struct usb_device *udev)
 			pr_debug("%s Modem dev autosuspend disable\n",
 					 __func__);
 			usb_disable_autosuspend(hsic.modem_dev);
-			usb_disable_autosuspend(hsic.rh_dev);
 		}
 	}
 }
@@ -522,7 +521,6 @@ static void ush_hsic_port_disable(void)
 		dev_dbg(&pci_dev->dev,
 			"Disable auto suspend in port disable\n");
 		usb_disable_autosuspend(hsic.modem_dev);
-		usb_disable_autosuspend(hsic.rh_dev);
 	}
 	if (hsic.rh_dev) {
 		dev_dbg(&pci_dev->dev,
@@ -530,6 +528,7 @@ static void ush_hsic_port_disable(void)
 		usb_disable_autosuspend(hsic.rh_dev);
 		clear_port_feature(hsic.rh_dev, hsic.hsic_port_num,
 				USB_PORT_FEAT_POWER);
+		usb_enable_autosuspend(hsic.rh_dev);
 	}
 	s3_wake_unlock();
 }
@@ -543,7 +542,6 @@ static void ush_hsic_port_enable(void)
 		dev_dbg(&pci_dev->dev,
 			"Disable auto suspend in port enable\n");
 		usb_disable_autosuspend(hsic.modem_dev);
-		usb_disable_autosuspend(hsic.rh_dev);
 	}
 
 	if (hsic.rh_dev) {
@@ -553,6 +551,7 @@ static void ush_hsic_port_enable(void)
 		usb_disable_autosuspend(hsic.rh_dev);
 		set_port_feature(hsic.rh_dev, hsic.hsic_port_num,
 				USB_PORT_FEAT_POWER);
+		usb_enable_autosuspend(hsic.rh_dev);
 	}
 	s3_wake_lock();
 }
@@ -881,15 +880,6 @@ static ssize_t hsic_autosuspend_enable_store(struct device *dev,
 			dev_dbg(dev, "Enable auto suspend\n");
 			usb_enable_autosuspend(hsic.modem_dev);
 			hsic_wakeup_irq_init();
-		}
-	}
-	if (hsic.rh_dev != NULL) {
-		if (hsic.autosuspend_enable == 0) {
-			dev_dbg(dev, "port autosuspend disable\n");
-			usb_disable_autosuspend(hsic.rh_dev);
-		} else {
-			dev_dbg(dev, "port Enable auto suspend\n");
-			usb_enable_autosuspend(hsic.rh_dev);
 		}
 	}
 
