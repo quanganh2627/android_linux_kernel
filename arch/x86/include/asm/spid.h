@@ -543,7 +543,7 @@ enum {
 
 /* Hardware_ID table for Product_Line_ID == INTEL_MOFD_TABLET_TBD */
 enum {
-	MOFD_TABLET_TBD_TBD,
+	MOFD_TABLET_BB_FAB_A,
 	MOFD_TABLET_TBD_RSVD,
 	MOFD_TABLET_TBD_UNKNOWN = 0xFFFF
 };
