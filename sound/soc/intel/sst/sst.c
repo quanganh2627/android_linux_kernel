@@ -407,10 +407,19 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 		sst->tstamp = SST_TIME_STAMP_MRFLD;
 		sst->ops = &mrfld_ops;
 
-		/* Override the recovery ops for CHT & MOOR platforms */
-		if ((sst->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR) ||
-			(sst->pci_id == SST_CHT_PCI_ID))
+		/* Override the recovery ops for CHT platforms */
+		if (sst->pci_id == SST_CHT_PCI_ID)
 			sst->ops->do_recovery = sst_do_recovery;
+		/* For MOFD platforms disable/enable recovery based on
+		 * platform data
+		 */
+		if (sst->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR) {
+			if (!sst->pdata->enable_recovery) {
+				pr_debug("Recovery disabled for this mofd platform\n");
+				sst->ops->do_recovery = sst_do_recovery;
+			} else
+				pr_debug("Recovery enabled for this mofd platform\n");
+		}
 
 		return 0;
 	case SST_BYT_PCI_ID:

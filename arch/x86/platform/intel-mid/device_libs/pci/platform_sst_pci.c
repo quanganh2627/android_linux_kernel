@@ -192,6 +192,7 @@ static int set_ctp_sst_config(struct sst_platform_info *sst_info)
 	sst_info->ipc_info = &ctp_ipc_info;
 	sst_info->debugfs_data = &ctp_debugfs_data;
 	sst_info->lib_info = NULL;
+	sst_info->enable_recovery = 0;
 
 	return 0;
 }
@@ -205,6 +206,12 @@ static void set_mrfld_sst_config(struct sst_platform_info *sst_info)
 	sst_info->ipc_info = &mrfld_ipc_info;
 	sst_info->debugfs_data = &mrfld_debugfs_data;
 	sst_info->lib_info = &mrfld_lib_dnld_info;
+	/* By default set recovery to true for all mrfld based devices */
+	sst_info->enable_recovery = 1;
+	/* Disable recovery for MOFD V1 */
+	if (INTEL_MID_BOARD(2, PHONE, MOFD, V1, PRO) ||
+		 INTEL_MID_BOARD(2, PHONE, MOFD, V1, ENG))
+		sst_info->enable_recovery = 0;
 
 	return ;
 
