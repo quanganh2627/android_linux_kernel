@@ -1481,8 +1481,14 @@ static bool vlv_compute_drain_latency(struct drm_device *dev,
 	}
 	if (enable.sprite_enabled) {
 		entries = (clock / 1000) * sprite_pixel_size;
+		/* this below changes is WAR -- FIX ME*/
+#if 1
+		*sprite_prec_mult = (sprite_pixel_size == 2) ?
+			DRAIN_LATENCY_PRECISION_32 : DRAIN_LATENCY_PRECISION_64;
+#else
 		*sprite_prec_mult = (entries > 256) ?
 			DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;
+#endif
 		*sprite_dl = (64 * (*sprite_prec_mult) * 4) / ((clock / 1000) *
 						sprite_pixel_size);
 		latencyprogrammed = true;
