@@ -353,14 +353,6 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 #endif
 	int ret = 0;
 
-#ifdef CONFIG_CRYSTAL_COVE
-	if (!IS_CHT && (!v1p8_reg || !v2p8_reg)) {
-		dev_err(&client->dev,
-				"not avaiable regulator\n");
-		return -EINVAL;
-	}
-#endif
-
 	/*
 	 * FIXME: VRF has no implementation for CHT now,
 	 * remove pmic power control when VRF is ready.
