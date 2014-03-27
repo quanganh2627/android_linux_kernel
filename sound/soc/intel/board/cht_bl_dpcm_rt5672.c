@@ -461,6 +461,12 @@ static const struct snd_soc_dapm_route cht_audio_map[] = {
 	{ "codec_in1", NULL, "ssp2 Rx" },
 	{ "ssp2 Rx", NULL, "AIF1 Capture"},
 
+	{ "ssp0 Tx", NULL, "modem_out"},
+	{ "modem_in", NULL, "ssp0 Rx" },
+
+	{ "ssp1 Tx", NULL, "bt_fm_out"},
+	{ "bt_fm_in", NULL, "ssp1 Rx" },
+
 	{"AIF1 Playback", NULL, "Platform Clock"},
 	{"AIF1 Capture", NULL, "Platform Clock"},
 };
