@@ -4,14 +4,6 @@
 #include <linux/usb.h>
 #include <linux/wakelock.h>
 
-/* CHT ID MUX register in USH MMIO */
-#define DUAL_ROLE_CFG0			0x80D8
-#define SW_IDPIN_EN			(1 << 21)
-#define SW_IDPIN			(1 << 20)
-
-#define DUAL_ROLE_CFG1			0x80DC
-#define SUS				(1 << 29)
-
 #define HSIC_HUB_RESET_TIME   10
 #define HSIC_ENABLE_SIZE      2
 #define HSIC_DURATION_SIZE    7

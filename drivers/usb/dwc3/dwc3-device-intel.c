@@ -123,8 +123,7 @@ static void dwc3_do_extra_change(struct dwc3 *dwc)
 {
 	u32		reg;
 
-	if (!dwc3_is_cht())
-		dwc3_set_flis_reg();
+	dwc3_set_flis_reg();
 
 	if (dwc->revision == DWC3_REVISION_250A)
 		dwc3_disable_multi_packet(dwc);
@@ -587,10 +586,9 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 	dwc->regs   = pdata->io_addr + DWC3_GLOBALS_REGS_START;
 	dwc->regs_size  = pdata->len - DWC3_GLOBALS_REGS_START;
 	dwc->dev	= dev;
-	if (otg_data && otg_data->usb2_phy_type == USB2_PHY_UTMI)
+	if (otg_data->usb2_phy_type == USB2_PHY_UTMI)
 		dwc->utmi_phy = 1;
-	if (otg_data)
-		dwc->hiber_enabled = !!otg_data->device_hibernation;
+	dwc->hiber_enabled = !!otg_data->device_hibernation;
 
 	dev->dma_mask	= dev->parent->dma_mask;
 	dev->dma_parms	= dev->parent->dma_parms;
@@ -618,9 +616,8 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 	dwc3_cache_hwparams(dwc);
 	dwc3_core_num_eps(dwc);
 
-	if (!dwc3_is_cht())
-		_dev_data->flis_reg =
-			ioremap_nocache(APBFC_EXIOTG3_MISC0_REG, 4);
+	_dev_data->flis_reg =
+		ioremap_nocache(APBFC_EXIOTG3_MISC0_REG, 4);
 
 	ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
 	if (ret) {
