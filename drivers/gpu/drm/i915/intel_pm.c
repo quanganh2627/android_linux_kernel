@@ -4226,6 +4226,9 @@ bool vlv_turbo_initialize(struct drm_device *dev)
 	unsigned long flags;
 	int cck_fuse;
 
+	if (dev_priv->rps.enabled)
+		return 1;
+
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 
 	/* Setting RC0 mode by default on VLV. Make this
