@@ -39,9 +39,13 @@
 #include "../core/usb.h"
 
 static struct pci_dev	*pci_dev;
+static struct class *hsic_class;
+static struct device *hsic_class_dev;
 
 static int create_device_files(struct pci_dev *pdev);
 static void remove_device_files();
+static int create_class_device_files(struct pci_dev *pdev);
+static void remove_class_device_files(void);
 
 static int hsic_enable;
 static struct ush_hsic_priv hsic;
@@ -977,6 +981,103 @@ static ssize_t hsic_remoteWakeup_store(struct device *dev,
 static DEVICE_ATTR(remoteWakeup, S_IRUGO | S_IWUSR,
 		hsic_remoteWakeup_show, hsic_remoteWakeup_store);
 
+static int create_class_device_files(struct pci_dev *pdev)
+{
+	int retval;
+	struct ush_hsic_pdata *hsic_pdata;
+
+	hsic_class = class_create(NULL, "hsic");
+
+	if (IS_ERR(hsic_class))
+		return -EFAULT;
+
+	hsic_class_dev = device_create(hsic_class, &pci_dev->dev,
+			MKDEV(0, 0), NULL, "hsic0");
+
+	if (IS_ERR(hsic_class_dev)) {
+		retval = -EFAULT;
+		goto hsic_class_fail;
+	}
+
+	hsic_pdata = pdev->dev.platform_data;
+	hsic.reenumeration_delay = hsic_pdata->reenum_delay;
+	dev_info(&pdev->dev, "Re-enumeration delay time %d\n",
+				hsic.reenumeration_delay);
+	retval = device_create_file(hsic_class_dev,
+			&dev_attr_reenumeration_delay);
+	if (retval < 0) {
+		dev_dbg(&pci_dev->dev,
+			"error create reenumeration delay\n");
+		goto reenumeration_delay;
+	}
+
+	retval = device_create_file(hsic_class_dev, &dev_attr_hsic_enable);
+	if (retval < 0) {
+		dev_dbg(&pci_dev->dev, "error create hsic_enable\n");
+		goto hsic_enable;
+	}
+
+	retval = device_create_file(hsic_class_dev, &dev_attr_host_resume);
+	if (retval < 0) {
+		dev_dbg(&pci_dev->dev, "error create host_resume\n");
+		goto host_resume;
+	}
+
+	hsic.autosuspend_enable = HSIC_AUTOSUSPEND;
+	retval = device_create_file(hsic_class_dev,
+			 &dev_attr_L2_autosuspend_enable);
+	if (retval < 0) {
+		dev_dbg(&pci_dev->dev, "Error create autosuspend_enable\n");
+		goto autosuspend;
+	}
+
+	hsic.port_inactivityDuration = HSIC_PORT_INACTIVITYDURATION;
+	retval = device_create_file(hsic_class_dev,
+			 &dev_attr_L2_inactivityDuration);
+	if (retval < 0) {
+		dev_dbg(&pci_dev->dev, "Error create port_inactiveDuration\n");
+		goto port_duration;
+	}
+
+	hsic.bus_inactivityDuration = HSIC_BUS_INACTIVITYDURATION;
+	retval = device_create_file(hsic_class_dev,
+			 &dev_attr_bus_inactivityDuration);
+	if (retval < 0) {
+		dev_dbg(&pci_dev->dev, "Error create bus_inactiveDuration\n");
+		goto bus_duration;
+	}
+
+	hsic.remoteWakeup_enable = HSIC_REMOTEWAKEUP;
+	retval = device_create_file(hsic_class_dev, &dev_attr_remoteWakeup);
+	if (retval == 0)
+		return retval;
+
+	dev_dbg(&pci_dev->dev, "Error create remoteWakeup\n");
+
+	device_remove_file(hsic_class_dev, &dev_attr_bus_inactivityDuration);
+bus_duration:
+	device_remove_file(hsic_class_dev, &dev_attr_L2_inactivityDuration);
+port_duration:
+	device_remove_file(hsic_class_dev, &dev_attr_L2_autosuspend_enable);
+autosuspend:
+	device_remove_file(hsic_class_dev, &dev_attr_host_resume);
+host_resume:
+	device_remove_file(hsic_class_dev, &dev_attr_hsic_enable);
+hsic_enable:
+	device_remove_file(hsic_class_dev, &dev_attr_reenumeration_delay);
+reenumeration_delay:
+	device_remove_file(hsic_class_dev, &dev_attr_registers);
+dump_registers:
+hsic_class_fail:
+	return retval;
+}
+
+static void remove_class_device_files(void)
+{
+	device_destroy(hsic_class, hsic_class_dev->devt);
+	class_destroy(hsic_class);
+}
+
 static int create_device_files(struct pci_dev *pdev)
 {
 	int retval;
@@ -1246,6 +1347,11 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 			goto dealloc_usb2_hcd;
 		}
 
+		retval = create_class_device_files(dev);
+		if (retval < 0) {
+			dev_dbg(&dev->dev, "error create class device files\n");
+			goto dealloc_usb2_hcd;
+		}
 		hsic.hsic_enable_created = 1;
 	}
 
