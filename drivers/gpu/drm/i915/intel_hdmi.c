@@ -1096,6 +1096,42 @@ struct edid *intel_hdmi_get_edid(struct drm_connector *connector, bool force)
 	return new_edid;
 }
 
+void intel_hdmi_reset(struct drm_connector *connector)
+{
+	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
+	struct drm_i915_private *dev_priv = connector->dev->dev_private;
+
+	/* Clean previous detects and modes */
+	dev_priv->is_hdmi = false;
+	intel_hdmi->edid_mode_count = 0;
+	intel_cleanup_modes(connector);
+	connector->status = connector_status_disconnected;
+}
+
+/* Check if monitor is changed
+* Returns 1, if changed
+*        -1, if one or both the edids are null. This can happen in hotplug or
+*           unplug cases
+*         0, if no change is found.
+*/
+static enum monitor_changed_status
+intel_hdmi_monitor_changed(struct edid *old_edid, struct edid *new_edid)
+{
+	if (!old_edid && !new_edid)
+		return MONITOR_INVALID;
+
+	if (!old_edid || !new_edid)
+		return MONITOR_PLUG_UNPLUG;
+
+	if (!(new_edid->mfg_id[0] == old_edid->mfg_id[0]
+			&& new_edid->mfg_id[1] == old_edid->mfg_id[1]
+			&& new_edid->prod_code[0] == old_edid->prod_code[0]
+			&& new_edid->prod_code[1] == old_edid->prod_code[1])) {
+		DRM_DEBUG_DRIVER("\nMonitor has changed during suspend\n");
+		return MONITOR_CHANGED;
+	}
+	return MONITOR_UNCHANGED;
+}
 /* Encoder's Hot plug function
   * Caller must hold mode_config mutex
   * Read EDID based on Live status register
@@ -1107,6 +1143,8 @@ void intel_hdmi_hot_plug(struct intel_encoder *intel_encoder)
 	struct drm_device *dev = encoder->dev;
 	struct drm_connector *connector = NULL;
 	struct edid *edid = NULL;
+	struct edid *old_edid = intel_hdmi->edid;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	bool need_event = false;
 
 	connector = &intel_hdmi->attached_connector->base;
@@ -1122,6 +1160,21 @@ void intel_hdmi_hot_plug(struct intel_encoder *intel_encoder)
 		DRM_DEBUG_DRIVER("Hdmi: Monitor disconnected\n");
 		if (connector->status == connector_status_disconnected)
 			need_event = true;
+	}
+
+	if (dev_priv->late_resume) {
+		if (intel_hdmi_monitor_changed(old_edid, edid) == MONITOR_CHANGED) {
+			DRM_DEBUG_DRIVER("Hdmi: Monitor changed during suspend\n");
+			intel_hdmi_reset(connector);
+
+			/* When 'HDMI-Change' event is sent to user space, it checks the
+			* validity of the current mode. The validity of the mode is decided
+			* based upon the enabled flag of crtc in drm_crtc. Thats why
+			* disabling this flag.
+			*/
+			intel_encoder->base.crtc->enabled = false;
+			intel_hdmi_send_uevent(dev, "HDMI-Change");
+		}
 	}
 
 	/* need_event

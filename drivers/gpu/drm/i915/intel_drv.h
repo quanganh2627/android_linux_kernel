@@ -512,6 +512,13 @@ struct cxsr_latency {
 #define   HDMIC_HOTPLUG_LIVE_STATUS             (1 << 28)
 #define   HDMID_HOTPLUG_LIVE_STATUS             (1 << 27)
 
+enum monitor_changed_status {
+	MONITOR_INVALID = 0,
+	MONITOR_UNCHANGED,
+	MONITOR_CHANGED,
+	MONITOR_PLUG_UNPLUG
+};
+
 struct intel_hdmi {
 	u32 hdmi_reg;
 	int ddc_bus;

@@ -9208,6 +9208,12 @@ intel_modeset_pipe_config(struct drm_crtc *crtc,
 		return ERR_PTR(-EINVAL);
 	}
 
+	/* Block a dummy modeset with NULL mode values which might cause panic*/
+	if (mode == NULL) {
+		DRM_DEBUG_KMS("Mode is NULL");
+		return ERR_PTR(-EINVAL);
+	}
+
 	pipe_config = kzalloc(sizeof(*pipe_config), GFP_KERNEL);
 	if (!pipe_config)
 		return ERR_PTR(-ENOMEM);
