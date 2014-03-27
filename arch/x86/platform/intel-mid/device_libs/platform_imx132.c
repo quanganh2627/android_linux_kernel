@@ -21,9 +21,9 @@
 #include "platform_imx132.h"
 
 
-static int camera_reset;
-static int mux_front_camera;
-static int mux_gpio_found;
+static int camera_reset = -1;
+static int mux_front_camera = -1;
+static int mux_gpio_searched = -1;
 
 static int camera_vprog1_on;
 static struct regulator *vprog1_reg;
@@ -48,20 +48,19 @@ static int imx132_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		camera_reset = ret;
 	}
 
-	if (mux_gpio_found < 0 && mux_front_camera < 0) {
+	if (mux_gpio_searched < 0) {
 		/* The FSA642 mux is not used in all HW configurations, hence
-		 * it is okay to receive an error if the gpio is not found */
+		 * it is okay to receive an error if the GPIO is not found */
 		mux_front_camera = camera_sensor_gpio(-1, GP_CAMERA_MUX_CONTROL,
 						      GPIOF_DIR_OUT, 0);
-		if (mux_front_camera >= 0)
-			mux_gpio_found = 1;
+		mux_gpio_searched = 1;
 	}
 
 	if (flag) {
 		gpio_set_value(camera_reset, 1);
 
 		/* If the FSA642 mux is used, switch it to the front camera */
-		if (mux_gpio_found && mux_front_camera >= 0)
+		if (mux_gpio_searched && mux_front_camera >= 0)
 			gpio_set_value(mux_front_camera, 0);
 
 		/* imx132 initializing time - t1+t2
@@ -169,9 +168,6 @@ static struct camera_sensor_platform_data imx132_sensor_platform_data = {
 };
 void *imx132_platform_data(void *info)
 {
-	camera_reset = -1;
-	mux_front_camera = -1;
-	mux_gpio_found = -1;
 	return &imx132_sensor_platform_data;
 }
 
