@@ -636,6 +636,10 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 	dwc->quirks_disable_irqthread = 1;
 
 	usb_phy = usb_get_phy(USB_PHY_TYPE_USB2);
+	if (!usb_phy) {
+		dev_err(dev, "failed to get usb2 phy\n");
+		return -ENODEV;
+	}
 	otg = container_of(usb_phy, struct dwc_otg2, usb2_phy);
 	otg->start_device = dwc3_start_peripheral;
 	otg->stop_device = dwc3_stop_peripheral;
