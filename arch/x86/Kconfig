@@ -734,8 +734,7 @@ config X86_CYCLONE_TIMER
 source "arch/x86/Kconfig.cpu"
 
 config HPET_TIMER
-	def_bool X86_64
-	prompt "HPET Timer Support" if X86_32
+	prompt "HPET Timer Support"
 	---help---
 	  Use the IA-PC HPET (High Precision Event Timer) to manage
 	  time in preference to the PIT and RTC, if a HPET is
