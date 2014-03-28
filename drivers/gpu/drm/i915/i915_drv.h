@@ -1388,6 +1388,9 @@ typedef struct drm_i915_private {
 	struct mutex dpio_lock;
 	struct mutex new_dpio_lock;
 
+	/* for concurrent execbuffer protection */
+	struct mutex exec_lock;
+
 	/** Cached value of IMR to avoid reads in updating the bitfield */
 	u32 irq_mask;
 	u32 hotplugstat;
@@ -2302,6 +2305,10 @@ int i915_gem_dumb_destroy(struct drm_file *file_priv, struct drm_device *dev,
 void i915_set_reset_status(struct intel_ring_buffer *ring,
 			struct drm_i915_gem_request *request,
 			u32 acthd);
+
+void
+i915_gem_object_shmem_preallocate(struct drm_i915_gem_object *obj);
+
 /**
  * Returns true if seq1 is later than seq2.
  */

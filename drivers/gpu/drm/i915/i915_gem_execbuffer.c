@@ -671,6 +671,17 @@ i915_gem_execbuffer_unreserve(struct list_head *objects)
 	return;
 }
 
+static void
+i915_gem_execbuffer_preallocate_objs(struct list_head *objects)
+{
+	struct drm_i915_gem_object *obj;
+
+	/* Try to get the obj pages atomically */
+	list_for_each_entry(obj, objects, exec_list) {
+		i915_gem_object_shmem_preallocate(obj);
+	}
+}
+
 static int
 i915_gem_execbuffer_reserve(struct intel_ring_buffer *ring,
 			    struct list_head *objects,
@@ -810,6 +821,7 @@ i915_gem_execbuffer_relocate_slow(struct drm_device *dev,
 				  struct drm_i915_gem_exec_object2 *exec,
 				  struct i915_address_space *vm)
 {
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct drm_i915_gem_relocation_entry *reloc;
 	struct drm_i915_gem_object *obj;
 	bool need_relocs;
@@ -883,11 +895,23 @@ i915_gem_execbuffer_relocate_slow(struct drm_device *dev,
 		total += exec[i].relocation_count;
 	}
 
+	/* First acquire the 'exec_lock' mutex to prevent the concurrent
+	 * access to the 'exec_list' field of the objects, by the
+	 * preallocation routine from the context of a new execbuffer ioctl */
+	ret = mutex_lock_interruptible(&dev_priv->exec_lock);
+	if (ret) {
+		mutex_lock(&dev->struct_mutex);
+		goto err;
+	}
+
 	ret = i915_mutex_lock_interruptible(dev);
 	if (ret) {
 		mutex_lock(&dev->struct_mutex);
 		goto err;
 	}
+
+	/* Now release the 'exec_lock' after acquiring the 'struct mutex' */
+	mutex_unlock(&dev_priv->exec_lock);
 
 	/* reacquire the objects */
 	eb_reset(eb);
@@ -1242,12 +1266,19 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		}
 	}
 
-	ret = i915_mutex_lock_interruptible(dev);
+	ret = mutex_lock_interruptible(&dev_priv->exec_lock);
 	if (ret)
 		goto pre_mutex_err;
 
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret) {
+		mutex_unlock(&dev_priv->exec_lock);
+		goto pre_mutex_err;
+	}
+
 	if (dev_priv->ums.mm_suspended || dev_priv->pm.shutdown_in_progress) {
 		mutex_unlock(&dev->struct_mutex);
+		mutex_unlock(&dev_priv->exec_lock);
 		ret = -EBUSY;
 		goto pre_mutex_err;
 	}
@@ -1255,14 +1286,39 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	eb = eb_create(args);
 	if (eb == NULL) {
 		mutex_unlock(&dev->struct_mutex);
+		mutex_unlock(&dev_priv->exec_lock);
 		ret = -ENOMEM;
 		goto pre_mutex_err;
 	}
 
 	/* Look up object handles */
 	ret = eb_lookup_objects(eb, exec, args, file);
-	if (ret)
-		goto err;
+	if (ret) {
+		eb_destroy(eb);
+		mutex_unlock(&dev->struct_mutex);
+		mutex_unlock(&dev_priv->exec_lock);
+		goto pre_mutex_err;
+	}
+
+	/*
+	 * Release the 'struct_mutex' before extracting the backing
+	 * pages of the objects, so as to allow other ioctls to get serviced,
+	 * while backing pages are being allocated (which is generally
+	 * the most time consuming phase).
+	 */
+	mutex_unlock(&dev->struct_mutex);
+
+	i915_gem_execbuffer_preallocate_objs(&eb->objects);
+
+	/* Reacquire the 'struct_mutex' post preallocation */
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret) {
+		eb_destroy(eb);
+		mutex_unlock(&dev_priv->exec_lock);
+		goto pre_mutex_err;
+	}
+
+	mutex_unlock(&dev_priv->exec_lock);
 
 	/* take note of the batch buffer before we might reorder the lists */
 	batch_obj = list_entry(eb->objects.prev,
