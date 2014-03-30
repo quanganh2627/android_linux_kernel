@@ -352,6 +352,7 @@ static void hsicdev_add(struct usb_device *udev)
 		}
 
 		/* Modem devices */
+		s3_wake_lock();
 		hsic.port_disconnect = 0;
 		hsic.modem_dev = udev;
 		pm_runtime_set_autosuspend_delay
@@ -1406,7 +1407,6 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	hsic.port_disconnect = 0;
 	hsic_enable = 1;
 	hsic.s3_rt_state = RESUMED;
-	s3_wake_lock();
 	return 0;
 
 put_usb3_hcd:
