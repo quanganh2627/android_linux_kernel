@@ -795,22 +795,19 @@ static int valleyview_freeze(struct drm_device *dev)
 	u32 reg;
 	u32 i;
 
-	/* Disable crct if audio driver prevented that earlier */
-	if (!dev_priv->audio_suspended) {
-		drm_modeset_lock_all(dev);
-
-		/* audio was not suspended earlier; now we should
-		 * disable the crtc */
-		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-			struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-			if (intel_crtc->pipe == PIPE_B) {
-				dev_priv->display.crtc_disable(crtc);
-				dev_priv->audio_suspended = true;
-				break;
-			}
-		}
-		drm_modeset_unlock_all(dev);
+	drm_modeset_lock_all(dev);
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+		if ((intel_crtc->pipe == PIPE_B)
+			&& (!dev_priv->audio_suspended)) {
+			/* audio was not suspended earlier
+			 * now we should disable the crtc */
+			dev_priv->display.crtc_disable(crtc);
+			dev_priv->audio_suspended = true;
+		} else
+			dev_priv->display.crtc_disable(crtc);
 	}
+	drm_modeset_unlock_all(dev);
 
 	pci_save_state(dev->pdev);
 
