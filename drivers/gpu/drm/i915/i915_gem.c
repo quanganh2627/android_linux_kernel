@@ -2013,14 +2013,24 @@ i915_gem_object_shmem_preallocate(struct drm_i915_gem_object *obj)
 		if (IS_ERR(page)) {
 			DRM_DEBUG_DRIVER("Failure for obj(%p) size(%x) at page(%d)\n",
 					obj, (unsigned int)obj->base.size, i);
-			break;
+			return;
 		}
+		/* Flush the cpu cache for the page now itself */
+		drm_clflush_pages(&page, 1);
 		/* Decrement the extra ref count on the returned page,
 		   otherwise when 'get_pages_gtt' will be called later on
 		   in the regular path, it will also increment the ref count,
 		   which will disturb the ref count management */
 		page_cache_release(page);
 	}
+
+	/*
+	 * Reset the CPU domain now itself, so as to avoid the cache
+	 * flush later (under 'struct_mutex' lock), as the all pages
+	 * have been cache flushed.
+	 * Hope this is safe enough to be done here.
+	 */
+	obj->base.write_domain = 0;
 
 	trace_i915_gem_obj_prealloc_end(obj);
 }
