@@ -502,7 +502,8 @@ static int smiapp_init_controls(struct smiapp_sensor *sensor)
 		V4L2_CID_ANALOGUE_GAIN,
 		sensor->limits[SMIAPP_LIMIT_ANALOGUE_GAIN_CODE_MIN],
 		sensor->limits[SMIAPP_LIMIT_ANALOGUE_GAIN_CODE_MAX],
-		max(sensor->limits[SMIAPP_LIMIT_ANALOGUE_GAIN_CODE_STEP], 1U),
+		max_t(uint32_t,
+		      sensor->limits[SMIAPP_LIMIT_ANALOGUE_GAIN_CODE_STEP], 1U),
 		sensor->limits[SMIAPP_LIMIT_ANALOGUE_GAIN_CODE_MIN]);
 
 	/* Exposure limits will be updated soon, use just something here. */
@@ -679,7 +680,7 @@ static int smiapp_get_limits_binning(struct smiapp_sensor *sensor)
 
 	for (i = 0; i < ARRAY_SIZE(limits); i++) {
 		dev_dbg(&client->dev,
-			"replace limit 0x%8.8x \"%s\" = %d, 0x%x\n",
+			"replace limit 0x%8.8x \"%s\" = %llu, 0x%llx\n",
 			smiapp_reg_limits[limits[i]].addr,
 			smiapp_reg_limits[limits[i]].what,
 			sensor->limits[limits_replace[i]],
@@ -1689,13 +1690,13 @@ static int smiapp_set_format(struct v4l2_subdev *subdev,
 	fmt->format.height &= ~1;
 
 	fmt->format.width =
-		clamp(fmt->format.width,
-		      sensor->limits[SMIAPP_LIMIT_MIN_X_OUTPUT_SIZE],
-		      sensor->limits[SMIAPP_LIMIT_MAX_X_OUTPUT_SIZE]);
+		clamp_t(uint32_t, fmt->format.width,
+			sensor->limits[SMIAPP_LIMIT_MIN_X_OUTPUT_SIZE],
+			sensor->limits[SMIAPP_LIMIT_MAX_X_OUTPUT_SIZE]);
 	fmt->format.height =
-		clamp(fmt->format.height,
-		      sensor->limits[SMIAPP_LIMIT_MIN_Y_OUTPUT_SIZE],
-		      sensor->limits[SMIAPP_LIMIT_MAX_Y_OUTPUT_SIZE]);
+		clamp_t(uint32_t, fmt->format.height,
+			sensor->limits[SMIAPP_LIMIT_MIN_Y_OUTPUT_SIZE],
+			sensor->limits[SMIAPP_LIMIT_MAX_Y_OUTPUT_SIZE]);
 
 	smiapp_get_crop_compose(subdev, fh, crops, NULL, fmt->which);
 
@@ -1834,12 +1835,13 @@ static void smiapp_set_compose_scaler(struct v4l2_subdev *subdev,
 		* sensor->limits[SMIAPP_LIMIT_SCALER_N_MIN]
 		/ sensor->limits[SMIAPP_LIMIT_MIN_X_OUTPUT_SIZE];
 
-	a = clamp(a, sensor->limits[SMIAPP_LIMIT_SCALER_M_MIN],
-		  sensor->limits[SMIAPP_LIMIT_SCALER_M_MAX]);
-	b = clamp(b, sensor->limits[SMIAPP_LIMIT_SCALER_M_MIN],
-		  sensor->limits[SMIAPP_LIMIT_SCALER_M_MAX]);
-	max_m = clamp(max_m, sensor->limits[SMIAPP_LIMIT_SCALER_M_MIN],
-		      sensor->limits[SMIAPP_LIMIT_SCALER_M_MAX]);
+	a = clamp_t(uint32_t, a, sensor->limits[SMIAPP_LIMIT_SCALER_M_MIN],
+		    sensor->limits[SMIAPP_LIMIT_SCALER_M_MAX]);
+	b = clamp_t(uint32_t, b, sensor->limits[SMIAPP_LIMIT_SCALER_M_MIN],
+		    sensor->limits[SMIAPP_LIMIT_SCALER_M_MAX]);
+	max_m = clamp_t(uint32_t, max_m,
+			sensor->limits[SMIAPP_LIMIT_SCALER_M_MIN],
+			sensor->limits[SMIAPP_LIMIT_SCALER_M_MAX]);
 
 	dev_dbg(&client->dev, "scaling: a %d b %d max_m %d\n", a, b, max_m);
 

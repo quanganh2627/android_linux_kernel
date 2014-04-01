@@ -53,7 +53,7 @@ struct smiapp_reg_8 {
 };
 
 void smiapp_replace_limit(struct smiapp_sensor *sensor,
-			  u32 limit, u32 val);
+			  u32 limit, u64 val);
 
 #define SMIAPP_MK_QUIRK_REG_8(_reg, _val) \
 	{				\

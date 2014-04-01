@@ -51,11 +51,11 @@ static int smiapp_write_8s(struct smiapp_sensor *sensor,
 }
 
 void smiapp_replace_limit(struct smiapp_sensor *sensor,
-			  u32 limit, u32 val)
+			  u32 limit, u64 val)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&sensor->src->sd);
 
-	dev_dbg(&client->dev, "quirk: 0x%8.8x \"%s\" = %d, 0x%x\n",
+	dev_dbg(&client->dev, "quirk: 0x%8.8x \"%s\" = %llu, 0x%llx\n",
 		smiapp_reg_limits[limit].addr,
 		smiapp_reg_limits[limit].what, val, val);
 	sensor->limits[limit] = val;
