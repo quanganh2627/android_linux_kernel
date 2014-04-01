@@ -358,11 +358,6 @@ static int __smiapp_pll_calculate(struct device *dev,
 			"op_sys_clk_div");
 	if (!rval)
 		rval = bounds_check(
-			dev, pll->op_pix_clk_div,
-			limits->op.min_pix_clk_div, limits->op.max_pix_clk_div,
-			"op_pix_clk_div");
-	if (!rval)
-		rval = bounds_check(
 			dev, pll->op_sys_clk_freq_hz,
 			limits->op.min_sys_clk_freq_hz,
 			limits->op.max_sys_clk_freq_hz,
