@@ -75,6 +75,7 @@ struct smiapp_pll {
 	uint32_t vt_pix_clk_freq_hz;
 
 	uint32_t pixel_rate_csi;
+	uint32_t pixel_rate_pixel_array;
 };
 
 struct smiapp_pll_branch_limits {

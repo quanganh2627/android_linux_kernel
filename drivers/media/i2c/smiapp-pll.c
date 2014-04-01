@@ -338,6 +338,7 @@ static int __smiapp_pll_calculate(struct device *dev,
 
 	pll->pixel_rate_csi =
 		pll->op_pix_clk_freq_hz * lane_op_clock_ratio;
+	pll->pixel_rate_pixel_array = pll->vt_pix_clk_freq_hz;
 
 	rval = bounds_check(dev, pll->pll_ip_clk_freq_hz,
 			    limits->min_pll_ip_freq_hz,
