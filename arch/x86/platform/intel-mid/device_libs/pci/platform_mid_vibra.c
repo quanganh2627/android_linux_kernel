@@ -24,6 +24,7 @@ static struct mid_vibra_pdata clv_vibra_pci_data = {
 	.gpio_en = INTEL_VIBRA_ENABLE_GPIO,
 	.gpio_pwm = INTEL_PWM_ENABLE_GPIO,
 	.name = "drv8601",
+	.use_gpio_en = true,
 };
 
 static struct mid_vibra_pdata mrfld_vibra_pci_data = {
@@ -32,6 +33,7 @@ static struct mid_vibra_pdata mrfld_vibra_pci_data = {
 	.alt_fn = 1,
 	.ext_drv = 1,
 	.name = "drv2605",
+	.use_gpio_en = true,
 };
 
 static struct mid_vibra_pdata moor_pr_vibra_pci_data = {
@@ -40,6 +42,7 @@ static struct mid_vibra_pdata moor_pr_vibra_pci_data = {
 	.alt_fn = 1,
 	.ext_drv = 0,
 	.name = "drv2603",
+	.use_gpio_en = true,
 };
 
 static struct mid_vibra_pdata bb_vibra_pci_data = {
@@ -48,6 +51,7 @@ static struct mid_vibra_pdata bb_vibra_pci_data = {
 	.alt_fn = 1,
 	.ext_drv = 0,
 	.name = "drv8601",
+	.use_gpio_en = true,
 };
 
 static struct mid_vibra_pdata *get_vibra_platform_data(struct pci_dev *pdev)

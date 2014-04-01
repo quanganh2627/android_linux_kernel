@@ -41,6 +41,7 @@ struct mid_vibra_pdata {
 	int gpio_en;
 	int gpio_pwm;
 	const char *name;
+	bool use_gpio_en; /* whether vibra needs gpio based enable control */
 };
 
 #endif /* __INTEL_MID_VIBRA_H */
