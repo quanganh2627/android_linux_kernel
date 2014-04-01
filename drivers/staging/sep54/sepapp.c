@@ -494,9 +494,13 @@ int sepapp_session_close(struct sep_op_ctx *op_ctx, int session_id)
 	int rc;
 	u16 sep_session_id;
 
+#ifdef SEP_RUNTIME_PM
+	dx_sep_pm_runtime_get();
+#endif
 	if (!IS_VALID_SESSION_IDX(session_id)) {
 		pr_err("Invalid session_id=%d\n", session_id);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 	op_ctx->op_type = SEP_OP_APP;
 
@@ -507,14 +511,16 @@ int sepapp_session_close(struct sep_op_ctx *op_ctx, int session_id)
 		pr_err("Invalid session ID %d for user %p\n",
 			    session_id, client_ctx);
 		op_ctx->error_info = DXDI_ERROR_BAD_CTX;
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	if (session_ctx->ref_cnt > 1) {
 		mutex_unlock(&session_ctx->session_lock);
 		pr_err("Invoked while still has pending commands!\n");
 		op_ctx->error_info = DXDI_ERROR_FATAL;
-		return -EBUSY;
+		rc = -EBUSY;
+		goto end;
 	}
 
 	sep_session_id = session_ctx->sep_session_id;/* save before release */
@@ -541,6 +547,10 @@ int sepapp_session_close(struct sep_op_ctx *op_ctx, int session_id)
 		op_ctx->error_info = DXDI_ERROR_FATAL;
 	}
 
+end:
+#ifdef SEP_RUNTIME_PM
+	dx_sep_pm_runtime_put();
+#endif
 	return rc;
 }
 
