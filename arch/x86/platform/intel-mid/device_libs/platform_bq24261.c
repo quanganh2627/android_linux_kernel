@@ -73,6 +73,7 @@ void __init *bq24261_platform_data(void *info)
 	if (INTEL_MID_BOARD(1, PHONE, MOFD) ||
 		INTEL_MID_BOARD(1, TABLET, MOFD)) {
 		bq24261_pdata.handle_low_supply = pmic_handle_low_supply;
+		bq24261_pdata.handle_otgmode = pmic_handle_otgmode;
 	}
 #endif
 	bq24261_pdata.set_iterm = NULL;
