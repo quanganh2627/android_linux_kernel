@@ -256,7 +256,7 @@
 #define SMB34X_EXTCON_DCP		"CHARGER_USB_DCP"
 #define SMB34X_EXTCON_CDP		"CHARGER_USB_CDP"
 
-#define REGULATOR_V3P3S		"v3p3s"
+#define REGULATOR_V3P3SX		"v3p3sx"
 
 static const char *smb34x_extcon_cable[] = {
 	SMB34X_EXTCON_SDP,
@@ -337,10 +337,10 @@ struct smb347_charger {
 	int			online;
 	int			present;
 	/*
-	 * regulator v3p3s used by display driver to save 7mW in
+	 * regulator v3p3sx used by display driver to save 7mW in
 	 * S3 for USB Host
 	 */
-	struct regulator	*regulator_v3p3s;
+	struct regulator	*regulator_v3p3sx;
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
 	struct delayed_work	full_worker;
 #endif
@@ -963,14 +963,14 @@ static void smb347_otg_detect(struct smb347_charger *smb)
 			gpio_direction_output(smb->pdata->gpio_mux, 0);
 		if (smb->a_bus_enable) {
 			smb347_otg_enable(smb);
-			if (smb->regulator_v3p3s)
-				regulator_enable(smb->regulator_v3p3s);
+			if (smb->regulator_v3p3sx)
+				regulator_enable(smb->regulator_v3p3sx);
 		}
 	} else {
 		smb->drive_vbus = false;
 		smb347_otg_disable(smb);
-		if (smb->regulator_v3p3s)
-			regulator_disable(smb->regulator_v3p3s);
+		if (smb->regulator_v3p3sx)
+			regulator_disable(smb->regulator_v3p3sx);
 	}
 }
 
@@ -1230,16 +1230,16 @@ static void smb347_usb_otg_enable(struct usb_phy *phy)
 		smb->a_bus_enable = false;
 		if (smb->drive_vbus) {
 			smb347_otg_disable(smb);
-			if (smb->regulator_v3p3s)
-				regulator_disable(smb->regulator_v3p3s);
+			if (smb->regulator_v3p3sx)
+				regulator_disable(smb->regulator_v3p3sx);
 		}
 	} else {
 		dev_info(&smb->client->dev, "OTG Enable");
 		smb->a_bus_enable = true;
 		if (smb->drive_vbus) {
 			smb347_otg_enable(smb);
-			if (smb->regulator_v3p3s)
-				regulator_enable(smb->regulator_v3p3s);
+			if (smb->regulator_v3p3sx)
+				regulator_enable(smb->regulator_v3p3sx);
 		}
 	}
 }
@@ -2412,10 +2412,10 @@ static int smb347_probe(struct i2c_client *client,
 
 	smb347_dev = smb;
 	if (smb->pdata->use_regulator) {
-		smb->regulator_v3p3s = regulator_get(dev, REGULATOR_V3P3S);
-		if (IS_ERR(smb->regulator_v3p3s)) {
-			dev_warn(&smb->client->dev, "V3P3S  failed");
-			smb->regulator_v3p3s = NULL;
+		smb->regulator_v3p3sx = regulator_get(dev, REGULATOR_V3P3SX);
+		if (IS_ERR(smb->regulator_v3p3sx)) {
+			dev_warn(&smb->client->dev, "V3P3SX failed");
+			smb->regulator_v3p3sx = NULL;
 		}
 	}
 
@@ -2549,8 +2549,8 @@ static int smb347_remove(struct i2c_client *client)
 		power_supply_unregister(&smb->mains);
 	wake_lock_destroy(&smb->wakelock);
 
-	if (smb->regulator_v3p3s)
-		regulator_put(smb->regulator_v3p3s);
+	if (smb->regulator_v3p3sx)
+		regulator_put(smb->regulator_v3p3sx);
 
 	return 0;
 }
