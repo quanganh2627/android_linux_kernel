@@ -36,6 +36,8 @@
 #define SMIAPP_PLL_FLAG_NO_OP_CLOCKS				(1 << 1)
 /* the pre-pll div may be odd */
 #define SMIAPP_PLL_FLAG_ALLOW_ODD_PRE_PLL_CLK_DIV		(1 << 2)
+/* op pix div value is half of the bits-per-pixel value */
+#define SMIAPP_PLL_FLAG_OP_PIX_DIV_HALF				(1 << 3)
 
 struct smiapp_pll {
 	/* input values */

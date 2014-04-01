@@ -211,6 +211,8 @@ static int __smiapp_pll_calculate(struct device *dev,
 		div_u64(pll->pll_op_clk_freq_hz, pll->op_sys_clk_div);
 
 	pll->op_pix_clk_div = pll->bits_per_pixel;
+	if (pll->flags & SMIAPP_PLL_FLAG_OP_PIX_DIV_HALF)
+		pll->op_pix_clk_div /= 2;
 	dev_dbg(dev, "op_pix_clk_div: %u\n", pll->op_pix_clk_div);
 
 	pll->op_pix_clk_freq_hz =
@@ -419,6 +421,14 @@ int smiapp_pll_calculate(struct device *dev,
 	default:
 		return -EINVAL;
 	}
+
+	/*
+	 * Half op pix divisor will give us double the rate compared
+	 * to the regular case. Thus divide the desired pll op clock
+	 * frequency by two.
+	 */
+	if (pll->flags & SMIAPP_PLL_FLAG_OP_PIX_DIV_HALF)
+		pll->pll_op_clk_freq_hz /= 2;
 
 	/* Figure out limits for pre-pll divider based on extclk */
 	dev_dbg(dev, "min / max pre_pll_clk_div: %u / %u\n",
