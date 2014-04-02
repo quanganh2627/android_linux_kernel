@@ -268,6 +268,8 @@ bool vvx09f006a00_init(struct intel_dsi_device *dsi)
 	intel_dsi->backlight_off_delay = 20;
 	intel_dsi->send_shutdown = true;
 	intel_dsi->shutdown_pkt_delay = 20;
+	/*init the panel bpp info*/
+	dev_priv->mipi.panel_bpp = PIPE_24BPP;
 
 	/* In the default VBT of UEFI GOP,rotation bit is not set.
 	 * In order to make FFRD8 work on UEFI GOP with default VBT,
