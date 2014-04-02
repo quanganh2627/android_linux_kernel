@@ -580,6 +580,9 @@ static int mrfld_8958_init(struct snd_soc_pcm_runtime *runtime)
 	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_1, KEY_MEDIA);
 	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
 
+	snd_soc_update_bits(codec, WM8958_MICBIAS2, WM8958_MICB2_LVL_MASK,
+				WM8958_MICB2_LVL_2P6V << WM8958_MICB2_LVL_SHIFT);
+
 	wm8958_mic_detect(codec, &ctx->jack, NULL, NULL,
 			  wm8958_custom_mic_id, codec);
 
