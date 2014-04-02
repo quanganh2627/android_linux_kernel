@@ -33,6 +33,8 @@
 #include "otg.h"
 
 #define WAIT_DISC_EVENT_COMPLETE_TIMEOUT 5 /* 100ms */
+#define PORTSC_IO_ADDR 0xf9100430
+#define USBCMD_IO_ADDR 0xf9100020
 
 static int dwc3_start_host(struct usb_hcd *hcd);
 static int dwc3_stop_host(struct usb_hcd *hcd);
@@ -51,6 +53,7 @@ static struct dwc3_xhci_hcd {
 	int otg_irqnum;
 	bool host_started;
 	bool comp_test_enable;
+	void __iomem *portsc_mmaddr;
 } dwc3_xhci;
 
 static void dwc3_host_quirks(struct device *dev, struct xhci_hcd *xhci)
@@ -167,21 +170,21 @@ static int if_usb_devices_connected(struct xhci_hcd *xhci)
  **/
 static void dwc3_poll_lp(struct work_struct *data)
 {
-	__le32 __iomem **addr;
 	u32 pls, val;
 
-	if (!dwc3_xhci.comp_test_enable || !dwc3_xhci.xhci)
+	if (!dwc3_xhci.comp_test_enable)
 		return;
 
-	addr = dwc3_xhci.xhci->usb3_ports;
-	val = xhci_readl(dwc3_xhci.xhci, addr[0]);
+	val = readl(dwc3_xhci.portsc_mmaddr);
 	pls = val & PORT_PLS_MASK;
 
 	if (pls == XDEV_COMP && dwc3_xhci.is_rx_test)
-		writel(val | PORT_WR, addr[0]);
+		writel(val | PORT_WR, dwc3_xhci.portsc_mmaddr);
 
-	if (!dwc3_xhci.is_rx_test || pls == XDEV_LOOPBACK)
+	if (!dwc3_xhci.is_rx_test || pls == XDEV_LOOPBACK) {
+		iounmap(dwc3_xhci.portsc_mmaddr);
 		return;
+	}
 	else
 		schedule_work(&dwc3_xhci.poll_loopback);
 }
@@ -362,7 +365,9 @@ store_host_comp_test(struct device *_dev,
 	struct platform_device		*pdev = to_platform_device(_dev);
 	struct usb_hcd		*hcd = platform_get_drvdata(pdev);
 	struct xhci_hcd		*xhci = hcd_to_xhci(hcd);
-	u32 cmd;
+
+	void __iomem *addr;
+	u32 val;
 
 	if (count != 2) {
 		dev_err(hcd->self.controller, "return EINVAL\n");
@@ -377,6 +382,12 @@ store_host_comp_test(struct device *_dev,
 			if (!dwc3_xhci.comp_test_enable)
 				break;
 			dwc3_xhci.is_rx_test = 1;
+			dwc3_xhci.portsc_mmaddr = ioremap_nocache(PORTSC_IO_ADDR, 4);
+			if (!dwc3_xhci.portsc_mmaddr) {
+				dev_err(hcd->self.controller,
+						"ioremap failed!\n");
+				return -ENOMEM;
+			}
 			schedule_work(&dwc3_xhci.poll_loopback);
 			break;
 	case 'T':
@@ -387,9 +398,16 @@ store_host_comp_test(struct device *_dev,
 	case '0':
 		if (dwc3_xhci.comp_test_enable) {
 			dev_dbg(hcd->self.controller, "run xHC\n");
-			cmd = xhci_readl(xhci, &xhci->op_regs->command);
-			cmd |= CMD_RUN;
-			xhci_writel(xhci, cmd, &xhci->op_regs->command);
+			addr = ioremap_nocache(USBCMD_IO_ADDR, 4);
+			if (!addr) {
+				dev_err(hcd->self.controller,
+						"ioremap failed!\n");
+				return -ENOMEM;
+			}
+			val = readl(addr);
+			val |= CMD_RUN;
+			writel(val, addr);
+			iounmap(addr);
 			pm_runtime_put(hcd->self.controller);
 			wake_unlock(&hcd->wake_lock);
 			dwc3_xhci.comp_test_enable = false;
@@ -400,9 +418,16 @@ store_host_comp_test(struct device *_dev,
 			dev_dbg(hcd->self.controller, "halt xHC\n");
 			wake_lock(&hcd->wake_lock);
 			pm_runtime_get_sync(hcd->self.controller);
-			cmd = xhci_readl(xhci, &xhci->op_regs->command);
-			cmd &= ~CMD_RUN;
-			xhci_writel(xhci, cmd, &xhci->op_regs->command);
+			addr = ioremap_nocache(USBCMD_IO_ADDR, 4);
+			if (!addr) {
+				dev_err(hcd->self.controller,
+						"ioremap failed!\n");
+				return -ENOMEM;
+			}
+			val = readl(addr);
+			val &= ~CMD_RUN;
+			writel(val, addr);
+			iounmap(addr);
 			dwc3_xhci.comp_test_enable = true;
 		}
 		break;
@@ -447,6 +472,12 @@ static int __dwc3_start_host(struct usb_hcd *hcd)
 		return 0;
 	}
 
+	if (dwc3_xhci.comp_test_enable) {
+		dev_dbg(hcd->self.controller,
+				"%s() - Now is in comp test mode", __func__);
+		return 0;
+	}
+
 	pm_runtime_get_sync(hcd->self.controller);
 
 	dwc_core_reset(hcd);
@@ -488,11 +519,6 @@ static int __dwc3_start_host(struct usb_hcd *hcd)
 
 	pm_runtime_put(hcd->self.controller);
 
-	ret = device_create_file(hcd->self.controller, &dev_attr_host_comp_test);
-	if (ret < 0)
-		dev_err(hcd->self.controller,
-			"Can't register sysfs attribute: %d\n", ret);
-
 	ret = device_create_file(hcd->self.controller, &dev_attr_pm_get);
 	if (ret < 0)
 		dev_err(hcd->self.controller,
@@ -531,6 +557,12 @@ static int __dwc3_stop_host(struct usb_hcd *hcd)
 
 	if (!hcd)
 		return -EINVAL;
+
+	if (dwc3_xhci.comp_test_enable) {
+		dev_dbg(hcd->self.controller,
+				"%s() - Now is in comp test mode", __func__);
+		return 0;
+	}
 
 	xhci = hcd_to_xhci(hcd);
 
@@ -571,13 +603,6 @@ static int __dwc3_stop_host(struct usb_hcd *hcd)
 
 	pm_runtime_put(hcd->self.controller);
 	device_remove_file(hcd->self.controller, &dev_attr_pm_get);
-
-	if (dwc3_xhci.comp_test_enable) {
-		wake_unlock(&hcd->wake_lock);
-		pm_runtime_put(hcd->self.controller);
-		dwc3_xhci.comp_test_enable = false;
-	}
-	device_remove_file(hcd->self.controller, &dev_attr_host_comp_test);
 	return 0;
 }
 
@@ -605,6 +630,7 @@ static int xhci_dwc_drv_probe(struct platform_device *pdev)
 	struct usb_hcd *hcd;
 	struct resource *res;
 	int retval = 0;
+	int ret;
 
 	if (usb_disabled())
 		return -ENODEV;
@@ -671,6 +697,10 @@ static int xhci_dwc_drv_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, hcd);
 	pm_runtime_no_callbacks(hcd->self.controller);
 	pm_runtime_enable(hcd->self.controller);
+	ret = device_create_file(hcd->self.controller, &dev_attr_host_comp_test);
+	if (ret < 0)
+		dev_err(hcd->self.controller,
+			"Can't register sysfs attribute: %d\n", ret);
 
 	return retval;
 }
