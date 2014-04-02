@@ -100,6 +100,7 @@
 #include "device_libs/platform_mt9d113.h"
 #include "device_libs/platform_mt9m114.h"
 #include "device_libs/platform_lm3554.h"
+#include "device_libs/platform_lm3642.h"
 #include "device_libs/platform_mt9v113.h"
 #include "device_libs/platform_ov5640.h"
 #include "device_libs/platform_imx175.h"
@@ -270,6 +271,8 @@ struct devs_id __initconst device_ids[] = {
 
 	/* I2C devices for camera image subsystem */
 	{"lm3554", SFI_DEV_TYPE_I2C, 0, &lm3554_platform_data_func,
+					&intel_register_i2c_camera_device},
+	{"lm3642", SFI_DEV_TYPE_I2C, 0, &lm3642_platform_data_func,
 					&intel_register_i2c_camera_device},
 	{"mt9e013", SFI_DEV_TYPE_I2C, 0, &mt9e013_platform_data,
 					&intel_register_i2c_camera_device},

@@ -24,6 +24,7 @@
 #include "platform_gc2235.h"
 #include "platform_ov5693.h"
 #include "platform_lm3554.h"
+#include "platform_lm3642.h"
 #include "platform_ap1302.h"
 #include "platform_pixter.h"
 #ifdef CONFIG_CRYSTAL_COVE
@@ -58,6 +59,7 @@ const struct intel_v4l2_subdev_id v4l2_ids[] = {
 	{"lm3554", LED_FLASH, -1},
 	{"lm3559", LED_FLASH, -1},
 	{"lm3560", LED_FLASH, -1},
+	{"lm3642", LED_FLASH, -1},
 	{"xactor_a", SOC_CAMERA, ATOMISP_CAMERA_PORT_PRIMARY},
 	{"xactor_b", SOC_CAMERA, ATOMISP_CAMERA_PORT_SECONDARY},
 	{"xactor_c", SOC_CAMERA, ATOMISP_CAMERA_PORT_TERTIARY},
@@ -122,6 +124,10 @@ static struct camera_device_table byt_crv2_cam_table[] = {
 	}, {
 		{SFI_DEV_TYPE_I2C, 2, 0x53, 0x0, 0x0, "lm3554"},
 		{"lm3554", SFI_DEV_TYPE_I2C, 0, &lm3554_platform_data_func,
+			&intel_register_i2c_camera_device}
+	}, {
+		{SFI_DEV_TYPE_I2C, 2, 0x63, 0x0, 0x0, "lm3642"},
+		{"lm3642", SFI_DEV_TYPE_I2C, 0, &lm3642_platform_data_func,
 			&intel_register_i2c_camera_device}
 	}
 };
@@ -398,6 +404,7 @@ static void atomisp_unregister_acpi_devices(struct atomisp_platform_data *pdata)
 		"4-0054",	/* imx1xx EEPROM*/
 		"4-000c",	/* imx1xx driver*/
 		"2-0053",	/* byt-crv2 lm3554*/
+		"2-0063",	/* byt-crv2 lm3642*/
 		"2-0010",	/* imx1xx driver*/
 		"2-0036",	/* ov2722 driver*/
 		"2-003c",	/* gc2235 driver*/
