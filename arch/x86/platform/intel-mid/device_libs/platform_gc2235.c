@@ -99,9 +99,6 @@ static enum pmic_ids camera_pmic_probe()
 {
 	/* search by client name */
 	struct i2c_client *client;
-	if (spid.hardware_id != BYT_TABLET_BLK_CRV2 ||
-		i2c_find_client_by_name(PMIC_HID_ROHM))
-		return PMIC_ROHM;
 
 	client = i2c_find_client_by_name(PMIC_HID_XPOWER);
 	if (client)
@@ -111,7 +108,8 @@ static enum pmic_ids camera_pmic_probe()
 	if (client)
 		return PMIC_TI;
 
-	return PMIC_MAX;
+	/* return ROHM as default PMIC type */
+	return PMIC_ROHM;
 }
 
 static int camera_pmic_set(bool flag)
@@ -327,14 +325,6 @@ static int gc2235_power_ctrl(struct v4l2_subdev *sd, int flag)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 #endif
 	int ret = 0;
-
-#ifdef CONFIG_CRYSTAL_COVE
-	if (!v1p8_reg || !v2p8_reg) {
-		dev_err(&client->dev,
-				"not avaiable regulator\n");
-		return -EINVAL;
-	}
-#endif
 
 	if (flag) {
 		if (!camera_vprog1_on) {
