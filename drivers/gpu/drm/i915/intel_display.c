@@ -4315,9 +4315,9 @@ void clock_off_bend_spread(struct drm_i915_private *dev_priv)
 		vlv_punit_write(dev_priv, PUNIT_GVD_SPARE1, PUNIT_CLKS_OFF);
 		done = wait_for_atomic(BNDSPRDOFF, 10) == 0;
 		if (!done)
-			DRM_ERROR("WARN! Failed to turn off Bend/Spread clocks\n");
+			DRM_DEBUG("WARN! Failed to turn off Bend/Spread clocks\n");
 	} else
-		DRM_ERROR("INFO: PUNIT clocks already OFF\n");
+		DRM_DEBUG("INFO: PUNIT clocks already OFF\n");
 }
 
 #define BNDSPRDON ((vlv_ccu_read(dev_priv, CCU_ICLK_GATE_CTRL_REG) & (ICLKGTCTRL_SSON | ICLKGTCTRL_BNDON)) == (ICLKGTCTRL_SSON | ICLKGTCTRL_BNDON))
@@ -4333,9 +4333,9 @@ void clock_on_bend_spread(struct drm_i915_private *dev_priv)
 		vlv_punit_write(dev_priv, PUNIT_GVD_SPARE1, PUNIT_CLKS_ON);
 		done = wait_for_atomic(BNDSPRDON, 10) == 0;
 		if (!done)
-			DRM_ERROR("WARN! Failed to turn on Bend/Spread clocks\n");
+			DRM_DEBUG("WARN! Failed to turn on Bend/Spread clocks\n");
 	} else
-		DRM_ERROR("INFO: PUNIT clocks already ON\n");
+		DRM_DEBUG("INFO: PUNIT clocks already ON\n");
 }
 
 #define BNDOFF ((vlv_ccu_read(dev_priv, CCU_ICLK5_REG) & ICLK5_DISPBENDCLKEN) != ICLK5_DISPBENDCLKEN)
@@ -4350,7 +4350,7 @@ void disable_bend_clock(struct drm_i915_private *dev_priv)
 		((iClk5val & ~PMC_WA_ICLK5_BIT16_BND) | PMC_WA_HNDSHK));
 	done = wait_for_atomic(BNDOFF, 10) == 0;
 	if (!done)
-		DRM_ERROR("WARN! Clock bending disable timed out\n");
+		DRM_DEBUG("WARN! Clock bending disable timed out\n");
 	udelay(100);
 	dev_priv->clockbend = false;
 }
@@ -4369,7 +4369,7 @@ void enable_bend_clock(struct drm_i915_private *dev_priv)
 		((iClk5val | PMC_WA_ICLK5_BIT16_BND) | PMC_WA_HNDSHK));
 	done = wait_for_atomic(BNDON, 10) == 0;
 	if (!done)
-		DRM_ERROR("WARN! Clock bending enable timed out\n");
+		DRM_DEBUG("WARN! Clock bending enable timed out\n");
 	udelay(100);
 }
 
@@ -4385,7 +4385,7 @@ void disable_spread_clock(struct drm_i915_private *dev_priv)
 		((iClk5val & ~PMC_WA_ICLK5_BIT17_SPRD) | PMC_WA_HNDSHK));
 	done = wait_for_atomic(SPRDOFF, 10) == 0;
 	if (!done)
-		DRM_ERROR("SPREAD: Clock Spread disable timed out\n");
+		DRM_DEBUG("SPREAD: Clock Spread disable timed out\n");
 	dev_priv->clockspread = false;
 	udelay(100);
 }
@@ -4404,7 +4404,7 @@ void enable_spread_clock(struct drm_i915_private *dev_priv)
 		((iClk5val | PMC_WA_ICLK5_BIT17_SPRD) | PMC_WA_HNDSHK));
 	done = wait_for_atomic(SPRDON, 10) == 0;
 	if (!done)
-		DRM_ERROR("SPREAD: Clock spread enable timed out\n");
+		DRM_DEBUG("SPREAD: Clock spread enable timed out\n");
 	udelay(100);
 }
 
