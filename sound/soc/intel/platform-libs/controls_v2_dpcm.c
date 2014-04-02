@@ -373,21 +373,19 @@ static void sst_send_algo_cmd(struct sst_data *sst,
  *
  * The algos which are in each pipeline are sent to the firmware one by one
  */
-static void sst_find_and_send_pipe_algo(struct snd_soc_platform *platform,
-					struct snd_soc_dapm_widget *w)
+static void sst_find_and_send_pipe_algo(struct sst_data *sst,
+					const char *pipe, struct sst_ids *ids)
 {
 	struct sst_algo_control *bc;
-	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
-	struct sst_ids *ids = w->priv;
 	struct module *algo = NULL;
 
-	pr_debug("Enter: %s, widget=%s\n", __func__, w->name);
+	pr_debug("Enter: %s, widget=%s\n", __func__, pipe);
 
 	list_for_each_entry(algo, &ids->algo_list, node) {
-			bc = (void *)algo->kctl->private_value;
+		bc = (void *)algo->kctl->private_value;
 
-			pr_debug("Found algo control name =%s pipe=%s\n", algo->kctl->id.name,  w->name);
-			sst_send_algo_cmd(sst, bc);
+		pr_debug("Found algo control name=%s pipe=%s\n", algo->kctl->id.name, pipe);
+		sst_send_algo_cmd(sst, bc);
 	}
 }
 
@@ -567,6 +565,25 @@ static int sst_gain_put(struct snd_kcontrol *kcontrol,
 	if (mc->w && mc->w->power)
 		sst_send_gain_cmd(sst, gv, mc->task_id,
 				mc->pipe_id | mc->instance_id, mc->module_id, 0);
+	return 0;
+}
+
+static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst, int mute);
+
+static void sst_send_pipe_module_params(struct snd_soc_dapm_widget *w)
+{
+	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+	struct sst_ids *ids = w->priv;
+
+	sst_find_and_send_pipe_algo(sst, w->name, ids);
+	sst_set_pipe_gain(ids, sst, 0);
+}
+
+static int sst_generic_modules_event(struct snd_soc_dapm_widget *w,
+				     struct snd_kcontrol *k, int event)
+{
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		sst_send_pipe_module_params(w);
 	return 0;
 }
 
@@ -1013,14 +1030,12 @@ static int sst_set_be_modules(struct snd_soc_dapm_widget *w,
 			 struct snd_kcontrol *k, int event)
 {
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
-	struct sst_ids *ids = w->priv;
 
 	pr_debug("Enter: %s, widget=%s\n", __func__, w->name);
 
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		sst_find_and_send_pipe_algo(w->platform, w);
 		sst_send_slot_map(sst);
-		sst_set_pipe_gain(ids, sst, 0);
+		sst_send_pipe_module_params(w);
 	}
 	return 0;
 }
@@ -1037,7 +1052,6 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 {
 	struct sst_cmd_set_speech_path cmd;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
-	struct sst_ids *ids = w->priv;
 	bool is_wideband;
 	static int speech_active;
 
@@ -1070,13 +1084,9 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 				SST_TASK_SBA, 0, &cmd,
 				sizeof(cmd.header) + cmd.header.length);
 
-	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		sst_find_and_send_pipe_algo(w->platform, w);
-		sst_set_pipe_gain(ids, sst, 0);
-	}
-
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		sst_send_pipe_module_params(w);
 	return 0;
-
 }
 
 /**
@@ -1093,7 +1103,7 @@ static int sst_set_linked_pipe(struct snd_soc_dapm_widget *w,
 	pr_debug("%s: widget=%s\n", __func__, w->name);
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		if (ids->parent_w && ids->parent_w->power)
-			sst_find_and_send_pipe_algo(w->platform, w);
+			sst_find_and_send_pipe_algo(sst, w->name, ids);
 			sst_set_pipe_gain(ids, sst, 0);
 	}
 	return 0;
@@ -1127,11 +1137,8 @@ static int sst_set_media_path(struct snd_soc_dapm_widget *w,
 			      ids->task_id, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
 
-	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		sst_find_and_send_pipe_algo(w->platform, w);
-		sst_set_pipe_gain(ids, sst, 0);
-	}
-
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		sst_send_pipe_module_params(w);
 	return 0;
 }
 
@@ -1163,10 +1170,8 @@ static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 			      SST_TASK_SBA, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
-	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		sst_find_and_send_pipe_algo(w->platform, w);
-		sst_set_pipe_gain(ids, sst, 0);
-	}
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		sst_send_pipe_module_params(w);
 	return 0;
 }
 
@@ -1397,7 +1402,7 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 
 	/* Media Paths */
 	/* MediaX IN paths are set via ALLOC, so no SET_MEDIA_PATH command */
-	SST_PATH_INPUT("media0_in", SST_TASK_MMX, SST_SWM_IN_MEDIA0, NULL),
+	SST_PATH_INPUT("media0_in", SST_TASK_MMX, SST_SWM_IN_MEDIA0, sst_generic_modules_event),
 	SST_PATH_INPUT("media1_in", SST_TASK_MMX, SST_SWM_IN_MEDIA1, NULL),
 	SST_PATH_INPUT("media2_in", SST_TASK_MMX, SST_SWM_IN_MEDIA2, sst_set_media_path),
 	SST_PATH_INPUT("media3_in", SST_TASK_MMX, SST_SWM_IN_MEDIA3, NULL),
