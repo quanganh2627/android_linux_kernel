@@ -144,7 +144,7 @@ static void sst_send_slot_map(struct sst_data *sst)
 {
 	struct sst_param_sba_ssp_slot_map cmd;
 
-	pr_debug("Enter: %s", __func__);
+	pr_debug("Enter: %s\n", __func__);
 
 	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
 	cmd.header.command_id = SBA_SET_SSP_SLOT_MAP;
@@ -360,7 +360,7 @@ static void sst_find_and_send_pipe_algo(struct snd_soc_platform *platform,
 	struct sst_ids *ids = w->priv;
 	struct module *algo = NULL;
 
-	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
+	pr_debug("Enter: %s, widget=%s\n", __func__, w->name);
 
 	list_for_each_entry(algo, &ids->algo_list, node) {
 			bc = (void *)algo->kctl->private_value;
@@ -394,7 +394,6 @@ static int sst_algo_control_get(struct snd_kcontrol *kcontrol,
 {
 	struct sst_algo_control *bc = (void *)kcontrol->private_value;
 
-	pr_debug("in %s\n", __func__);
 	switch (bc->type) {
 	case SST_ALGO_PARAMS:
 		if (bc->params)
@@ -427,7 +426,6 @@ static int sst_algo_control_set(struct snd_kcontrol *kcontrol,
 		break;
 	case SST_ALGO_BYPASS:
 		bc->bypass = !!ucontrol->value.integer.value[0];
-		pr_debug("%s: Mute %d\n", __func__, bc->bypass);
 		break;
 	default:
 		pr_err("Invalid Input- algo type:%ld\n", ucontrol->value.integer.value[0]);
@@ -456,7 +454,7 @@ static void sst_send_gain_cmd(struct sst_data *sst, struct sst_gain_value *gv,
 			      u16 task_id, u16 loc_id, u16 module_id, int mute)
 {
 	struct sst_cmd_set_gain_dual cmd;
-	pr_debug("%s", __func__);
+	pr_debug("%s\n", __func__);
 
 	cmd.header.command_id = MMX_SET_GAIN;
 	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
@@ -491,15 +489,12 @@ static int sst_gain_get(struct snd_kcontrol *kcontrol,
 	case SST_GAIN_TLV:
 		ucontrol->value.integer.value[0] = gv->l_gain;
 		ucontrol->value.integer.value[1] = gv->r_gain;
-		pr_debug("%s: Volume %d, %d\n", __func__, gv->l_gain, gv->r_gain);
 		break;
 	case SST_GAIN_MUTE:
 		ucontrol->value.integer.value[0] = gv->mute ? 1 : 0;
-		pr_debug("%s: Mute %d\n", __func__, gv->mute);
 		break;
 	case SST_GAIN_RAMP_DURATION:
 		ucontrol->value.integer.value[0] = gv->ramp_duration;
-		pr_debug("%s: RampDuration %d\n", __func__, gv->ramp_duration);
 		break;
 	default:
 		pr_err("Invalid Input- gain type:%d\n", mc->type);
@@ -520,15 +515,15 @@ static int sst_gain_put(struct snd_kcontrol *kcontrol,
 	case SST_GAIN_TLV:
 		gv->l_gain = ucontrol->value.integer.value[0];
 		gv->r_gain = ucontrol->value.integer.value[1];
-		pr_debug("%s: Volume %d, %d\n", __func__, gv->l_gain, gv->r_gain);
+		pr_debug("%s: %s: Volume %d, %d\n", __func__, mc->pname, gv->l_gain, gv->r_gain);
 		break;
 	case SST_GAIN_MUTE:
 		gv->mute = !!ucontrol->value.integer.value[0];
-		pr_debug("%s: Mute %d\n", __func__, gv->mute);
+		pr_debug("%s: %s: Mute %d\n", __func__, mc->pname, gv->mute);
 		break;
 	case SST_GAIN_RAMP_DURATION:
 		gv->ramp_duration = ucontrol->value.integer.value[0];
-		pr_debug("%s: RampDuration %d\n", __func__, gv->ramp_duration);
+		pr_debug("%s: %s: RampDuration %d\n", __func__, mc->pname, gv->ramp_duration);
 		break;
 	default:
 		pr_err("Invalid Input- gain type:%d\n", mc->type);
@@ -572,7 +567,7 @@ static int fill_swm_input(struct swm_input_ids *swm_input, unsigned int reg)
 	uint i, is_set, nb_inputs = 0;
 	u16 input_loc_id;
 
-	pr_debug("%s:reg value:%#x\n", __func__, reg);
+	pr_debug("%s: reg: %#x\n", __func__, reg);
 	for (i = 0; i < SST_SWM_INPUT_COUNT; i++) {
 		is_set = reg & BIT(i);
 		if (!is_set)
@@ -583,7 +578,7 @@ static int fill_swm_input(struct swm_input_ids *swm_input, unsigned int reg)
 				     input_loc_id, SST_DEFAULT_MODULE_ID);
 		nb_inputs++;
 		swm_input++;
-		pr_debug("input id:%#x, nb_inputs:%d\n", input_loc_id, nb_inputs);
+		pr_debug("input id: %#x, nb_inputs: %d\n", input_loc_id, nb_inputs);
 
 		if (nb_inputs == SST_CMD_SWM_MAX_INPUTS) {
 			pr_warn("%s: SET_SWM cmd max inputs reached", __func__);
@@ -602,7 +597,7 @@ static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst, int mut
 	list_for_each_entry(gain, &ids->gain_list, node) {
 		struct snd_kcontrol *kctl = gain->kctl;
 
-		pr_debug("control name=%s", kctl->id.name);
+		pr_debug("control name=%s\n", kctl->id.name);
 		mc = (void *)kctl->private_value;
 		gv = mc->gain_val;
 
@@ -620,7 +615,7 @@ static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
 	bool set_mixer = false;
 	int val = sst->widget[ids->reg];
 
-	pr_debug("%s: widget=%s\n", __func__, w->name);
+	pr_debug("%s: widget = %s\n", __func__, w->name);
 	pr_debug("%s: reg[%d] = %#x\n", __func__, ids->reg, val);
 
 	switch (event) {
@@ -970,7 +965,7 @@ static int sst_set_be_modules(struct snd_soc_dapm_widget *w,
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	struct sst_ids *ids = w->priv;
 
-	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
+	pr_debug("Enter: %s, widget=%s\n", __func__, w->name);
 
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		sst_find_and_send_pipe_algo(w->platform, w);
@@ -1241,7 +1236,7 @@ static int sst_alloc_hostless_stream(const struct sst_pcm_format *pcm_params,
 	param.uc.pcm_params.num_chan = pcm_params->channels_max;
 	param.uc.pcm_params.pcm_wd_sz = pcm_params->sample_bits;
 	param.uc.pcm_params.sfreq = pcm_params->rate_min;
-	pr_debug("sfreq= %d, wd_sz = %d\n",
+	pr_debug("%s: sfreq= %d, wd_sz = %d\n", __func__,
 		 param.uc.pcm_params.sfreq, param.uc.pcm_params.pcm_wd_sz);
 
 	str_params.sparams = param;
@@ -1929,7 +1924,7 @@ static int sst_map_modules_to_pipe(struct snd_soc_platform *platform)
 		if (w->platform && is_sst_dapm_widget(w) && (w->priv)) {
 			struct sst_ids *ids = w->priv;
 
-			pr_debug("widget type=%d name=%s", w->id, w->name);
+			pr_debug("widget type=%d name=%s\n", w->id, w->name);
 			INIT_LIST_HEAD(&ids->algo_list);
 			INIT_LIST_HEAD(&ids->gain_list);
 			ret = sst_fill_widget_module_info(w, platform);
