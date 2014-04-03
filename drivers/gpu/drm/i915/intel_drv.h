@@ -441,6 +441,8 @@ struct intel_plane {
 	unsigned int crtc_w, crtc_h;
 	uint32_t src_x, src_y;
 	uint32_t src_w, src_h;
+	int last_pixel_size;
+	bool last_plane_state;
 
 	/* Since we need to change the watermarks before/after
 	 * enabling/disabling the planes, we need to store the parameters here
