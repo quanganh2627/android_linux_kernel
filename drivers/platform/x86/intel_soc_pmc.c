@@ -867,8 +867,8 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 		funcdis2_reg = readl(pmc_cxt->func_dis2);
 		funcdis_reg  |= /*PWM0,PWM1,SPI2,SPI3,MIPI*/
 					((BIT(1))|(BIT(2))|(BIT(6))|(BIT(7))|(BIT(11))
-					/*HDA,UFS,GBE,SATA*/
-					|(BIT(12))|(BIT(15))|(BIT(16))|(BIT(17))|(BIT(19))
+					/*UFS,GBE,SATA*/
+					|(BIT(15))|(BIT(16))|(BIT(17))|(BIT(19))
 					/*SEC,PCIE1,2,3,4*/
 					|(BIT(20))|(BIT(21))|(BIT(22))|(BIT(23)));
 		funcdis2_reg |= ((BIT(0))|(BIT(3))|(BIT(4))); /*SMB,GMM,ISH*/
