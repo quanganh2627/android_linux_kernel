@@ -25,8 +25,10 @@
 #include "platform_camera.h"
 #include "platform_m10mo.h"
 
-static int camera_reset;
-static int camera_power_down;
+static int camera_reset = -1;
+static int camera_power_down = -1;
+static void setup_m10mo_spi(struct m10mo_atomisp_spi_platform_data *spi_pdata,
+			    void *data);
 
 /*
  * Ext-ISP m10mo platform data
@@ -77,6 +79,7 @@ static int m10mo_gpio_intr_ctrl(struct v4l2_subdev *sd)
 		return -EINVAL;
 	}
 
+	/* This should be done in pin cfg XML and not here */
 	config_pin_flis(ann_gp_camerasb_3, PULL, UP_50K);
 	config_pin_flis(ann_gp_camerasb_3, MUX, MUX_EN_INPUT_EN | INPUT_EN);
 
@@ -115,73 +118,44 @@ static int m10mo_csi_configure(struct v4l2_subdev *sd, int flag)
 
 static struct m10mo_fw_id fw_ids[] = {
 	{ "TEST", M10MO_FW_TYPE_1 },
-	{ "", M10MO_FW_TYPE_0},
-};
-
-static struct m10mo_sensor_private_data sensor_data = {
-	.ref_clock_rate = 24000000, /* for dev board external xtal */
-	.fw_ids = fw_ids,
-};
-
-static struct camera_sensor_platform_data m10mo_sensor_platform_data = {
-	.gpio_ctrl	= m10mo_gpio_ctrl,
-	.gpio_intr_ctrl	= m10mo_gpio_intr_ctrl,
-	.flisclk_ctrl	= m10mo_flisclk_ctrl,
-	.csi_cfg	= m10mo_csi_configure,
-	.sensor_private_data = &sensor_data,
+	{ NULL, 0},
 };
 
 /*
  * Configure these based on the board. Currently we don't get these
  * from BIOS / IAFW
  */
-static void spi_one_time_setup(struct m10mo_atomisp_spi_platform_data *data);
-
-/* Board data for mofd VV board. SPI requires HW modifications */
-static struct m10mo_atomisp_spi_platform_data m10mo_spi_board_data = {
-	.setup = spi_one_time_setup,
-	.spi_enabled = false, /* By default SPI is not available */
-	.spi_bus_num = 6,
-	.spi_cs_gpio = 117,
-	.spi_speed_hz = 10000000,
-	/* Set flis values to -1 if the data is correct in pin cfg xml */
-	.spi_clock_flis = ann_gp_ssp_6_clk,
-	.spi_dataout_flis = ann_gp_ssp_6_txd,
-	.spi_datain_flis = ann_gp_ssp_6_rxd,
-	.spi_cs_flis = ann_gp_ssp_6_fs,
-};
-
 static int cs_chip_select = -1;
 
-static void spi_one_time_setup(struct m10mo_atomisp_spi_platform_data *data)
+static void spi_hw_resources_setup(struct m10mo_atomisp_spi_platform_data *pdata)
 {
 	/* Setup SPI interface */
-	if (gpio_request(m10mo_spi_board_data.spi_cs_gpio, "m10mo_spi_cs")) {
+	if (gpio_request(pdata->spi_cs_gpio, "m10mo_spi_cs")) {
 		pr_err("Can't allocate gpio for m10mo spi chip select.\n");
 		pr_err("Disabling FW update over the SPI\n");
-		m10mo_spi_board_data.spi_enabled = false;
+		pdata->spi_enabled = false;
 		return;
 	}
 
-	cs_chip_select = m10mo_spi_board_data.spi_cs_gpio;
+	cs_chip_select = pdata->spi_cs_gpio;
 	lnw_gpio_set_alt(cs_chip_select, LNW_GPIO);
 	gpio_direction_output(cs_chip_select, 0);
 
 	/* Setup flis configuration if requested to do so */
-	if (m10mo_spi_board_data.spi_clock_flis != -1)
-		config_pin_flis(m10mo_spi_board_data.spi_clock_flis, MUX,
+	if (pdata->spi_clock_flis != -1)
+		config_pin_flis(pdata->spi_clock_flis, MUX,
 				MUX_EN_OUTPUT_EN | OUTPUT_EN);
 
-	if (m10mo_spi_board_data.spi_dataout_flis != -1)
-		config_pin_flis(m10mo_spi_board_data.spi_dataout_flis, MUX,
+	if (pdata->spi_dataout_flis != -1)
+		config_pin_flis(pdata->spi_dataout_flis, MUX,
 				MUX_EN_OUTPUT_EN | OUTPUT_EN);
 
-	if (m10mo_spi_board_data.spi_datain_flis != -1)
-		config_pin_flis(m10mo_spi_board_data.spi_datain_flis,
+	if (pdata->spi_datain_flis != -1)
+		config_pin_flis(pdata->spi_datain_flis,
 				MUX, MUX_EN_INPUT_EN | INPUT_EN);
 
-	if (m10mo_spi_board_data.spi_cs_flis != -1)
-		config_pin_flis(m10mo_spi_board_data.spi_cs_flis,
+	if (pdata->spi_cs_flis != -1)
+		config_pin_flis(pdata->spi_cs_flis,
 				MUX, MUX_EN_OUTPUT_EN | OUTPUT_EN);
 }
 
@@ -198,10 +172,33 @@ static void spi_cs_control(u32 command)
 };
 
 static struct intel_mid_ssp_spi_chip spi_chip = {
-	.burst_size = DFLT_FIFO_BURST_SIZE,
-	.timeout = DFLT_TIMEOUT_VAL,
-	.dma_enabled = false,
-	.cs_control = spi_cs_control,
+	.burst_size	= DFLT_FIFO_BURST_SIZE,
+	.timeout	= DFLT_TIMEOUT_VAL,
+	.dma_enabled	= false,
+	.cs_control	= spi_cs_control,
+};
+
+static struct m10mo_platform_data m10mo_sensor_platform_data = {
+	/* Common part for all sensors used with atom isp */
+	.common.gpio_ctrl	= m10mo_gpio_ctrl,
+	.common.gpio_intr_ctrl	= m10mo_gpio_intr_ctrl,
+	.common.flisclk_ctrl	= m10mo_flisclk_ctrl,
+	.common.csi_cfg		= m10mo_csi_configure,
+
+	/* platform data for spi flashing */
+	.spi_pdata.spi_enabled	= false, /* By default SPI is not available */
+	.spi_pdata.spi_bus_num	= 6, /* Board specific */
+	.spi_pdata.spi_cs_gpio	= 117, /* Board specific */
+	.spi_pdata.spi_speed_hz = 10000000, /* Board specific */
+	/* Set flis values to -1 if the data is correct in pin cfg xml */
+	.spi_pdata.spi_clock_flis	= ann_gp_ssp_6_clk, /* Board specific */
+	.spi_pdata.spi_dataout_flis	= ann_gp_ssp_6_txd, /* Board specific */
+	.spi_pdata.spi_datain_flis	= ann_gp_ssp_6_rxd, /* Board specific */
+	.spi_pdata.spi_cs_flis		= ann_gp_ssp_6_fs, /* Board specific */
+
+	.ref_clock_rate = 24000000, /* Board specific */
+	.fw_ids		= fw_ids,
+	.spi_setup	= setup_m10mo_spi,
 };
 
 static struct spi_board_info m10mo_spi_info[] = {
@@ -210,14 +207,19 @@ static struct spi_board_info m10mo_spi_info[] = {
 		.mode			= SPI_MODE_0,
 		.chip_select		= 0,
 		.controller_data	= &spi_chip,
-		.platform_data		= &m10mo_spi_board_data,
+		.platform_data		= &m10mo_sensor_platform_data.spi_pdata,
 	}
 };
 
-static void setup_m10mo_spi(void)
+static void setup_m10mo_spi(struct m10mo_atomisp_spi_platform_data *spi_pdata,
+	void *data)
 {
-	m10mo_spi_info[0].bus_num = m10mo_spi_board_data.spi_bus_num;
-	m10mo_spi_info[0].max_speed_hz = m10mo_spi_board_data.spi_speed_hz;
+	m10mo_spi_info[0].bus_num	= spi_pdata->spi_bus_num;
+	m10mo_spi_info[0].max_speed_hz	= spi_pdata->spi_speed_hz;
+	spi_pdata->device_data		= data;
+
+	spi_hw_resources_setup(spi_pdata);
+
 	/* register SPI interface for the FW update */
 	spi_register_board_info(m10mo_spi_info,
 				ARRAY_SIZE(m10mo_spi_info));
@@ -225,12 +227,11 @@ static void setup_m10mo_spi(void)
 
 void *m10mo_platform_data(void *info)
 {
-
-	setup_m10mo_spi();
-
-	camera_reset = -1;
-	camera_power_down = -1;
-	return &m10mo_sensor_platform_data;
+	/*
+	 * Atom isp driver assumes to get pointer to struct
+	 * "camera_sensor_platform_data". Nasty assumption but must honored
+	 */
+	return &m10mo_sensor_platform_data.common;
 }
 
 #ifdef CONFIG_VIDEO_M10MO_FAKE_SFI_TABLE

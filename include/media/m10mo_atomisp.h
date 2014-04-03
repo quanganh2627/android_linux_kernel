@@ -22,7 +22,7 @@
 #define __M10MO_ATOMISP_HEADER__
 
 struct m10mo_atomisp_spi_platform_data {
-	void (*setup)(struct m10mo_atomisp_spi_platform_data *data);
+	void *device_data;
 	int spi_enabled;
 	int spi_bus_num;
 	int spi_cs_gpio;
@@ -38,13 +38,17 @@ struct m10mo_atomisp_spi_platform_data {
 #define M10MO_MAX_FW_ID_STRING 12
 
 struct m10mo_fw_id {
-	char id_string[M10MO_MAX_FW_ID_STRING];
+	char *id_string;
 	int fw_type;
 };
 
-struct m10mo_sensor_private_data {
+struct m10mo_platform_data {
+	struct camera_sensor_platform_data common;
+	struct m10mo_atomisp_spi_platform_data spi_pdata;
 	int ref_clock_rate;
 	struct m10mo_fw_id *fw_ids;
+	void (*spi_setup)(struct m10mo_atomisp_spi_platform_data *spi_pdata,
+			  void *data);
 };
 
 #endif
