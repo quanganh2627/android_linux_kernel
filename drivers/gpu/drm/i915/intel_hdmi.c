@@ -37,33 +37,6 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 
-#define HDMI_GEN_THRESHOLD	5
-#define LIVE_STATUS_SLEEP_MS 300
-#define HDMI_UEVENT_MAX_LENGTH 20
-#define HDMI_EDID_DETAILED_TIMINGS 4
-
-#define BYT_CR_MAX_HDISPLAY	1280
-#define BYT_CR_MAX_VDISPLAY	800
-
-#define ls_to_connector_status(live_status)	\
-	(live_status ? connector_status_connected	\
-	: connector_status_disconnected)
-
-#define connector_status_to_ls(live_status)	\
-	(live_status ? connector_status_connected	\
-		: connector_status_disconnected)
-
-/* CEA Mode 4 - 1280x720@60Hz */
-struct drm_display_mode hdmi_fallback_mode = {
-	DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER,
-	74250,
-	1280, 1390, 1430, 1650, 0,
-	720, 725, 730, 750, 0,
-	DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC,
-	HDMI_PICTURE_ASPECT_16_9),
-	.vrefresh = 60
-};
-
 static struct drm_device *intel_hdmi_to_dev(struct intel_hdmi *intel_hdmi)
 {
 	return hdmi_to_dig_port(intel_hdmi)->base.base.dev;
@@ -964,17 +937,6 @@ static int intel_hdmi_mode_valid(struct drm_connector *connector,
 		return MODE_CLOCK_HIGH;
 	if (mode->clock < 20000)
 		return MODE_CLOCK_LOW;
-
-	/* WAR (FIXME):
-	  * BYT_CR has limitation in memory chanel bandwidth.
-	  * Temporarily blocking HDMI modes above 720 P
-	  */
-	if (BYT_CR_CONFIG) {
-		if (mode->vdisplay > BYT_CR_MAX_VDISPLAY)
-			return MODE_BAD_VVALUE;
-		if (mode->hdisplay > BYT_CR_MAX_HDISPLAY)
-			return MODE_BAD_HVALUE;
-	}
 
 	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return MODE_NO_DBLESCAN;
