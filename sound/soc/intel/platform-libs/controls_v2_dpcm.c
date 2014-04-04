@@ -65,6 +65,11 @@ static int sst_fill_and_send_cmd_unlocked(struct sst_data *sst,
 						sst->byte_stream);
 }
 
+/**
+ * sst_fill_and_send_cmd - generate the IPC message and send it to the FW
+ * @ipc_msg:	type of IPC (CMD, SET_PARAMS, GET_PARAMS)
+ * @cmd_data:	the IPC payload
+ */
 static int sst_fill_and_send_cmd(struct sst_data *sst,
 				 u8 ipc_msg, u8 block, u8 task_id, u8 pipe_id,
 				 void *cmd_data, u16 len)
@@ -179,6 +184,13 @@ int sst_slot_enum_info(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+/**
+ * sst_slot_get - get the status of the interleaver/deinterleaver control
+ *
+ * Searches the map where the control status is stored, and gets the
+ * channel/slot which is currently set for this enumerated control. Since it is
+ * an enumerated control, there is only one possible value.
+ */
 static int sst_slot_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
@@ -200,11 +212,15 @@ static int sst_slot_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-/*
+/**
+ * sst_slot_put - set the status of interleaver/deinterleaver control
+ *
  * (de)interleaver controls are defined in opposite sense to be user-friendly
  *
- * Instead of the enum value being the value set to the register, it is the
- * register address; and the kcontrol_no is the value written to the register.
+ * Instead of the enum value being the value written to the register, it is the
+ * register address; and the kcontrol number (register num) is the value written
+ * to the register. This is so that there can be only one value for each
+ * slot/channel since there is only one control for each slot/channel.
  *
  * This means that whenever an enum is set, we need to clear the bit
  * for that kcontrol_no for all the interleaver OR deinterleaver registers
@@ -352,6 +368,11 @@ static void sst_send_algo_cmd(struct sst_data *sst,
 	kfree(cmd);
 }
 
+/**
+ * sst_find_and_send_pipe_algo - send all the algo parameters for a pipe
+ *
+ * The algos which are in each pipeline are sent to the firmware one by one
+ */
 static void sst_find_and_send_pipe_algo(struct snd_soc_platform *platform,
 					struct snd_soc_dapm_widget *w)
 {
@@ -379,6 +400,7 @@ int sst_algo_bytes_ctl_info(struct snd_kcontrol *kcontrol,
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
 	uinfo->count = bc->max;
 
+	/* allocate space to cache the algo parameters in the driver */
 	if (bc->params == NULL) {
 		bc->params = devm_kzalloc(platform->dev, bc->max, GFP_KERNEL);
 		if (bc->params == NULL) {
@@ -450,6 +472,18 @@ static int sst_gain_ctl_info(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+/**
+ * sst_send_gain_cmd - send the gain algorithm IPC to the FW
+ * @gv:		the stored value of gain (also contains rampduration)
+ * @mute:	flag that indicates whether this was called from the
+ *		digital_mute callback or directly. If called from the
+ *		digital_mute callback, module will be muted/unmuted based on this
+ *		flag. The flag is always 0 if called directly.
+ *
+ * The user-set gain value is sent only if the user-controllable 'mute' control
+ * is OFF (indicated by gv->mute). Otherwise, the mute value (MIN value) is
+ * sent.
+ */
 static void sst_send_gain_cmd(struct sst_data *sst, struct sst_gain_value *gv,
 			      u16 task_id, u16 loc_id, u16 module_id, int mute)
 {
@@ -562,6 +596,12 @@ static const uint swm_mixer_input_ids[SST_SWM_INPUT_COUNT] = {
 	[SST_IP_MEDIA3]		= SST_SWM_IN_MEDIA3,
 };
 
+/**
+ * fill_swm_input - fill in the SWM input ids given the register
+ *
+ * The register value is a bit-field inicated which mixer inputs are ON. Use the
+ * lookup table to get the input-id and fill it in the structure.
+ */
 static int fill_swm_input(struct swm_input_ids *swm_input, unsigned int reg)
 {
 	uint i, is_set, nb_inputs = 0;
@@ -809,6 +849,16 @@ static const int sst_ssp_domain_shift[SST_NUM_SSPS][SST_MAX_SSP_MUX] = {
 	[SST_SSP2][0] = -1,
 };
 
+/**
+ * sst_ssp_config - contains SSP configuration for different UCs
+ *
+ * The 3-D array contains SSP configuration for different SSPs for different
+ * domains (e.g. NB, WB), as well as muxed SSPs.
+ *
+ * The first dimension has SSP number
+ * The second dimension has SSP Muxing (e.g. BT/FM muxed on same SSP)
+ * The third dimension has SSP domains (e.g. NB/WB for BT)
+ */
 static const struct sst_ssp_config
 sst_ssp_configs[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
 	[SST_SSP0] = {
@@ -975,6 +1025,13 @@ static int sst_set_be_modules(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+/**
+ * sst_set_speech_path - send SPEECH_UL/DL enable/disable IPC
+ *
+ * The SPEECH_PATH IPC enables more than one pipeline (speech uplink, downlink,
+ * sidetone etc.). Since the command should be sent only once, use a refcount to
+ * send the command only on first enable/last disable.
+ */
 static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 			       struct snd_kcontrol *k, int event)
 {
@@ -1008,7 +1065,7 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 		cmd.config.cfg.rate = 1;	/* 16 khz */
 
 	if ((SND_SOC_DAPM_EVENT_ON(event) && (speech_active == 1)) ||
-			(SND_SOC_DAPM_EVENT_OFF(event) && (speech_active == 0)))
+	    (SND_SOC_DAPM_EVENT_OFF(event) && (speech_active == 0)))
 		sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 				SST_TASK_SBA, 0, &cmd,
 				sizeof(cmd.header) + cmd.header.length);
@@ -1022,6 +1079,12 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 
 }
 
+/**
+ * sst_set_linked_pipe - send gain/algo for a linked input/output
+ *
+ * A linked pipe is dependent on the power status of its parent widget since it
+ * itself does not have any enabling command.
+ */
 static int sst_set_linked_pipe(struct snd_soc_dapm_widget *w,
 		       struct snd_kcontrol *k, int event)
 {
@@ -1224,6 +1287,12 @@ int sst_dpcm_probe_send(struct snd_soc_platform *platform, u16 probe_pipe_id,
 	return sst_send_probe_cmd(sst, probe_pipe_id, mode, switch_state, probe_cfg);
 }
 
+/**
+ * sst_alloc_hostless_stream - send ALLOC for a stream
+ *
+ * The stream does not send data to IA. The data is consumed by an internal
+ * sink.
+ */
 static int sst_alloc_hostless_stream(const struct sst_pcm_format *pcm_params,
 				     int str_id, uint pipe_id, uint task_id)
 {
@@ -1786,6 +1855,13 @@ static inline bool is_sst_dapm_widget(struct snd_soc_dapm_widget *w)
 		return false;
 }
 
+/**
+ * sst_send_pipe_gains - send gains for the front-end DAIs
+ *
+ * The gains in the pipes connected to the front-ends are muted/unmuted
+ * automatically via the digital_mute() DAPM callback. This function sends the
+ * gains for the front-end pipes.
+ */
 int sst_send_pipe_gains(struct snd_soc_dai *dai, int stream, int mute)
 {
 	struct snd_soc_platform *platform = dai->platform;
@@ -1827,6 +1903,19 @@ int sst_send_pipe_gains(struct snd_soc_dai *dai, int stream, int mute)
 	return 0;
 }
 
+/**
+ * sst_fill_module_list - populate the list of modules/gains for a pipe
+ *
+ *
+ * Fills the widget pointer in the kcontrol private data, and also fills the
+ * kcontrol pointer in the widget private data.
+ *
+ * Widget pointer is used to send the algo/gain in the .put() handler if the
+ * widget is powerd on.
+ *
+ * Kcontrol pointer is used to send the algo/gain in the widget power ON/OFF
+ * event handler. Each widget (pipe) has multiple algos stored in the algo_list.
+ */
 static int sst_fill_module_list(struct snd_kcontrol *kctl,
 	 struct snd_soc_dapm_widget *w, int type)
 {
@@ -1856,6 +1945,14 @@ static int sst_fill_module_list(struct snd_kcontrol *kctl,
 	return 0;
 }
 
+/**
+ * sst_fill_widget_module_info - fill list of gains/algos for the pipe
+ * @widget:	pipe modelled as a DAPM widget
+ *
+ * Fill the list of gains/algos for the widget by looking at all the card
+ * controls and comparing the name of the widget with the first part of control
+ * name. First part of control name contains the pipe name (widget name).
+ */
 static int sst_fill_widget_module_info(struct snd_soc_dapm_widget *w,
 	struct snd_soc_platform *platform)
 {
@@ -1899,6 +1996,9 @@ static int sst_fill_widget_module_info(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+/**
+ * sst_fill_linked_widgets - fill the parent pointer for the linked widget
+ */
 static void sst_fill_linked_widgets(struct snd_soc_platform *platform,
 						struct sst_ids *ids)
 {
@@ -1914,6 +2014,9 @@ static void sst_fill_linked_widgets(struct snd_soc_platform *platform,
 	}
 }
 
+/**
+ * sst_map_modules_to_pipe - fill algo/gains list for all pipes
+ */
 static int sst_map_modules_to_pipe(struct snd_soc_platform *platform)
 {
 	struct snd_soc_dapm_widget *w;
