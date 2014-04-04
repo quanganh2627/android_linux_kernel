@@ -16,6 +16,7 @@
 #define HSIC_ENABLE_SIZE      2
 #define HSIC_DURATION_SIZE    7
 #define HSIC_DELAY_SIZE       8
+#define HSIC_USH_PORT         5
 
 #define HSIC_AUTOSUSPEND                     0
 #define HSIC_PORT_INACTIVITYDURATION              500
@@ -59,7 +60,6 @@ struct ush_hsic_priv {
 	unsigned             port_inactivityDuration;
 	unsigned             bus_inactivityDuration;
 	unsigned             reenumeration_delay;
-	unsigned             portnum;
 	spinlock_t           hsic_lock;
 	struct	wake_lock    resume_wake_lock;
 	/* Root hub device */
@@ -86,7 +86,6 @@ struct ush_hsic_pdata {
 	int                     aux_gpio;
 	int                     wakeup_gpio;
 	int                     reenum_delay;
-	u8                      portnum;
 };
 
 static int hsic_notify(struct notifier_block *self,

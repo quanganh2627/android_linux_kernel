@@ -341,7 +341,7 @@ static void hsicdev_add(struct usb_device *udev)
 			hsic.autosuspend_enable = 0;
 		}
 	} else {
-		if (udev->portnum != hsic.portnum) {
+		if (udev->portnum != HSIC_USH_PORT) {
 			pr_debug("%s ignore ush ports %d\n",
 				__func__, udev->portnum);
 			return;
@@ -403,7 +403,7 @@ static void hsicdev_remove(struct usb_device *udev)
 			hsic.rh_dev = NULL;
 		}
 	} else {
-		if (udev->portnum != hsic.portnum) {
+		if (udev->portnum != HSIC_USH_PORT) {
 			pr_debug("%s ignore ush ports %d\n",
 				__func__, udev->portnum);
 			return;
@@ -441,7 +441,7 @@ static void hsic_port_suspend(struct usb_device *udev)
 		return;
 	}
 
-	if (udev->portnum != hsic.portnum) {
+	if (udev->portnum != HSIC_USH_PORT) {
 		pr_debug("%s ignore ush ports %d\n",
 			__func__, udev->portnum);
 		return;
@@ -461,7 +461,7 @@ static void hsic_port_resume(struct usb_device *udev)
 		return;
 	}
 
-	if (udev->portnum != hsic.portnum) {
+	if (udev->portnum != HSIC_USH_PORT) {
 		pr_debug("%s ignore ush ports %d\n",
 			__func__, udev->portnum);
 		return;
@@ -513,7 +513,7 @@ static int set_port_feature(struct usb_device *hdev, int port1, int feature)
 		port1, NULL, 0, 1000);
 }
 
-static void ush_hsic_port_disable(int port)
+static void ush_hsic_port_disable(void)
 {
 	printk(KERN_ERR "%s---->\n", __func__);
 	hsic_enable = 0;
@@ -528,13 +528,13 @@ static void ush_hsic_port_disable(int port)
 		dev_dbg(&pci_dev->dev,
 			"%s----> disable port\n", __func__);
 		usb_disable_autosuspend(hsic.rh_dev);
-		clear_port_feature(hsic.rh_dev, port,
+		clear_port_feature(hsic.rh_dev, HSIC_USH_PORT,
 				USB_PORT_FEAT_POWER);
 	}
 	s3_wake_unlock();
 }
 
-static void ush_hsic_port_enable(int port)
+static void ush_hsic_port_enable(void)
 {
 	printk(KERN_ERR "%s---->\n", __func__);
 	hsic_enable = 1;
@@ -551,7 +551,7 @@ static void ush_hsic_port_enable(int port)
 			"%s----> enable port\n", __func__);
 		printk(KERN_ERR "%s----> Enable PP\n", __func__);
 		usb_disable_autosuspend(hsic.rh_dev);
-		set_port_feature(hsic.rh_dev, port,
+		set_port_feature(hsic.rh_dev, HSIC_USH_PORT,
 				USB_PORT_FEAT_POWER);
 	}
 	s3_wake_lock();
@@ -562,7 +562,7 @@ static void hsic_port_logical_disconnect(struct usb_device *hdev,
 {
 	dev_dbg(&pci_dev->dev, "logical disconnect on root hub\n");
 	hsic.port_disconnect = 1;
-	ush_hsic_port_disable(hsic.portnum);
+	ush_hsic_port_disable();
 
 	usb_set_change_bits(hdev, port);
 	usb_kick_khubd(hdev);
@@ -582,12 +582,12 @@ static void hsic_aux_work(struct work_struct *work)
 
 	if (hsic.port_disconnect == 0)
 		hsic_port_logical_disconnect(hsic.rh_dev,
-				hsic.portnum);
+				HSIC_USH_PORT);
 	else
-		ush_hsic_port_disable(hsic.portnum);
+		ush_hsic_port_disable();
 	usleep_range(hsic.reenumeration_delay,
 			hsic.reenumeration_delay + 1000);
-	ush_hsic_port_enable(hsic.portnum);
+	ush_hsic_port_enable();
 	mutex_unlock(&hsic.hsic_mutex);
 
 	hsic.hsic_aux_finish = 1;
@@ -787,14 +787,14 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 
 	if (hsic.port_disconnect == 0)
 		hsic_port_logical_disconnect(hsic.rh_dev,
-				hsic.portnum);
+				HSIC_USH_PORT);
 	else
-		ush_hsic_port_disable(hsic.portnum);
+		ush_hsic_port_disable();
 
 	if (org_req) {
 		dev_dbg(dev, "enable hsic\n");
 		msleep(20);
-		ush_hsic_port_enable(hsic.portnum);
+		ush_hsic_port_enable();
 	} else {
 		dev_dbg(dev, "disable hsic\n");
 		if (hsic.rh_dev) {
@@ -1173,7 +1173,6 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	usb_register_notify(&hsic.hsic_pm_nb);
 	hsic.hsic_s3_entry_nb.notifier_call = hsic_s3_entry_notify;
 	register_pm_notifier(&hsic.hsic_s3_entry_nb);
-	hsic.portnum = hsic_pdata->portnum;
 
 	retval = hsic_get_gpio_num(pci_dev);
 	if (retval < 0) {
@@ -1346,7 +1345,7 @@ static void xhci_ush_pci_shutdown(struct pci_dev *dev)
 		if (hsic.rh_dev) {
 			dev_dbg(&pci_dev->dev,
 				"%s: disable port\n", __func__);
-			clear_port_feature(hsic.rh_dev, hsic.portnum,
+			clear_port_feature(hsic.rh_dev, HSIC_USH_PORT,
 					USB_PORT_FEAT_POWER);
 		}
 		pci_disable_device(dev);
