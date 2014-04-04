@@ -1271,11 +1271,6 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	if (!pci_dev_run_wake(dev))
 		pm_runtime_put_noidle(&dev->dev);
 
-	/* Disable the HSIC port */
-	dev_info(&dev->dev, "disable hsic on driver init!\n");
-	clear_port_feature(hsic.rh_dev, hsic.portnum,
-			USB_PORT_FEAT_POWER);
-
 	pm_runtime_allow(&dev->dev);
 	hsic.port_disconnect = 0;
 	hsic_enable = 1;
