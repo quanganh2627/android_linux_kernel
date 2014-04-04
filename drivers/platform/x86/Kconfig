@@ -701,6 +701,16 @@ config INTEL_PMIC_CHARGER
 
 	  If unsure, say N.
 
+config INTEL_FG_HELPER
+	tristate "Intel Fuel gauge helper"
+	help
+	  This driver exposes a device file interface to store and restore
+          Fuel gauge configuration data.
+          Any fuel gauge driver can use the interfaces exposed by this
+          driver to store and retrieve their configuration data.
+
+          If unsure, say N.
+
 config INTEL_MODEM_NVRAM
 	tristate "modem NVRAM driver for Intel CTP/MERR platforms"
 	default n
