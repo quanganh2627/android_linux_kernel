@@ -341,6 +341,7 @@ struct smb347_charger {
 	 * S3 for USB Host
 	 */
 	struct regulator	*regulator_v3p3sx;
+	bool			regulator_enabled;
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
 	struct delayed_work	full_worker;
 #endif
@@ -963,14 +964,18 @@ static void smb347_otg_detect(struct smb347_charger *smb)
 			gpio_direction_output(smb->pdata->gpio_mux, 0);
 		if (smb->a_bus_enable) {
 			smb347_otg_enable(smb);
-			if (smb->regulator_v3p3sx)
+			if (smb->regulator_v3p3sx) {
 				regulator_enable(smb->regulator_v3p3sx);
+				smb->regulator_enabled = true;
+			}
 		}
 	} else {
 		smb->drive_vbus = false;
 		smb347_otg_disable(smb);
-		if (smb->regulator_v3p3sx)
+		if (smb->regulator_v3p3sx && smb->regulator_enabled) {
 			regulator_disable(smb->regulator_v3p3sx);
+			smb->regulator_enabled = false;
+		}
 	}
 }
 
@@ -1230,16 +1235,21 @@ static void smb347_usb_otg_enable(struct usb_phy *phy)
 		smb->a_bus_enable = false;
 		if (smb->drive_vbus) {
 			smb347_otg_disable(smb);
-			if (smb->regulator_v3p3sx)
+			if (smb->regulator_v3p3sx &&
+					smb->regulator_enabled) {
 				regulator_disable(smb->regulator_v3p3sx);
+				smb->regulator_enabled = false;
+			}
 		}
 	} else {
 		dev_info(&smb->client->dev, "OTG Enable");
 		smb->a_bus_enable = true;
 		if (smb->drive_vbus) {
 			smb347_otg_enable(smb);
-			if (smb->regulator_v3p3sx)
+			if (smb->regulator_v3p3sx) {
 				regulator_enable(smb->regulator_v3p3sx);
+				smb->regulator_enabled = true;
+			}
 		}
 	}
 }
