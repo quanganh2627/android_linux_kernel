@@ -1433,11 +1433,10 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 
 	SST_PATH_INPUT("tone_in", SST_TASK_SBA, SST_SWM_IN_TONE, sst_tone_generator_event),
 
-	/* TODO: need to send command */
-	SST_PATH_INPUT("bt_in", SST_TASK_SBA, SST_SWM_IN_BT, NULL),
-	SST_PATH_INPUT("fm_in", SST_TASK_SBA, SST_SWM_IN_FM, NULL),
-	SST_PATH_OUTPUT("bt_out", SST_TASK_SBA, SST_SWM_OUT_BT, NULL),
-	SST_PATH_OUTPUT("fm_out", SST_TASK_SBA, SST_SWM_OUT_FM, NULL),
+	SST_PATH_LINKED_INPUT("bt_in", SST_TASK_SBA, SST_SWM_IN_BT, "bt_fm_in", sst_set_linked_pipe),
+	SST_PATH_LINKED_INPUT("fm_in", SST_TASK_SBA, SST_SWM_IN_FM, "bt_fm_in", sst_set_linked_pipe),
+	SST_PATH_LINKED_OUTPUT("bt_out", SST_TASK_SBA, SST_SWM_OUT_BT, "bt_fm_out", sst_set_linked_pipe),
+	SST_PATH_LINKED_OUTPUT("fm_out", SST_TASK_SBA, SST_SWM_OUT_FM, "bt_fm_out", sst_set_linked_pipe),
 
 	/* SBA Voice Paths */
 	SST_PATH_LINKED_INPUT("sidetone_in", SST_TASK_SBA, SST_SWM_IN_SIDETONE, "speech_out", sst_set_linked_pipe),
