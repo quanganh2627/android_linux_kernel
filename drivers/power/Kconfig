@@ -397,6 +397,10 @@ config BYT_EC_BATTERY
 	help
 	  Say Y here to enable support for Baytrail EC battery driver.
 
+config DC_XPWR_BATTERY
+	bool "Dollar Cove(Xpower) PMIC Fuel Gauge driver"
+	help
+	  Say Y here to enable support for Dollar Cove(Xpower) PMIC Fuel Gauge.
 
 source "drivers/power/reset/Kconfig"
 
