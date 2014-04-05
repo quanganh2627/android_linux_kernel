@@ -402,6 +402,11 @@ config DC_XPWR_BATTERY
 	help
 	  Say Y here to enable support for Dollar Cove(Xpower) PMIC Fuel Gauge.
 
+config DC_XPWR_CHARGER
+	bool "Dollar Cove(Xpower) PMIC Charger driver"
+	help
+	  Say Y here to enable support for Dollar Cove(Xpower) PMIC Charger.
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY
