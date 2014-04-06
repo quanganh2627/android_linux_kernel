@@ -1076,7 +1076,7 @@ static int intel_idle_cpuidle_driver_init(void)
 		 * as these are not real C states supported by the CPU, they
 		 * are emulated c states for s0ix support.
 		*/
-		if ((cstate + 1) < 6) {
+		if ((mwait_cstate + 1) <= 6) {
 			num_substates = (mwait_substates >> ((mwait_cstate + 1) * 4))
 					& MWAIT_SUBSTATE_MASK;
 			if (num_substates == 0)
@@ -1151,7 +1151,7 @@ static int intel_idle_cpu_init(int cpu)
 		 * as these are not real C states supported by the CPU, they
 		 * are emulated c states for s0ix support.
 		 */
-		if ((cstate + 1) < 6) {
+		if ((mwait_cstate + 1) <= 6) {
 			num_substates = (mwait_substates >> ((mwait_cstate + 1) * 4))
 					& MWAIT_SUBSTATE_MASK;
 			if (num_substates == 0)
