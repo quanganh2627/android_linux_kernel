@@ -123,8 +123,8 @@ const char *d3_device_cht[] = {
 	"6 - LPSS 0 function 6", "7 - LPSS 0 function 7",
 	"8 - SCC EMMC", "9 - SCC SD",
 	"10 - SCC SDIO", "11 - MIPI", "12 - HDA",
-	"13 - LPE", "14 - USB SIP Bridge", "15 - UFS ",
-	"16 - GBE", "17 - SATA", "18 - USB ", "19 - SEC",
+	"13 - LPE", "14 - OTG", "15 - UFS ",
+	"16 - GBE", "17 - SATA", "18 - xHCI ", "19 - SEC",
 	"20 - PCIE function 0", "21 - PCIE function 1",
 	"22 - PCIE function 2", "23 - PCIE function 3",
 	"24 - LPSS 1 DMA1", "25 - LPSS 1 I2c 1",
@@ -740,6 +740,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	int error = 0, state;
 	struct dentry *d1, *d2, *d3;
 	struct pmc_dev *pmc_cxt;
+	u32 funcdis_reg, funcdis2_reg;
 
 	pmc_cxt = devm_kzalloc(&pdev->dev,
 			sizeof(struct pmc_dev), GFP_KERNEL);
@@ -860,6 +861,20 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	}
 
 	writel(PMC_WAKE_EN_SETTING, pmc_cxt->s0ix_wake_en);
+/*Function Disabling unused IPs for S0ix*/
+	if (platform_is(INTEL_ATOM_CHT)) {
+		funcdis_reg = readl(pmc_cxt->func_dis);
+		funcdis2_reg = readl(pmc_cxt->func_dis2);
+		funcdis_reg  |= /*PWM0,PWM1,SPI2,SPI3,MIPI*/
+					((BIT(1))|(BIT(2))|(BIT(6))|(BIT(7))|(BIT(11))
+					/*HDA,UFS,GBE,SATA*/
+					|(BIT(12))|(BIT(15))|(BIT(16))|(BIT(17))
+					/*SEC,PCIE1,2,3,4*/
+					|(BIT(20))|(BIT(21))|(BIT(22))|(BIT(23)));
+		funcdis2_reg |= ((BIT(0))|(BIT(3))); /*SMB,GMM,ISH*/
+		writel(funcdis_reg, pmc_cxt->func_dis);
+		writel(funcdis2_reg, pmc_cxt->func_dis2);
+	}
 
 	return 0;
 
