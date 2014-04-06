@@ -599,6 +599,9 @@ static int pmc_suspend_enter(suspend_state_t state)
 {
 	u32 temp = 0, last_s0i3_residency, s3_res;
 
+	if (platform_is(INTEL_ATOM_CHT))
+		writel((PMC_WAKE_EN_SETTING & ~(0x4000)), pmc->s0ix_wake_en);
+
 	if (state != PM_SUSPEND_MEM)
 		return -EINVAL;
 
@@ -610,6 +613,10 @@ static int pmc_suspend_enter(suspend_state_t state)
 	__mwait(BYT_S3_HINT, 1);
 
 	trace_printk("s3_exit\n");
+
+	if (platform_is(INTEL_ATOM_CHT))
+		writel(PMC_WAKE_EN_SETTING, pmc->s0ix_wake_en);
+
 	s3_res = pmc_register_read(STATE_S0I3) - last_s0i3_residency;
 	if (s3_res) {
 		pmc->state_residency[STATE_S3] += s3_res;
