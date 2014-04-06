@@ -2234,7 +2234,8 @@ static int lapic_suspend(void)
 	 * and wont produce timer based wake up event.
 	 */
 	if ((intel_mid_identify_cpu() != 0) ||
-			(boot_cpu_data.x86_model == 0x37)) {
+			(boot_cpu_data.x86_model == 0x37) ||
+				(boot_cpu_data.x86_model == 0x4C)) {
 		if (this_cpu_has(X86_FEATURE_TSC_DEADLINE_TIMER))
 			wrmsrl(MSR_IA32_TSC_DEADLINE, 0);
 		else
@@ -2287,7 +2288,8 @@ static void lapic_resume(void)
 	 * Refer explanation on lapic_suspend.
 	 */
 	if ((intel_mid_identify_cpu() != 0) ||
-			(boot_cpu_data.x86_model == 0x37)) {
+			(boot_cpu_data.x86_model == 0x37) ||
+				(boot_cpu_data.x86_model == 0x4C)) {
 		if (this_cpu_has(X86_FEATURE_TSC_DEADLINE_TIMER)) {
 			rdtscll(tsc);
 			wrmsrl(MSR_IA32_TSC_DEADLINE, tsc + 10);
