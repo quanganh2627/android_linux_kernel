@@ -1839,6 +1839,11 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 	/* Tone Generator */
 	SST_ALGO_KCONTROL_BYTES("tone_in", "tone_generator", 116, SST_MODULE_ID_TONE_GEN,
 		SST_PATH_INDEX_RESERVED, 0, SST_TASK_SBA, SBA_VB_START_TONE),
+
+	/* Sidetone */
+	SST_ALGO_KCONTROL_BYTES("sidetone_in", "iir", 300, SST_MODULE_ID_IIR_24,
+		SST_PATH_INDEX_SIDETONE_IN, 0, SST_TASK_SBA, SBA_VB_SET_IIR),
+
 };
 
 static const struct snd_kcontrol_new sst_debug_controls[] = {
