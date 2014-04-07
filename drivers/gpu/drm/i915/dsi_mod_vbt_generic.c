@@ -551,6 +551,26 @@ int generic_mode_valid(struct intel_dsi_device *dsi,
 bool generic_mode_fixup(struct intel_dsi_device *dsi,
 		    const struct drm_display_mode *mode,
 		    struct drm_display_mode *adjusted_mode) {
+	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/* If desired mode is different from panel's supported mode, we will try to
+	use scaling to achieve. But the modeset should be of proper mode timings
+	So make the adjusted mode same as panel supported mode */
+	if (dev_priv->scaling_reqd) {
+		adjusted_mode->hdisplay =
+			dev_priv->vbt.lfp_lvds_vbt_mode->hdisplay;
+		adjusted_mode->vdisplay =
+			dev_priv->vbt.lfp_lvds_vbt_mode->vdisplay;
+
+		/* Configure hw mode */
+		drm_mode_set_name(adjusted_mode);
+		drm_mode_set_crtcinfo(adjusted_mode, 0);
+		adjusted_mode->type |= DRM_MODE_TYPE_PREFERRED;
+		DRM_DEBUG_DRIVER("Sending %dx%d as adjusted mode",
+			adjusted_mode->hdisplay, adjusted_mode->vdisplay);
+	}
 	return true;
 }
 
@@ -624,9 +644,29 @@ struct drm_display_mode *generic_get_modes(struct intel_dsi_device *dsi)
 	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
 	struct drm_device *dev = intel_dsi->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_display_mode *target = dev_priv->vbt.lfp_lvds_vbt_mode;
 
-	dev_priv->vbt.lfp_lvds_vbt_mode->type |= DRM_MODE_TYPE_PREFERRED;
-	return dev_priv->vbt.lfp_lvds_vbt_mode;
+	/* If desired mode is different from panel's supported mode, we will try to
+	use scaling to achieve */
+	if (dev_priv->scaling_reqd) {
+		target = drm_mode_duplicate(dev, (const struct drm_display_mode *)
+			dev_priv->vbt.lfp_lvds_vbt_mode);
+		if (!target) {
+			DRM_ERROR("Out of memory, scaling will fail\n");
+			return dev_priv->vbt.lfp_lvds_vbt_mode;
+		}
+
+		/* Fixme: Updating only the X and Y resolution of the desired
+		mode, not full timings */
+		target->hdisplay =
+			dev_priv->vbt.target_res.xres;
+		target->vdisplay =
+			dev_priv->vbt.target_res.yres;
+		DRM_DEBUG_DRIVER("Sending target timings");
+	}
+
+	target->type |= DRM_MODE_TYPE_PREFERRED;
+	return target;
 }
 
 void generic_dump_regs(struct intel_dsi_device *dsi) { }

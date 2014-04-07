@@ -806,16 +806,10 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 		pipe = PIPE_B;
 	} while (--count > 0);
 
+	/* Enable panel fitter */
 	if ((adjusted_mode->hdisplay < PFIT_SIZE_LIMIT) &&
-	(adjusted_mode->vdisplay < PFIT_SIZE_LIMIT)) {
-		/* BYT-CR needs panel fitter only with Panasonic panel */
-		if (BYT_CR_CONFIG && (i915_mipi_panel_id ==
-			MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID)) {
-			val = PFIT_ENABLE | (intel_crtc->pipe << PFIT_PIPE_SHIFT) |
-					PFIT_SCALING_AUTO;
-			I915_WRITE(PFIT_CONTROL, val);
-			intel_crtc->base.panning_en = true;
-		} else if (intel_dsi->pfit) {
+		(adjusted_mode->vdisplay < PFIT_SIZE_LIMIT)) {
+		if (intel_dsi->pfit) {
 			/* Normal scenario, enable panel fitter only if the
 			scaling ratio is > 1 and the input src size < 2kx2k */
 			if ((adjusted_mode->hdisplay != intel_crtc->base.fb->width) ||
@@ -1129,6 +1123,20 @@ bool intel_dsi_init(struct drm_device *dev)
 	fixed_mode->type |= DRM_MODE_TYPE_PREFERRED;
 	intel_panel_init(&intel_connector->panel, fixed_mode, NULL);
 	intel_panel_setup_backlight(connector);
+
+	/* Panel native resolution and desired mode can be different in
+	these two cases:
+	1. Generic driver specifies scaling reqd flag.
+	2. Static driver for Panasonic panel with BYT_CR
+
+	Fixme: Remove static driver's panel ID check as we are planning to
+	enable generic driver by default */
+	if ((dev_priv->scaling_reqd) ||
+		(BYT_CR_CONFIG && (i915_mipi_panel_id ==
+		MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID)))  {
+		intel_dsi->pfit = AUTOSCALE;
+		DRM_DEBUG_DRIVER("Enabling panel fitter as scaling required flag set\n");
+	}
 
 	return true;
 err:

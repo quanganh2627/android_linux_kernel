@@ -320,6 +320,19 @@ parse_lfp_panel_data(struct drm_i915_private *dev_priv,
 			dev_priv->vbt.bios_lvds_val = fp_timing->lvds_reg_val;
 			DRM_DEBUG_KMS("VBT initial LVDS value %x\n",
 				      dev_priv->vbt.bios_lvds_val);
+		} else if (fp_timing->x_res < panel_fixed_mode->hdisplay &&
+		    fp_timing->y_res < panel_fixed_mode->vdisplay){
+			/* Difference found in specified panel mode and VBT desired resolution.
+			Assuming the VBT programming is right, we have to enable scaling
+			panel fitter for specified resolution. Save the desired resolution for
+			modset */
+			dev_priv->scaling_reqd = true;
+			dev_priv->vbt.target_res.xres = fp_timing->x_res;
+			dev_priv->vbt.target_res.yres = fp_timing->y_res;
+			DRM_DEBUG_KMS("VBT scaling enabled\n");
+		} else {
+			/* Not supporting upscaling of mode as of now */
+			DRM_ERROR("VBT scaling too ambitious !!\n");
 		}
 	}
 }
