@@ -20,11 +20,11 @@
 #include <media/v4l2-subdev.h>
 
 #include "platform_camera.h"
+#include "platform_fsa642.h"
 #include "platform_ov680.h"
 
 static int camera_reset = -1; /* GP_CAMERASB03 - CAM_2_3_RST_N - ALS_INT_N_R */
 static int isp1_pwdn = -1; /* GP_CAMERASB08- FLASH_RST_N_R */
-static int mux_ov680_isp = -1;
 
 static int ov680_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
@@ -49,20 +49,15 @@ static int ov680_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		isp1_pwdn = ret;
 	}
 
-	if (mux_ov680_isp < 0) {
-		/* mux pin for ov680 isp: 1 selected */
-		ret = camera_sensor_gpio(-1, GP_CAMERA_MUX_CONTROL,
-			GPIOF_DIR_OUT, 1);
-		if (ret < 0)
-			return ret;
-		mux_ov680_isp = ret;
-	}
-
 	if (flag) {
 		dev_dbg(&client->dev,
 			"%s: Turning on isp reset pin 0, mux pin 1\n",
 			__func__);
-		gpio_set_value(mux_ov680_isp, 1);
+		if (camera_reset < 0 || isp1_pwdn < 0) {
+			dev_err(&client->dev, "One of the GPIOs missing\n");
+			return -EINVAL;
+		}
+		fsa642_gpio_ctrl(1); /* Flip CSI mux in favor of ov680 */
 		gpio_set_value(isp1_pwdn, 0);
 		gpio_set_value(camera_reset, 0);
 		msleep(40);

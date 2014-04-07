@@ -18,12 +18,10 @@
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
 #include "platform_camera.h"
+#include "platform_fsa642.h"
 #include "platform_imx132.h"
 
-
 static int camera_reset = -1;
-static int mux_front_camera = -1;
-static int mux_gpio_searched = -1;
 
 static int camera_vprog1_on;
 static struct regulator *vprog1_reg;
@@ -43,26 +41,15 @@ static int imx132_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	int ret;
 	if (camera_reset < 0) {
 		ret = camera_sensor_gpio(-1, GP_CAMERA_1_RESET,
-					GPIOF_DIR_OUT, 1);
+					 GPIOF_DIR_OUT, 1);
 		if (ret < 0)
 			return ret;
 		camera_reset = ret;
 	}
 
-	if (mux_gpio_searched < 0) {
-		/* The FSA642 mux is not used in all HW configurations, hence
-		 * it is okay to receive an error if the GPIO is not found */
-		mux_front_camera = camera_sensor_gpio(-1, GP_CAMERA_MUX_CONTROL,
-						      GPIOF_DIR_OUT, 0);
-		mux_gpio_searched = 1;
-	}
-
 	if (flag) {
 		gpio_set_value(camera_reset, 1);
-
-		/* If the FSA642 mux is used, switch it to the front camera */
-		if (mux_gpio_searched && mux_front_camera >= 0)
-			gpio_set_value(mux_front_camera, 0);
+		fsa642_gpio_ctrl(0); /* Flip CSI mux in favor of imx132 */
 
 		/* imx132 initializing time - t1+t2
 		 * 427us(t1) - 8192 mclk(19.2Mhz) before sccb communication
