@@ -147,15 +147,9 @@ static inline bool pmu_power_down_lss_without_driver(int index,
 	if (platform_is(INTEL_ATOM_MRFLD))
 		return ((sub_sys_index == 0x0) && (sub_sys_pos == 0x5));
 
-	/* For MOFD ignore D0i0 on LSS 5, 7, 19 */
-	if (platform_is(INTEL_ATOM_MOORFLD)) {
-		if (sub_sys_index == 0x0)
-			/* LSS 5(HSI) & 7(SSIC)*/
-			return ((sub_sys_pos == 0x5) || (sub_sys_pos == 0x7));
-		else
-			/* LSS 19(SSP6) */
-			return ((sub_sys_index == 0x1) && (sub_sys_pos == 0x3));
-	}
+	/* For MOFD ignore D0i0 on LSS 5, 7 */
+	if ((platform_is(INTEL_ATOM_MOORFLD)) && (sub_sys_index == 0x0))
+		return ((sub_sys_pos == 0x5) || (sub_sys_pos == 0x7));
 
 	return false;
 }
