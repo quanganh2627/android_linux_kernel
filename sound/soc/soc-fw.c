@@ -899,6 +899,11 @@ static int soc_fw_dapm_graph_load(struct soc_fw *sfw,
 
 		route.source = elem->source;
 		route.sink = elem->sink;
+		/* TODO: Connected is an additional field in dapm_route struct
+		 * which is newly added and not in the binary, this field is
+		 * currently not used and is set to NULL but this value should
+		 * come from the binary.  */
+		route.connected = NULL;
 		if (strnlen(elem->control, SND_SOC_FW_TEXT_SIZE) == 0)
 			route.control = NULL;
 		else
