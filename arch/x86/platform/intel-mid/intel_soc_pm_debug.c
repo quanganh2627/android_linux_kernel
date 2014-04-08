@@ -1484,8 +1484,8 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 		   (unsigned long) val/1000000);
 
 	seq_puts(s, "\nNORTH COMPLEX DEVICES :\n\n");
-	seq_puts(s, "  IP_NAME : State D0i0_Time D0i0\%\n");
-	seq_puts(s, "=================================\n");
+	seq_puts(s, "  IP_NAME : State D0i0_Time D0i0\% Count\n");
+	seq_puts(s, "========================================\n");
 
 	nc_pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, NC_PM_SSS);
 	for (i = 0; i < mrfl_no_of_nc_devices; i++) {
@@ -1537,7 +1537,8 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 		if (i <= VED) {
 			seq_printf(s, " %5lu.%02lu", (unsigned long)t1,
 						   (unsigned long) d0i0_time_secs/10000000);
-			seq_printf(s, "   %3lu.%02lu\n", (unsigned long) time, (unsigned long) t);
+			seq_printf(s, "   %3lu.%02lu", (unsigned long) time, (unsigned long) t);
+			seq_printf(s, " %5lu\n", (unsigned long) mid_pmu_cxt->nc_d0i0_count[i]);
 		} else
 			seq_puts(s, "\n");
 	}
@@ -1545,9 +1546,9 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 	seq_printf(s, "\nSOUTH COMPLEX DEVICES :\n\n");
 
 	seq_puts(s, "PCI VNDR DEVC DEVICE_NAME  DEVICE_DRIVER_STRING  LSS#");
-	seq_puts(s, "   State    D0i0_Time        D0i0\%\n");
+	seq_puts(s, "   State    D0i0_Time        D0i0\% Count\n");
 	seq_puts(s, "=====================================================");
-	seq_puts(s, "==================================\n");
+	seq_puts(s, "=========================================\n");
 	for_each_pci_dev(pdev) {
 		unsigned long long t, t1;
 		u32 remainder, time, d0i0_time_secs;
@@ -1613,7 +1614,8 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 		seq_printf(s, " %s", dstates[val & 3]);
 		seq_printf(s, "\t%5lu.%02lu", (unsigned long)t1,
 						   (unsigned long) d0i0_time_secs/10000000);
-		seq_printf(s, "\t%3lu.%02lu\n", (unsigned long) time, (unsigned long) t);
+		seq_printf(s, "\t%3lu.%02lu", (unsigned long) time, (unsigned long) t);
+		seq_printf(s, "\t%5lu\n", (unsigned long) mid_pmu_cxt->d0i0_count[lss]);
 	}
 
 	return 0;
@@ -1665,11 +1667,13 @@ static ssize_t devices_state_write(struct file *file,
 		{
 			int i;
 			for (i = 0; i < MAX_LSS_POSSIBLE; i++) {
+				mid_pmu_cxt->d0i0_count[i] = 0;
 				mid_pmu_cxt->d0i0_time[i] = 0;
 				mid_pmu_cxt->d0i0_prev_time[i] = cpu_clock(0);
 			}
 
 			for (i = 0; i < OSPM_MAX_POWER_ISLANDS; i++) {
+				mid_pmu_cxt->nc_d0i0_count[i] = 0;
 				mid_pmu_cxt->nc_d0i0_time[i] = 0;
 				mid_pmu_cxt->nc_d0i0_prev_time[i] = cpu_clock(0);
 			}

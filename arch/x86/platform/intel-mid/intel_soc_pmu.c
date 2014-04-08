@@ -1547,10 +1547,11 @@ retry:
 	inc_d0ix_stat((i-mid_pmu_cxt->pmu1_max_devs),
 				pci_to_platform_state(state));
 
-	/* D0i0 time stats */
+	/* D0i0 stats */
 	{
 		int lss = i-mid_pmu_cxt->pmu1_max_devs;
 		if (state == PCI_D0) {
+			mid_pmu_cxt->d0i0_count[lss]++;
 			mid_pmu_cxt->d0i0_prev_time[lss] = cpu_clock(0);
 		} else {
 			mid_pmu_cxt->d0i0_time[lss] += (cpu_clock(0) -

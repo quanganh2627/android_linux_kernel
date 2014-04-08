@@ -382,6 +382,7 @@ static int mrfld_nc_set_power_state(int islands, int state_type,
 				mid_pmu_cxt->nc_d0i0_time[i] +=
 					(cpu_clock(0) - mid_pmu_cxt->nc_d0i0_prev_time[i]);
 			} else if (state_type == OSPM_ISLAND_UP) {
+				mid_pmu_cxt->nc_d0i0_count[i]++;
 				pwr_mask &= ~mask;
 				mid_pmu_cxt->nc_d0i0_prev_time[i] = cpu_clock(0);
 			/* Soft reset case */

@@ -335,9 +335,11 @@ struct mid_pmu_dev {
 	u32 __iomem *emergency_emmc_up_addr;
 	u64 pmu_init_time;
 
+	u32 d0i0_count[MAX_LSS_POSSIBLE];
 	u64 d0i0_prev_time[MAX_LSS_POSSIBLE];
 	u64 d0i0_time[MAX_LSS_POSSIBLE];
 
+	u32 nc_d0i0_count[OSPM_MAX_POWER_ISLANDS];
 	u64 nc_d0i0_time[OSPM_MAX_POWER_ISLANDS];
 	u64 nc_d0i0_prev_time[OSPM_MAX_POWER_ISLANDS];
 
