@@ -178,6 +178,7 @@ struct sdhci_host {
 #define SDHCI_HS200_NEEDS_TUNING (1<<10)	/* HS200 needs tuning */
 #define SDHCI_USING_RETUNING_TIMER (1<<11)	/* Host is using a retuning timer for the card */
 #define SDHCI_POWER_CTRL_DEV	(1<<12) /* ctrl dev power */
+#define SDHCI_EXIT_RPM_RESUME (1<<13)	/* Exit from runtime PM resume */
 
 	unsigned int version;	/* SDHCI spec. version */
 

@@ -1716,6 +1716,10 @@ end_tuning:
 			goto out;
 		}
 
+		/* Clear the flag for Samsung emmc APS prepartion bug WA */
+		if (host->flags & SDHCI_EXIT_RPM_RESUME)
+			host->flags &= ~SDHCI_EXIT_RPM_RESUME;
+
 		if (mrq->sbc && !(host->flags & SDHCI_AUTO_CMD23))
 			sdhci_send_command(host, mrq->sbc);
 		else
@@ -2216,6 +2220,20 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 
 	sdhci_runtime_pm_get(host);
 	spin_lock_irqsave(&host->lock, flags);
+
+	/*
+	 * Workaround for Samsung eMMC device -
+	 * Samsung eMMC device may fail to response to CMD21
+	 * if it in the APS preparation mode.
+	 * If just resume from runtime pm, then CMD21 should
+	 * be the first CMD and will not trigger the APS preparation
+	 * mode. But in other case, such as tuning timer expired,
+	 * we have to delay at least 2ms to avoid trigger this issue.
+	 */
+	if (host->flags & SDHCI_EXIT_RPM_RESUME)
+		host->flags &= ~SDHCI_EXIT_RPM_RESUME;
+	else
+		mdelay(2);
 
 	ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 
@@ -3991,8 +4009,10 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 	}
 
 	/* Set the re-tuning expiration flag */
-	if (host->flags & SDHCI_USING_RETUNING_TIMER)
+	if (host->flags & SDHCI_USING_RETUNING_TIMER) {
 		host->flags |= SDHCI_NEEDS_RETUNING;
+		host->flags |= SDHCI_EXIT_RPM_RESUME;
+	}
 
 	spin_lock_irqsave(&host->lock, flags);
 
