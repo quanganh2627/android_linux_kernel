@@ -306,17 +306,11 @@ static int alarmtimer_resume(struct device *dev)
 static void write_rtc_wakeup(void)
 {
 	struct rtc_time tm;
-	ktime_t min, now;
+	ktime_t now, delta;
 	unsigned long flags;
 	struct rtc_device *rtc;
-	struct alarm_base *base = &alarm_bases[ALARM_REALTIME_OFF];
 	struct timerqueue_node *next;
-	ktime_t delta;
-
-	spin_lock_irqsave(&freezer_delta_lock, flags);
-	min = freezer_delta;
-	freezer_delta = ktime_set(0, 0);
-	spin_unlock_irqrestore(&freezer_delta_lock, flags);
+	struct alarm_base *base = &alarm_bases[ALARM_REALTIME_OFF];
 
 	rtc = alarmtimer_get_rtcdev();
 	/* If we have no rtcdev, just return */
@@ -329,22 +323,22 @@ static void write_rtc_wakeup(void)
 	next = timerqueue_getnext(&base->timerqueue);
 	spin_unlock_irqrestore(&base->lock, flags);
 	if (!next) {
-		rtc_timer_cancel(rtc, &rtctimer);
+		/* no OFF alarm pending, cancel everything
+		 * else and disable RTC alarm.
+		 */
+		rtc_cancel_all_timers(rtc);
 		return;
 	}
 
 	delta = ktime_sub(next->expires, base->gettime());
-	if (!min.tv64 || (delta.tv64 < min.tv64))
-		min = delta;
-
-	if (min.tv64 == 0)
+	if (delta.tv64 == 0)
 		return;
 
 	/* Setup an rtc timer to fire that far in the future */
-	rtc_timer_cancel(rtc, &rtctimer);
+	rtc_cancel_all_timers(rtc);
 	rtc_read_time(rtc, &tm);
 	now = rtc_tm_to_ktime(tm);
-	now = ktime_add(now, min);
+	now = ktime_add(now, delta);
 
 	/* Set alarm */
 	rtc_timer_start(rtc, &rtctimer, now, ktime_set(0, 0));
