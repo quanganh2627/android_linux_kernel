@@ -37,7 +37,6 @@
 #include <linux/mfd/arizona/pdata.h>
 #include <linux/mfd/arizona/registers.h>
 
-
 #define ARIZONA_MAX_MICD_RANGE 8
 
 #define ARIZONA_ACCDET_MODE_MIC 0
@@ -1781,6 +1780,8 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 			ret);
 		goto err_fall;
 	}
+
+	regmap_update_bits(arizona->regmap, ARIZONA_AOD_IRQ_MASK_IRQ1, 0xC, 0);
 
 	ret = arizona_request_irq(arizona, ARIZONA_IRQ_MICDET,
 				  "MICDET", arizona_micdet, info);
