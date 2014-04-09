@@ -500,11 +500,13 @@ int dwc3_intel_cht_prepare_start_peripheral(struct dwc_otg2 *otg)
 
 int dwc3_intel_cht_suspend(struct dwc_otg2 *otg)
 {
-	struct pci_dev *pci_dev = to_pci_dev(otg->dev);
+	struct pci_dev *pci_dev;
 	pci_power_t state = PCI_D3cold;
 
 	if (!otg)
 		return 0;
+
+	pci_dev = to_pci_dev(otg->dev);
 
 	if (otg->state == DWC_STATE_B_PERIPHERAL ||
 			otg->state == DWC_STATE_A_HOST)
@@ -525,10 +527,12 @@ int dwc3_intel_cht_suspend(struct dwc_otg2 *otg)
 
 int dwc3_intel_cht_resume(struct dwc_otg2 *otg)
 {
-	struct pci_dev *pci_dev = to_pci_dev(otg->dev);
+	struct pci_dev *pci_dev;
 
 	if (!otg)
 		return 0;
+
+	pci_dev = to_pci_dev(otg->dev);
 
 	/* From synopsys spec 12.2.11.
 	 * Software cannot access memory-mapped I/O space
