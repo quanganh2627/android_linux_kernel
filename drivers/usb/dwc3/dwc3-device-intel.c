@@ -205,7 +205,8 @@ static irqreturn_t dwc3_quirks_process_event_buf(struct dwc3 *dwc, u32 buf)
 	/* WORKAROUND: Add 4 us delay as moorfield seems to have memory
 	 * inconsistent issue
 	 */
-	if (INTEL_MID_BOARD(1, PHONE, MOFD))
+	if (INTEL_MID_BOARD(1, PHONE, MOFD) ||
+		INTEL_MID_BOARD(1, TABLET, MOFD))
 		udelay(4);
 
 	left = evt->count;
