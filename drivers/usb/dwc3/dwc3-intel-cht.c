@@ -24,6 +24,7 @@
 static int otg_id = -1;
 static int dwc3_intel_cht_notify_charger_type(struct dwc_otg2 *otg,
 		enum power_supply_charger_event event);
+static int dwc3_set_id_mux(void __iomem *reg_base, int is_device_on);
 
 static int charger_detect_enable(struct dwc_otg2 *otg)
 {
@@ -205,7 +206,20 @@ int dwc3_intel_cht_get_id(struct dwc_otg2 *otg)
 
 int dwc3_intel_cht_b_idle(struct dwc_otg2 *otg)
 {
+	struct usb_hcd *hcd = NULL;
+	u32 ret, val;
 	u32 gctl, tmp;
+
+	/* set mux to host mode in b_idle state */
+	hcd = container_of(otg->otg.host, struct usb_hcd, self);
+	if (!hcd) {
+		mdelay(100);
+		return -ENODEV;
+	}
+
+	ret = dwc3_set_id_mux(hcd->regs, 0);
+	if (ret)
+		return ret;
 
 	/* Disable hibernation mode by default */
 	gctl = otg_read(otg, GCTL);
@@ -463,20 +477,6 @@ static int dwc3_set_id_mux(void __iomem *reg_base, int is_device_on)
 
 int dwc3_intel_cht_after_stop_peripheral(struct dwc_otg2 *otg)
 {
-	struct usb_hcd *hcd = NULL;
-	u32 ret, val;
-
-	hcd = container_of(otg->otg.host, struct usb_hcd, self);
-	if (!hcd) {
-		mdelay(100);
-		return -ENODEV;
-	}
-
-	ret = dwc3_set_id_mux(hcd->regs, 0);
-
-	if (ret)
-		return ret;
-
 	return 0;
 }
 
