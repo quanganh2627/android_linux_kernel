@@ -63,11 +63,11 @@ struct smiapp_pll {
 	uint16_t vt_pix_clk_div;
 
 	uint32_t ext_clk_freq_hz;
-	uint32_t pll_ip_clk_freq_hz;
-	uint32_t pll_op_clk_freq_hz;
-	uint32_t op_sys_clk_freq_hz;
+	uint64_t pll_ip_clk_freq_hz;
+	uint64_t pll_op_clk_freq_hz;
+	uint64_t op_sys_clk_freq_hz;
 	uint32_t op_pix_clk_freq_hz;
-	uint32_t vt_sys_clk_freq_hz;
+	uint64_t vt_sys_clk_freq_hz;
 	uint32_t vt_pix_clk_freq_hz;
 
 	uint32_t pixel_rate_csi;
@@ -76,12 +76,12 @@ struct smiapp_pll {
 struct smiapp_pll_branch_limits {
 	uint16_t min_sys_clk_div;
 	uint16_t max_sys_clk_div;
-	uint32_t min_sys_clk_freq_hz;
-	uint32_t max_sys_clk_freq_hz;
+	uint64_t min_sys_clk_freq_hz;
+	uint64_t max_sys_clk_freq_hz;
 	uint16_t min_pix_clk_div;
 	uint16_t max_pix_clk_div;
-	uint32_t min_pix_clk_freq_hz;
-	uint32_t max_pix_clk_freq_hz;
+	uint64_t min_pix_clk_freq_hz;
+	uint64_t max_pix_clk_freq_hz;
 };
 
 struct smiapp_pll_limits {
@@ -94,8 +94,8 @@ struct smiapp_pll_limits {
 	uint32_t max_pll_ip_freq_hz;
 	uint16_t min_pll_multiplier;
 	uint16_t max_pll_multiplier;
-	uint32_t min_pll_op_freq_hz;
-	uint32_t max_pll_op_freq_hz;
+	uint64_t min_pll_op_freq_hz;
+	uint64_t max_pll_op_freq_hz;
 
 	struct smiapp_pll_branch_limits vt;
 	struct smiapp_pll_branch_limits op;
