@@ -1240,6 +1240,9 @@ static int arizona_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	case SND_SOC_DAIFMT_DSP_A:
 		mode = 0;
 		break;
+	case SND_SOC_DAIFMT_DSP_B:
+		mode = 1;
+		break;
 	case SND_SOC_DAIFMT_I2S:
 		mode = 2;
 		break;
@@ -1532,7 +1535,8 @@ static int arizona_hw_params(struct snd_pcm_substream *substream,
 
 	/* Force stereo for I2S mode */
 	val = snd_soc_read(codec, base + ARIZONA_AIF_FORMAT);
-	if (params_channels(params) == 1 && (val & ARIZONA_AIF1_FMT_MASK)) {
+	val &= ARIZONA_AIF1_FMT_MASK;
+	if (params_channels(params) == 1 && (val == 2)) {
 		arizona_aif_dbg(dai, "Forcing stereo mode\n");
 		bclk_target *= 2;
 	}
