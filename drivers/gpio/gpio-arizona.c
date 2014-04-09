@@ -138,6 +138,9 @@ static int arizona_gpio_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	if (arizona->pdata.dynamic_gpio)
+		arizona->pdata.gpio_base = arizona_gpio->gpio_chip.base;
+
 	platform_set_drvdata(pdev, arizona_gpio);
 
 	return ret;

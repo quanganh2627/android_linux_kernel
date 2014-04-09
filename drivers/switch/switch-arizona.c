@@ -37,6 +37,7 @@
 #include <linux/mfd/arizona/pdata.h>
 #include <linux/mfd/arizona/registers.h>
 
+
 #define ARIZONA_MAX_MICD_RANGE 8
 
 #define ARIZONA_ACCDET_MODE_MIC 0
@@ -1480,6 +1481,9 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 	if (!arizona->dapm || !arizona->dapm->card)
 		return -EPROBE_DEFER;
 
+	if (arizona->pdata.dynamic_gpio && !arizona->pdata.gpio_base)
+		return -EPROBE_DEFER;
+
 	arizona_extcon_get_pdata(arizona);
 
 	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
@@ -1576,7 +1580,12 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 		regmap_update_bits(arizona->regmap, ARIZONA_GP_SWITCH_1,
 				   ARIZONA_SW1_MODE_MASK, arizona->pdata.gpsw);
 
-	if (arizona->pdata.micd_pol_gpio > 0) {
+	if ((arizona->pdata.micd_pol_gpio > 0) ||
+		(arizona->pdata.dynamic_gpio && arizona->pdata.micd_pol_gpio >= 0)) {
+
+		if (arizona->pdata.dynamic_gpio)
+			arizona->pdata.micd_pol_gpio += arizona->pdata.gpio_base;
+
 		if (info->micd_modes[0].gpio)
 			mode = GPIOF_OUT_INIT_HIGH;
 		else

@@ -115,6 +115,9 @@ struct arizona {
 	int clk32k_ref;
 
 	struct snd_soc_dapm_context *dapm;
+
+	/** Completion event for dynamic gpio allocation */
+	struct completion gpio_allocated;
 };
 
 int arizona_clk32k_enable(struct arizona *arizona);
