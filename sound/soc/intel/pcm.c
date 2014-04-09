@@ -265,13 +265,6 @@ int sst_fill_stream_params(void *substream,
 	map = ctx->pdata->pdev_strm_map;
 	map_size = ctx->pdata->strm_map_size;
 
-	/* override the stream if dpcm is enabled */
-	if (dpcm_enable == 1) {
-		pr_debug("override strm map with dpcm map");
-		map = dpcm_strm_map;
-		map_size = ARRAY_SIZE(dpcm_strm_map);
-	}
-
 	if (is_compress == true)
 		cstream = (struct snd_compr_stream *)substream;
 	else
@@ -1092,6 +1085,11 @@ static int sst_platform_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	if (dpcm_enable == 1) {
+		pr_info("dpcm enabled; overriding stream map\n");
+		pdata->pdev_strm_map = dpcm_strm_map;
+		pdata->strm_map_size = ARRAY_SIZE(dpcm_strm_map);
+	}
 	sst_pdev = &pdev->dev;
 	sst->pdata = pdata;
 	mutex_init(&sst->lock);
