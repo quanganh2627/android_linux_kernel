@@ -105,6 +105,17 @@
 #define SC_NUM_DEVICES 36
 #define NC_NUM_DEVICES 6
 
+#define PLT_CLK_MODE 0x0
+#define MTPMC_VAL 0x20
+#define DYN_MODE 0x105
+
+#define LPCC_ADDR 0xFED08084
+#define PLT_CLK1 0x60
+#define PLT_CLK2 0x64
+#define PLT_CLK3 0x68
+#define MTPMC 0xB0
+#define VLV_PM_STS 0xC
+
 const char *d3_device_cht[] = {
 	"0 - LPSS 0 DMA 1", "1 - LPSS 0 PMW 0",
 	"2 - LPSS 0 PMW 0", "3 - LPSS 0 UART1",
@@ -180,6 +191,12 @@ struct pmc_dev {
 	u32 __iomem *d3_sts1;
 	u32 __iomem *func_dis;
 	u32 __iomem *func_dis2;
+	u32 __iomem *pc1;
+	u32 __iomem *pc2;
+	u32 __iomem *pc3;
+	u32 __iomem *lpcc;
+	u32 __iomem *mtpmc_1;
+	u32 __iomem *vlv_pm_sts;
 	struct pci_dev const *pdev;
 	spinlock_t nc_ready_lock;
 	u32 state_residency[STATE_MAX];
@@ -549,6 +566,57 @@ static const struct file_operations nc_set_power_operations = {
 	.release        = single_release,
 };
 
+static int s0i3_enable_show(struct seq_file *s, void *unused)
+{
+	return 0;
+}
+
+static ssize_t s0i3_enable_write(struct file *file,
+		const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	char buf[64];
+	int val;
+	unsigned int buf_size;
+	u32 mtpmc_1 = 0;
+		buf_size = count < 64 ? count : 64;
+
+	if (copy_from_user(buf, userbuf, buf_size))
+		return -EFAULT;
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EFAULT;
+	if (val == 1) {
+		pr_info(KERN_INFO "Platform Clocks forced OFF\n");
+		writel(PLT_CLK_MODE, pmc->pc1);
+		writel(PLT_CLK_MODE, pmc->pc2);
+		writel(PLT_CLK_MODE, pmc->pc3);
+		pr_info(KERN_INFO "Force LPCC clk\n");
+		writel(DYN_MODE, pmc->lpcc);
+		pr_info(KERN_INFO "PLL force off mtpmc\n");
+		mtpmc_1 = readl(pmc->mtpmc_1);
+		mtpmc_1 |= MTPMC_VAL;
+		writel(mtpmc_1, pmc->mtpmc_1);
+		pr_info(KERN_INFO "Wait to clear VLV PM STS\n");
+		do {
+			pr_info(KERN_INFO "... vlv_pm_sts = %x\n", readl(pmc->vlv_pm_sts));
+		} while ((readl(pmc->vlv_pm_sts)));
+		pr_info(KERN_INFO "S0i3 enabled\n");
+	}
+	return count;
+}
+static int s0i3_enable_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, s0i3_enable_show, inode->i_private);
+}
+
+static const struct file_operations s0i3_enable_operations = {
+	.open           = s0i3_enable_open,
+	.read           = seq_read,
+	.write          = s0i3_enable_write,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+
 static int sc_set_power_show(struct seq_file *s, void *unused)
 {
 	return 0;
@@ -715,6 +783,21 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	pmc_cxt->func_dis2 = devm_ioremap_nocache(&pdev->dev,
 		pmc_cxt->base_address + FUNC_DIS2, 4);
 
+/* These changes should be reverted once PMC bugs are fixed*/
+	pmc_cxt->pc1 = devm_ioremap_nocache(&pdev->dev,
+		pmc_cxt->base_address + PLT_CLK1, 4);
+	pmc_cxt->pc2 = devm_ioremap_nocache(&pdev->dev,
+		pmc_cxt->base_address + PLT_CLK2, 4);
+	pmc_cxt->pc3 = devm_ioremap_nocache(&pdev->dev,
+		pmc_cxt->base_address + PLT_CLK3, 4);
+	pmc_cxt->lpcc = devm_ioremap_nocache(&pdev->dev,
+		LPCC_ADDR, 4);
+	pmc_cxt->mtpmc_1 = devm_ioremap_nocache(&pdev->dev,
+		pmc_cxt->base_address + MTPMC, 4);
+	pmc_cxt->vlv_pm_sts = devm_ioremap_nocache(&pdev->dev,
+		pmc_cxt->base_address + VLV_PM_STS, 4);
+
+
 	if (!pmc_cxt->pmc_registers || !pmc_cxt->s0ix_wake_en) {
 		dev_err(&pdev->dev, "Failed to map PMC registers.\n");
 		error = -EFAULT;
@@ -763,6 +846,11 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	d3 = debugfs_create_file("sc_set_power", S_IFREG | S_IRUGO,
 				NULL, NULL, &sc_set_power_operations);
 
+	if (platform_is(INTEL_ATOM_CHT)) {
+		/* temperory debugfs entry for S0i3 enabling */
+		d3 = debugfs_create_file("s0i3_enable", S_IFREG | S_IRUGO,
+								NULL, NULL, &s0i3_enable_operations);
+	}
 	if (!d3) {
 		dev_err(&pdev->dev, "Can not create a debug file\n");
 		error = -ENOMEM;
