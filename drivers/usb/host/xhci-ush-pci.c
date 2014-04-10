@@ -631,6 +631,8 @@ show_registers(struct device *dev, struct device_attribute *attr, char *buf)
 	char			*next;
 	unsigned		size;
 	unsigned		t;
+	int                     max_ports;
+	int                     i;
 
 	next = buf;
 	size = PAGE_SIZE;
@@ -638,48 +640,31 @@ show_registers(struct device *dev, struct device_attribute *attr, char *buf)
 	pm_runtime_get_sync(dev);
 	usleep_range(1000, 1100);
 
+	max_ports = HCS_MAX_PORTS(xhci->hcs_params1);
 	t = scnprintf(next, size,
 		"\n"
 		"USBCMD = 0x%08x\n"
-		"USBSTS = 0x%08x\n"
-		"PORTSC1 = 0x%08x\n"
-		"PORTSC2 = 0x%08x\n"
-		"PORTSC3 = 0x%08x\n"
-		"PORTSC4 = 0x%08x\n"
-		"PORTSC5 = 0x%08x\n"
-		"PORTSC6 = 0x%08x\n"
-		"PORTPMSC1 = 0x%08x\n"
-		"PORTPMSC2 = 0x%08x\n"
-		"PORTPMSC3 = 0x%08x\n"
-		"PORTPMSC4 = 0x%08x\n"
-		"PORTPMSC5 = 0x%08x\n"
-		"PORTPMSC6 = 0x%08x\n"
-		"PORTLI1 = 0x%08x\n"
-		"PORTLI2 = 0x%08x\n"
-		"PORTLI3 = 0x%08x\n"
-		"PORTLI4 = 0x%08x\n"
-		"PORTLI5 = 0x%08x\n"
-		"PORTLI6 = 0x%08x\n",
+		"USBSTS = 0x%08x\n",
 		xhci_readl(xhci, &xhci->op_regs->command),
-		xhci_readl(xhci, &xhci->op_regs->status),
-		xhci_readl(xhci, &xhci->op_regs->port_status_base),
-		xhci_readl(xhci, &xhci->op_regs->port_status_base + 4),
-		xhci_readl(xhci, &xhci->op_regs->port_status_base + 8),
-		xhci_readl(xhci, &xhci->op_regs->port_status_base + 12),
-		xhci_readl(xhci, &xhci->op_regs->port_status_base + 16),
-		xhci_readl(xhci, &xhci->op_regs->port_status_base + 20),
-		xhci_readl(xhci, &xhci->op_regs->port_power_base),
-		xhci_readl(xhci, &xhci->op_regs->port_power_base + 4),
-		xhci_readl(xhci, &xhci->op_regs->port_power_base + 8),
-		xhci_readl(xhci, &xhci->op_regs->port_power_base + 12),
-		xhci_readl(xhci, &xhci->op_regs->port_power_base + 16),
-		xhci_readl(xhci, &xhci->op_regs->port_power_base),
-		xhci_readl(xhci, &xhci->op_regs->port_link_base + 4),
-		xhci_readl(xhci, &xhci->op_regs->port_link_base + 8),
-		xhci_readl(xhci, &xhci->op_regs->port_link_base + 12),
-		xhci_readl(xhci, &xhci->op_regs->port_link_base + 16),
-		xhci_readl(xhci, &xhci->op_regs->port_link_base + 20)
+		xhci_readl(xhci, &xhci->op_regs->status)
 		);
+	size -= t;
+	next += t;
+
+	for (i = 0; i < max_ports; i++) {
+		t = scnprintf(next, size,
+			"PORTSC%d = 0x%08x\n"
+			"PORTPMSC%d = 0x%08x\n"
+			"PORTSC%d = 0x%08x\n",
+			i, xhci_readl(xhci, &xhci->op_regs->port_status_base + 4*i),
+			i, xhci_readl(xhci, &xhci->op_regs->port_power_base + 4*i),
+			i, xhci_readl(xhci, &xhci->op_regs->port_link_base + 4*i)
+			);
+		size -= t;
+		next += t;
+		if (size <= 0)
+			break;
+	}
 
 	pm_runtime_put_sync(dev);
 	usleep_range(1000, 1100);
