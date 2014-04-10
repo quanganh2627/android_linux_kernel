@@ -139,6 +139,8 @@ int sst_alloc_stream_mrfld(char *params, struct sst_block *block)
 	alloc_param.ring_buf_info[0].addr = str_params->aparams.ring_buf_info[0].addr;
 	alloc_param.ring_buf_info[0].size = str_params->aparams.ring_buf_info[0].size;
 	alloc_param.frag_size = str_params->aparams.frag_size;
+	alloc_param.no_irq = str_params->no_irq;
+	pr_debug("Period Elapsed request to LPE is set to %d\n", alloc_param.no_irq);
 
 	memcpy(&alloc_param.codec_params, &str_params->sparams,
 			sizeof(struct snd_sst_stream_params));

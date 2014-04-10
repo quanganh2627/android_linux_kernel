@@ -64,6 +64,7 @@ static struct snd_pcm_hardware sst_platform_pcm_hw = {
 			SNDRV_PCM_INFO_MMAP|
 			SNDRV_PCM_INFO_MMAP_VALID |
 			SNDRV_PCM_INFO_BLOCK_TRANSFER |
+			SNDRV_PCM_INFO_NO_PERIOD_WAKEUP |
 			SNDRV_PCM_INFO_SYNC_START),
 	.formats = (SNDRV_PCM_FMTBIT_S16 | SNDRV_PCM_FMTBIT_U16 |
 			SNDRV_PCM_FMTBIT_S24 | SNDRV_PCM_FMTBIT_U24 |
@@ -265,11 +266,13 @@ int sst_fill_stream_params(void *substream,
 	map = ctx->pdata->pdev_strm_map;
 	map_size = ctx->pdata->strm_map_size;
 
-	if (is_compress == true)
+	if (is_compress == true) {
 		cstream = (struct snd_compr_stream *)substream;
-	else
+		str_params->no_irq = 0;
+	} else {
 		pstream = (struct snd_pcm_substream *)substream;
-
+		str_params->no_irq = pstream->runtime->no_period_wakeup;
+	}
 	str_params->stream_type = SST_STREAM_TYPE_MUSIC;
 
 	/* For pcm streams */

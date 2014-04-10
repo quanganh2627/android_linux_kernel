@@ -561,6 +561,8 @@ struct snd_sst_params {
 	u8 stream_type;
 	u8 device_type;
 	u8 task;
+	/* Firmware should raise period elapsed or not */
+	u8 no_irq;
 	struct snd_sst_stream_params sparams;
 	struct snd_sst_alloc_params_ext aparams;
 };
@@ -573,6 +575,7 @@ struct snd_sst_alloc_mrfld {
 	u32 frag_size;
 	u32 ts;
 	struct snd_sst_stream_params codec_params;
+	u8 no_irq;
 } __packed;
 
 /* Alloc stream params structure */
