@@ -34,7 +34,8 @@ static struct regulator *vprog1_reg;
 
 static int is_moorefield(void)
 {
-	return INTEL_MID_BOARD(1, PHONE, MOFD);
+	return INTEL_MID_BOARD(1, PHONE, MOFD) ||
+		INTEL_MID_BOARD(1, TABLET, MOFD);
 }
 
 static int imx132_gpio_ctrl(struct v4l2_subdev *sd, int flag)
