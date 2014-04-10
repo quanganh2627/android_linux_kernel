@@ -39,7 +39,7 @@ extern struct sst_device *sst_dsp;
 #define SST_MAX_CHANNEL		2
 
 #define SST_MAX_BUFFER		96000 /*500ms@48K,16bit,2ch - CLV*/
-#define SST_MIN_PERIOD_BYTES	1536  /*24ms@16K,16bit,2ch - For VoIP on Mrfld*/
+#define SST_MIN_PERIOD_BYTES	80  /* 5ms@8K for VoLTE on mofd */
 #define SST_MAX_PERIOD_BYTES	48000 /*250ms@48K,16bit,2ch - CLV*/
 
 #define SST_MIN_PERIODS		2
