@@ -2674,7 +2674,7 @@ static int intel_mid_scu_ipc_osnib_debugfs_init(void)
 
 	scu_ipc_osnib_file_checksum = debugfs_create_file(
 		"CHECKSUM",
-		S_IFREG | S_IRUGO | S_IWUGO,
+		S_IFREG | S_IRUGO,
 		scu_ipc_osnib_dir,
 		NULL,
 		&scu_ipc_osnib_checksum_fops);
@@ -2684,7 +2684,7 @@ static int intel_mid_scu_ipc_osnib_debugfs_init(void)
 		ret = -1;
 	}
 
-	if (!debugfs_create_bool("invalid_checksum", S_IFREG | S_IRUGO | S_IWUGO,
+	if (!debugfs_create_bool("invalid_checksum", S_IFREG | S_IRUGO | S_IWUSR,
 		scu_ipc_osnib_dir, &invalid_checksum)) {
 		pr_err("%s: cannot create invalid_checksum debugfs file\n", __func__);
 		ret = -1;
