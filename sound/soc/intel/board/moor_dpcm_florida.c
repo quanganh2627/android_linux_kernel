@@ -296,6 +296,7 @@ static int moor_florida_set_vflex_vsel(struct snd_soc_dapm_widget *w,
 static const struct snd_soc_dapm_widget moor_widgets[] = {
 	SND_SOC_DAPM_HP("Headphones", NULL),
 	SND_SOC_DAPM_SPK("Ext Spk", NULL),
+	SND_SOC_DAPM_SPK("EP", NULL),
 	SND_SOC_DAPM_MIC("AMIC", NULL),
 	SND_SOC_DAPM_MIC("DMIC", NULL),
 	SND_SOC_DAPM_SUPPLY("VFLEXCNT", SND_SOC_NOPM, 0, 0,
@@ -313,6 +314,10 @@ static const struct snd_soc_dapm_route moor_map[] = {
 	{"Ext Spk", NULL, "SPKOUTLN"},
 	{"Ext Spk", NULL, "SPKOUTRP"},
 	{"Ext Spk", NULL, "SPKOUTRN"},
+
+	/*Earpiece*/
+	{ "EP", NULL, "HPOUT3L" },
+	{ "EP", NULL, "HPOUT3R" },
 
 	/*On Board DMIC*/
 	{"IN2L", NULL, "DMIC"},
@@ -344,6 +349,7 @@ static const struct snd_soc_dapm_route moor_map[] = {
 static const struct snd_kcontrol_new moor_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Headphones"),
 	SOC_DAPM_PIN_SWITCH("Ext Spk"),
+	SOC_DAPM_PIN_SWITCH("EP"),
 	SOC_DAPM_PIN_SWITCH("AMIC"),
 	SOC_DAPM_PIN_SWITCH("DMIC"),
 };
