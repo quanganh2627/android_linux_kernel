@@ -34,6 +34,7 @@
 #endif
 static int camera_vprog1_on;
 static int camera_reset;
+static int camera_1p8_en;
 
 /*
  * OV5693 platform data
@@ -110,17 +111,14 @@ static int ov5693_power_ctrl(struct v4l2_subdev *sd, int flag)
 	int ret = 0;
 	int pin = CAMERA_1P8_EN;
 
-	ret = gpio_request(pin, "camera_v1p8_en");
-	if (ret) {
-		pr_err("Request camera_v1p8_en failed.\n");
-		gpio_free(pin);
+	if (camera_1p8_en < 0) {
 		ret = gpio_request(pin, "camera_v1p8_en");
 		if (ret) {
-			pr_err("Request camera_v1p8_en still failed.\n");
+			pr_err("Request camera_v1p8_en failed.\n");
 			return ret;
 		}
+		camera_1p8_en = pin;
 	}
-	gpio_direction_output(pin, 0);
 
 	if (flag) {
 		if (!camera_vprog1_on) {
@@ -139,8 +137,13 @@ static int ov5693_power_ctrl(struct v4l2_subdev *sd, int flag)
 			pr_err("ov5693 power is not set.\n");
 #endif
 			/* enable 1.8v power */
-			gpio_set_value(pin, 1);
-
+			ret = gpio_direction_output(pin, 1);
+			if (ret) {
+				pr_err("%s: failed to set gpio(pin %d) direction\n",
+					__func__, pin);
+				gpio_free(pin);
+				return ret;
+			}
 			camera_vprog1_on = 1;
 			usleep_range(10000, 11000);
 		}
@@ -156,11 +159,12 @@ static int ov5693_power_ctrl(struct v4l2_subdev *sd, int flag)
 #endif
 			/* disable 1.8v power */
 			gpio_set_value(pin, 0);
+			gpio_free(pin);
+			camera_1p8_en = -1;
 			camera_vprog1_on = 0;
 		}
 	}
 
-	gpio_free(pin);
 	return 0;
 }
 
@@ -180,5 +184,6 @@ static struct camera_sensor_platform_data ov5693_sensor_platform_data = {
 void *ov5693_platform_data(void *info)
 {
 	camera_reset = -1;
+	camera_1p8_en = -1;
 	return &ov5693_sensor_platform_data;
 }
