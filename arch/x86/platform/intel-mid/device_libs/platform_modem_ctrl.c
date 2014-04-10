@@ -30,65 +30,6 @@
 
 #include "platform_modem_ctrl.h"
 
-/* Conversion table: SFI_NAME to mcd mdm version */
-static struct sfi_to_mdm mdm_assoc_table[] = {
-	/* IMC products */
-	{"XMM_6260", MODEM_6260},
-	{"XMM_6268", MODEM_6268},
-	{"XMM_6360", MODEM_6360},
-	{"XMM_7160", MODEM_7160},
-	{"XMM_7260", MODEM_7260},
-	/* Any other IMC products: set to 7160 by default */
-	{"XMM", MODEM_7160},
-	/* RMC products, not supported */
-	{"CYGNUS", MODEM_UNSUP},
-	{"PEGASUS", MODEM_UNSUP},
-	{"RMC", MODEM_UNSUP},
-	/* Whatever it may be, it's not supported */
-	{"", MODEM_UNSUP},
-};
-
-struct cfg_match {
-	char cfg_name[SFI_NAME_LEN + 1];
-	char mdm_name[SFI_NAME_LEN + 1];
-	int cpu_type;
-};
-
-static struct cfg_match cfg_assoc_tbl[] = {
-	/* Saltbay V2 */
-	{"XMM7160_CONF_1", "XMM_7160_REV3_5", CPU_TANGIER},
-	/* Saltbay PR1, PR2 */
-	{"XMM7160_CONF_2", "XMM_7160_REV3_5", CPU_TANGIER},
-	{"XMM7160_CONF_2", "XMM_7160_REV4", CPU_TANGIER},
-	/* Saltbay PR2 7260 */
-	{"XMM7260_CONF_2", "XMM_7260_REV1", CPU_TANGIER},
-	{"XMM7260_CONF_5", "XMM_7260_REV2", CPU_TANGIER},
-	{"XMM7260_CONF_8", "XMM_7260_REV2", CPU_TANGIER},
-	/* Baytrail FFRD8 */
-	{"XMM7160_CONF_3", "XMM_7160", CPU_VVIEW2},
-	/* CTP 7160 */
-	{"XMM7160_CONF_4", "XMM_7160_REV3", CPU_CLVIEW},
-	{"XMM7160_CONF_5", "XMM_7160_REV3_5", CPU_CLVIEW},
-	{"XMM7160_CONF_5", "XMM_7160_REV4", CPU_CLVIEW},
-	/* Redhookbay */
-	{"XMM6360_CONF_1", "XMM_6360", CPU_CLVIEW},
-	/* Moorefield */
-	{"XMM6360_CONF_3", "XMM_6360", CPU_ANNIEDALE},
-	{"XMM7160_CONF_6", "XMM_7160_REV3_5", CPU_ANNIEDALE},
-	{"XMM7160_CONF_6", "XMM_7160_REV4", CPU_ANNIEDALE},
-	{"XMM7260_CONF_1", "XMM_7260_REV1", CPU_ANNIEDALE},
-	{"XMM7260_CONF_4", "XMM_7260_REV2", CPU_ANNIEDALE},
-	{"XMM7260_CONF_6", "XMM_7260_REV2", CPU_ANNIEDALE},
-	{"XMM7260_CONF_9", "XMM_7260_REV2", CPU_ANNIEDALE},
-	{"XMM7260_CONF_10", "XMM_7260_REV2", CPU_ANNIEDALE},
-	/* Cherrytrail */
-	{"XMM7260_CONF_2", "XMM_7260_REV1", CPU_CHERRYVIEW},
-	{"XMM7260_CONF_3", "XMM_7260_REV2", CPU_CHERRYVIEW},
-	{"XMM7260_CONF_7", "XMM_7260_REV2", CPU_CHERRYVIEW},
-	/* Baytrail M2 */
-	{"XMM7160_CONF_7", "XMM_7160", CPU_VVIEW2},
-};
-
 /* Modem data */
 static struct mdm_ctrl_mdm_data mdm_6260 = {
 	.pre_on_delay = 200,
@@ -292,6 +233,25 @@ void mcd_register_finalize(struct mcd_base_info const *info)
 	return;
 }
 
+void mcd_set_mdm(struct mcd_base_info *info, int mdm_ver)
+{
+	info->mdm_ver = mdm_ver;
+	info->modem_data = modem_data[info->mdm_ver];
+
+	/* @TODO: remove this code once sysfs modem_name is removed */
+	switch (mdm_ver) {
+	case MODEM_6360:
+		strncpy(modem_name, "6360", sizeof(modem_name));
+		break;
+	case MODEM_7160:
+		strncpy(modem_name, "7160", sizeof(modem_name));
+		break;
+	case MODEM_7260:
+		strncpy(modem_name, "7260", sizeof(modem_name));
+		break;
+	}
+}
+
 /**
  * mcd_register_mdm_info - Register information retrieved from SFI table
  * @info: struct including modem name and PMIC.
@@ -307,7 +267,6 @@ int mcd_register_mdm_info(struct mcd_base_info *info,
 	};
 
 	pr_info("%s : cpu info setup\n", __func__);
-	info->modem_data = modem_data[info->mdm_ver];
 	info->cpu_data = cpu_data[info->cpu_ver];
 	info->pmic_data = pmic_data[info->pmic_ver];
 	mcd_register_finalize(info);
@@ -316,66 +275,6 @@ int mcd_register_mdm_info(struct mcd_base_info *info,
 	pdev->dev.platform_data = mcd_reg_info;
 
 	return 0;
-}
-
-int mcd_get_modem_ver(char *mdm_name)
-{
-	int modem = 0;
-
-	if (strstr(mdm_name, "CONF")) {
-		while (cfg_assoc_tbl[modem].cfg_name) {
-			if (strstr(mdm_name, cfg_assoc_tbl[modem].cfg_name)) {
-				strncpy(modem_name, cfg_assoc_tbl[modem].mdm_name, SFI_NAME_LEN);
-				break;
-			}
-			modem++;
-		}
-	} else
-		strncpy(modem_name, mdm_name, SFI_NAME_LEN);
-
-	modem = 0;
-	/* Retrieve modem ID from modem name */
-	while (mdm_assoc_table[modem].modem_name[0]) {
-		/* Search for mdm_name in table.
-		 * Consider support as far as generic name is in the table.
-		 */
-		if (strstr(mdm_name, mdm_assoc_table[modem].modem_name))
-			return mdm_assoc_table[modem].modem_type;
-		modem++;
-	}
-	return MODEM_UNSUP;
-}
-
-int mcd_get_config_ver(char *mdm_name, int mid_cpu)
-{
-	ssize_t i = 0;
-
-	if (strstr(mdm_name, "CONF"))
-		strncpy(config_name, mdm_name, SFI_NAME_LEN - 1);
-	else {
-		memset(config_name, 0, SFI_NAME_LEN);
-		for (i = 0; i < ARRAY_SIZE(cfg_assoc_tbl); i++) {
-			if (!strncmp(cfg_assoc_tbl[i].mdm_name, mdm_name, SFI_NAME_LEN)
-					&& (cfg_assoc_tbl[i].cpu_type == mid_cpu)) {
-				strncpy(config_name, cfg_assoc_tbl[i].cfg_name,
-						SFI_NAME_LEN);
-				/* Null terminate config_name to please KW */
-				config_name[SFI_NAME_LEN - 1] = '\0';
-				break;
-			}
-		}
-		if (!strlen(config_name))
-			return -1;
-	}
-	return 0;
-}
-
-int mcd_get_config_type(void)
-{
-	if (!strncmp(config_name, "XMM7160_CONF_7", SFI_NAME_LEN))
-		return XMM_CONF_M2;
-	else
-		return XMM_CONF_GENERIC;
 }
 
 int mcd_get_cpu_ver(void)
@@ -428,11 +327,11 @@ int mcd_get_pmic_ver(void)
 
 /*
  * modem_platform_data - Platform data builder for modem devices
- * @data: pointer to modem name retrived in sfi table
+ * @data: pointer to modem name retrieved in sfi table
  */
 void *modem_platform_data(void *data)
 {
-	char *mdm_name = data;
+	char *cfg_name = data;
 	struct mcd_base_info *mcd_info;
 	pr_debug("SFI %s: modem info setup\n", __func__);
 
@@ -440,21 +339,22 @@ void *modem_platform_data(void *data)
 	if (!mcd_info)
 		return NULL;
 
-	mcd_info->mdm_ver = mcd_get_modem_ver(mdm_name);
+	mcd_info->mdm_ver = MODEM_UNSUP;
 	mcd_info->cpu_ver = mcd_get_cpu_ver();
 	mcd_info->pmic_ver = mcd_get_pmic_ver();
-	if (mcd_get_config_ver(mdm_name, mcd_info->cpu_ver)) {
-		pr_err("%s: no telephony configuration found", __func__);
-		kfree(mcd_info);
-		return NULL;
-	}
-	/* Convert the configuration name to mcd configuration type*/
-	mcd_info->conf_type = mcd_get_config_type();
-	pr_info("SFI %s cpu: %d mdm: %d pmic: %d.\n", __func__,
-		mcd_info->cpu_ver, mcd_info->mdm_ver, mcd_info->pmic_ver);
-	pr_info("SFI %s cpu: %s, mdm: %s:, conf: %s\n", __func__,
-		cpu_name, mdm_name, config_name);
+	/* Some boards have wrong SFI content. The modem info is provided
+	 * instead of the config name.
+	 * @TODO: remove this code once those boards are no more supported */
+	if (!strcmp(cfg_name, "XMM_7160_REV4")) {
+		pr_info("wrong config name (%s). Might be a Saltbay 7160\n",
+			cfg_name);
+		strncpy(config_name, "XMM7160_CONF_2", SFI_NAME_LEN - 1);
+	} else
+		/* normal case */
+		strncpy(config_name, cfg_name, SFI_NAME_LEN - 1);
 
+	pr_info("SFI %s cpu: %d pmic: %d cfg: %s.\n", __func__,
+		mcd_info->cpu_ver, mcd_info->pmic_ver, config_name);
 
 	return mcd_info;
 }
@@ -539,7 +439,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	struct mdm_ctrl_cpu_data *cpu_data;
 	struct mdm_ctrl_mdm_data *mdm_data;
 	struct mdm_ctrl_pmic_data *pmic_data;
-	int mid_cpu;
+	int i;
 
 	if (!pdev) {
 		pr_err("%s: platform device is NULL.", __func__);
@@ -584,33 +484,20 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 		goto free_mdm_info;
 	}
 
-	/* Retrieve Modem name from ACPI */
-	status = get_acpi_param(handle, ACPI_TYPE_STRING, "MDMN", &out_obj);
-	if (ACPI_FAILURE(status)) {
-		pr_err("%s: ERROR evaluating Modem Name\n", __func__);
-		goto free_mdm_info;
-	}
-
-	mcd_reg_info->mdm_ver = mcd_get_modem_ver(out_obj->string.pointer);
-	if (mcd_reg_info->mdm_ver == MODEM_UNSUP) {
-		pr_err("%s: ERROR Modem %s Not supported!\n", __func__,
-		       modem_name);
-		goto free_mdm_info;
-	}
-	mcd_reg_info->modem_data = modem_data[mcd_reg_info->mdm_ver];
+	mcd_reg_info->mdm_ver = MODEM_UNSUP;
 
 	/* Retrieve Telephony configuration name from ACPI */
 	status = get_acpi_param(handle, ACPI_TYPE_STRING, "CONF", &out_obj);
 	if (ACPI_FAILURE(status)) {
-		if (mcd_get_config_ver(modem_name, mcd_reg_info->cpu_ver)) {
-			pr_err("%s: ERROR evaluating Modem Name\n", __func__);
-			goto free_mdm_info;
-		}
-	} else
-		mcd_get_config_ver(out_obj->string.pointer, mcd_reg_info->cpu_ver);
-
-	/* Convert the configuration name to mcd configuration type*/
-	mcd_reg_info->conf_type = mcd_get_config_type();
+		/* This is a workaround to handle Baytrail FFRD8 wrong ACPI
+		 * table.
+		 * @TODO: remove this code once this board is no more
+		 * supported */
+		pr_info("CONF field is empty. Might be a Baytrail FFRD8 board");
+		strncpy(config_name, "XMM7160_CONF_3", SFI_NAME_LEN - 1);
+	} else {
+		strncpy(config_name, out_obj->string.pointer, SFI_NAME_LEN - 1);
+	}
 
 	/* PMIC */
 	switch (mcd_reg_info->cpu_ver) {
@@ -651,36 +538,8 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 
 	pr_info("%s: cpu info setup\n", __func__);
 
-	/* finalize cpu data */
-	if (mcd_reg_info->conf_type == XMM_CONF_M2) {
-		/* M.2 specific GPIO configuration */
-		cpu_data->gpio_wwan_disable =
-			acpi_get_gpio_by_index(&pdev->dev, 0, NULL);
-		cpu_data->gpio_wake_on_wwan =
-			acpi_get_gpio_by_index(&pdev->dev, 1, NULL);
-		cpu_data->gpio_rst_bbn =
-			acpi_get_gpio_by_index(&pdev->dev, 2, NULL);
-
-		pr_info("%s:Setup GPIOs(WWAN_Disable:%d, W_WWAN:%d, RB:%d)",
-			__func__,
-			cpu_data->gpio_wwan_disable,
-			cpu_data->gpio_wake_on_wwan,
-			cpu_data->gpio_rst_bbn);
-	} else {
-		cpu_data->gpio_pwr_on =
-			acpi_get_gpio_by_index(&pdev->dev, 0, NULL);
-		cpu_data->gpio_cdump =
-			acpi_get_gpio_by_index(&pdev->dev, 1, NULL);
-		cpu_data->gpio_rst_out =
-			acpi_get_gpio_by_index(&pdev->dev, 2, NULL);
-		cpu_data->gpio_rst_bbn =
-			 acpi_get_gpio_by_index(&pdev->dev, 3, NULL);
-		pr_info("%s:Setup GPIOs(PO:%d, RO:%d, RB:%d, CD:%d)",
-			__func__,
-			cpu_data->gpio_pwr_on,
-			cpu_data->gpio_rst_out,
-			cpu_data->gpio_rst_bbn, cpu_data->gpio_cdump);
-	}
+	for (i = 0; i < ARRAY_SIZE(cpu_data->entries); i++)
+		cpu_data->entries[i] = acpi_get_gpio_by_index(&pdev->dev, i, NULL);
 
 	status = get_acpi_param(handle, ACPI_TYPE_PACKAGE, "EPWR", &out_obj);
 	if (ACPI_FAILURE(status)) {
@@ -700,6 +559,41 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	kfree(mcd_reg_info);
 #endif
 	return NULL;
+}
+
+int mcd_finalize_cpu_data(struct mcd_base_info *mcd_reg_info)
+{
+#ifdef CONFIG_ACPI
+	struct mdm_ctrl_cpu_data *cpu_data = mcd_reg_info->cpu_data;
+	int ret = 0;
+
+	/* finalize cpu data */
+	if (mcd_reg_info->board_type == BOARD_NGFF) {
+		cpu_data->gpio_wwan_disable = cpu_data->entries[0];
+		cpu_data->gpio_rst_bbn = cpu_data->entries[2];
+
+		pr_info("%s: Setup GPIOs(WWAN_Disable:%d, RB:%d)",
+				__func__,
+				cpu_data->gpio_wwan_disable,
+				cpu_data->gpio_rst_bbn);
+	} else if (mcd_reg_info->board_type == BOARD_AOB) {
+		cpu_data->gpio_pwr_on = cpu_data->entries[0];
+		cpu_data->gpio_cdump = cpu_data->entries[1];
+		cpu_data->gpio_rst_out = cpu_data->entries[2];
+		cpu_data->gpio_rst_bbn = cpu_data->entries[3];
+
+		pr_info("%s: Setup GPIOs(PO:%d, RO:%d, RB:%d, CD:%d)",
+				__func__,
+				cpu_data->gpio_pwr_on,
+				cpu_data->gpio_rst_out,
+				cpu_data->gpio_rst_bbn, cpu_data->gpio_cdump);
+	} else
+		ret = -1;
+
+	return ret;
+#else
+	return 0;
+#endif
 }
 
 /*
