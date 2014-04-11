@@ -3787,6 +3787,13 @@ int xhci_address_device(struct usb_hcd *hcd, struct usb_device *udev)
 	if (timeleft <= 0) {
 		xhci_warn(xhci, "%s while waiting for address device command\n",
 				timeleft == 0 ? "Timeout" : "Signal");
+		xhci_dbg(xhci, "xhci registers:\n");
+		xhci_print_registers(xhci);
+		xhci_dbg(xhci, "Command ring:\n");
+		xhci_debug_ring(xhci, xhci->cmd_ring);
+		xhci_dbg(xhci, "Event ring:\n");
+		xhci_debug_ring(xhci, xhci->event_ring);
+
 		/* cancel the address device command */
 		ret = xhci_cancel_cmd(xhci, NULL, cmd_trb);
 		if (ret < 0)
