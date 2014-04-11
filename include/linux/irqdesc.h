@@ -1,6 +1,12 @@
 #ifndef _LINUX_IRQDESC_H
 #define _LINUX_IRQDESC_H
 
+#ifdef CONFIG_SPARSE_IRQ
+# define IRQ_BITMAP_BITS	(NR_IRQS + 8196)
+#else
+# define IRQ_BITMAP_BITS	NR_IRQS
+#endif
+
 /*
  * Core internal functions to deal with irq descriptors
  *
@@ -128,13 +134,6 @@ static inline int irq_is_chained(unsigned int irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	return desc->status_use_accessors & IRQ_CHAINED;
-}
-
-/* Test to see if the IRQ is nested_thread */
-static inline int irq_is_nested_thread(unsigned int irq)
-{
-	struct irq_desc *desc = irq_to_desc(irq);
-	return desc->status_use_accessors & IRQ_NESTED_THREAD;
 }
 
 /* caller has locked the irq_desc and both params are valid */
