@@ -1291,6 +1291,11 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	if (hsic_pdata->no_power_gate)
 		xhci_no_power_gate_on_d3(dev, hcd);
 
+	/* Disable the HSIC port */
+	dev_info(&dev->dev, "disable hsic on driver init\n");
+	clear_port_feature(hsic.rh_dev, hsic.hsic_port_num,
+		USB_PORT_FEAT_POWER);
+
 	pm_runtime_allow(&dev->dev);
 	hsic.port_disconnect = 0;
 	hsic_enable = 1;
