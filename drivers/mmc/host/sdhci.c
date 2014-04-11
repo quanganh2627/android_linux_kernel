@@ -2404,6 +2404,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	 * so use fixed sampling frequency.
 	 */
 	if (!tuning_loop_counter) {
+		ctrl &= ~SDHCI_CTRL_EXEC_TUNING;
 		ctrl &= ~SDHCI_CTRL_TUNED_CLK;
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 	} else {
@@ -2430,7 +2431,8 @@ out:
 		/* Tuning mode 1 limits the maximum data length to 4MB */
 		mmc->max_blk_count = (4 * 1024 * 1024) / mmc->max_blk_size;
 	} else {
-		host->flags &= ~SDHCI_NEEDS_RETUNING;
+		if (tuning_loop_counter)
+			host->flags &= ~SDHCI_NEEDS_RETUNING;
 		/* Reload the new initial value for timer */
 		if ((host->tuning_mode == SDHCI_TUNING_MODE_1) &&
 				host->tuning_count)
