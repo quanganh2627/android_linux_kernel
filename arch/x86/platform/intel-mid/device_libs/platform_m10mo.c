@@ -30,6 +30,13 @@ static int camera_power_down = -1;
 static void setup_m10mo_spi(struct m10mo_atomisp_spi_platform_data *spi_pdata,
 			    void *data);
 
+static int intr_gpio = -1;		/* m10mo interrupt pin */
+/*
+ * Configure these based on the board. Currently we don't get these
+ * from BIOS / IAFW
+ */
+static int cs_chip_select = -1;
+
 /*
  * Ext-ISP m10mo platform data
  */
@@ -57,45 +64,14 @@ static int m10mo_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int m10mo_gpio_intr_ctrl(struct v4l2_subdev *sd)
 {
-	int ret, pin;
-	int gpio = -1;
-	static const char gpio_name[] = "xenon_ready";
-	bool flag;
-
-	if (gpio == -1) {
-		pin = get_gpio_by_name(gpio_name);
-		if (pin == -1) {
-			pr_err("Failed to get gpio\n");
-			return -EINVAL;
-		}
-		pr_info("camera interrupt gpio: %d\n", pin);
-	} else {
-		pin = gpio;
-	}
-
-	ret = gpio_request(pin, gpio_name);
-	if (ret) {
-		pr_err("Failed to request interrupt gpio(pin %d)\n", pin);
-		return -EINVAL;
-	}
-
 	/* This should be done in pin cfg XML and not here */
 	config_pin_flis(ann_gp_camerasb_3, PULL, UP_50K);
 	config_pin_flis(ann_gp_camerasb_3, MUX, MUX_EN_INPUT_EN | INPUT_EN);
 
-	ret = gpio_direction_input(pin);
+	if (intr_gpio >= 0)
+		return intr_gpio;
 
-	flag = gpio_get_value(pin);
-
-	if (ret) {
-		pr_err("failed to set int gpio(pin %d) direction\n", pin);
-		gpio_free(pin);
-	}
-
-	if (!ret)
-		return pin;
-	else
-		return -EINVAL;
+	return -EINVAL;
 }
 
 static int m10mo_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
@@ -120,12 +96,6 @@ static struct m10mo_fw_id fw_ids[] = {
 	{ "TEST", M10MO_FW_TYPE_1 },
 	{ NULL, 0},
 };
-
-/*
- * Configure these based on the board. Currently we don't get these
- * from BIOS / IAFW
- */
-static int cs_chip_select = -1;
 
 static void spi_hw_resources_setup(struct m10mo_atomisp_spi_platform_data *pdata)
 {
@@ -178,12 +148,57 @@ static struct intel_mid_ssp_spi_chip spi_chip = {
 	.cs_control	= spi_cs_control,
 };
 
+static int m10mo_platform_init(void)
+{
+	static const char gpio_name[] = "xenon_ready";
+	int ret;
+
+	if (intr_gpio == -1) {
+		intr_gpio = get_gpio_by_name(gpio_name);
+		if (intr_gpio == -1) {
+			pr_err("Failed to get interrupt gpio\n");
+			return -EINVAL;
+		}
+		pr_info("camera interrupt gpio: %d\n", intr_gpio);
+	}
+
+	ret = gpio_request(intr_gpio, gpio_name);
+	if (ret) {
+		pr_err("Failed to request interrupt gpio(pin %d)\n", intr_gpio);
+		return -EINVAL;
+	}
+
+	ret = gpio_direction_input(intr_gpio);
+	if (ret) {
+		pr_err("failed to set interrupt gpio %d direction\n",
+				intr_gpio);
+		gpio_free(intr_gpio);
+		intr_gpio = -1;
+	}
+
+	return ret;
+}
+
+static int m10mo_platform_deinit(void)
+{
+	if (intr_gpio >= 0)
+		gpio_free(intr_gpio);
+	if (cs_chip_select >= 0)
+		gpio_free(cs_chip_select);
+	intr_gpio = -1;
+	cs_chip_select = -1;
+
+	return 0;
+}
+
 static struct m10mo_platform_data m10mo_sensor_platform_data = {
 	/* Common part for all sensors used with atom isp */
 	.common.gpio_ctrl	= m10mo_gpio_ctrl,
 	.common.gpio_intr_ctrl	= m10mo_gpio_intr_ctrl,
 	.common.flisclk_ctrl	= m10mo_flisclk_ctrl,
 	.common.csi_cfg		= m10mo_csi_configure,
+	.common.platform_init	= m10mo_platform_init,
+	.common.platform_deinit = m10mo_platform_deinit,
 
 	/* platform data for spi flashing */
 	.spi_pdata.spi_enabled	= false, /* By default SPI is not available */
