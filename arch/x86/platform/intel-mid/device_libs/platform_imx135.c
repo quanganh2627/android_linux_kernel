@@ -53,7 +53,8 @@ static int is_victoriabay(void)
 
 static int is_moorefield(void)
 {
-	return INTEL_MID_BOARD(1, PHONE, MOFD);
+	return INTEL_MID_BOARD(1, PHONE, MOFD) ||
+	       INTEL_MID_BOARD(1, TABLET, MOFD);
 }
 
 /*
