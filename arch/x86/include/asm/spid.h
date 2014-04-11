@@ -27,7 +27,7 @@ static struct kobj_attribute _name##_attr = { \
 }
 
 
-#define INTEL_PLATFORM_SSN_SIZE	32
+#define INTEL_PLATFORM_SSN_SIZE	20
 extern struct soft_platform_id spid;
 extern char intel_platform_ssn[INTEL_PLATFORM_SSN_SIZE + 1];
 
