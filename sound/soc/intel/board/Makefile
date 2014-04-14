@@ -26,6 +26,9 @@ snd-merr-dpcm-wm8958-objs := merr_dpcm_wm8958.o
 snd-cht-bl-rt5672-objs := cht_bl_rt5672.o
 snd-cht-dpcm-rt5672-objs := cht_bl_dpcm_rt5672.o
 
+# Moorefield board
+snd-moor-dpcm-florida-objs := moor_dpcm_florida.o
+
 ifdef CONFIG_SST_DPCM
 	obj-$(CONFIG_SND_CHT_MACHINE) += snd-cht-dpcm-rt5672.o
 	obj-$(CONFIG_SND_MRFLD_MACHINE) += snd-merr-dpcm-wm8958.o
@@ -35,7 +38,7 @@ else
 endif
 
 # Moorefield board
-obj-$(CONFIG_SND_MOOR_MACHINE) += snd-merr-dpcm-wm8958.o
+obj-$(CONFIG_SND_MOOR_MACHINE) += snd-merr-dpcm-wm8958.o snd-moor-dpcm-florida.o
 obj-$(CONFIG_SND_MOOR_MACHINE) += snd-merr-saltbay-wm8958.o
 
 # Baytrail board
