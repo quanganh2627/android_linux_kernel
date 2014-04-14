@@ -1389,6 +1389,7 @@ typedef struct drm_i915_private {
 	bool clockbend;
 	bool unplug;
 	bool maxfifo_enabled;
+	bool is_tiled;
 	u32 gt_irq_mask;
 	u32 pm_irq_mask;
 

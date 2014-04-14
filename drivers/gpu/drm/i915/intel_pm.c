@@ -1531,7 +1531,16 @@ static void vlv_update_drain_latency(struct drm_device *dev)
 				DDL_PLANEA_PRECISION_32 :
 				DDL_PLANEA_PRECISION_64;
 
-		I915_WRITE_BITS(VLV_DDL1, planea_prec | planea_dl, 0x000000ff);
+		/*
+		 * TODO: This is a hack to fix pdf flicker issue, need
+		 * to re work and provide a proper fix.
+		 */
+		if (((I915_READ(DSPCNTR(PLANE_A))) &
+					DISPPLANE_TILED) | dev_priv->is_tiled)
+			I915_WRITE_BITS(VLV_DDL1, planea_prec | planea_dl,
+					0x000000ff);
+		else
+			I915_WRITE_BITS(VLV_DDL1, 0x0000, 0x000000ff);
 	} else
 		I915_WRITE_BITS(VLV_DDL1, 0x0000, 0x000000ff);
 
@@ -3325,8 +3334,16 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 					DDL_SPRITEB_PRECISION_64;
 		}
 
-		I915_WRITE_BITS(VLV_DDL(intel_plane->pipe),
+		/*
+		 * TODO: This is a hack to fix pdf flicker issue, need
+		 * to re work and provide a proper fix.
+		 */
+		if (((I915_READ(SPCNTR(intel_plane->plane, intel_plane->pipe)))
+					& DISPPLANE_TILED) | dev_priv->is_tiled)
+			I915_WRITE_BITS(VLV_DDL(intel_plane->pipe),
 				sprite_prec | (sprite_dl << shift), mask);
+		else
+			I915_WRITE_BITS(VLV_DDL(intel_plane->pipe), 0x00, mask);
 	} else
 		I915_WRITE_BITS(VLV_DDL(intel_plane->pipe), 0x00, mask);
 

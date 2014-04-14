@@ -2339,10 +2339,19 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		rotate = true;
 
 	if (INTEL_INFO(dev)->gen >= 4) {
-		if (obj->tiling_mode != I915_TILING_NONE)
+		if (obj->tiling_mode != I915_TILING_NONE) {
 			dspcntr |= DISPPLANE_TILED;
-		else
+			dev_priv->is_tiled = true;
+		} else {
 			dspcntr &= ~DISPPLANE_TILED;
+			dev_priv->is_tiled = false;
+			/*
+			 * TODO: This is a hack to fix pdf flicker issue, need
+			 * to re work and provide a proper fix.
+			 */
+			if (IS_VALLEYVIEW(dev))
+				I915_WRITE(VLV_DDL1, 0x00000000);
+		}
 	}
 
 	if (IS_G4X(dev))
