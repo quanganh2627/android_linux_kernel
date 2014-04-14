@@ -1043,21 +1043,40 @@ void intel_hdmi_send_uevent(struct drm_device *dev, char *uevent)
 struct edid *intel_hdmi_get_edid(struct drm_connector *connector, bool force)
 {
 	bool current_state = false;
+	bool saved_state = false;
 
 	struct edid *new_edid = NULL;
 	struct i2c_adapter *adapter = NULL;
 	struct drm_device *dev = connector->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
+	u32 hotplug_status = dev_priv->hotplug_status;
+	enum port hdmi_port = hdmi_to_dig_port(intel_hdmi)->port;
+	unsigned char retry = HDMI_EDID_RETRY_COUNT;
 
 	if (!intel_hdmi) {
 		DRM_ERROR("Invalid input to get hdmi\n");
 		return NULL;
 	}
 
-	current_state = intel_hdmi_live_status(connector);
-	/* Read EDID if live status is up */
-	if (current_state || force) {
+	/* Get the saved status from top half */
+	saved_state = hotplug_status & (1 << (HDMI_LIVE_STATUS_BASE - hdmi_port));
+
+	/* Few monitors are slow to respond on EDID and live status,
+	so read live status multiple times within a max delay of 30ms */
+	do {
+		mdelay(HDMI_LIVE_STATUS_DELAY_STEP);
+		current_state = intel_hdmi_live_status(connector);
+		if (current_state)
+			break;
+	} while (retry--);
+
+	/* Compare current status, and saved status in top half */
+	if (current_state != saved_state)
+		DRM_DEBUG_DRIVER("Warning: Saved HDMI status != current status");
+
+	/* Read EDID if live status or saved status is up, or we are forced */
+	if (current_state || saved_state || force) {
 
 		adapter = intel_gmbus_get_adapter(dev_priv,
 					intel_hdmi->ddc_bus);
@@ -1066,8 +1085,17 @@ struct edid *intel_hdmi_get_edid(struct drm_connector *connector, bool force)
 			return NULL;
 		}
 
+		/* Few monitors issue EDID after some delay, so give them
+		some chnaces, but within 30ms */
+		retry = 3;
+READ_EDID:
 		new_edid = drm_get_edid(connector, adapter);
 		if (!new_edid) {
+			if (retry--) {
+				mdelay(HDMI_LIVE_STATUS_DELAY_STEP);
+				goto READ_EDID;
+			}
+
 			DRM_ERROR("Get_hdmi cant read edid\n");
 			return NULL;
 		}
