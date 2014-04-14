@@ -67,3 +67,4 @@ obj-$(CONFIG_INTEL_CRYSTALCOVE_PAGE0)	+= intel_crystalcove_page0.o
 obj-$(CONFIG_INTEL_BYTCR_BOOST_CNTL)	+= intel_bytcr_bcntl.o
 obj-$(CONFIG_ACPI) += intel_em_config.o
 obj-$(CONFIG_INTEL_FG_HELPER)	+= intel_fg_helper.o
+obj-$(CONFIG_INTEL_MID_PMIC)		+= dc_xpwr_pwrsrc.o
