@@ -168,9 +168,13 @@ int iio_basincove_gpadc_sample(struct iio_dev *indio_dev,
 		8140, 4070, 2030, 0, 260420, 130210};
 
 	struct gpadc_regs_t *regs = info->gpadc_regs;
+	bool pmic_a0 = false;
 
 	if (!info->initialized)
 		return -ENODEV;
+
+	pmic_a0 = ((info->pmic_id & PMIC_MAJOR_REV_MASK) == PMIC_MAJOR_REV_A0)
+		&& ((info->pmic_id & PMIC_MINOR_REV_MASK) == PMIC_MINOR_REV_X0);
 
 	mutex_lock(&info->lock);
 
@@ -229,16 +233,22 @@ int iio_basincove_gpadc_sample(struct iio_dev *indio_dev,
 				case PMIC_GPADC_CHANNEL_SYSTEMP0:
 				case PMIC_GPADC_CHANNEL_SYSTEMP1:
 				case PMIC_GPADC_CHANNEL_SYSTEMP2:
-				case PMIC_GPADC_CHANNEL_USBID:
-					if (!info->pmic_id  && !info->is_pmic_provisioned) {
-						/* Auto mode with Scaling 4 for non-provisioned A0*/
+					if (pmic_a0 &&
+						!info->is_pmic_provisioned) {
+						/* Auto mode with Scaling 4
+						 * for non-provisioned A0 */
 						rlsb = 32550;
-					} else {
-						/* Auto mode without Scaling */
-						cursrc = (th & 0xF0) >> 4;
-						rlsb = rlsb_array[cursrc];
+						res->data[i] =
+							(reg_val * rlsb)/10000;
+						break;
 					}
-
+				/* Case fall-through for PMIC-A1 onwards.
+				 * For USBID, Auto-mode-without-scaling always
+				 */
+				case PMIC_GPADC_CHANNEL_USBID:
+					/* Auto mode without Scaling */
+					cursrc = (th & 0xF0) >> 4;
+					rlsb = rlsb_array[cursrc];
 					res->data[i] = (reg_val * rlsb)/10000;
 					break;
 				}

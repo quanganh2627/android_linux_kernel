@@ -36,6 +36,11 @@
 #define BASINCOVE_VENDORID      (0x03 << 6)
 #define SHADYCOVE_VENDORID      0x00
 
+#define PMIC_MAJOR_REV_A0       0x00
+#define PMIC_MAJOR_REV_B0       (0x01 << 3)
+#define PMIC_MINOR_REV_X0       0x00
+#define PMIC_MINOR_REV_X1       (0x01 << 0)
+
 /* Register on I2C-dev2-0x6E */
 #define PMIC_SPARE03_ADDR	0x010B
 #define PMIC_PROVISIONED	(0x01 << 1)
