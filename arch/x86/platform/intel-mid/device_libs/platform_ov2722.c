@@ -33,12 +33,22 @@
 #define CAMERA_1_RESET_CRV2 120
 #define CAMERA_1_PWDN 124
 #define CAMERA_1_PWDN_CHT 152
+#define CAMERA_1P8_EN_CHT	153
 #ifdef CONFIG_VLV2_PLAT_CLK
 #define OSC_CAM1_CLK 0x1
 #define CLK_19P2MHz 0x1
 #define CLK_ON	0x1
 #define CLK_OFF	0x2
 #endif
+/* PWDN - LOW active */
+#define IS_PWDN_LOW_ACTIVE \
+	(spid.hardware_id == BYT_TABLET_BLK_8PR0 ||\
+	spid.hardware_id == BYT_TABLET_BLK_8PR1 ||\
+	spid.hardware_id == BYT_TABLET_BLK_CRV2 ||\
+	spid.hardware_id == CHT_TABLET_FRD_PR0 ||\
+	spid.hardware_id == CHT_TABLET_FRD_PR1 ||\
+	spid.hardware_id == CHT_TABLET_FRD_PR2)
+
 #ifdef CONFIG_CRYSTAL_COVE
 #define ALDO1_SEL_REG	0x28
 #define ALDO1_CTRL3_REG	0x13
@@ -77,6 +87,7 @@ static enum pmic_ids pmic_id;
 #endif
 
 static int camera_vprog1_on;
+static int camera_1p8_en;
 static int gp_camera1_power_down;
 static int gp_camera1_reset;
 
@@ -283,9 +294,7 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 		gp_camera1_power_down = pin;
 
-		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
-		    spid.hardware_id == BYT_TABLET_BLK_8PR1 ||
-		    spid.hardware_id == BYT_TABLET_BLK_CRV2)
+		if (IS_PWDN_LOW_ACTIVE)
 			ret = gpio_direction_output(pin, 0);
 		else
 			ret = gpio_direction_output(pin, 1);
@@ -298,9 +307,7 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	}
 	if (flag) {
-		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
-		    spid.hardware_id == BYT_TABLET_BLK_8PR1 ||
-		    spid.hardware_id == BYT_TABLET_BLK_CRV2)
+		if (IS_PWDN_LOW_ACTIVE)
 			gpio_set_value(gp_camera1_power_down, 0);
 		else
 			gpio_set_value(gp_camera1_power_down, 1);
@@ -310,9 +317,7 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		gpio_set_value(gp_camera1_reset, 1);
 	} else {
 		gpio_set_value(gp_camera1_reset, 0);
-		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
-		    spid.hardware_id == BYT_TABLET_BLK_8PR1 ||
-		    spid.hardware_id == BYT_TABLET_BLK_CRV2)
+		if (IS_PWDN_LOW_ACTIVE)
 			gpio_set_value(gp_camera1_power_down, 1);
 		else
 			gpio_set_value(gp_camera1_power_down, 0);
@@ -352,6 +357,7 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 #endif
 	int ret = 0;
+	int pin = CAMERA_1P8_EN_CHT;
 
 	/*
 	 * FIXME: VRF has no implementation for CHT now,
@@ -359,6 +365,14 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 	 */
 #ifdef CONFIG_CRYSTAL_COVE
 	if (IS_CHT) {
+		if (camera_1p8_en < 0) {
+			ret = gpio_request(pin, "camera_v1p8_en");
+			if (ret) {
+				pr_err("Request camera_v1p8_en failed.\n");
+				return ret;
+			}
+			camera_1p8_en = pin;
+		}
 		if (flag) {
 			if (!camera_vprog1_on) {
 				ret = camera_set_pmic_power(CAMERA_2P8V, true);
@@ -374,6 +388,15 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 					dev_err(&client->dev,
 						"Failed to enable pmic power v1p8\n");
 				}
+				ret = gpio_direction_output(pin, 1);
+				if (ret) {
+					dev_err(&client->dev,
+						"%s: failed to set gpio(pin %d) direction\n",
+						__func__, pin);
+					gpio_free(pin);
+					return ret;
+				}
+				camera_vprog1_on = 1;
 			}
 		} else {
 			if (camera_vprog1_on) {
@@ -385,6 +408,10 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 				if (ret)
 					dev_warn(&client->dev,
 						 "Failed to disable pmic power v1p8\n");
+				gpio_set_value(pin, 0);
+				gpio_free(pin);
+				camera_1p8_en = -1;
+				camera_vprog1_on = 0;
 			}
 		}
 		return ret;
@@ -492,6 +519,7 @@ void *ov2722_platform_data(void *info)
 {
 	gp_camera1_power_down = -1;
 	gp_camera1_reset = -1;
+	camera_1p8_en = -1;
 #ifdef CONFIG_CRYSTAL_COVE
 	pmic_id = PMIC_MAX;
 #endif

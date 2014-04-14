@@ -150,7 +150,7 @@ static struct camera_device_table cht_rvp_cam_table[] = {
 
 static struct camera_device_table cht_ffd_cam_table[] = {
 	{
-		{SFI_DEV_TYPE_I2C, 2, 0x10, 0x0, 0x0, "ov5693"},
+		{SFI_DEV_TYPE_I2C, 4, 0x10, 0x0, 0x0, "ov5693"},
 		{"ov5693", SFI_DEV_TYPE_I2C, 0, &ov5693_platform_data,
 			&intel_register_i2c_camera_device}
 	}, {
