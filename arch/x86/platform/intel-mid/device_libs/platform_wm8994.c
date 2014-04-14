@@ -203,9 +203,6 @@ static struct wm8994_pdata wm8994_mofd_pr_pdata = {
 	.gpio_defaults[9] = 0x0100,
 	.gpio_defaults[10] = 0x0100,
 	.irq_flags = IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-	.ldo[0]	= { 0, &wm8994_ldo1_data }, /* set actual value at wm8994_platform_data() */
-	.ldo[1]	= { 0, &wm8994_ldo2_data },
-	.ldo_ena_always_driven = 1,
 
 	.mic_id_delay = 300, /*300ms delay*/
 	.micdet_delay = 500,
@@ -232,10 +229,31 @@ static int wm8994_get_irq_data(struct wm8994_pdata *pdata,
 	return codec_gpio;
 }
 
+static int wm8994_fill_mofd_pr_data(struct wm8994_pdata *pdata)
+{
+	if (!pdata) {
+		pr_err("%s: pdata is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Only MOFD v0-PR0 & v1-PR1, utilizes the LDOs */
+	if (INTEL_MID_BOARD(3, PHONE, MOFD, V0, PRO, PR0) ||
+		INTEL_MID_BOARD(3, PHONE, MOFD, V1, PRO, PR1)) {
+
+		pr_debug("%s: Assign LDOs to MOFD PR0's pdata...\n", __func__);
+		pdata->ldo[0].enable = pdata->ldo[1].enable = 0;
+		pdata->ldo[0].init_data = &wm8994_ldo1_data;
+		pdata->ldo[1].init_data = &wm8994_ldo2_data;
+		pdata->ldo_ena_always_driven = 1;
+	}
+
+	return 0;
+}
+
 void __init *wm8994_platform_data(void *info)
 {
 	struct i2c_board_info *i2c_info = (struct i2c_board_info *)info;
-	int irq = 0;
+	int irq = 0, ret = 0;
 	struct wm8994_pdata *pdata = &wm8994_pdata;
 
 	if ((INTEL_MID_BOARD(1, PHONE, MRFL)) ||
@@ -249,9 +267,15 @@ void __init *wm8994_platform_data(void *info)
 		   (INTEL_MID_BOARD(1, TABLET, MOFD))) {
 		platform_add_devices(wm8958_reg_devices,
 				ARRAY_SIZE(wm8958_reg_devices));
+
 		/* if it is not VV, then use PR pdata */
-		if (!(SPID_PRODUCT(INTEL, MOFD, PHONE, MP)))
+		if (!(SPID_PRODUCT(INTEL, MOFD, PHONE, MP))) {
 			pdata = &wm8994_mofd_pr_pdata;
+			ret = wm8994_fill_mofd_pr_data(pdata);
+			if (ret < 0)
+				return NULL;
+		}
+
 		irq = wm8994_get_irq_data(pdata, i2c_info, "audiocodec_int");
 		if (irq < 0)
 			return NULL;
