@@ -2318,7 +2318,7 @@ static int _wm8994_set_fll(struct snd_soc_codec *codec, int id, int src,
 
 		if (wm8994->fll_locked_irq) {
 			timeout = wait_for_completion_timeout(&wm8994->fll_locked[id],
-							      msecs_to_jiffies(10));
+							      msecs_to_jiffies(12));
 			if (timeout == 0)
 				dev_warn(codec->dev,
 					 "Timed out waiting for FLL lock\n");
