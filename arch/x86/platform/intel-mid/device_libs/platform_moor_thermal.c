@@ -47,7 +47,7 @@ static struct intel_mid_thermal_sensor moor_sensors[] = {
 		.name = SKIN1_NAME,
 		.index = SYS0,
 		.slope = 525,
-		.intercept = 13674,
+		.intercept = 10200,
 		.temp_correlation = linear_temp_correlation,
 		.direct = false,
 	},
