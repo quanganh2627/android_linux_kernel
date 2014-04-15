@@ -172,7 +172,6 @@ struct atomisp_dvs_envelop {
 	unsigned int height;
 };
 
-#ifdef CSS20
 struct atomisp_grid_info {
 	uint32_t enable;
 	uint32_t use_dmem;
@@ -185,26 +184,7 @@ struct atomisp_grid_info {
 	uint32_t deci_factor_log2;
 	uint32_t elem_bit_depth;
 };
-#else /* CSS20 */
-/* structure that describes the 3A and DIS grids shared with 3A lib*/
-struct atomisp_grid_info {
-	/* ISP input size that is visible for user */
-	unsigned int isp_in_width;
-	unsigned int isp_in_height;
-	/* 3A statistics grid: */
-	unsigned int s3a_width;
-	unsigned int s3a_height;
-	unsigned int s3a_bqs_per_grid_cell;
-	/* DIS grid: */
-	unsigned int dis_width;  /* also used for vertical projections */
-	unsigned int dis_aligned_width;
-	unsigned int dis_height; /* also used for horizontal projections */
-	unsigned int dis_aligned_height;
-	unsigned int dis_bqs_per_grid_cell;
-	unsigned int dis_hor_coef_num;
-	unsigned int dis_ver_coef_num;
-};
-#endif /* CSS20 */
+
 struct atomisp_dis_vector {
 	int x;
 	int y;
@@ -233,15 +213,9 @@ struct atomisp_dvs2_stat_types {
 };
 
 struct atomisp_dis_coefficients {
-#ifdef CSS20
 	struct atomisp_dvs_grid_info grid_info;
 	struct atomisp_dvs2_coef_types hor_coefs;
 	struct atomisp_dvs2_coef_types ver_coefs;
-#else /* CSS20 */
-	struct atomisp_grid_info grid_info;
-	short __user *vertical_coefficients;
-	short __user *horizontal_coefficients;
-#endif /* CSS20 */
 };
 
 struct atomisp_dvs2_statistics {
@@ -251,14 +225,8 @@ struct atomisp_dvs2_statistics {
 };
 
 struct atomisp_dis_statistics {
-#ifdef CSS20
 	struct atomisp_dvs2_statistics dvs2_stat;
 	uint32_t exp_id;
-#else /* CSS20 */
-	struct atomisp_grid_info grid_info;
-	int __user *vertical_projections;
-	int __user *horizontal_projections;
-#endif
 };
 
 struct atomisp_3a_rgby_output {
@@ -277,19 +245,13 @@ struct atomisp_metadata {
 	uint32_t *effective_width; /* mipi packets valid data size */
 };
 
-#ifdef CSS20
 struct atomisp_3a_statistics {
 	struct atomisp_grid_info  grid_info;
 	struct atomisp_3a_output __user *data;
 	struct atomisp_3a_rgby_output __user *rgby_data;
 	uint32_t exp_id; /* exposure ID */
 };
-#else /* CSS20 */
-struct atomisp_3a_statistics {
-	struct atomisp_grid_info  grid_info;
-	struct atomisp_3a_output __user *data;
-};
-#endif /* CSS20 */
+
 /**
  * struct atomisp_cont_capture_conf - continuous capture parameters
  * @num_captures: number of still images to capture
@@ -334,17 +296,10 @@ struct atomisp_de_config {
 };
 
 /* Chroma enhancement */
-#ifdef CSS20
 struct atomisp_ce_config {
 	unsigned char uv_level_min;
 	unsigned char uv_level_max;
 };
-#else
-struct atomisp_ce_config {
-	unsigned int uv_level_min;
-	unsigned int uv_level_max;
-};
-#endif
 
 /* Defect pixel correction configuration */
 struct atomisp_dp_config {
@@ -358,21 +313,15 @@ struct atomisp_dp_config {
 	 * defects if the value is set too large. u8_8
 	 */
 	unsigned int gain;
-#ifdef CSS21
 	unsigned int gr;
 	unsigned int r;
 	unsigned int b;
 	unsigned int gb;
-#endif
 };
 
 /* XNR threshold */
 struct atomisp_xnr_config {
-#ifdef CSS21
 	__u16 threshold;
-#else
-	unsigned int threshold;
-#endif
 };
 
 /* metadata config */
@@ -383,10 +332,8 @@ struct atomisp_metadata_config {
 
 struct atomisp_parm {
 	struct atomisp_grid_info info;
-#ifdef CSS20
 	struct atomisp_dvs_grid_info dvs_grid;
 	struct atomisp_dvs_envelop dvs_envelop;
-#endif
 	struct atomisp_wb_config wb_config;
 	struct atomisp_cc_config cc_config;
 	struct atomisp_ob_config ob_config;
@@ -429,7 +376,6 @@ struct atomisp_dvs_6axis_config {
 	uint32_t *ycoords_uv;
 };
 
-#ifdef CSS20
 struct atomisp_parameters {
 	struct atomisp_wb_config   *wb_config;  /* White Balance config */
 	struct atomisp_cc_config   *cc_config;  /* Color Correction config */
@@ -473,27 +419,7 @@ struct atomisp_parameters {
 	struct atomisp_capture_config   *capture_config;
 	struct atomisp_anr_thres   *anr_thres;
 };
-#else /* CSS20 */
-struct atomisp_parameters {
-	struct atomisp_wb_config *wb_config;
-	struct atomisp_cc_config *cc_config;
-	struct atomisp_ob_config *ob_config;
-	struct atomisp_de_config *de_config;
-	struct atomisp_ce_config *ce_config;
-	struct atomisp_dp_config *dp_config;
-	struct atomisp_nr_config *nr_config;
-	struct atomisp_ee_config *ee_config;
-	struct atomisp_tnr_config *tnr_config;
-	struct atomisp_shading_table *shading_table;
-	struct atomisp_morph_table *morph_table;
-	struct atomisp_macc_config *macc_config;
-	struct atomisp_gamma_table *gamma_table;
-	struct atomisp_ctc_table *ctc_table;
-	struct atomisp_xnr_config *xnr_config;
-	struct atomisp_gc_config *gc_config;
-	struct atomisp_3a_config *a3a_config;
-};
-#endif /* CSS20 */
+
 #define ATOMISP_GAMMA_TABLE_SIZE        1024
 struct atomisp_gamma_table {
 	unsigned short data[ATOMISP_GAMMA_TABLE_SIZE];
@@ -505,9 +431,8 @@ struct atomisp_gamma_table {
  */
 #define ATOMISP_MORPH_TABLE_NUM_PLANES  6
 struct atomisp_morph_table {
-#ifdef CSS20
 	unsigned int enabled;
-#endif
+
 	unsigned int height;
 	unsigned int width;	/* number of valid elements per line */
 	unsigned short __user *coordinates_x[ATOMISP_MORPH_TABLE_NUM_PLANES];
@@ -517,7 +442,6 @@ struct atomisp_morph_table {
 #define ATOMISP_NUM_SC_COLORS	4
 #define ATOMISP_SC_FLAG_QUERY	(1 << 0)
 
-#ifdef CSS20
 struct atomisp_shading_table {
 	__u32 enable;
 
@@ -529,33 +453,6 @@ struct atomisp_shading_table {
 
 	__u16 *data[ATOMISP_NUM_SC_COLORS];
 };
-#else /* CSS20 */
-struct atomisp_shading_table {
-	/*
-	 * If flag ATOMISP_SC_FLAG_QUERY is set, IOCTL will only query current
-	 * LSC status and return, otherwise it will set LSC according to
-	 * userspace's input.
-	 */
-	__u8 flags;
-	/*
-	 * If ATOMISP_SC_FLAG_QUERY is set, enable is output parameter,
-	 * otherwise it is an input parameter and will enable/disable LSC
-	 * engine
-	 */
-	__u8 enable;
-	/* native sensor resolution */
-	__u32 sensor_width;
-	__u32 sensor_height;
-	/* number of data points per line per color (bayer quads) */
-	__u32 width;
-	/* number of lines of data points per color (bayer quads) */
-	__u32 height;
-	/* bits of fraction part for shading table values */
-	__u32 fraction_bits;
-	/* one table for each color (use sh_css_sc_color to index) */
-	__u16 __user *data[ATOMISP_NUM_SC_COLORS];
-};
-#endif /* CSS20 */
 
 struct atomisp_makernote_info {
 	/* bits 31-16: numerator, bits 15-0: denominator */
@@ -771,7 +668,6 @@ struct atomisp_acc_fw_arg {
 
 /*
  * Set arguments after first mapping with ATOMISP_IOC_ACC_S_MAPPED_ARG.
- * For CSS 1.5 only.
  */
 struct atomisp_acc_s_mapped_arg {
 	unsigned int fw_handle;
@@ -794,7 +690,6 @@ struct atomisp_acc_fw_load {
 
 /*
  * Load firmware to specified pipeline.
- * For CSS 1.5 only.
  */
 struct atomisp_acc_fw_load_to_pipe {
 	__u32 flags;			/* Flags, see below for valid values */
@@ -882,13 +777,8 @@ struct v4l2_private_int_data {
 #define ATOMISP_IOC_S_DIS_COEFS \
 	_IOW('v', BASE_VIDIOC_PRIVATE + 6, struct atomisp_dis_coefficients)
 
-#ifdef CSS20
 #define ATOMISP_IOC_S_DIS_VECTOR \
 	_IOW('v', BASE_VIDIOC_PRIVATE + 6, struct atomisp_dvs_6axis_config)
-#else
-#define ATOMISP_IOC_S_DIS_VECTOR \
-	_IOW('v', BASE_VIDIOC_PRIVATE + 6, struct atomisp_dis_vector)
-#endif
 
 #define ATOMISP_IOC_G_3A_STAT \
 	_IOWR('v', BASE_VIDIOC_PRIVATE + 7, struct atomisp_3a_statistics)
