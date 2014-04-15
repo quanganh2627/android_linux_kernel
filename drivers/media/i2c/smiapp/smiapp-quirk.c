@@ -247,23 +247,20 @@ const struct smiapp_quirk smiapp_tcm8500md_quirk = {
 
 static int imx135_limits(struct smiapp_sensor *sensor)
 {
-	/*
-	 * 1 MHz. The limit registers contain the value of 6 MHz which
-	 * is wrong.
-	 */
-	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MIN_PLL_IP_FREQ_HZ, 1000000);
-	/* Not 14. */
 	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_PRE_PLL_CLK_DIV, 15);
-	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_OP_PIX_CLK_FREQ_HZ,
-			     199680000);
-	smiapp_replace_limit(sensor, SMIAPP_LIMIT_DIGITAL_CROP_CAPABILITY,
-			     SMIAPP_DIGITAL_CROP_CAPABILITY_INPUT_CROP);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MIN_PLL_IP_FREQ_HZ, 1000000);
 	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_PLL_OP_FREQ_HZ,
 			     1120000000);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_OP_PIX_CLK_FREQ_HZ,
+			     199680000);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_VT_PIX_CLK_FREQ_HZ,
+			     199680000);
 	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_OP_SYS_CLK_FREQ_HZ,
 			     1120000000);
-	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_OP_PIX_CLK_FREQ_HZ,
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_VT_SYS_CLK_FREQ_HZ,
 			     1120000000);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_DIGITAL_CROP_CAPABILITY,
+			     SMIAPP_DIGITAL_CROP_CAPABILITY_INPUT_CROP);
 	return 0;
 }
 
