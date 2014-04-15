@@ -38,6 +38,7 @@
 #include <asm/msr.h>
 #include <asm/intel-mid.h>
 #include <asm/intel_mid_thermal.h>
+#include <asm/processor.h>
 
 #define DRIVER_NAME	"soc_thrm"
 
@@ -65,15 +66,6 @@
 #define PKG_TURBO_CFG		0x670
 #define MSR_THERM_CFG1		0x673
 
-/* TODO: Shadow register used in MOOR.
- * Below ifdef is a workaround.
- * This is tracked in HSD:4380040 */
-#ifdef CONFIG_INTEL_MOOR_THERMAL
-	#define CPU_PWR_BUDGET_CTL	0xdf
-#else
-	#define CPU_PWR_BUDGET_CTL	0x02
-#endif
-
 /* PKG_TURBO_PL1 holds PL1 in terms of 32mW */
 #define PL_UNIT_MW		32
 
@@ -91,6 +83,7 @@
 #define RTE_ENABLE		(1 << 9)
 
 static int tjmax_temp;
+static int turbo_floor_reg;
 
 static DEFINE_MUTEX(thrm_update_lock);
 
@@ -248,6 +241,16 @@ static struct thermal_device_info *initialize_sensor(int index)
 	mutex_init(&td_info->lock_aux);
 
 	return td_info;
+}
+
+static void initialize_floor_reg_addr(void)
+{
+	struct cpuinfo_x86 *c = &cpu_data(0);
+
+	if (c->x86_model == 0x4a || c->x86_model == 0x5a)
+		turbo_floor_reg = 0xdf;
+	else
+		turbo_floor_reg = 0x2;
 }
 
 static void enable_soc_dts(void)
@@ -434,12 +437,12 @@ static void set_floor_freq(int val)
 {
 	u32 eax;
 
-	eax = read_soc_reg(CPU_PWR_BUDGET_CTL);
+	eax = read_soc_reg(turbo_floor_reg);
 
 	/* Set bits[8:14] of eax to val */
 	eax = (eax & ~(0x7F << 8)) | (val << 8);
 
-	write_soc_reg(CPU_PWR_BUDGET_CTL, eax);
+	write_soc_reg(turbo_floor_reg, eax);
 }
 
 static int disable_dynamic_turbo(struct cooling_device_info *cdev_info)
@@ -711,6 +714,13 @@ static int soc_thermal_probe(struct platform_device *pdev)
 	int i, ret;
 	u32 eax, edx;
 	static char *name[SOC_THERMAL_SENSORS] = {"SoC_DTS0", "SoC_DTS1"};
+
+	/*
+	 * Register to configure floor frequency for DT done
+	 * using shadow register for ANN and TNG, Register address
+	 * chosen based on cpu model.[Refer:HSD:4380040]
+	 */
+	initialize_floor_reg_addr();
 
 	pdata = kzalloc(sizeof(struct platform_soc_data), GFP_KERNEL);
 	if (!pdata)
