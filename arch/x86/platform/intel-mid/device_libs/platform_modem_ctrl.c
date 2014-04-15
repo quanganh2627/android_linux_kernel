@@ -139,33 +139,7 @@ void *cpu_data[] = {
 /*
  * Element to be read through sysfs entry
  */
-static char modem_name[SFI_NAME_LEN];
-static char cpu_name[SFI_NAME_LEN];
 static char config_name[SFI_NAME_LEN];
-
-/*
- * Modem name accessor
- */
-static ssize_t modem_name_show(struct kobject *kobj,
-			       struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%s\n", modem_name);
-}
-
-/* Read-only element */
-static struct kobj_attribute modem_name_attribute = __ATTR_RO(modem_name);
-
-/*
- * Cpu-name accessor
- */
-static ssize_t cpu_name_show(struct kobject *kobj,
-			     struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%s\n", cpu_name);
-}
-
-/* Read-only element */
-static struct kobj_attribute cpu_name_attribute = __ATTR_RO(cpu_name);
 
 /*
  * config name accessor
@@ -180,8 +154,6 @@ static ssize_t config_name_show(struct kobject *kobj,
 static struct kobj_attribute config_name_attribute = __ATTR_RO(config_name);
 
 static struct attribute *mdm_attrs[] = {
-	&modem_name_attribute.attr,
-	&cpu_name_attribute.attr,
 	&config_name_attribute.attr,
 	NULL, /* need to NULL terminate the list of attributes */
 };
@@ -236,20 +208,7 @@ void mcd_register_finalize(struct mcd_base_info const *info)
 void mcd_set_mdm(struct mcd_base_info *info, int mdm_ver)
 {
 	info->mdm_ver = mdm_ver;
-	info->modem_data = modem_data[info->mdm_ver];
-
-	/* @TODO: remove this code once sysfs modem_name is removed */
-	switch (mdm_ver) {
-	case MODEM_6360:
-		strncpy(modem_name, "6360", sizeof(modem_name));
-		break;
-	case MODEM_7160:
-		strncpy(modem_name, "7160", sizeof(modem_name));
-		break;
-	case MODEM_7260:
-		strncpy(modem_name, "7260", sizeof(modem_name));
-		break;
-	}
+	info->modem_data = modem_data[mdm_ver];
 }
 
 /**
@@ -283,19 +242,14 @@ int mcd_get_cpu_ver(void)
 
 	switch (mid_cpu) {
 	case INTEL_MID_CPU_CHIP_PENWELL:
-		strncpy(cpu_name, "PENWELL", SFI_NAME_LEN);
 		return CPU_PWELL;
 	case INTEL_MID_CPU_CHIP_CLOVERVIEW:
-		strncpy(cpu_name, "CLOVERVIEW", SFI_NAME_LEN);
 		return CPU_CLVIEW;
 	case INTEL_MID_CPU_CHIP_TANGIER:
-		strncpy(cpu_name, "TANGIER", SFI_NAME_LEN);
 		return CPU_TANGIER;
 	case INTEL_MID_CPU_CHIP_ANNIEDALE:
-		strncpy(cpu_name, "ANNIEDALE", SFI_NAME_LEN);
 		return CPU_ANNIEDALE;
 	default:
-		strncpy(cpu_name, "UNKNOWN", SFI_NAME_LEN);
 		return CPU_UNSUP;
 	}
 	return CPU_UNSUP;
@@ -467,20 +421,18 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	/* CPU Id */
 	if (strstr(out_obj->string.pointer, "ValleyView2")) {
 		mcd_reg_info->cpu_ver = CPU_VVIEW2;
-		strncpy(cpu_name, "VALLEYVIEW2", SFI_NAME_LEN);
 		/* mrfl is closest to BYT and anyway */
 		/* we will overwrite most of the values */
 		mcd_reg_info->cpu_data = &cpu_tangier;
 		cpu_data = mcd_reg_info->cpu_data;
 	} else if (strstr(out_obj->string.pointer, "CherryView")) {
 		mcd_reg_info->cpu_ver = CPU_CHERRYVIEW;
-		strncpy(cpu_name, "CHERRYVIEW", SFI_NAME_LEN);
 		/* we will overwrite most of the values */
 		mcd_reg_info->cpu_data = &cpu_tangier;
 		cpu_data = mcd_reg_info->cpu_data;
 	} else {
 		pr_err("%s: ERROR CPU name %s Not supported!\n", __func__,
-		       cpu_name);
+		       out_obj->string.pointer);
 		goto free_mdm_info;
 	}
 
