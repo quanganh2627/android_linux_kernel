@@ -666,6 +666,8 @@ static int imx135_reg_access(struct smiapp_sensor *sensor, bool write, u32 *reg,
 			     u32 *val)
 {
 	switch (*reg) {
+	case SMIAPP_REG_U16_DATA_FORMAT_DESCRIPTOR(4):
+		return -ENOIOCTLCMD;
 	case SMIAPP_REG_U8_CSI_LANE_MODE:
 		*reg = SMIAPP_IMX135_REG_U8_CSI_LANE_MODE;
 		break;
