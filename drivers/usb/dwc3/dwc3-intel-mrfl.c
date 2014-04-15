@@ -15,6 +15,7 @@
 #include <linux/usb/hcd.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/dwc3-intel-mid.h>
+#include <linux/iio/consumer.h>
 #include <asm/intel_scu_pmic.h>
 #include "otg.h"
 
@@ -449,12 +450,9 @@ int basin_cove_get_id(struct dwc_otg2 *otg)
 
 int shady_cove_get_id(struct dwc_otg2 *otg)
 {
-	int ret, count = 0, id = RID_UNKNOWN;
-	u8 val, id_l, id_h, cursrc, schgrirq1;
-	unsigned long rlsb, rid;
-	unsigned long rlsb_array[] = {
-	0, 260480, 130240, 65120,
-	32560, 16280, 8140, 4070, 2035};
+	u8 schgrirq1;
+	struct iio_channel *chan;
+	int ret, rid, id = RID_UNKNOWN;
 
 	ret = intel_scu_ipc_ioread8(PMIC_SCHGRIRQ1, &schgrirq1);
 	if (ret) {
@@ -469,80 +467,29 @@ int shady_cove_get_id(struct dwc_otg2 *otg)
 	else if (schgrirq1 & PMIC_SCHGRIRQ1_SUSBIDDET(1))
 		return RID_GND;
 
-	/* Initiate a USBID resistance check. */
-	ret = intel_scu_ipc_update_register(PMIC_GPADCREQ_REG,
-			PMIC_GPADCREQ_ADC_USBID,
-			PMIC_GPADCREQ_ADC_USBID);
+	chan = iio_channel_get(NULL, "USBID");
+	if (IS_ERR_OR_NULL(chan)) {
+		otg_err(otg, "%s: Fail to get USBID channel\n", __func__);
+		return id;
+	}
+
+	ret = iio_read_channel_raw(chan, &rid);
 	if (ret) {
-		otg_err(otg, "Fail to enable USBID resistance\n");
+		otg_err(otg, "%s: Fail to read USBID channel", __func__);
 		goto done;
 	}
 
-	/* Poll whether ADC conversion is finished. */
-	while (1) {
-		count++;
-
-		if (count > 9) {
-			otg_err(otg, "ADC conversion timeout!\n");
-			goto done;
-		}
-		mdelay(1);
-
-		ret = intel_scu_ipc_ioread8(PMIC_ADCIRQ_REG, &val);
-		if (ret) {
-			otg_err(otg, "Fail to read decoded RID value\n");
-			goto done;
-		}
-
-		if (val & PMIC_ADCIRQ_USBID)
-			break;
-	}
-
-	/* Read ADC value lower 8 bits. */
-	ret = intel_scu_ipc_ioread8(PMIC_USBIDRSLTL, &id_l);
-	if (ret) {
-		otg_err(otg, "IPC read PMIC_USBIDRSLTL failed!\n");
-		goto done;
-	}
-	id_l &= PMIC_USBIDRSLTL_USBID_L_MASK;
-
-	/* Read ADC value upper 4 bits.
-	 * Read Current source value 4 bits.*/
-	ret = intel_scu_ipc_ioread8(PMIC_USBIDRSLTH, &id_h);
-	if (ret) {
-		otg_err(otg, "IPC read PMIC_USBIDRSLTL failed!\n");
-		goto done;
-	}
-	cursrc = id_h & PMIC_USBIDRSLTH_USBID_CURSRC_MASK;
-	id_h &= PMIC_USBIDRSLTH_USBID_H_MASK;
-
-	/* @RLSb_array[USBID_CURSRC] = {NULL, 260.48,
-	 * 130.24, 65.12, 32.56, 16.28, 8.14, 4.07, 2.035};
-	 * RLSb = 2.035 * power(2,8-USBID_CURSRC);
-	 * RID = ((USBID_H << 8) + (USBID_L)) * RLSb;*/
-	cursrc >>= 4;
-
-	/* Due to linux kernel can't support float calculate.
-	 * So we multiple 1000 for calculate */
-	rlsb = rlsb_array[cursrc];
-	rid = ((id_h << 8) + (id_l)) * rlsb;
-
-	/* If RID value is within:
-	 * 111.5k to 136.4kΩ: ACA-A/ACA-Dock detected
-	 * 61.2k to 74.8kΩ: ACA-B detected
-	 * 32.85k to 40.15kΩ: ACA-C detected
-	 * else: Unknown detected */
-	rid /= 1000;
-
-	if ((rid > 111500) && (rid < 136400))
-		return RID_A;
-	else if ((rid > 61200) && (rid < 74800))
-		return RID_B;
-	else if ((rid > 32850) && (rid < 40150))
-		return RID_C;
+	if ((rid > 11150) && (rid < 13640))
+		id = RID_A;
+	else if ((rid > 6120) && (rid < 7480))
+		id = RID_B;
+	else if ((rid > 3285) && (rid < 4015))
+		id = RID_C;
 
 done:
-	return RID_UNKNOWN;
+
+	iio_channel_release(chan);
+	return id;
 }
 
 int dwc3_intel_get_id(struct dwc_otg2 *otg)
