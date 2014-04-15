@@ -2339,6 +2339,8 @@ unsigned int pmu_get_new_cstate(unsigned int cstate, int *index)
 		cstate_mask |= 1;
 		local_cstate_allowed	&= ((1<<(CPUIDLE_STATE_MAX-1))-1);
 		local_cstate_allowed	&= cstate_mask;
+		if (!could_do_s0ix())
+			local_cstate_allowed &= cstate_no_s0ix_mask;
 		new_cstate	= fls(local_cstate_allowed);
 
 		*index	= cstate_index_table[new_cstate-1];
