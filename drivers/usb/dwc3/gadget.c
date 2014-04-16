@@ -2298,6 +2298,12 @@ static void dwc3_endpoint_transfer_complete(struct dwc3 *dwc,
 	unsigned		status = 0;
 	int			clean_busy;
 
+	if (!(dep->flags & DWC3_EP_ENABLED)) {
+		dev_warn(dwc->dev, "%s: %s event on disabled ep\n", dep->name,
+			dwc3_ep_event_string(event->endpoint_event));
+		return;
+	}
+
 	if (event->status & DEPEVT_STATUS_BUSERR)
 		status = -ECONNRESET;
 
