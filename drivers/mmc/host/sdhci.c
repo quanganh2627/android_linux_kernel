@@ -29,6 +29,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
+#include <linux/mmc/sdio_func.h>
 #include <linux/mmc/slot-gpio.h>
 
 #include "sdhci.h"
@@ -2212,6 +2213,11 @@ static int sdhci_card_busy(struct mmc_host *mmc)
 	struct sdhci_host *host = mmc_priv(mmc);
 	u32 present_state;
 
+	if (host->quirks2 & SDHCI_QUIRK2_WA_LNP) {
+		u16 ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+		return !(ctrl & SDHCI_CTRL_VDD_180);
+	}
+
 	sdhci_runtime_pm_get(host);
 	/* Check whether DAT[3:0] is 0000 */
 	present_state = sdhci_readl(host, SDHCI_PRESENT_STATE);
@@ -2231,6 +2237,35 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	unsigned long flags, loop;
 
 	host = mmc_priv(mmc);
+
+	if (SDHCI_QUIRK2_WA_LNP & host->quirks2) {
+		struct mmc_card *card = mmc->card;
+		/*
+		 * revert me :
+		 * SDR50 tuning is not supported by LnP so we need to make sure
+		 * it's not being attempted (required for LnP A0/K0/B0)
+		 */
+		host->flags &= ~SDHCI_SDR50_NEEDS_TUNING;
+		/*
+		 * revert me :
+		 * SDR104 tuning requires to enable function 1 before CMD19
+		 * (required for LnP A0)
+		 */
+		if (host->mmc && host->mmc->card &&
+		    host->mmc->card->sdio_funcs &&
+		    host->mmc->card->sdio_func[card->sdio_funcs-1]) {
+			if ((card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR104) &&
+			    ((card->cis.vendor == 0x0089) &&
+			     (card->cis.device == 0x5502))) {
+				int i = card->sdio_funcs-1;
+				int ret = sdio_enable_func(card->sdio_func[i]);
+				if (ret)
+					pr_err("%s: enabling func %d returns %d\n",
+						 mmc_hostname(host->mmc),
+						 card->sdio_funcs, ret);
+			}
+		}
+	}
 
 	sdhci_runtime_pm_get(host);
 	spin_lock_irqsave(&host->lock, flags);

@@ -122,6 +122,7 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_POWER_PIN_GPIO_MODE		(1<<27)
 #define SDHCI_QUIRK2_NON_STD_CIS   (1<<29)
 #define SDHCI_QUIRK2_TUNING_POLL			(1<<30)
+#define SDHCI_QUIRK2_WA_LNP				(1<<31)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
