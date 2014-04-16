@@ -65,7 +65,7 @@ static int m10mo_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 static int m10mo_gpio_intr_ctrl(struct v4l2_subdev *sd)
 {
 	/* This should be done in pin cfg XML and not here */
-	config_pin_flis(ann_gp_camerasb_3, PULL, UP_50K);
+	config_pin_flis(ann_gp_camerasb_3, PULL, DOWN_50K);
 	config_pin_flis(ann_gp_camerasb_3, MUX, MUX_EN_INPUT_EN | INPUT_EN);
 
 	if (intr_gpio >= 0)
