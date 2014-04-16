@@ -715,6 +715,21 @@ static int imx135_reg_access(struct smiapp_sensor *sensor, bool write, u32 *reg,
 	case SMIAPP_REG_U32_REQUESTED_LINK_BIT_RATE_MBPS:
 		/* No such register in this sensor */
 		return -ENOIOCTLCMD;
+	case SMIAPP_REG_U8_BINNING_CAPABILITY:
+		*val = SMIAPP_BINNING_CAPABILITY_YES;
+		return -ENOIOCTLCMD;
+	case SMIAPP_REG_U8_BINNING_SUBTYPES:
+		*val = 3;
+		return -ENOIOCTLCMD;
+	case SMIAPP_REG_U8_BINNING_TYPE_n(0):
+		*val = 0x11;
+		return -ENOIOCTLCMD;
+	case SMIAPP_REG_U8_BINNING_TYPE_n(1):
+		*val = 0x22;
+		return -ENOIOCTLCMD;
+	case SMIAPP_REG_U8_BINNING_TYPE_n(2):
+		*val = 0x44;
+		return -ENOIOCTLCMD;
 	}
 
 	return 0;
