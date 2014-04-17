@@ -305,6 +305,62 @@ static void set_sus_phy(struct dwc_otg2 *otg, int bit)
 	otg_write(otg, GUSB3PIPECTL0, data);
 }
 
+/* This function is used to control VUSBPHY or assert/deassert USBRST_N
+ * pin to control usb2 phy enter/exit low power mode.
+ */
+static int control_usb_phy_power(u16 addr, bool on_off)
+{
+	int ret;
+	u8 mask, bits;
+
+	if (addr == PMIC_VLDOCNT)
+		mask = PMIC_VLDOCNT_VUSBPHYEN;
+	else if (addr == PMIC_USBPHYCTRL)
+		mask = PMIC_USBPHYCTRL_D0;
+	else
+		return -EINVAL;
+
+	if (on_off)
+		bits = mask;
+	else
+		bits = 0x00;
+
+	ret = intel_scu_ipc_update_register(addr,
+			bits, mask);
+
+	/* Debounce 10ms for turn on VUSBPHY */
+	if (on_off)
+		usleep_range(10000, 11000);
+
+	return ret;
+}
+
+/* This function will control VUSBPHY to power gate/ungate USBPHY.
+ * If current platform haven't using VUSBPHY, then assert/deassert
+ * USBRST_N pin to make PHY enter reset state.
+ */
+static int enable_usb_phy(struct dwc_otg2 *otg, bool on_off)
+{
+	struct intel_dwc_otg_pdata *data;
+	int ret;
+
+	if (!otg || !otg->otg_data)
+		return -EINVAL;
+
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+	if (data->using_vusbphy)
+		ret = control_usb_phy_power(PMIC_VLDOCNT, on_off);
+	else
+		ret = control_usb_phy_power(PMIC_USBPHYCTRL, on_off);
+
+	if (ret)
+		otg_err(otg, "dwc3 %s usb phy failed\n",
+				on_off ? "enable" : "disable");
+
+	return ret;
+}
+
+
 int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 {
 	int retval;
@@ -318,10 +374,27 @@ int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 	/* Get usb2 phy type */
 	otg->usb2_phy.intf = data->usb2_phy_type;
 
-	if (!is_utmi_phy(otg)) {
-		otg_info(otg, "De-assert USBRST# to enable PHY\n");
-		retval = intel_scu_ipc_iowrite8(PMIC_USBPHYCTRL,
-				PMIC_USBPHYCTRL_D0);
+	/* Turn off VUSBPHY if it haven't used by USB2 PHY.
+	 * Otherwise, it will consume ~2.6mA(on VSYS) on MOFD.
+	 */
+	if (!data->using_vusbphy) {
+		retval = control_usb_phy_power(PMIC_VLDOCNT, false);
+		if (retval)
+			otg_err(otg, "Fail to turn off VUSBPHY\n");
+	} else if (!is_utmi_phy(otg)) {
+		/* If the current USB2 PHY low power controlled by VUSBPHY. Then
+		 * we need to de-assert USBRST pin to make USB2 PHY always stay
+		 * in active state.
+		 */
+		retval = control_usb_phy_power(PMIC_USBPHYCTRL, true);
+		if (retval)
+			otg_err(otg, "Fail to de-assert USBRST#\n");
+	} else {
+		/* If we are using utmi phy, and through VUSBPHY to do power
+		 * control. Then we need to assert USBRST# for external ULPI phy
+		 * to ask it under inactive state saving power.
+		 */
+		retval = control_usb_phy_power(PMIC_USBPHYCTRL, false);
 		if (retval)
 			otg_err(otg, "Fail to de-assert USBRST#\n");
 	}
@@ -357,44 +430,6 @@ static void disable_phy_auto_resume(struct dwc_otg2 *otg)
 	data = otg_read(otg, GUSB2PHYCFG0);
 	data &= ~GUSB2PHYCFG_ULPI_AUTO_RESUME;
 	otg_write(otg, GUSB2PHYCFG0, data);
-}
-
-/* This function will control VUSBPHY to power gate/ungate USBPHY.
- * If current platform haven't using VUSBPHY, then assert/deassert
- * USBRST_N pin to make PHY enter reset state.
- */
-static int enable_usb_phy(struct dwc_otg2 *otg, bool on_off)
-{
-	int ret;
-	u16 addr;
-	u8 mask, bits;
-	struct intel_dwc_otg_pdata *data;
-
-	if (!otg || !otg->otg_data)
-		return -EINVAL;
-
-	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
-	if (data->using_vusbphy) {
-		addr = PMIC_VLDOCNT;
-		mask = PMIC_VLDOCNT_VUSBPHYEN;
-	} else {
-		addr = PMIC_USBPHYCTRL;
-		mask = PMIC_USBPHYCTRL_D0;
-	}
-
-	if (on_off)
-		bits = mask;
-	else
-		bits = 0x00;
-
-	ret = intel_scu_ipc_update_register(addr,
-			bits, mask);
-
-	/* Debounce 10ms for turn on VUSBPHY */
-	if (on_off)
-		usleep_range(10000, 11000);
-
-	return ret;
 }
 
 int basin_cove_get_id(struct dwc_otg2 *otg)
