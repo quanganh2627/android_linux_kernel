@@ -900,6 +900,8 @@ static int intel_moor_emmc_probe_slot(struct sdhci_pci_slot *slot)
 		slot->host->mmc->caps2 |= MMC_CAP2_HS400_1_8V_DDR;
 	}
 
+	slot->host->quirks2 |= SDHCI_QUIRK2_TUNING_POLL;
+
 	if (slot->data)
 		if (slot->data->platform_quirks & PLFM_QUIRK_NO_HIGH_SPEED) {
 			slot->host->quirks2 |= SDHCI_QUIRK2_DISABLE_HIGH_SPEED;
