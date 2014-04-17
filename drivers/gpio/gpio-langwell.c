@@ -658,6 +658,7 @@ static void lnw_irq_unmask(struct irq_data *d)
 	struct lnw_gpio *lnw = irq_data_get_irq_chip_data(d);
 	u32 gpio = irqd_to_hwirq(d);
 	void __iomem *gpit;
+	void __iomem *gisr;
 
 	if (gpio >= lnw->chip.ngpio)
 		return;
@@ -672,6 +673,12 @@ static void lnw_irq_unmask(struct irq_data *d)
 
 		break;
 	case TANGIER_GPIO:
+		gpit = gpio_reg(&lnw->chip, gpio, GITR);
+		gisr = gpio_reg(&lnw->chip, gpio, GISR);
+
+		if (readl(gpit) & BIT(gpio % 32))
+			writel(BIT(gpio % 32), gisr);
+
 		lnw_set_maskunmask(d, GIMR, 1);
 		break;
 	default:
