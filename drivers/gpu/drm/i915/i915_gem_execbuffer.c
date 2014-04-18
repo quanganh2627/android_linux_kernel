@@ -57,6 +57,12 @@ i915_do_secure_ops(
 	struct list_head *active_list;
 	struct drm_i915_private *dev_priv;
 
+	user_addr = i915_gem_object_vmap(user_obj);
+	if (user_addr == NULL) {
+		DRM_ERROR("Failed to vmap user batch pages\n");
+		return -ENOMEM;
+	}
+
 	if (i915_enable_kernel_batch_copy < 1)
 		goto finish;
 
@@ -121,14 +127,6 @@ i915_do_secure_ops(
 		goto finish;
 	}
 
-	user_addr = i915_gem_object_vmap(user_obj);
-	if (user_addr == NULL) {
-		copy_ret = -ENOMEM;
-		i915_gem_object_unpin(obj);
-		DRM_ERROR("Failed to vmap user batch pages\n");
-		goto finish;
-	}
-
 	memcpy(addr, user_addr, user_obj->base.size);
 
 	list_move_tail(&obj->ring_batch_pool_list,
@@ -144,14 +142,10 @@ finish:
 			parse_ret = i915_parse_cmds(ring,
 				args->batch_start_offset, (u32 *)addr,
 				obj->base.size);
-		else {
-			if (!user_addr)
-				user_addr = i915_gem_object_vmap(user_obj);
-
+		else if (user_obj && user_addr)
 			parse_ret = i915_parse_cmds(ring,
 				args->batch_start_offset, (u32 *)user_addr,
 				user_obj->base.size);
-		}
 	}
 
 	if (addr)
