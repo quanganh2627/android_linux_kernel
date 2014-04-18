@@ -47,9 +47,11 @@ i915_do_secure_ops(
 {
 	bool found_match = false;
 	size_t krn_batch_size = 1024*512;
+	int needs_clflush = 0;
 	int i;
 	int copy_ret = 0;
 	int parse_ret = 0;
+	int shmem_ret = 0;
 	void *addr = NULL, *user_addr = NULL;
 	struct drm_i915_gem_object *obj = NULL;
 	struct list_head *iter;
@@ -57,11 +59,21 @@ i915_do_secure_ops(
 	struct list_head *active_list;
 	struct drm_i915_private *dev_priv;
 
+	shmem_ret = i915_gem_obj_prepare_shmem_read(user_obj, &needs_clflush);
+	if (shmem_ret) {
+		DRM_ERROR("CMD: failed to prep read\n");
+		return -ENOMEM;
+	}
+
 	user_addr = i915_gem_object_vmap(user_obj);
 	if (user_addr == NULL) {
+		i915_gem_object_unpin_pages(user_obj);
 		DRM_ERROR("Failed to vmap user batch pages\n");
 		return -ENOMEM;
 	}
+
+	if (needs_clflush)
+		drm_clflush_virt_range((char *)user_addr, user_obj->base.size);
 
 	if (i915_enable_kernel_batch_copy < 1)
 		goto finish;
@@ -152,6 +164,8 @@ finish:
 		vunmap(addr);
 	if (user_addr)
 		vunmap(user_addr);
+	if (shmem_ret == 0)
+		i915_gem_object_unpin_pages(user_obj);
 
 	/* Update batch exec_start if kernel copy succeeded */
 	if (krn_batch_obj && obj && (copy_ret == 0) && (parse_ret == 0))
