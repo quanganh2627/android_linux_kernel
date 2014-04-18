@@ -200,18 +200,6 @@ static int sdhci_acpi_get_tuning_count(struct sdhci_host *host)
 	return tuning_count;
 }
 
-static void  sdhci_acpi_platform_reset_exit(struct sdhci_host *host, u8 mask)
-{
-	if (host->quirks2 & SDHCI_QUIRK2_POWER_PIN_GPIO_MODE) {
-		if (mask & SDHCI_RESET_ALL) {
-			/* reset back to 3.3v signaling */
-			gpio_set_value(host->gpio_1p8_en, 0);
-			/* disable the VDD power */
-			gpio_set_value(host->gpio_pwr_en, 1);
-		}
-	}
-}
-
 /* CHT A0 workaround */
 static int sdhci_intel_chv_set_io_vol(struct sdhci_host *host, bool to_1p8)
 {
@@ -264,7 +252,6 @@ static const struct sdhci_ops sdhci_acpi_ops_dflt = {
 	.enable_dma = sdhci_acpi_enable_dma,
 	.power_up_host	= sdhci_acpi_power_up_host,
 	.get_tuning_count = sdhci_acpi_get_tuning_count,
-	.platform_reset_exit = sdhci_acpi_platform_reset_exit,
 	.set_io_voltage	= sdhci_acpi_set_io_vol,
 };
 
@@ -355,8 +342,6 @@ static int sdhci_acpi_sd_probe_slot(struct platform_device *pdev)
 {
 	struct sdhci_acpi_host *c = platform_get_drvdata(pdev);
 	struct sdhci_host *host;
-	int sd_1p8_en, sd_pwr_en;
-	int err;
 	unsigned int cpu;
 
 	if (!c || !c->host || !c->slot)
@@ -370,37 +355,6 @@ static int sdhci_acpi_sd_probe_slot(struct platform_device *pdev)
 		sdhci_alloc_panic_host(host);
 
 	c->cd_gpio = acpi_get_gpio_by_index(&pdev->dev, 0, NULL);
-
-	if (INTEL_MID_BOARDV1(PHONE, BYT) ||
-			 INTEL_MID_BOARDV1(TABLET, BYT))
-		host->quirks2 |= SDHCI_QUIRK2_POWER_PIN_GPIO_MODE;
-
-	/* change the GPIO pin to GPIO mode */
-	if (host->quirks2 & SDHCI_QUIRK2_POWER_PIN_GPIO_MODE) {
-		/* change to GPIO mode */
-		sd_1p8_en = acpi_get_gpio_by_index(&pdev->dev, 2, NULL);
-		sd_pwr_en = acpi_get_gpio_by_index(&pdev->dev, 3, NULL);
-		lnw_gpio_set_alt(sd_pwr_en, 0);
-		err = gpio_request(sd_pwr_en, "sd_pwr_en");
-		if (err)
-			return -ENODEV;
-		host->gpio_pwr_en = sd_pwr_en;
-		/* disable the power by default */
-		gpio_direction_output(host->gpio_pwr_en, 0);
-		gpio_set_value(host->gpio_pwr_en, 1);
-
-		/* change to GPIO mode */
-		lnw_gpio_set_alt(sd_1p8_en, 0);
-		err = gpio_request(sd_1p8_en, "sd_1p8_en");
-		if (err) {
-			gpio_free(host->gpio_pwr_en);
-			return -ENODEV;
-		}
-		host->gpio_1p8_en = sd_1p8_en;
-		/* 3.3v signaling by default */
-		gpio_direction_output(host->gpio_1p8_en, 0);
-		gpio_set_value(host->gpio_1p8_en, 0);
-	}
 
 	host->mmc->caps2 |= MMC_CAP2_PWCTRL_POWER;
 
