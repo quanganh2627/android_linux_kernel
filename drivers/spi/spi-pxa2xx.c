@@ -75,6 +75,7 @@ MODULE_ALIAS("platform:pxa2xx-spi");
 #define SPI_CS_CONTROL		0x18
 #define SPI_CS_CONTROL_SW_MODE	BIT(0)
 #define SPI_CS_CONTROL_CS_HIGH	BIT(1)
+#define SPI_CS_CONTROL_CS_SEL	BIT(2)
 
 static bool is_lpss_ssp(const struct driver_data *drv_data)
 {
@@ -101,8 +102,8 @@ static void __lpss_ssp_write_priv(struct driver_data *drv_data,
 static void lpss_ssp_restore(struct driver_data *drv_data)
 {
 	u32 update_bit, param;
-	u32 m = 1, n = 2;
-	u32 value, orig;
+	u32 m = 1, n = 1;
+	u32 value;
 
 	if (!is_lpss_ssp(drv_data))
 		return;
@@ -116,8 +117,9 @@ static void lpss_ssp_restore(struct driver_data *drv_data)
 	/* Setting the clock divisor */
 	update_bit = 1 << 31;
 	param = (m << 1) | (n << 16) | 0x1;
+	__lpss_ssp_write_priv(drv_data, PRV_CLK_PARAMS, param);
 	__lpss_ssp_write_priv(drv_data, PRV_CLK_PARAMS, param | update_bit);
-	drv_data->max_clk_rate = 50000000;
+	drv_data->max_clk_rate = 100000000;
 	dev_dbg(&drv_data->pdev->dev, "ssp_clk=%dMHz\n", (100*m/n));
 
 	/* Enable software chip select control */
@@ -176,6 +178,7 @@ detection_done:
 
 static void lpss_ssp_cs_control(struct driver_data *drv_data, bool enable)
 {
+	struct chip_data *chip = drv_data->cur_chip;
 	u32 value;
 
 	if (!is_lpss_ssp(drv_data))
@@ -186,6 +189,12 @@ static void lpss_ssp_cs_control(struct driver_data *drv_data, bool enable)
 		value &= ~SPI_CS_CONTROL_CS_HIGH;
 	else
 		value |= SPI_CS_CONTROL_CS_HIGH;
+
+	if (chip->lpss_cs)
+		value |= SPI_CS_CONTROL_CS_SEL;
+	else
+		value &= ~SPI_CS_CONTROL_CS_SEL;
+
 	__lpss_ssp_write_priv(drv_data, SPI_CS_CONTROL, value);
 }
 
@@ -247,13 +256,22 @@ int pxa2xx_spi_flush(struct driver_data *drv_data)
 	return limit;
 }
 
+static bool is_tx_fifo_full(struct driver_data *drv_data)
+{
+	void __iomem *reg = drv_data->ioaddr;
+
+	if (!is_lpss_ssp(drv_data))
+		return ((read_SSSR(reg) & SSSR_TFL_MASK) == SSSR_TFL_MASK);
+	else
+		return ((read_SSITF(reg) & SSITF_TFL_MASK) == SSITF_TFL_MASK);
+}
+
 static int null_writer(struct driver_data *drv_data)
 {
 	void __iomem *reg = drv_data->ioaddr;
 	u8 n_bytes = drv_data->n_bytes;
 
-	if (((read_SSSR(reg) & SSSR_TFL_MASK) == SSSR_TFL_MASK)
-		|| (drv_data->tx == drv_data->tx_end))
+	if (is_tx_fifo_full(drv_data) || (drv_data->tx == drv_data->tx_end))
 		return 0;
 
 	write_SSDR(0, reg);
@@ -280,8 +298,7 @@ static int u8_writer(struct driver_data *drv_data)
 {
 	void __iomem *reg = drv_data->ioaddr;
 
-	if (((read_SSSR(reg) & SSSR_TFL_MASK) == SSSR_TFL_MASK)
-		|| (drv_data->tx == drv_data->tx_end))
+	if (is_tx_fifo_full(drv_data) || (drv_data->tx == drv_data->tx_end))
 		return 0;
 
 	write_SSDR(*(u8 *)(drv_data->tx), reg);
@@ -307,8 +324,7 @@ static int u16_writer(struct driver_data *drv_data)
 {
 	void __iomem *reg = drv_data->ioaddr;
 
-	if (((read_SSSR(reg) & SSSR_TFL_MASK) == SSSR_TFL_MASK)
-		|| (drv_data->tx == drv_data->tx_end))
+	if (is_tx_fifo_full(drv_data) || (drv_data->tx == drv_data->tx_end))
 		return 0;
 
 	write_SSDR(*(u16 *)(drv_data->tx), reg);
@@ -334,8 +350,7 @@ static int u32_writer(struct driver_data *drv_data)
 {
 	void __iomem *reg = drv_data->ioaddr;
 
-	if (((read_SSSR(reg) & SSSR_TFL_MASK) == SSSR_TFL_MASK)
-		|| (drv_data->tx == drv_data->tx_end))
+	if (is_tx_fifo_full(drv_data) || (drv_data->tx == drv_data->tx_end))
 		return 0;
 
 	write_SSDR(*(u32 *)(drv_data->tx), reg);
@@ -676,7 +691,7 @@ static void pump_transfers(unsigned long data)
 			dev_warn(&message->spi->dev, "pump_transfers: "
 				"DMA disabled for transfer length %ld "
 				"greater than %d\n",
-				(long)drv_data->len, MAX_DMA_LEN);
+				(long)transfer->len, MAX_DMA_LEN);
 	}
 
 	/* Setup the transfer state based on the type of transfer */
@@ -977,6 +992,11 @@ static int setup(struct spi_device *spi)
 		chip->enable_dma = drv_data->master_info->enable_dma;
 	}
 
+	if (is_lpss_ssp(drv_data)) {
+		chip->lpss_cs = spi->chip_select;
+		chip->enable_dma = drv_data->master_info->enable_dma;
+	}
+
 	chip->threshold = (SSCR1_RxTresh(rx_thres) & SSCR1_RFT) |
 			(SSCR1_TxTresh(tx_thres) & SSCR1_TFT);
 
@@ -1130,7 +1150,7 @@ pxa2xx_spi_acpi_get_pdata(struct platform_device *pdev)
 	if (adev->pnp.unique_id && !kstrtoint(adev->pnp.unique_id, 0, &devid))
 		ssp->port_id = devid;
 
-	pdata->num_chipselect = 1;
+	pdata->num_chipselect = 2;
 	pdata->rx_slave_id = -1;
 	pdata->tx_slave_id = -1;
 
@@ -1237,9 +1257,6 @@ static int pxa2xx_spi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "cannot get IRQ %d\n", ssp->irq);
 		goto out_error_master_alloc;
 	}
-
-	/* Fixme: disable dma, only enable pio mode */
-	platform_info->enable_dma = 0;
 
 	/* Setup DMA if requested */
 	drv_data->tx_channel = -1;
@@ -1431,7 +1448,7 @@ static int __init pxa2xx_spi_init(void)
 {
 	return platform_driver_register(&driver);
 }
-subsys_initcall(pxa2xx_spi_init);
+module_init(pxa2xx_spi_init);
 
 static void __exit pxa2xx_spi_exit(void)
 {

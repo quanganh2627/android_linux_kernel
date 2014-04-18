@@ -88,6 +88,7 @@ struct driver_data {
 	void (*cs_control)(u32 command);
 
 	void __iomem *lpss_base;
+	void *dma_priv;
 };
 
 struct chip_data {
@@ -108,6 +109,7 @@ struct chip_data {
 		int gpio_cs;
 		unsigned int frm;
 	};
+	u8 lpss_cs;
 	int gpio_cs_inverted;
 	int (*write)(struct driver_data *drv_data);
 	int (*read)(struct driver_data *drv_data);
@@ -168,6 +170,10 @@ extern void *pxa2xx_spi_next_transfer(struct driver_data *drv_data);
 #define SPI_PXA2XX_USE_DMA	1
 #define MAX_DMA_LEN		8191
 #define DEFAULT_DMA_CR1		(SSCR1_TSRE | SSCR1_RSRE | SSCR1_TINTE)
+#elif defined(CONFIG_SPI_PXA2XX_LPSSDMA)
+#define SPI_PXA2XX_USE_DMA	1
+#define MAX_DMA_LEN		4095
+#define DEFAULT_DMA_CR1		(SSCR1_TSRE | SSCR1_RSRE | SSCR1_TRAIL)
 #elif defined(CONFIG_SPI_PXA2XX_DMA)
 #define SPI_PXA2XX_USE_DMA	1
 #define MAX_DMA_LEN		SZ_64K
