@@ -172,7 +172,7 @@ i915_gem_object_vmap(struct drm_i915_gem_object *obj)
 		i++;
 	}
 
-	addr = vmap(pages, i, VM_MAP, pgprot_writecombine(PAGE_KERNEL));
+	addr = vmap(pages, i, VM_MAP, PAGE_KERNEL);
 	if (addr == NULL) {
 		DRM_ERROR("Failed to vmap pages\n");
 		goto finish;
