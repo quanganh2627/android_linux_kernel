@@ -3757,6 +3757,35 @@ static void sdhci_set_emmc_state(struct sdhci_host *host, uint32_t state)
 	writel(state, host->sram_addr + DEKKER_EMMC_STATE);
 }
 
+static void sdhci_present_reg_check(struct sdhci_host *host)
+{
+	int loop = 2000; /* 2000 cycles * 1ms */
+	unsigned int present;
+
+	if (!(host->mmc->caps & MMC_CAP_NONREMOVABLE)) {
+		if (mmc_gpio_get_cd(host->mmc) == 0)
+			/* no SD card */
+			return;
+	}
+
+	/* cd-gpio not available, or device present */
+	present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
+		SDHCI_CARD_PRESENT;
+
+	while (!present && loop > 0) {
+		/* BYT eMMC4.5 silicon issue workaround: 4599639 */
+		usleep_range(1000, 1100);
+		present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
+			SDHCI_CARD_PRESENT;
+		loop--;
+	}
+	if (loop == 0) {
+		WARN_ON(1);
+		pr_warn("%s %s: PRESENT bit16 is not recover\n",
+				__func__, mmc_hostname(host->mmc));
+	}
+}
+
 #ifdef CONFIG_PM
 void sdhci_enable_irq_wakeups(struct sdhci_host *host)
 {
@@ -3835,28 +3864,8 @@ int sdhci_resume_host(struct sdhci_host *host)
 	int ret;
 	unsigned long flags;
 
-	if (host->quirks2 & SDHCI_QUIRK2_CARD_CD_DELAY) {
-		int loop = 0;
-		unsigned int present;
-		present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
-			SDHCI_CARD_PRESENT;
-		/*
-		 * delay 10ms to wait for present register stable
-		 * try 5 loops, and each loops will wait 2ms
-		 */
-		while (!present && loop < 5) {
-			/* BYT eMMC4.5 silicon issue workaround: 4599639 */
-			mdelay(2);
-			present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
-				SDHCI_CARD_PRESENT;
-			loop++;
-		}
-		if (loop == 5) {
-			WARN_ON(1);
-			pr_warn("%s %s: PRESENT bit16 is not recover\n",
-					__func__, mmc_hostname(host->mmc));
-		}
-	}
+	if (host->quirks2 & SDHCI_QUIRK2_CARD_CD_DELAY)
+		sdhci_present_reg_check(host);
 
 	sdhci_acquire_ownership(host->mmc);
 
@@ -3956,29 +3965,8 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 	unsigned long flags;
 	int ret = 0, host_flags = host->flags;
 
-	if (host->quirks2 & SDHCI_QUIRK2_CARD_CD_DELAY) {
-		int loop = 0;
-		unsigned int present;
-		present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
-			SDHCI_CARD_PRESENT;
-		/*
-		 * delay 10ms to wait for present register stable
-		 * try 5 loops, and each loops will wait 2ms
-		 */
-		while (!present && loop < 5) {
-			/* BYT eMMC4.5 silicon issue workaround: 4599639 */
-			mdelay(2);
-			present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
-				SDHCI_CARD_PRESENT;
-			loop++;
-		}
-		if (loop == 5) {
-			WARN_ON(1);
-			pr_warn("%s %s: PRESENT bit16 is not recover\n",
-					__func__, mmc_hostname(host->mmc));
-
-		}
-	}
+	if (host->quirks2 & SDHCI_QUIRK2_CARD_CD_DELAY)
+		sdhci_present_reg_check(host);
 
 	sdhci_do_acquire_ownership(host->mmc);
 

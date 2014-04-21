@@ -369,6 +369,7 @@ static int sdhci_acpi_sd_probe_slot(struct platform_device *pdev)
 	if (sdhci_intel_host(&cpu) && (cpu == INTEL_CHV_CPU)) {
 		host->gpiobase = ioremap_nocache(INTEL_CHT_GPIO_SOUTHEAST,
 				INTEL_CHT_GPIO_LEN);
+		host->quirks2 |= SDHCI_QUIRK2_CARD_CD_DELAY;
 	}
 
 	return 0;
