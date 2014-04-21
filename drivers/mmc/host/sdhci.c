@@ -2101,7 +2101,7 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 			gpio_set_value(host->gpio_1p8_en, 0);
 
 		if (host->vqmmc) {
-			ret = regulator_set_voltage(host->vqmmc, 2700000, 3600000);
+			ret = regulator_set_voltage(host->vqmmc, 3300000, 3600000);
 			if (ret) {
 				pr_warning("%s: Switching to 3.3V signalling voltage "
 						" failed\n", mmc_hostname(host->mmc));
@@ -2128,7 +2128,7 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 	case MMC_SIGNAL_VOLTAGE_180:
 		if (host->vqmmc) {
 			ret = regulator_set_voltage(host->vqmmc,
-					1700000, 1950000);
+					1800000, 1950000);
 			if (ret) {
 				pr_warning("%s: Switching to 1.8V signalling voltage "
 						" failed\n", mmc_hostname(host->mmc));
