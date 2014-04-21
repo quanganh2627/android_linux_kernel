@@ -1052,8 +1052,6 @@ static int ulpi_write(struct usb_phy *phy, u32 val, u32 reg)
 		return -EBUSY;
 	}
 
-	count = 200;
-
 	if (reg & EXTEND_ULPI_REGISTER_ACCESS_MASK) {
 		otg_dbg(otg, "Access extend registers 0x%x\n", reg);
 		val32 = GUSB2PHYACC0_NEWREGREQ
@@ -1069,13 +1067,14 @@ static int ulpi_write(struct usb_phy *phy, u32 val, u32 reg)
 	}
 	otg_write(otg, GUSB2PHYACC0, val32);
 
+	count = 200;
 	while (count) {
 		if (otg_read(otg, GUSB2PHYACC0) & GUSB2PHYACC0_VSTSDONE) {
 			otg_dbg(otg, "%s - reg 0x%x data 0x%x write done\n",
 					__func__, reg, val);
 			goto cleanup;
 		}
-
+		udelay(5);
 		count--;
 	}
 
