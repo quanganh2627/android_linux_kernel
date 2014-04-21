@@ -27,6 +27,8 @@ static const struct sst_probe_config sst_probes[] = {
 	{ "pcm1_in gain", SST_PATH_INDEX_PCM1_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "pcm1_out gain", SST_PATH_INDEX_PCM1_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "pcm2_out gain", SST_PATH_INDEX_PCM2_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "pcm3_out gain", SST_PATH_INDEX_PCM3_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "pcm4_out gain", SST_PATH_INDEX_PCM4_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "voip_in gain", SST_PATH_INDEX_VOIP_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "voip_out gain", SST_PATH_INDEX_VOIP_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "aware_out gain", SST_PATH_INDEX_AWARE_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
