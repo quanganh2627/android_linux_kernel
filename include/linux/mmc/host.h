@@ -71,7 +71,7 @@ struct mmc_ios {
 
 	unsigned char	signal_voltage;		/* signalling voltage (1.8V or 3.3V) */
 
-#define MMC_SIGNAL_VOLTAGE_330	0
+#define MMC_SIGNAL_VOLTAGE_330	3
 #define MMC_SIGNAL_VOLTAGE_180	1
 #define MMC_SIGNAL_VOLTAGE_120	2
 
