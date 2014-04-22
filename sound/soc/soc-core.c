@@ -3693,6 +3693,7 @@ int snd_soc_register_card(struct snd_soc_card *card)
 	INIT_LIST_HEAD(&card->dapm_dirty);
 	INIT_LIST_HEAD(&card->denums);
 	INIT_LIST_HEAD(&card->dmixers);
+	INIT_LIST_HEAD(&card->dbytes);
 	card->instantiated = 0;
 	mutex_init(&card->mutex);
 	mutex_init(&card->dapm_mutex);
@@ -3967,6 +3968,7 @@ int snd_soc_add_platform(struct device *dev, struct snd_soc_platform *platform,
 	mutex_init(&platform->mutex);
 	INIT_LIST_HEAD(&platform->denums);
 	INIT_LIST_HEAD(&platform->dmixers);
+	INIT_LIST_HEAD(&platform->dbytes);
 
 	mutex_lock(&client_mutex);
 	list_add(&platform->list, &platform_list);
@@ -4132,6 +4134,7 @@ int snd_soc_register_codec(struct device *dev,
 	mutex_init(&codec->mutex);
 	INIT_LIST_HEAD(&codec->denums);
 	INIT_LIST_HEAD(&codec->dmixers);
+	INIT_LIST_HEAD(&codec->dbytes);
 
 	/* allocate CODEC register cache */
 	if (codec_drv->reg_cache_size && codec_drv->reg_word_size) {
