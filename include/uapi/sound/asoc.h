@@ -781,6 +781,8 @@ struct snd_soc_fw_mixer_control {
 	__le32 shift;
 	__le32 rshift;
 	__le32 invert;
+	__le32 pvt_data_len;
+	char pvt_data[0];
 } __attribute__((packed));
 
 /*
