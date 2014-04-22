@@ -23,10 +23,28 @@
 #include <linux/acpi.h>
 #include <linux/acpi_gpio.h>
 #include <linux/mfd/intel_mid_pmic.h>
+#include <asm/cpu_device_id.h>
 
 #define DELAY_ONOFF 250
 
 struct acpi_ids { char *hid; char *uid; };
+
+#define INTEL_CHV_CPU	0x4c
+#define CHT_GPIO_SE_BASE	0xfed98000
+#define CHT_GPIO_SE_LEN		0x7fff
+
+#define CHT_VSDCARD_PWR_GPIO	276
+#define CHT_VSDCARD_PWR_ADR	0x5818
+#define CHT_VSDCARD_PWR_CONF0	0x8102
+
+#define CHT_VSDIO_1P8_GPIO	283
+#define CHT_VSDIO_1P8_ADR	0x5850
+#define CHT_VSDIO_1P8_CONF0	0x8100
+
+static const struct x86_cpu_id intel_cpus[] = {
+	{ X86_VENDOR_INTEL, 6, INTEL_CHV_CPU, X86_FEATURE_ANY, 0 },
+	{}
+};
 
 static struct acpi_ids intel_brc_ids[] = {
 	{"BCM4321", NULL}, /* BYT SDIO */
@@ -249,10 +267,23 @@ static struct acpi_ids intel_sdhc_ids[] = {
 	{ },
 };
 
+static bool intel_cpu_module(unsigned int *cpu)
+{
+	const struct x86_cpu_id *id;
+	if (!cpu)
+		return false;
+	id = x86_match_cpu(intel_cpus);
+	if (!id)
+		return false;
+	*cpu = id->model;
+	return true;
+}
+
 static void intel_setup_ccove_sd_regulators(void)
 {
 	struct device *dev = NULL;
 	struct acpi_ids *sdhc_ids;
+	u32 cpu;
 
 	for (sdhc_ids = intel_sdhc_ids; sdhc_ids->hid; sdhc_ids++) {
 		dev = bus_find_device(&platform_bus_type, NULL,
@@ -268,6 +299,22 @@ static void intel_setup_ccove_sd_regulators(void)
 	ccove_vsdio_consumer.dev_name = dev_name(dev);
 	ccove_vsdio_gpios.gpio =
 		acpi_get_gpio_by_index(dev, 2, NULL);
+	/* configure vsdcard */
+	ccove_vsdcard_consumer.dev_name = dev_name(dev);
+	ccove_vsdcard.gpio =
+		acpi_get_gpio_by_index(dev, 3, NULL);
+
+	if (intel_cpu_module(&cpu) && (cpu == INTEL_CHV_CPU)) {
+		void __iomem *ioaddr = ioremap_nocache(CHT_GPIO_SE_BASE,
+				CHT_GPIO_SE_LEN);
+		/* set pin to GPIO mode */
+		writel(CHT_VSDCARD_PWR_CONF0, ioaddr + CHT_VSDCARD_PWR_ADR);
+		ccove_vsdcard.gpio = CHT_VSDCARD_PWR_GPIO;
+
+		writel(CHT_VSDIO_1P8_CONF0, ioaddr + CHT_VSDIO_1P8_ADR);
+		ccove_vsdio_gpios.gpio = CHT_VSDIO_1P8_GPIO;
+	}
+
 	if (ccove_vsdio_gpios.gpio < 0) {
 		/* clear the supply_name and type */
 		ccove_vsdio.supply_name = NULL;
@@ -278,10 +325,6 @@ static void intel_setup_ccove_sd_regulators(void)
 	intel_mid_pmic_set_pdata("gpio-regulator", &ccove_vsdio,
 			sizeof(struct gpio_regulator_config));
 
-	/* configure vsdcard */
-	ccove_vsdcard_consumer.dev_name = dev_name(dev);
-	ccove_vsdcard.gpio =
-		acpi_get_gpio_by_index(dev, 3, NULL);
 	if (ccove_vsdcard.gpio > 0) {
 		lnw_gpio_set_alt(ccove_vsdcard.gpio, 0);
 		intel_mid_pmic_set_pdata("reg-fixed-voltage", &ccove_vsdcard,
