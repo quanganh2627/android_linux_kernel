@@ -2298,7 +2298,7 @@ static int intel_mid_scu_ipc_oemnib_debugfs_init(void)
 	/* Add operations /sys/kernel/debug/intel_scu_oshob to control */
 	/* the OEM.                                                     */
 	scu_ipc_oemnib_file = debugfs_create_file("oemnib_debug",
-				S_IFREG | S_IRUGO | S_IWUSR | S_IWGRP,
+				S_IFREG | S_IRUSR | S_IWUSR,
 				scu_ipc_oemnib_dir,
 				NULL, &scu_ipc_oemnib_fops);
 
@@ -2311,7 +2311,7 @@ static int intel_mid_scu_ipc_oemnib_debugfs_init(void)
 	/* Add operations /sys/kernel/debug/intel_scu_oshob to debug OSHOB */
 	/* content.                                                         */
 	scu_ipc_oshob_file = debugfs_create_file("oshob_dump",
-				S_IFREG | S_IRUGO | S_IWUSR | S_IWGRP,
+				S_IFREG | S_IRUSR | S_IWUSR,
 				scu_ipc_oemnib_dir, NULL, &scu_ipc_oshob_fops);
 
 	if (!scu_ipc_oshob_file) {
@@ -2674,7 +2674,7 @@ static int intel_mid_scu_ipc_osnib_debugfs_init(void)
 
 	scu_ipc_osnib_file_checksum = debugfs_create_file(
 		"CHECKSUM",
-		S_IFREG | S_IRUGO,
+		S_IFREG | S_IRUSR,
 		scu_ipc_osnib_dir,
 		NULL,
 		&scu_ipc_osnib_checksum_fops);
@@ -2684,7 +2684,7 @@ static int intel_mid_scu_ipc_osnib_debugfs_init(void)
 		ret = -1;
 	}
 
-	if (!debugfs_create_bool("invalid_checksum", S_IFREG | S_IRUGO | S_IWUSR,
+	if (!debugfs_create_bool("invalid_checksum", S_IFREG | S_IRUSR | S_IWUSR,
 		scu_ipc_osnib_dir, &invalid_checksum)) {
 		pr_err("%s: cannot create invalid_checksum debugfs file\n", __func__);
 		ret = -1;
@@ -2695,7 +2695,7 @@ static int intel_mid_scu_ipc_osnib_debugfs_init(void)
 
 			scu_ipc_osnib_file_reset_ev1 = debugfs_create_file(
 					chip_reset_events[i].reset_ev1_name,
-					S_IFREG | S_IRUGO,
+					S_IFREG | S_IRUSR,
 					scu_ipc_osnib_dir,
 					NULL, &scu_ipc_osnib_reset_event_fops);
 
@@ -2708,7 +2708,7 @@ static int intel_mid_scu_ipc_osnib_debugfs_init(void)
 
 			scu_ipc_osnib_file_reset_ev2 = debugfs_create_file(
 					chip_reset_events[i].reset_ev2_name,
-					S_IFREG | S_IRUGO,
+					S_IFREG | S_IRUSR,
 					scu_ipc_osnib_dir,
 					NULL, &scu_ipc_osnib_reset_event_fops);
 
