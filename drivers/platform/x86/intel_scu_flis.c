@@ -575,12 +575,12 @@ static ssize_t ops_store(struct device *dev,
 }
 
 #ifdef CONFIG_X86_CTP
-static DEVICE_ATTR(flis_addr, S_IRUGO|S_IWUSR,
+static DEVICE_ATTR(flis_addr, S_IRUSR|S_IWUSR,
 		shim_flis_addr_show, shim_flis_addr_store);
 #endif
-static DEVICE_ATTR(offset, S_IRUGO|S_IWUSR,
+static DEVICE_ATTR(offset, S_IRUSR|S_IWUSR,
 		shim_offset_show, shim_offset_store);
-static DEVICE_ATTR(data, S_IRUGO|S_IWUSR, shim_data_show, shim_data_store);
+static DEVICE_ATTR(data, S_IRUSR|S_IWUSR, shim_data_show, shim_data_store);
 static DEVICE_ATTR(flis_ops, S_IWUSR, NULL, shim_ops_store);
 
 static struct attribute *flis_attrs[] = {
@@ -598,10 +598,10 @@ static struct attribute_group flis_attr_group = {
 	.attrs = flis_attrs,
 };
 
-static DEVICE_ATTR(pin_name, S_IRUGO|S_IWUSR, pinname_show, pinname_store);
-static DEVICE_ATTR(flis_param, S_IRUGO|S_IWUSR, flis_param_type_show,
+static DEVICE_ATTR(pin_name, S_IRUSR|S_IWUSR, pinname_show, pinname_store);
+static DEVICE_ATTR(flis_param, S_IRUSR|S_IWUSR, flis_param_type_show,
 						flis_param_type_store);
-static DEVICE_ATTR(val, S_IRUGO|S_IWUSR, param_val_show, param_val_store);
+static DEVICE_ATTR(val, S_IRUSR|S_IWUSR, param_val_show, param_val_store);
 static DEVICE_ATTR(ops, S_IWUSR, NULL, ops_store);
 
 static struct attribute *pin_config_attrs[] = {
