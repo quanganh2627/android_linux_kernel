@@ -150,7 +150,7 @@ static const struct snd_kcontrol_new aic31xx_snd_controls[] = {
 	/* DAC Volume soft stepping control */
 	/* HP driver mute control */
 	SOC_DOUBLE_R("HP driver mute", AIC31XX_HPLGAIN,
-			AIC31XX_HPRGAIN, 2, 2, 0),
+			AIC31XX_HPRGAIN, 2, 1, 0),
 
 
 	/* ADC FINE GAIN */
@@ -194,7 +194,7 @@ static const struct snd_kcontrol_new aic311x_snd_controls[] = {
 			AIC31XX_RANALOGSPR, 0, 0x7F, 1, sp_vol_tlv),
 	/* SP driver mute control */
 	SOC_DOUBLE_R("SP driver mute", AIC31XX_SPLGAIN,
-			AIC31XX_SPRGAIN, 2, 2, 0),
+			AIC31XX_SPRGAIN, 2, 1, 0),
 };
 
 static const struct snd_kcontrol_new aic310x_snd_controls[] = {
@@ -205,7 +205,7 @@ static const struct snd_kcontrol_new aic310x_snd_controls[] = {
 	SOC_SINGLE_TLV("Left Analog Channel Gain", AIC31XX_LANALOGSPL,
 			0, 0x7F, 1, sp_vol_tlv),
 	SOC_SINGLE("SP driver mute", AIC31XX_SPLGAIN,
-			 2, 2, 0),
+			 2, 1, 0),
 };
 
 static const struct snd_kcontrol_new asilin_control =
