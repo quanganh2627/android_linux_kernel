@@ -2339,10 +2339,11 @@ unsigned int pmu_get_new_cstate(unsigned int cstate, int *index)
 
 		/* get next low cstate allowed */
 		cstate_mask = (u32)((1 << local_cstate)-1);
-		/* in case if cstate == 0 which should not be the case*/
-		cstate_mask |= 1;
 		local_cstate_allowed	&= ((1<<(CPUIDLE_STATE_MAX-1))-1);
 		local_cstate_allowed	&= cstate_mask;
+
+		/* Make sure we dont end up with new_state == 0 */
+		local_cstate_allowed |= 1;
 		new_cstate	= fls(local_cstate_allowed);
 
 		*index	= cstate_index_table[new_cstate-1];
