@@ -1650,7 +1650,9 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"tone_in tone_generator 0", "switch", "tone"},
 
 	/* TODO: add sidetone inputs */
-	/* TODO: add Low Latency stream support */
+
+	/* Low latency support */
+	{"low_pcm0_in", NULL, "Low Latency Playback"},
 };
 
 static const char * const sst_nb_wb_texts[] = {
