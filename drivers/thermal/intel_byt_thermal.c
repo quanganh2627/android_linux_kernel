@@ -34,6 +34,7 @@
 
 #include <linux/mfd/intel_mid_pmic.h>
 
+#include <asm/processor.h>
 #include <asm/intel_mid_thermal.h>
 #include <asm/intel_crystalcove_gpadc.h>
 
@@ -193,6 +194,8 @@ struct thermal_data {
 	int num_virtual_sensors;
 	unsigned int irq;
 	struct intel_mid_thermal_sensor *sensors;
+	/* CPU data */
+	bool is_vlv;
 };
 static struct thermal_data *tdata;
 
@@ -476,12 +479,20 @@ static int set_alert_temp(int alert_reg_l, int adc_val, int level)
 	int ret;
 
 	/*
+	 * Method used for VLV-CRC PMICs:
 	 * The alert register stores B[1:8] of val and the HW
 	 * while comparing prefixes and suffixes this value with
 	 * a 0; i.e B[0] and B[9] are 0.
+	 *
+	 * Method used for CHV-CRC+ PMICs:
+	 * Use B[2..9]; B[0] and B[1] are assumed to be 0 by the HW.
 	 */
 	if (level == LEVEL_ALERT2) {
-		adc_val = (adc_val & 0x1FF) >> 1;
+		if (tdata->is_vlv)
+			adc_val = (adc_val & 0x1FF) >> 1;
+		else
+			adc_val = (adc_val & 0x3FF) >> 2;
+
 		return intel_mid_pmic_writeb(alert_reg_l, adc_val);
 	}
 
@@ -519,8 +530,13 @@ static int get_alert_temp(int alert_reg_l, int level)
 	if (l < 0)
 		return l;
 
-	if (level == LEVEL_ALERT2)
-		return l << 1;
+	if (level == LEVEL_ALERT2) {
+		/* For VLV-CRC based platforms */
+		if (tdata->is_vlv)
+			return l << 1;
+		/* For other platforms */
+		return l << 2;
+	}
 
 	/* Get the address of alert_reg_h */
 	--alert_reg_l;
@@ -703,7 +719,8 @@ static ssize_t store_trip_temp(struct thermal_zone_device *tzd,
 	ret = adc_to_temp(td_info->sensor->direct, adc_val,
 			&td_info->trip_temp[trip]);
 	if (ret)
-		dev_err("adc_to_temp for trip%d failed:%d\n", trip, ret);
+		dev_err(&tzd->device,
+			"adc_to_temp for trip%d failed:%d\n", trip, ret);
 
 	mutex_unlock(&thrm_update_lock);
 	return ret;
@@ -1083,6 +1100,7 @@ static int byt_thermal_probe(struct platform_device *pdev)
 	int i, size, ret;
 	int total_sensors; /* real + virtual sensors */
 	struct intel_mid_thermal_platform_data *pdata;
+	struct cpuinfo_x86 *c = &cpu_data(0);
 
 	pdata = pdev->dev.platform_data;
 	if (!pdata) {
@@ -1103,6 +1121,15 @@ static int byt_thermal_probe(struct platform_device *pdev)
 	tdata->irq = platform_get_irq(pdev, 0);
 	platform_set_drvdata(pdev, tdata);
 	mutex_init(&tdata->thrm_irq_lock);
+
+	/*
+	 * Identify whether this is VLV(0x37) or CHV(0x4c) board.
+	 * TODO: Use PMIC registers on I2C space to differentiate this.
+	 */
+	if (c->x86_model == 0x37)
+		tdata->is_vlv = true;
+	else
+		tdata->is_vlv = false;
 
 	total_sensors = tdata->num_sensors;
 #ifdef CONFIG_THERMAL_EMULATION
