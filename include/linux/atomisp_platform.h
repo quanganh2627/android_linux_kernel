@@ -27,6 +27,7 @@
 #include "atomisp.h"
 
 #define MAX_SENSORS_PER_PORT 4
+#define MAX_STREAMS_PER_CHANNEL 2
 
 enum atomisp_bayer_order {
 	atomisp_bayer_order_grbg,
@@ -149,12 +150,32 @@ struct atomisp_camera_caps {
 	struct atomisp_sensor_caps sensor[MAX_SENSORS_PER_PORT];
 };
 
+/*
+ *  Sensor of external ISP can send multiple steams with different mipi data
+ * type in the same virtual channel. This information needs to come from the
+ * sensor or external ISP
+ */
+struct atomisp_isys_config_info {
+	u8 input_format;
+	u16 width;
+	u16 height;
+};
+
 struct atomisp_input_stream_info {
 	enum atomisp_input_stream_id stream;
-	unsigned int enable;
+	u8 enable;
 	/* Sensor driver fills ch_id with the id
 	   of the virtual channel. */
-	unsigned int ch_id;
+	u8 ch_id;
+	/* Tells how many streams in this virtual channel. If 0 ignore rest
+	 * and the input format will be from mipi_info */
+	u8 isys_configs;
+	/*
+	 * if more isys_configs is more than 0, sensor needs to configure the
+	 * input format differently. width and height can be 0. If width and
+	 * height is not zero, then the corresponsing data needs to be set
+	 */
+	struct atomisp_isys_config_info isys_info[MAX_STREAMS_PER_CHANNEL];
 };
 
 struct camera_sensor_platform_data {
