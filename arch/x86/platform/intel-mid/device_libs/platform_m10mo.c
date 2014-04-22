@@ -30,6 +30,8 @@ static int camera_power_down = -1;
 static void setup_m10mo_spi(struct m10mo_atomisp_spi_platform_data *spi_pdata,
 			    void *data);
 
+static struct atomisp_camera_caps m10mo_camera_caps;
+
 static int intr_gpio = -1;		/* m10mo interrupt pin */
 /*
  * Configure these based on the board. Currently we don't get these
@@ -191,6 +193,13 @@ static int m10mo_platform_deinit(void)
 	return 0;
 }
 
+static struct atomisp_camera_caps *m10mo_get_camera_caps(void)
+{
+	m10mo_camera_caps.sensor_num = 1;
+	m10mo_camera_caps.sensor[0].stream_num = 2;
+	return &m10mo_camera_caps;
+}
+
 static struct m10mo_platform_data m10mo_sensor_platform_data = {
 	/* Common part for all sensors used with atom isp */
 	.common.gpio_ctrl	= m10mo_gpio_ctrl,
@@ -199,6 +208,7 @@ static struct m10mo_platform_data m10mo_sensor_platform_data = {
 	.common.csi_cfg		= m10mo_csi_configure,
 	.common.platform_init	= m10mo_platform_init,
 	.common.platform_deinit = m10mo_platform_deinit,
+	.common.get_camera_caps = m10mo_get_camera_caps,
 
 	/* platform data for spi flashing */
 	.spi_pdata.spi_enabled	= false, /* By default SPI is not available */
