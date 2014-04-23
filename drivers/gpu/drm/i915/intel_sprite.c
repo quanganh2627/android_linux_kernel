@@ -959,6 +959,7 @@ intel_disable_primary(struct drm_plane *dplane, struct drm_crtc *crtc)
 	i915_update_plane_stat(dev_priv, pipe, plane, false, DISPLAY_PLANE);
 
 	intel_crtc->primary_disabled = true;
+	intel_crtc->last_pixel_size = 0;
 	intel_update_fbc(dev);
 }
 

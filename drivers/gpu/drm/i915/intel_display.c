@@ -2285,7 +2285,9 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	intel_fb = to_intel_framebuffer(fb);
 	obj = intel_fb->obj;
 
-	intel_update_watermarks(dev);
+	if (intel_crtc->last_pixel_size < pixel_size)
+		intel_update_watermarks(dev);
+
 
 	reg = DSPCNTR(plane);
 	dspcntr = I915_READ(reg);
@@ -2397,6 +2399,19 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		I915_WRITE(DSPADDR(plane), i915_gem_obj_ggtt_offset(obj) + linear_offset);
 	POSTING_READ(reg);
 
+	if (intel_crtc->last_pixel_size != pixel_size) {
+		/* Theoretically this vblank is required for 4->2 pixel size change.
+		 * DL vaue immediately get updated in hardware whereas primary plane
+		 * control register update happen in next vblank. So 4->2 transition
+		 * we need a vblank otherwise will may hit underrun. as we still
+		 * have underrun issue we enabled for 2->4 as well.
+		 */
+		intel_wait_for_vblank(dev, pipe);
+	}
+	if (intel_crtc->last_pixel_size > pixel_size)
+		intel_update_watermarks(dev);
+
+	intel_crtc->last_pixel_size = pixel_size;
 	return 0;
 }
 
@@ -10667,6 +10682,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->primary_alpha = false;
 	intel_crtc->sprite0_alpha = true;
 	intel_crtc->sprite1_alpha = true;
+	intel_crtc->last_pixel_size = 0;
 
 	/* Disable both bend spread initially */
 	dev_priv->clockspread = false;

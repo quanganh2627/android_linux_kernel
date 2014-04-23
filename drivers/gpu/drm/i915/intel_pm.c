@@ -41,9 +41,6 @@ static struct drm_device *gdev;
 	#include <linux/earlysuspend.h>
 #endif
 
-#define CONV_TO_MHZ 1000
-
-
 /* FBC, or Frame Buffer Compression, is a technique employed to compress the
  * framebuffer contents in-memory, aiming at reducing the required bandwidth
  * during in-memory transfers and, therefore, reduce the power packet.
@@ -1472,28 +1469,26 @@ static bool vlv_compute_drain_latency(struct drm_device *dev,
 
 	if (enable.plane_enabled) {
 		pixel_size = crtc->fb->bits_per_pixel / 8;	/* BPP */
-		entries = ((clock / CONV_TO_MHZ)+1) * pixel_size;
+		entries = DIV_ROUND_UP(clock, 1000) * pixel_size;
 		*plane_prec_mult = (entries > 256) ?
 			DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;
-		*plane_dl = (64 * (*plane_prec_mult) * 4) / (((clock / CONV_TO_MHZ)+1) *
-						     pixel_size);
+		*plane_dl = (64 * (*plane_prec_mult) * 4) / entries;
 		latencyprogrammed = true;
 	}
 
 	if (enable.cursor_enabled) {
-		entries = ((clock / CONV_TO_MHZ)+1) * 4;	/* BPP is always 4 for cursor */
+		entries = DIV_ROUND_UP(clock, 1000) * 4;	/* BPP is always 4 for cursor */
 		*cursor_prec_mult = (entries > 256) ?
 			DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;
-		*cursor_dl = (64 * (*cursor_prec_mult) * 4) / (((clock / CONV_TO_MHZ)+1) *
-							4);
+		*cursor_dl = (64 * (*cursor_prec_mult) * 4) / entries;
 		latencyprogrammed = true;
 	}
+
 	if (enable.sprite_enabled) {
-		entries = ((clock / CONV_TO_MHZ)+1) * sprite_pixel_size;
+		entries = DIV_ROUND_UP(clock, 1000) * sprite_pixel_size;
 		*sprite_prec_mult = (entries > 256) ?
 			DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;
-		*sprite_dl = (64 * (*sprite_prec_mult) * 4) / (((clock / CONV_TO_MHZ)+1) *
-						sprite_pixel_size);
+		*sprite_dl = (64 * (*sprite_prec_mult) * 4) / entries;
 		latencyprogrammed = true;
 	}
 
