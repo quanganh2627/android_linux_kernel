@@ -1019,6 +1019,8 @@ struct v4l2_private_int_data {
 #define ATOMISP_IOC_EXP_ID_CAPTURE \
 	_IOW('v', BASE_VIDIOC_PRIVATE + 37, int)
 
+#define ATOMISP_IOC_S_ENABLE_DZ_CAPT_PIPE \
+	_IOWR('v', BASE_VIDIOC_PRIVATE + 38, unsigned int)
 /*
  * Reserved ioctls. We have customer implementing it internally.
  * We can't use both numbers to not cause ABI conflict.
