@@ -108,6 +108,7 @@ config SND_BYT_MACHINE
 config SND_CHT_MACHINE
 	tristate "SOC Machine Audio driver for Intel Cherrytrail MID platform"
 	select SND_SOC_RT5672
+	select SND_SOC_TLV320AIC31XX
 	select SND_SST_PLATFORM
 	select SND_SST_MACHINE
 	select SND_INTEL_SST

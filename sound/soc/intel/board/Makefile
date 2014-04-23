@@ -25,12 +25,13 @@ snd-merr-dpcm-wm8958-objs := merr_dpcm_wm8958.o
 # Cherrytrail board
 snd-cht-bl-rt5672-objs := cht_bl_rt5672.o
 snd-cht-dpcm-rt5672-objs := cht_bl_dpcm_rt5672.o
+snd-cht-cr-dpcm-aic3100-objs := cht_cr_dpcm_aic3100.o
 
 # Moorefield board
 snd-moor-dpcm-florida-objs := moor_dpcm_florida.o
 
 ifdef CONFIG_SST_DPCM
-	obj-$(CONFIG_SND_CHT_MACHINE) += snd-cht-dpcm-rt5672.o
+	obj-$(CONFIG_SND_CHT_MACHINE) += snd-cht-dpcm-rt5672.o snd-cht-cr-dpcm-aic3100.o
 	obj-$(CONFIG_SND_MRFLD_MACHINE) += snd-merr-dpcm-wm8958.o
 else
 	obj-$(CONFIG_SND_CHT_MACHINE) += snd-cht-bl-rt5672.o
