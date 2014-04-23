@@ -231,6 +231,7 @@ static struct crypto_alg dx_ablkcipher_algs[] = {
 	(sizeof(dx_ablkcipher_algs) / sizeof(struct crypto_alg))
 
 static const enum dxdi_sym_cipher_type dx_algs_cipher_types[] = {
+	DXDI_SYMCIPHER_AES_XXX,
 #ifdef USE_SEP54_AES
 	DXDI_SYMCIPHER_AES_ECB,
 	DXDI_SYMCIPHER_AES_CBC,
@@ -926,6 +927,9 @@ static int symcipher_process(struct ablkcipher_request *req,
 		enum dxdi_sep_module ret_origin;
 		struct scatterlist sg_iv;
 		u8 iv[SEP_AES_IV_SIZE];
+
+		if (cmd_params == NULL)
+			return -ENOMEM;
 
 		memcpy(iv, req->info, SEP_AES_IV_SIZE);
 		sg_init_one(&sg_iv, iv, SEP_AES_IV_SIZE);

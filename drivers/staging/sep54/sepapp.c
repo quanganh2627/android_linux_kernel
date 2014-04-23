@@ -693,9 +693,6 @@ int sep_ioctl_sepapp_session_open(struct sep_client_ctx *client_ctx,
 	/* Calculate size of input parameters part */
 	const unsigned long input_size =
 	    offsetof(struct dxdi_sepapp_session_open_params, session_id);
-	const unsigned long output_size =
-	    sizeof(struct dxdi_sepapp_session_open_params) -
-	    offsetof(struct dxdi_sepapp_session_open_params, app_auth_data);
 	int rc;
 
 	/* access permissions to arg was already checked in sep_ioctl */
@@ -711,13 +708,16 @@ int sep_ioctl_sepapp_session_open(struct sep_client_ctx *client_ctx,
 				 &params.session_id, &params.sep_ret_origin);
 
 	/* Copying back from app_auth_data in case of output of "by value"... */
-	if (__copy_to_user(&user_params->app_auth_data, &params.app_auth_data,
-		       output_size)) {
+	if (copy_to_user(&user_params->app_auth_data, &params.app_auth_data,
+			   sizeof(struct dxdi_sepapp_params))
+	    || put_user(params.session_id, &user_params->session_id)
+	    || put_user(params.sep_ret_origin,
+			  &user_params->sep_ret_origin)) {
 		pr_err("Failed writing input parameters");
 		return -EFAULT;
 	}
 
-	__put_user(op_ctx.error_info, &(user_params->error_info));
+	put_user(op_ctx.error_info, &(user_params->error_info));
 
 	op_ctx_fini(&op_ctx);
 
@@ -817,10 +817,6 @@ int sep_ioctl_sepapp_command_invoke(struct sep_client_ctx *client_ctx,
 	const unsigned long input_size =
 	    offsetof(struct dxdi_sepapp_command_invoke_params,
 		     sep_ret_origin);
-	const unsigned long output_size =
-	    sizeof(struct dxdi_sepapp_command_invoke_params) -
-	    offsetof(struct dxdi_sepapp_command_invoke_params,
-		     command_params);
 	int rc;
 
 	/* access permissions to arg was already checked in sep_ioctl */
@@ -836,13 +832,16 @@ int sep_ioctl_sepapp_command_invoke(struct sep_client_ctx *client_ctx,
 				   &params.sep_ret_origin, 0);
 
 	/* Copying back from command_params in case of output of "by value" */
-	if (__copy_to_user(&user_params->command_params,
-		       &params.command_params, output_size)) {
+	if (copy_to_user(&user_params->command_params,
+			   &params.command_params,
+			   sizeof(struct dxdi_sepapp_params))
+	    || put_user(params.sep_ret_origin,
+			  &user_params->sep_ret_origin)) {
 		pr_err("Failed writing input parameters");
 		return -EFAULT;
 	}
 
-	__put_user(op_ctx.error_info, &(user_params->error_info));
+	put_user(op_ctx.error_info, &(user_params->error_info));
 
 	op_ctx_fini(&op_ctx);
 	return rc;
