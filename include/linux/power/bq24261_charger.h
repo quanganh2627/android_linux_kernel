@@ -22,6 +22,7 @@ struct bq24261_plat_data {
 	int safety_timer;
 	int boost_mode_ma;
 	bool is_ts_enabled;
+	int max_cc;
 
 	int (*enable_charging) (bool val);
 	int (*enable_charger) (bool val);
