@@ -422,10 +422,16 @@ static void smsc375x_pwrsrc_event_worker(struct work_struct *work)
 	 * So we are reading the status register as WA
 	 * to invoke teh MUX INT in case of connect events.
 	 */
-	if (!chip->pdata->is_vbus_online())
+	if (!chip->pdata->is_vbus_online()) {
 		ret = smsc375x_detect_dev(chip);
-	else
+	} else {
+		/**
+		 * To guarantee SDP detection in SMSC, need 75mSec delay before
+		 * sending an I2C command. So added 50mSec delay here.
+		 */
+		mdelay(50);
 		ret = smsc375x_read_reg(chip->client, SMSC375X_REG_STAT);
+	}
 	if (ret < 0)
 		dev_warn(&chip->client->dev, "pwrsrc evt error\n");
 
