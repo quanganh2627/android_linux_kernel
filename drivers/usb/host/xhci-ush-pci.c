@@ -558,7 +558,6 @@ static void ush_hsic_port_enable(void)
 		usb_disable_autosuspend(hsic.rh_dev);
 		set_port_feature(hsic.rh_dev, hsic.hsic_port_num,
 				USB_PORT_FEAT_POWER);
-		usb_enable_autosuspend(hsic.rh_dev);
 	}
 	s3_wake_lock();
 }
@@ -872,6 +871,15 @@ static ssize_t hsic_autosuspend_enable_store(struct device *dev,
 			dev_dbg(dev, "Enable auto suspend\n");
 			usb_enable_autosuspend(hsic.modem_dev);
 			hsic_wakeup_irq_init();
+		}
+	}
+	if (hsic.rh_dev != NULL) {
+		if (hsic.autosuspend_enable == 0) {
+			dev_dbg(dev, "port autosuspend disable\n");
+			usb_disable_autosuspend(hsic.rh_dev);
+		} else {
+			dev_dbg(dev, "port Enable auto suspend\n");
+			usb_enable_autosuspend(hsic.rh_dev);
 		}
 	}
 
