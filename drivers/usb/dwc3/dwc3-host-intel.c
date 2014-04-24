@@ -38,6 +38,7 @@ static int dwc3_start_host(struct usb_hcd *hcd);
 static int dwc3_stop_host(struct usb_hcd *hcd);
 static struct platform_driver dwc3_xhci_driver;
 static int __dwc3_stop_host(struct usb_hcd *hcd);
+static int __dwc3_start_host(struct usb_hcd *hcd);
 static int dwc3_suspend_host(struct usb_hcd *hcd);
 static int dwc3_resume_host(struct usb_hcd *hcd);
 
@@ -201,7 +202,7 @@ static void dwc3_host_reset(struct work_struct *data)
 	 * the reset work.*/
 	wake_lock(&dwc3_xhci.wakelock);
 	__dwc3_stop_host(hcd);
-	dwc3_start_host(hcd);
+	__dwc3_start_host(hcd);
 	wake_unlock(&dwc3_xhci.wakelock);
 }
 
@@ -424,14 +425,21 @@ static void dwc_set_host_mode(struct usb_hcd *hcd)
 
 static int dwc3_start_host(struct usb_hcd *hcd)
 {
+	dwc3_xhci.host_started = true;
+	__dwc3_start_host(hcd);
+
+	return 0;
+
+}
+
+static int __dwc3_start_host(struct usb_hcd *hcd)
+{
 	int ret = -EINVAL;
 	struct xhci_hcd *xhci;
 	struct usb_hcd *xhci_shared_hcd;
 
 	if (!hcd)
 		return ret;
-
-	dwc3_xhci.host_started = true;
 
 	if (hcd->rh_registered) {
 		dev_dbg(hcd->self.controller,
