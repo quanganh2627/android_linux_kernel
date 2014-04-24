@@ -835,6 +835,7 @@ static int rapl_write_data_raw(struct rapl_domain *rd,
 
 static const struct x86_cpu_id energy_unit_quirk_ids[] = {
 	{ X86_VENDOR_INTEL, 6, 0x37},/* Valleyview */
+	{ X86_VENDOR_INTEL, 6, 0x4C},/* Cherryview */
 	{}
 };
 
@@ -952,6 +953,7 @@ static const struct x86_cpu_id rapl_ids[] = {
 	{ X86_VENDOR_INTEL, 6, 0x37},/* Valleyview */
 	{ X86_VENDOR_INTEL, 6, 0x3a},/* Ivy Bridge */
 	{ X86_VENDOR_INTEL, 6, 0x45},/* Haswell */
+	{ X86_VENDOR_INTEL, 6, 0x4C},/* CherryView */
 	/* TODO: Add more CPU IDs after testing */
 	{}
 };
