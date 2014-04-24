@@ -69,6 +69,8 @@ MODULE_PARM_DESC(tjmax, "TjMax value in degrees Celsius");
 #define for_each_sibling(i, cpu)	for (i = 0; false; )
 #endif
 
+#define VLV_TJMIN	-10000 /* -10C */
+
 /*
  * Per-Core Temperature Data
  * @last_updated: The time when the current temperature value was updated
@@ -547,6 +549,18 @@ static void core_threshold_work_fn(struct work_struct *work)
 	 * so that the user space can avoid a sysfs read.
 	 */
 	temp = tdata->tjmax - ((eax >> 16) & 0x7f) * 1000;
+
+	/*
+	 * On VLV, the P unit FW, while entering some C-states,
+	 * sends some unwanted interrupts, with temperature
+	 * being set to TJMIN (defined as -10 for VLV).
+	 * TODO: Expect a fix from P unit FW through HSD:5089818.
+	 *
+	 * Until then this is a work around to not send UEvents
+	 * (to notify user space) on these unwanted interrupts.
+	 */
+	if (temp == VLV_TJMIN)
+		return;
 
 	/* Read the threshold registers (only) to print threshold values. */
 	rdmsr_on_cpu(cpu, MSR_IA32_THERM_INTERRUPT, &eax, &edx);
