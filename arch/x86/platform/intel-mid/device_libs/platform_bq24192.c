@@ -59,6 +59,7 @@ char *bq24192_supplied_to[] = {
 	"max170xx_battery",
 	"max17042_battery",
 	"max17047_battery",
+	"intel_fuel_gauge",
 };
 
 static int const bptherm_curve_data[BPTHERM_CURVE_MAX_SAMPLES]
