@@ -154,17 +154,17 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, RVP3)) {
 			dwc_otg_pdata.gpio_cs = 156;
 			dwc_otg_pdata.gpio_reset = 144;
-			dwc_otg_pdata.ti_phy_vs1 = 0x4f;
+			dwc_otg_pdata.ulpi_eye_calibration = 0x4f;
 		} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR0) ||
 			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR0)) {
 			dwc_otg_pdata.gpio_cs = 54;
 			dwc_otg_pdata.gpio_reset = 144;
-			dwc_otg_pdata.ti_phy_vs1 = 0x4f;
+			dwc_otg_pdata.ulpi_eye_calibration = 0x4f;
 		} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 8PR1) ||
 			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1)) {
 			dwc_otg_pdata.gpio_cs = 54;
 			dwc_otg_pdata.gpio_reset = 144;
-			dwc_otg_pdata.ti_phy_vs1 = 0x7f;
+			dwc_otg_pdata.ulpi_eye_calibration = 0x7f;
 			dwc_otg_pdata.sdp_charging = 1;
 			dwc_otg_pdata.charging_compliance =
 				!dwc_otg_byt_get_usbspecoverride();
@@ -172,7 +172,7 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2)) {
 			dwc_otg_pdata.gpio_cs = 54;
 			dwc_otg_pdata.gpio_reset = 144;
-			dwc_otg_pdata.ti_phy_vs1 = 0x7f;
+			dwc_otg_pdata.ulpi_eye_calibration = 0x7f;
 			dwc_otg_pdata.gpio_id = 156;
 			dwc_otg_pdata.sdp_charging = 1;
 			dwc_otg_pdata.charging_compliance =

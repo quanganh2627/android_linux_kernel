@@ -39,7 +39,6 @@ struct intel_dwc_otg_pdata {
 	int id;
 	int charging_compliance;
 	struct delayed_work suspend_discon_work;
-	u8 ti_phy_vs1;
 	int sdp_charging;
 	enum usb_phy_intf usb2_phy_type;
 
