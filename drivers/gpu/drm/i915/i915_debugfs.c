@@ -2787,10 +2787,9 @@ i915_read_dpst_api(struct file *filp,
 		if (dev_priv->is_mipi) {
 
 #ifdef CONFIG_CRYSTAL_COVE
-			u32 max = intel_panel_get_max_backlight(dev);
 			len += scnprintf(&buf[len], (sizeof(buf) - len),
 					"DPST Applied Backlight Level: 0x%x\n",
-					(intel_mid_pmic_readb(0x4E) * max/0xff));
+					(intel_mid_pmic_readb(0x4E)));
 #else
 			len += scnprintf(&buf[len], (sizeof(buf) - len),
 					"DPST Applied Backlight not supported\n");
