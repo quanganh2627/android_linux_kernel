@@ -20,8 +20,8 @@
 #include <media/v4l2-subdev.h>
 #include <linux/mfd/intel_mid_pmic.h>
 
-#ifdef CONFIG_VLV2_PLAT_CLK
-#include <linux/vlv2_plat_clock.h>
+#ifdef CONFIG_INTEL_SOC_PMC
+#include <asm/intel_soc_pmc.h>
 #endif
 
 #include "platform_camera.h"
@@ -34,7 +34,7 @@
 #define CAMERA_1_PWDN 124
 #define CAMERA_1_PWDN_CHT 152
 #define CAMERA_1P8_EN_CHT	153
-#ifdef CONFIG_VLV2_PLAT_CLK
+#ifdef CONFIG_INTEL_SOC_PMC
 #define OSC_CAM1_CLK 0x1
 #define CLK_19P2MHz 0x1
 #define CLK_ON	0x1
@@ -328,15 +328,15 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int ov2722_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 {
-#ifdef CONFIG_VLV2_PLAT_CLK
+#ifdef CONFIG_INTEL_SOC_PMC
 	int ret = 0;
 	if (flag) {
-		ret = vlv2_plat_set_clock_freq(OSC_CAM1_CLK, CLK_19P2MHz);
+		ret = pmc_pc_set_freq(OSC_CAM1_CLK, CLK_19P2MHz);
 		if (ret)
 			return ret;
-		return vlv2_plat_configure_clock(OSC_CAM1_CLK, CLK_ON);
+		return pmc_pc_configure(OSC_CAM1_CLK, CLK_ON);
 	}
-	return vlv2_plat_configure_clock(OSC_CAM1_CLK, CLK_OFF);
+	return pmc_pc_configure(OSC_CAM1_CLK, CLK_OFF);
 #elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
 	static const unsigned int clock_khz = 19200;
 	return intel_scu_ipc_osc_clk(OSC_CLK_CAM1,
