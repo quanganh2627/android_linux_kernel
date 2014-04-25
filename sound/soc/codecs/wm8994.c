@@ -4521,6 +4521,18 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 			    WM8994_IM_FIFOS_ERR_EINT_MASK,
 			    1 << WM8994_IM_FIFOS_ERR_EINT_SHIFT);
 
+	/* Enable bandgap-VREFC */
+	/* Note: VREFC is required for jack detection in
+	 * low power jack detect mode */
+	/* TODO: get the hardcoded reg value macro name and the regmap sync
+	   issue resolved with the wolfson folks  */
+	snd_soc_write(codec, 0x102, 0x3);
+	regcache_sync_region(wm8994->wm8994->regmap, 0x102, 0x102);
+	snd_soc_write(codec, 0xCB, 0x3921);
+	regcache_sync_region(wm8994->wm8994->regmap, 0xCB, 0xCB);
+	snd_soc_write(codec, 0x102, 0x0);
+	regcache_sync_region(wm8994->wm8994->regmap, 0x102, 0x102);
+
 	return 0;
 
 err_irq:
