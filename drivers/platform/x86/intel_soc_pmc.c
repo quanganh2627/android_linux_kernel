@@ -734,6 +734,50 @@ static DEFINE_PCI_DEVICE_TABLE(pmc_pci_tbl) = {
 };
 MODULE_DEVICE_TABLE(pci, pmc_pci_tbl);
 
+#define BYT_TCO_IRQ 51
+#define BYT_TCO_IRQ_SETTINGS IORESOURCE_IRQ_HIGHEDGE
+
+#define CHT_TCO_IRQ 108
+#define CHT_TCO_IRQ_SETTINGS IORESOURCE_IRQ_LOWEDGE
+
+static struct resource tco_warn_interrupt[] = {
+	{	.name = "warning_interrupt",
+		.start = BYT_TCO_IRQ,
+		.end = BYT_TCO_IRQ,
+		.flags = IORESOURCE_IRQ | BYT_TCO_IRQ_SETTINGS
+	},
+	{	.name = "warning_interrupt",
+		.start = CHT_TCO_IRQ,
+		.end = CHT_TCO_IRQ,
+		.flags = IORESOURCE_IRQ | CHT_TCO_IRQ_SETTINGS
+	}
+};
+
+static void pmc_pci_register_tco_device(struct pci_dev *pdev,
+					struct pmc_dev *pmc_cxt)
+{
+	unsigned int i;
+	struct resource *res = NULL;
+
+	for (i = 0 ; i < ARRAY_SIZE(pmc_pci_tbl) ; i++)
+		if (pmc_pci_tbl[i].device == pdev->device) {
+			if (i < ARRAY_SIZE(tco_warn_interrupt))
+				res = &tco_warn_interrupt[i];
+			break;
+		}
+
+	pmc_cxt->tco_wdt_dev =
+		platform_device_register_resndata(&pdev->dev, "iTCO_wdt", -1,
+						  res, res != NULL ? 1 : 0,
+						  NULL, 0);
+
+	if (IS_ERR(pmc_cxt->tco_wdt_dev)) {
+		dev_err(&pdev->dev,
+			"Failed to create iTCO_wdt platform device\n");
+		return;
+	}
+}
+
 static int pmc_pci_probe(struct pci_dev *pdev,
 				const struct pci_device_id *id)
 {
@@ -812,12 +856,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	pci_set_drvdata(pdev, pmc_cxt);
 
 	/* Register the Watchdog device */
-	pmc_cxt->tco_wdt_dev = platform_device_register_data(&pdev->dev,
-							     "iTCO_wdt",
-							     -1, NULL, 0);
-	if (IS_ERR(pmc_cxt->tco_wdt_dev))
-		dev_err(&pdev->dev,
-			"Failed to create iTCO_wdt platform device\n");
+	pmc_pci_register_tco_device(pdev, pmc_cxt);
 
 	/* /sys/kernel/debug/mid_pmu_states */
 	d1 = debugfs_create_file("mid_pmu_states", S_IFREG | S_IRUGO,
