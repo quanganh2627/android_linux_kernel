@@ -3430,6 +3430,7 @@ static void sdhci_mfld_panic_set_ios(struct mmc_panic_host *mmc)
 	struct sdhci_host *host;
 	struct mmc_ios *ios;
 	u8 ctrl;
+	u16 clk, ctrl_2;
 
 	if (!mmc)
 		return;
@@ -3472,6 +3473,60 @@ static void sdhci_mfld_panic_set_ios(struct mmc_panic_host *mmc)
 
 	sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
+	if (((host->version >= SDHCI_SPEC_300) ||
+			(host->quirks2 & SDHCI_QUIRK2_V2_0_SUPPORT_DDR50)) &&
+			ios->timing != MMC_TIMING_LEGACY) {
+		ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+		ctrl_2 &= ~SDHCI_CTRL_DRV_TYPE_MASK;
+		if (ios->drv_type == MMC_SET_DRIVER_TYPE_A)
+			ctrl_2 |= SDHCI_CTRL_DRV_TYPE_A;
+		else if (ios->drv_type == MMC_SET_DRIVER_TYPE_C)
+			ctrl_2 |= SDHCI_CTRL_DRV_TYPE_C;
+		sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+
+		/* Reset SD Clock Enable */
+		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+		clk &= ~SDHCI_CLOCK_CARD_EN;
+		sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+
+		if (host->ops->set_uhs_signaling)
+			host->ops->set_uhs_signaling(host, ios->timing);
+		else {
+			ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+			/* Select Bus Speed Mode for host */
+			ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
+			if (ios->timing == MMC_TIMING_MMC_HS400)
+				ctrl_2 |= SDHCI_CTRL_HS_DDR200;
+			else if (ios->timing == MMC_TIMING_MMC_HS200)
+				ctrl_2 |= SDHCI_CTRL_HS_SDR200;
+			else if (ios->timing == MMC_TIMING_UHS_SDR12)
+				ctrl_2 |= SDHCI_CTRL_UHS_SDR12;
+			else if (ios->timing == MMC_TIMING_UHS_SDR25)
+				ctrl_2 |= SDHCI_CTRL_UHS_SDR25;
+			else if (ios->timing == MMC_TIMING_UHS_SDR50)
+				ctrl_2 |= SDHCI_CTRL_UHS_SDR50;
+			else if (ios->timing == MMC_TIMING_UHS_SDR104)
+				ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
+			else if (ios->timing == MMC_TIMING_UHS_DDR50)
+				ctrl_2 |= SDHCI_CTRL_UHS_DDR50;
+			sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+		}
+		if (!(host->quirks2 & SDHCI_QUIRK2_PRESET_VALUE_BROKEN) &&
+				((ios->timing == MMC_TIMING_UHS_SDR12) ||
+				 (ios->timing == MMC_TIMING_UHS_SDR25) ||
+				 (ios->timing == MMC_TIMING_UHS_SDR50) ||
+				 (ios->timing == MMC_TIMING_UHS_SDR104) ||
+				 (ios->timing == MMC_TIMING_UHS_DDR50))) {
+			u16 preset;
+
+			sdhci_enable_preset_value(host, true);
+			preset = sdhci_get_preset_value(host);
+			ios->drv_type = (preset & SDHCI_PRESET_DRV_MASK)
+				>> SDHCI_PRESET_DRV_SHIFT;
+		}
+		/* Re-enable SD Clock */
+		sdhci_update_clock(host);
+	}
 	/*
 	 * Some (ENE) controllers go apeshit on some ios operation,
 	 * signalling timeout and CRC errors even on CMD0. Resetting
