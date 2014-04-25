@@ -105,14 +105,12 @@
 #define SC_NUM_DEVICES 36
 #define NC_NUM_DEVICES 6
 
-#define PLT_CLK_MODE 0x0
 #define MTPMC_VAL 0x20
 #define DYN_MODE 0x105
 
 #define LPCC_ADDR 0xFED08084
-#define PLT_CLK1 0x60
-#define PLT_CLK2 0x64
-#define PLT_CLK3 0x68
+#define PLT_CLK(x)	(0x60 + (0x04 * (x)))
+#define PLT_CLK_MAXCOUNT	6
 #define MTPMC 0xB0
 #define VLV_PM_STS 0xC
 
@@ -191,14 +189,13 @@ struct pmc_dev {
 	u32 __iomem *d3_sts1;
 	u32 __iomem *func_dis;
 	u32 __iomem *func_dis2;
-	u32 __iomem *pc1;
-	u32 __iomem *pc2;
-	u32 __iomem *pc3;
+	u32 __iomem *pc[PLT_CLK_MAXCOUNT];
 	u32 __iomem *lpcc;
 	u32 __iomem *mtpmc_1;
 	u32 __iomem *vlv_pm_sts;
 	struct pci_dev const *pdev;
 	spinlock_t nc_ready_lock;
+	struct mutex pc_mutex;
 	u32 state_residency[STATE_MAX];
 	u32 state_resi_offset[STATE_MAX];
 	u32 residency_total;
@@ -355,6 +352,83 @@ int pmc_nc_set_power_state(int islands, int state_type, int reg)
 	return ret;
 }
 EXPORT_SYMBOL(pmc_nc_set_power_state);
+
+#define CLK_CONFG_BIT_POS		0
+#define CLK_CONFG_BIT_LEN		2
+#define CLK_CONFG_D3_GATED		0
+#define CLK_CONFG_FORCE_ON		1
+#define CLK_CONFG_FORCE_OFF		2
+
+#define CLK_FREQ_TYPE_BIT_POS		2
+#define CLK_FREQ_TYPE_BIT_LEN		1
+#define CLK_FREQ_TYPE_XTAL		0	/* 25 MHz */
+#define CLK_FREQ_TYPE_PLL		1	/* 19.2 MHz */
+
+#define REG_MASK(n)		(((1 << (n##_BIT_LEN)) - 1) << (n##_BIT_POS))
+#define REG_SET_FIELD(r, n, v)	(((r) & ~REG_MASK(n)) | \
+				 (((v) << (n##_BIT_POS)) & REG_MASK(n)))
+#define REG_GET_FIELD(r, n)	(((r) & REG_MASK(n)) >> n##_BIT_POS)
+
+int pmc_pc_set_freq(int clk_num, int freq_type)
+{
+	if (unlikely(!pmc))
+		return -EAGAIN;
+
+	if (clk_num < 0 && clk_num > PLT_CLK_MAXCOUNT) {
+		dev_err(&pmc->pdev->dev,
+			"Clock number out of range (%d)\n", clk_num);
+		return -EINVAL;
+	}
+
+	if (freq_type != CLK_FREQ_TYPE_XTAL &&
+	    freq_type != CLK_FREQ_TYPE_PLL) {
+		dev_err(&pmc->pdev->dev, "wrong clock type\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&pmc->pc_mutex);
+	writel(REG_SET_FIELD(readl(pmc->pc[clk_num]), CLK_FREQ_TYPE, freq_type),
+		pmc->pc[clk_num]);
+	mutex_unlock(&pmc->pc_mutex);
+
+	return 0;
+}
+EXPORT_SYMBOL(pmc_pc_set_freq);
+
+/*
+ * pmc_pc_configure - Configure the specified platform clock
+ * @clk_num: Platform clock number (i.e. 0, 1, 2, ...,5)
+ * @conf:      Clock gating:
+ *		0   - Clock gated on D3 state
+ *		1   - Force on
+ *		2,3 - Force off
+ */
+int pmc_pc_configure(int clk_num, u32 conf)
+{
+	if (unlikely(!pmc))
+		return -EAGAIN;
+
+	if (clk_num < 0 && clk_num > PLT_CLK_MAXCOUNT) {
+		dev_err(&pmc->pdev->dev,
+			"Clock number out of range (%d)\n", clk_num);
+		return -EINVAL;
+	}
+
+	if (conf != CLK_CONFG_D3_GATED &&
+	    conf != CLK_CONFG_FORCE_ON &&
+	    conf != CLK_CONFG_FORCE_OFF) {
+		dev_err(&pmc->pdev->dev,
+			"Invalid clock configuration requested\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&pmc->pc_mutex);
+	writel(REG_SET_FIELD(readl(pmc->pc[clk_num]), CLK_CONFG, conf),
+		pmc->pc[clk_num]);
+	mutex_unlock(&pmc->pc_mutex);
+	return 0;
+}
+EXPORT_SYMBOL(pmc_pc_configure);
 
 static inline u32 pmc_register_read(int reg_offset)
 {
@@ -587,9 +661,12 @@ static ssize_t s0i3_enable_write(struct file *file,
 		return -EFAULT;
 	if (val == 1) {
 		pr_info(KERN_INFO "Platform Clocks forced OFF\n");
-		writel(PLT_CLK_MODE, pmc->pc1);
-		writel(PLT_CLK_MODE, pmc->pc2);
-		writel(PLT_CLK_MODE, pmc->pc3);
+		{
+			int i;
+
+			for (i = 0; i < PLT_CLK_MAXCOUNT; i++)
+				pmc_pc_configure(i, 0);
+		}
 		pr_info(KERN_INFO "Force LPCC clk\n");
 		writel(DYN_MODE, pmc->lpcc);
 		pr_info(KERN_INFO "PLL force off mtpmc\n");
@@ -829,12 +906,13 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 		pmc_cxt->base_address + FUNC_DIS2, 4);
 
 /* These changes should be reverted once PMC bugs are fixed*/
-	pmc_cxt->pc1 = devm_ioremap_nocache(&pdev->dev,
-		pmc_cxt->base_address + PLT_CLK1, 4);
-	pmc_cxt->pc2 = devm_ioremap_nocache(&pdev->dev,
-		pmc_cxt->base_address + PLT_CLK2, 4);
-	pmc_cxt->pc3 = devm_ioremap_nocache(&pdev->dev,
-		pmc_cxt->base_address + PLT_CLK3, 4);
+	{
+		int i;
+
+		for (i = 0; i < PLT_CLK_MAXCOUNT; i++)
+			pmc_cxt->pc[i] = devm_ioremap_nocache(&pdev->dev,
+				pmc_cxt->base_address + PLT_CLK(i), 4);
+	}
 	pmc_cxt->lpcc = devm_ioremap_nocache(&pdev->dev,
 		LPCC_ADDR, 4);
 	pmc_cxt->mtpmc_1 = devm_ioremap_nocache(&pdev->dev,
@@ -852,6 +930,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	suspend_set_ops(&pmc_suspend_ops);
 
 	spin_lock_init(&pmc->nc_ready_lock);
+	mutex_init(&pmc->pc_mutex);
 
 	pci_set_drvdata(pdev, pmc_cxt);
 
