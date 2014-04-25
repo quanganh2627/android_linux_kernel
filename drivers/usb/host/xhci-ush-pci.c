@@ -1231,29 +1231,6 @@ static int hsic_get_gpio_num(struct pci_dev *pdev)
 	return 0;
 }
 
-static void xhci_no_power_gate_on_d3(struct pci_dev *dev, struct usb_hcd *hcd)
-{
-	u32 reg;
-
-	dev_info(&dev->dev, "Disable Power gating xHCI\n");
-
-	/* Clear D3_hot_en */
-	pci_read_config_dword(dev, 0x9c, &reg);
-	dev_info(&dev->dev, "pci config + 0x9c = 0x%08x\n", reg);
-	reg &= ~BIT(18);
-	pci_write_config_dword(dev, 0x9c, reg);
-	pci_read_config_dword(dev, 0x9c, &reg);
-	dev_info(&dev->dev, "After write, pci config + 0x9c = 0x%08x\n", reg);
-
-	/* Enable Legacy PME_en */
-	reg = readl(hcd->regs + 0x80a4);
-	dev_info(&dev->dev, "MMIO + 0x80A4 = 0x%08x\n", reg);
-	reg |= BIT(30);
-	writel(reg, hcd->regs + 0x80a4);
-	reg = readl(hcd->regs + 0x80a4);
-	dev_info(&dev->dev, "After write MMIO + 0x80A4 = 0x%08x\n", reg);
-}
-
 /*
  * We need to register our own PCI probe function (instead of the USB core's
  * function) in order to create a second roothub under xHCI.
@@ -1386,12 +1363,6 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	/* Check here to avoid to call pm_runtime_put_noidle() twice */
 	if (!pci_dev_run_wake(dev))
 		pm_runtime_put_noidle(&dev->dev);
-
-	/* WORKAROUND: CHT A1 can't resume from D3 correctly if controller
-	 * is power gated in D3
-	 */
-	if (hsic_pdata->no_power_gate)
-		xhci_no_power_gate_on_d3(dev, hcd);
 
 	/* Disable the HSIC port */
 	dev_info(&dev->dev, "disable hsic on driver init\n");

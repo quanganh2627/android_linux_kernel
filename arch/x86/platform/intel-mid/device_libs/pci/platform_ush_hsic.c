@@ -54,7 +54,6 @@ static struct ush_hsic_pdata *get_hsic_platform_data(struct pci_dev *pdev)
 		pdata->aux_gpio = 78;
 		pdata->wakeup_gpio = 105;
 		pdata->hsic_port_num = 6;
-		pdata->no_power_gate = 1;
 		pdata->reenum_delay = 600000;
 		break;
 

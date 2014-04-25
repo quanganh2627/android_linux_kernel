@@ -83,7 +83,6 @@ enum {
 struct ush_hsic_pdata {
 	unsigned                has_modem:1;     /* has modem or not */
 	unsigned                enabled:1;       /* enable flag */
-	unsigned		no_power_gate:1; /* no power gating on d3 */
 	int                     aux_gpio;
 	int                     wakeup_gpio;
 	int                     reenum_delay;
