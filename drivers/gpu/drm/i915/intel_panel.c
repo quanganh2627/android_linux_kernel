@@ -189,6 +189,7 @@ void intel_gmch_panel_fitting(struct intel_crtc *intel_crtc,
 	struct drm_device *dev = intel_crtc->base.dev;
 	u32 pfit_control = 0, pfit_pgm_ratios = 0, border = 0;
 	struct drm_display_mode *mode, *adjusted_mode;
+	uint32_t scaling_src_w, scaling_src_h = 0;
 
 	intel_crtc->base.panning_en = false;
 
@@ -196,9 +197,15 @@ void intel_gmch_panel_fitting(struct intel_crtc *intel_crtc,
 	adjusted_mode = &pipe_config->adjusted_mode;
 
 	if (IS_VALLEYVIEW(dev)) {
+		scaling_src_w = ((intel_crtc->scaling_src_size >>
+				SCALING_SRCSIZE_SHIFT) &
+				SCALING_SRCSIZE_MASK) + 1;
+		scaling_src_h = (intel_crtc->scaling_src_size &
+				SCALING_SRCSIZE_MASK) + 1;
+
 		/* The input src size should be < 2kx2k */
-		if ((adjusted_mode->hdisplay > PFIT_SIZE_LIMIT) ||
-			(adjusted_mode->vdisplay > PFIT_SIZE_LIMIT)) {
+		if ((scaling_src_w > PFIT_SIZE_LIMIT) ||
+			(scaling_src_h > PFIT_SIZE_LIMIT)) {
 			DRM_ERROR("Wrong panel fitter input src conf");
 			goto out;
 		}

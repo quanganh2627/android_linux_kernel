@@ -422,6 +422,8 @@ struct intel_crtc {
 	bool pch_fifo_underrun_disabled;
 	/* panel fitter input src size */
 	uint32_t scaling_src_size;
+	/* panel fitter status flag */
+	bool	pfit_en_status;
 };
 
 struct intel_plane_wm_parameters {

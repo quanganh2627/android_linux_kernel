@@ -2273,6 +2273,7 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	u32 dspcntr;
 	u32 reg;
 	int pixel_size;
+	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 
 	switch (plane) {
 	case 0:
@@ -2373,8 +2374,17 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		/* if panel fitter is enabled program the input src size */
 		if (intel_crtc->scaling_src_size &&
 			intel_crtc->config.gmch_pfit.control) {
-			I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
-			I915_WRITE(PFIT_CONTROL, intel_crtc->config.gmch_pfit.control);
+			I915_WRITE(PFIT_CONTROL,
+				intel_crtc->config.gmch_pfit.control);
+			I915_WRITE(PIPESRC(pipe),
+				intel_crtc->scaling_src_size);
+			intel_crtc->pfit_en_status = true;
+		} else if (intel_crtc->pfit_en_status) {
+			I915_WRITE(PIPESRC(pipe),
+				((mode->hdisplay - 1) <<
+				SCALING_SRCSIZE_SHIFT) | (mode->vdisplay - 1));
+			I915_WRITE(PFIT_CONTROL, 0);
+			intel_crtc->pfit_en_status = false;
 		}
 	}
 
@@ -4091,6 +4101,7 @@ static void i9xx_pfit_enable(struct intel_crtc *crtc)
 	/* Border color in case we don't scale up to the full screen. Black by
 	 * default, change to something else for debugging. */
 	I915_WRITE(BCLRPAT(crtc->pipe), 0);
+	crtc->pfit_en_status = true;
 }
 static void valleyview_crtc_enable(struct drm_crtc *crtc)
 {
@@ -4221,6 +4232,7 @@ static void i9xx_pfit_disable(struct intel_crtc *crtc)
 	DRM_DEBUG_DRIVER("disabling pfit, current: 0x%08x\n",
 			 I915_READ(PFIT_CONTROL));
 	I915_WRITE(PFIT_CONTROL, 0);
+	crtc->pfit_en_status = false;
 }
 
 static void i9xx_crtc_disable(struct drm_crtc *crtc)
@@ -10944,6 +10956,8 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 			dev_priv, &clockspread);
 
 	intel_crtc->base.panning_en = false;
+	intel_crtc->scaling_src_size = 0;
+	intel_crtc->pfit_en_status = false;
 }
 
 int intel_get_pipe_from_crtc_id(struct drm_device *dev, void *data,

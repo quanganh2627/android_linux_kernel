@@ -297,6 +297,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	bool alpha = true;
 	unsigned long sprsurf_offset, linear_offset;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
+	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 
 	if (plane && intel_crtc->sprite1_alpha)
 		alpha = true;
@@ -412,8 +413,15 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	/* if panel fitter is enabled program the input src size */
 	if (intel_crtc->scaling_src_size &&
 		intel_crtc->config.gmch_pfit.control) {
-		I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
 		I915_WRITE(PFIT_CONTROL, intel_crtc->config.gmch_pfit.control);
+		I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
+		intel_crtc->pfit_en_status = true;
+	} else if (intel_crtc->pfit_en_status) {
+		I915_WRITE(PIPESRC(pipe),
+			((mode->hdisplay - 1) << SCALING_SRCSIZE_SHIFT) |
+			(mode->vdisplay - 1));
+		I915_WRITE(PFIT_CONTROL, 0);
+		intel_crtc->pfit_en_status = false;
 	}
 
 	I915_WRITE(SPSTRIDE(pipe, plane), fb->pitches[0]);
@@ -422,8 +430,11 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		uint32_t height = crtc->hwmode.vdisplay;
 
 		if (intel_crtc->scaling_src_size && intel_crtc->config.gmch_pfit.control) {
-			width = ((intel_crtc->scaling_src_size >> 16) & 0xffff) + 1;
-			height = (intel_crtc->scaling_src_size & 0xffff) + 1;
+			width = ((intel_crtc->scaling_src_size >>
+				SCALING_SRCSIZE_SHIFT) &
+				SCALING_SRCSIZE_MASK) + 1;
+			height = (intel_crtc->scaling_src_size &
+				SCALING_SRCSIZE_MASK) + 1;
 		}
 
 		I915_WRITE(SPPOS(pipe, plane), ((height -
@@ -1157,8 +1168,11 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 
 	if (IS_VALLEYVIEW(dev) && intel_crtc->scaling_src_size &&
 		intel_crtc->config.gmch_pfit.control) {
-		clip.x2 = ((intel_crtc->scaling_src_size >> 16) & 0xffff) + 1;
-		clip.y2 = (intel_crtc->scaling_src_size & 0xffff) + 1;
+		clip.x2 = ((intel_crtc->scaling_src_size >>
+				SCALING_SRCSIZE_SHIFT) &
+				SCALING_SRCSIZE_MASK) + 1;
+		clip.y2 = (intel_crtc->scaling_src_size &
+				SCALING_SRCSIZE_MASK) + 1;
 	}
 
 	hscale = drm_rect_calc_hscale_relaxed(&src, &dst, min_scale, max_scale);

@@ -1426,18 +1426,10 @@ intel_hdmi_set_property(struct drm_connector *connector,
 		if (intel_connector->panel.fitting_mode == val)
 			return 0;
 		intel_connector->panel.fitting_mode = val;
-		if (intel_crtc->config.gmch_pfit.control &&
-				intel_connector->panel.fitting_mode) {
-			u32 pfit_control = intel_crtc->config.gmch_pfit.control & MASK_PFIT_SCALING_MODE;
 
-			if (intel_connector->panel.fitting_mode == AUTOSCALE)
-				pfit_control |= PFIT_SCALING_AUTO;
-			else if (intel_connector->panel.fitting_mode == PILLARBOX)
-				pfit_control |= PFIT_SCALING_PILLAR;
-			else if (intel_connector->panel.fitting_mode == LETTERBOX)
-				pfit_control |= PFIT_SCALING_LETTER;
-
-			intel_crtc->config.gmch_pfit.control = pfit_control;
+		if (IS_VALLEYVIEW(dev_priv->dev)) {
+			intel_gmch_panel_fitting(intel_crtc, &intel_crtc->config,
+				intel_connector->panel.fitting_mode);
 			return 0;
 		} else
 			goto done;
