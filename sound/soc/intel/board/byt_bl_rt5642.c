@@ -30,7 +30,7 @@
 #include <linux/device.h>
 #include <linux/gpio.h>
 #include <linux/slab.h>
-#include <linux/vlv2_plat_clock.h>
+#include <asm/intel_soc_pmc.h>
 #include <linux/acpi_gpio.h>
 #include <asm/intel-mid.h>
 #include <linux/mutex.h>
@@ -531,7 +531,7 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 		return -EIO;
 	}
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		vlv2_plat_configure_clock(VLV2_PLAT_CLK_AUDIO,
+		pmc_pc_configure(VLV2_PLAT_CLK_AUDIO,
 				PLAT_CLK_FORCE_ON);
 		pr_debug("Platform clk turned ON\n");
 		snd_soc_codec_set_sysclk(codec, RT5640_SCLK_S_PLL1,
@@ -545,7 +545,7 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 		snd_soc_write(codec, RT5640_ADDA_CLK1, 0x7774);
 		snd_soc_codec_set_sysclk(codec, RT5640_SCLK_S_RCCLK,
 				0, 0, SND_SOC_CLOCK_IN);
-		vlv2_plat_configure_clock(VLV2_PLAT_CLK_AUDIO,
+		pmc_pc_configure(VLV2_PLAT_CLK_AUDIO,
 				PLAT_CLK_FORCE_OFF);
 		pr_debug("Platform clk turned OFF\n");
 	}
