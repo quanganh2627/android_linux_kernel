@@ -109,7 +109,9 @@ ssize_t i915_gamma_adjust_write(struct file *filp,
 		  loff_t *ppos)
 {
 	int ret = 0;
+	int bytes_count;
 	char *buf = NULL;
+	char *temp_buf = NULL;
 
 	/* Validate input */
 	if (!count) {
@@ -130,16 +132,35 @@ ssize_t i915_gamma_adjust_write(struct file *filp,
 		goto EXIT;
 	}
 
+	bytes_count = count;
 	/* Parse data and load the gamma  table */
 	ret = parse_clrmgr_input(gamma_softlut, buf,
-		GAMMA_CORRECT_MAX_COUNT, count);
-	if (ret < 0)
+		GAMMA_CORRECT_MAX_COUNT, &bytes_count);
+	if (ret < GAMMA_CORRECT_MAX_COUNT) {
 		DRM_ERROR("Gamma table loading failed\n");
+		goto EXIT;
+	}
 	else
 		DRM_DEBUG("Gamma table loading done\n");
+
+	if (bytes_count < count) {
+		temp_buf = buf + bytes_count;
+
+		/*Number of bytes remaining */
+		bytes_count = count - bytes_count;
+
+		/* Parse data and load the gcmax table */
+		ret = parse_clrmgr_input(gcmax_softlut, temp_buf,
+				GC_MAX_COUNT, &bytes_count);
+
+		if (ret < GC_MAX_COUNT)
+			DRM_ERROR("GCMAX table loading failed\n");
+		else
+			DRM_DEBUG("GCMAX table loading done\n");
+	}
+
 EXIT:
 	kfree(buf);
-	/* If error, return error*/
 	if (ret < 0)
 		return ret;
 
@@ -267,6 +288,7 @@ ssize_t i915_cb_adjust_write(struct file *filp,
 		  loff_t *ppos)
 {
 	int ret = count;
+	int bytes_count = count;
 	struct drm_device *dev = filp->private_data;
 	struct cont_brightlut *cb_ptr = NULL;
 	drm_i915_private_t *dev_priv = dev->dev_private;
@@ -299,9 +321,11 @@ ssize_t i915_cb_adjust_write(struct file *filp,
 	}
 
 	/* Parse input data */
-	ret = parse_clrmgr_input((uint *)cb_ptr, buf, 2, count);
-	if (ret < 0)
+	ret = parse_clrmgr_input((uint *)cb_ptr, buf, CB_MAX_COEFF_COUNT, &bytes_count);
+	if (ret < CB_MAX_COEFF_COUNT) {
 		DRM_ERROR("Contrast Brightness loading failed\n");
+		goto EXIT;
+	}
 	else
 		DRM_DEBUG("Contrast Brightness loading done\n");
 
@@ -319,8 +343,7 @@ ssize_t i915_cb_adjust_write(struct file *filp,
 EXIT:
 	kfree(cb_ptr);
 	kfree(buf);
-	/* If cant read the full buffer, read from last left */
-	if (ret < count-1)
+	if (ret < 0)
 		return ret;
 
 	return count;
@@ -341,6 +364,7 @@ ssize_t i915_hs_adjust_write(struct file *filp,
 		  loff_t *ppos)
 {
 	int ret = count;
+	int bytes_count = count;
 	struct drm_device *dev = filp->private_data;
 	struct hue_saturationlut *hs_ptr = NULL;
 	drm_i915_private_t *dev_priv = dev->dev_private;
@@ -373,9 +397,11 @@ ssize_t i915_hs_adjust_write(struct file *filp,
 	}
 
 	/* Parse input data */
-	ret = parse_clrmgr_input((uint *)hs_ptr, buf, 2, count);
-	if (ret < 0)
+	ret = parse_clrmgr_input((uint *)hs_ptr, buf, HS_MAX_COEFF_COUNT, &bytes_count);
+	if (ret < HS_MAX_COEFF_COUNT) {
 		DRM_ERROR("Hue Saturation loading failed\n");
+		goto EXIT;
+	}
 	else
 		DRM_DEBUG("Hue Saturation loading done\n");
 
@@ -394,8 +420,8 @@ ssize_t i915_hs_adjust_write(struct file *filp,
 EXIT:
 	kfree(hs_ptr);
 	kfree(buf);
-	/* If cant read the full buffer, read from last left */
-	if (ret < count-1)
+
+	if (ret < 0)
 		return ret;
 
 	return count;
@@ -417,6 +443,7 @@ ssize_t i915_csc_adjust_write(struct file *filp,
 		  loff_t *ppos)
 {
 	int ret = 0;
+	int bytes_count = count;
 	char *buf  = NULL;
 
 	/* Validate input */
@@ -440,14 +467,13 @@ ssize_t i915_csc_adjust_write(struct file *filp,
 
 	/* Parse data and load the csc  table */
 	ret = parse_clrmgr_input(csc_softlut, buf,
-		CSC_MAX_COEFF_COUNT, count);
-	if (ret < 0)
+		CSC_MAX_COEFF_COUNT, &bytes_count);
+	if (ret < CSC_MAX_COEFF_COUNT)
 		DRM_ERROR("CSC table loading failed\n");
 	else
 		DRM_DEBUG("CSC table loading done\n");
 EXIT:
 	kfree(buf);
-	/* If cant read the full buffer, read from last left */
 	if (ret < 0)
 		return ret;
 

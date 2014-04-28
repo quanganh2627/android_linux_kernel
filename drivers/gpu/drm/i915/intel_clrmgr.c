@@ -70,7 +70,12 @@ u32 gamma_softlut[GAMMA_CORRECT_MAX_COUNT] =  {
 	0xE0E0E0, 0x0, 0xE2E2E2, 0x0, 0xE4E4E4, 0x0, 0xE6E6E6, 0x0,
 	0xE8E8E8, 0x0, 0xEAEAEA, 0x0, 0xECECEC, 0x0, 0xEEEEEE, 0x0,
 	0xF0F0F0, 0x0, 0xF2F2F2, 0x0, 0xF4F4F4, 0x0, 0xF6F6F6, 0x0,
-	0xF8F8F8, 0x0, 0xFAFAFA, 0x0, 0xFCFCFC, 0x0, 0xFEFEFE, 0x0
+	0xF8F8F8, 0x0, 0xFAFAFA, 0x0, 0xFCFCFC, 0x0, 0xFEFEFE, 0x0,
+};
+
+/* GCMAX soft lookup table */
+u32 gcmax_softlut[GC_MAX_COUNT] =  {
+	0xFF00, 0xFF00, 0xFF00
 };
 
 /* Color space conversion coff's */
@@ -187,20 +192,20 @@ do_intel_disable_csc(struct drm_device *dev, struct drm_crtc *crtc)
 }
 
 /* Parse userspace input coming from dev node*/
-int parse_clrmgr_input(uint *dest, char *src, int max, int read)
+int parse_clrmgr_input(uint *dest, char *src, int max, int *num_bytes)
 {
 	int size = 0;
 	int bytes = 0;
 	char *populate = NULL;
 
 	/*Check for trailing comma or \n */
-	if (!dest || !src || *src == ',' || *src == '\n' || !read) {
+	if (!dest || !src || *src == ',' || *src == '\n' || !(*num_bytes)) {
 		DRM_ERROR("Invalid input to parse");
 		return -EINVAL;
 	}
 
 	/* Lower limit */
-	if (read < max) {
+	if (*num_bytes < max) {
 		DRM_ERROR("Invalid input to parse");
 		return -EINVAL;
 	}
@@ -212,15 +217,19 @@ int parse_clrmgr_input(uint *dest, char *src, int max, int read)
 			break;
 
 		bytes += (strlen(populate)+1);
-		if (kstrtouint((const char *)populate, 16,
-			&dest[size++])) {
-			DRM_ERROR("Parse: Invalid limit\n");
+		if (kstrtouint((const char *)populate, CLRMGR_BASE,
+					&dest[size++])) {
+			DRM_ERROR("Parse: Invalid limit");
 			return -EINVAL;
 		}
 		if (src == NULL || *src == '\0')
 			break;
 	}
-	return read;
+	/*Fill num_bytes with number of bytes read*/
+	*num_bytes = bytes;
+
+	/*Return number of tokens parsed*/
+	return size;
 }
 
 /* Gamma correction for sprite planes on External display */
@@ -330,10 +339,9 @@ int intel_enable_primary_gamma(struct drm_crtc *crtc)
 	}
 
 	/* Write max values in 11.6 format */
-	I915_WRITE(PIPEA_GAMMA_MAX_BLUE, SHIFTBY6(GAMMA_MAX_VAL));
-	I915_WRITE(PIPEA_GAMMA_MAX_GREEN, SHIFTBY6(GAMMA_MAX_VAL));
-	I915_WRITE(PIPEA_GAMMA_MAX_RED, SHIFTBY6(GAMMA_MAX_VAL));
-
+	I915_WRITE(PIPEA_GAMMA_MAX_BLUE, gcmax_softlut[0]);
+	I915_WRITE(PIPEA_GAMMA_MAX_GREEN, gcmax_softlut[1]);
+	I915_WRITE(PIPEA_GAMMA_MAX_RED, gcmax_softlut[2]);
 	/* Enable gamma on PIPE  */
 	status = I915_READ(PIPECONF(intel_crtc->pipe));
 	status |= PIPECONF_GAMMA;
@@ -385,9 +393,9 @@ int intel_enable_pipe_gamma(struct drm_crtc *crtc)
 	}
 
 	/* Write max values in 11.6 format */
-	I915_WRITE(PIPEA_GAMMA_MAX_BLUE, SHIFTBY6(GAMMA_MAX_VAL));
-	I915_WRITE(PIPEA_GAMMA_MAX_GREEN, SHIFTBY6(GAMMA_MAX_VAL));
-	I915_WRITE(PIPEA_GAMMA_MAX_RED, SHIFTBY6(GAMMA_MAX_VAL));
+	I915_WRITE(PIPEA_GAMMA_MAX_BLUE, gcmax_softlut[0]);
+	I915_WRITE(PIPEA_GAMMA_MAX_GREEN, gcmax_softlut[1]);
+	I915_WRITE(PIPEA_GAMMA_MAX_RED, gcmax_softlut[2]);
 
 	/* Enable gamma for Plane A  */
 	status = I915_READ(PIPECONF(intel_crtc->pipe));
