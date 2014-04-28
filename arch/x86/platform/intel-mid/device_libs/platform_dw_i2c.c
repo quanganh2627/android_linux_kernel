@@ -116,7 +116,6 @@ EXPORT_SYMBOL(intel_mid_dw_i2c_abort);
 
 /* synchronization for sharing the I2C controller */
 #define PUNIT_PORT	0x04
-static DEFINE_SPINLOCK(msgbus_lock);
 static struct pci_dev *pci_root;
 #include <linux/pm_qos.h>
 static struct pm_qos_request pm_qos;
@@ -177,17 +176,10 @@ int intel_mid_dw_i2c_acquire_ownership(void)
 	((PUNIT_DOORBELL_REG & 0xFF) << 8) | PCI_ROOT_MSGBUS_DWORD_ENABLE;
 	cmdext = PUNIT_DOORBELL_REG & 0xffffff00;
 
-	spin_lock_irqsave(&msgbus_lock, irq_flags);
-	pci_write_config_dword(pci_root, PCI_ROOT_MSGBUS_DATA_REG, data);
-
-	if (cmdext) {
-		/* This resets to 0 automatically, no need to write 0 */
-		pci_write_config_dword(pci_root, PCI_ROOT_MSGBUS_CTRL_EXT_REG,
-				cmdext);
-	}
-
-	pci_write_config_dword(pci_root, PCI_ROOT_MSGBUS_CTRL_REG, cmd);
-	spin_unlock_irqrestore(&msgbus_lock, irq_flags);
+	if (cmdext)
+		intel_mid_msgbus_write32_raw_ext(cmd, cmdext, data);
+	else
+		intel_mid_msgbus_write32_raw(cmd, data);
 
 	/* host driver waits for bit 0 to be set in side band 0x7 */
 	while (GET_SEM() != 0x1) {
