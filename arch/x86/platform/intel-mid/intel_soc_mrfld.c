@@ -309,8 +309,12 @@ static int wait_for_nc_pmcmd_complete(int verify_mask,
 		}
 
 		count++;
-		if (WARN_ONCE(count > 500000, "Timed out waiting for P-Unit"))
-			return -EBUSY;
+		if (count > 500000) {
+			pr_err("PUnit Timeout, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+				verify_mask, status_mask, state_type, reg,
+				intel_mid_msgbus_read32(PUNIT_PORT, reg));
+			panic("punit timeout");
+		}
 	}
 	return 0;
 }
