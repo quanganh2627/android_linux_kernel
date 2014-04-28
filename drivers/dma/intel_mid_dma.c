@@ -677,7 +677,7 @@ static inline void dma_wait_for_suspend(struct dma_chan *chan, unsigned int mask
 	struct middma_device	*mid = to_middma_device(chan->device);
 	struct intel_mid_dma_chan	*midc = to_intel_mid_dma_chan(chan);
 	int i;
-	const int max_loops = 100;
+	const int max_loops = 200;
 
 	/* Suspend channel */
 	cfg_lo.cfg_lo = ioread32(midc->ch_regs + CFG_LOW);
@@ -699,7 +699,8 @@ static inline void dma_wait_for_suspend(struct dma_chan *chan, unsigned int mask
 	}
 
 	if (i == max_loops)
-		pr_info("Waited 5 ms for chan[%d] FIFO to get empty\n",
+		pr_err("Waited x ms(%d loops) for chan[%d] FIFO to get empty\n",
+			max_loops,
 			chan->chan_id);
 	else
 		pr_debug("waited for %d loops for chan[%d] FIFO to get empty",
