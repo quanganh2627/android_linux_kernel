@@ -297,22 +297,14 @@ void intel_dsi_port_disable(struct intel_encoder *encoder)
 
 	usleep_range(2000, 2500);
 }
+
 static void intel_dsi_pre_enable(struct intel_encoder *encoder)
-{
-	DRM_DEBUG_KMS("\n");
-
-	/* put device in ready state */
-	intel_dsi_device_ready(encoder);
-}
-
-static void intel_dsi_enable(struct intel_encoder *encoder)
 {
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	int pipe = intel_crtc->pipe;
-
 	DRM_DEBUG_KMS("\n");
 
 	intel_enable_dsi_pll(intel_dsi);
@@ -325,13 +317,21 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 		intel_dsi->hs = 0;
 		dpi_send_cmd(intel_dsi, TURN_ON);
 		usleep_range(1000, 1500);
-
 		if (intel_dsi->dev.dev_ops->enable)
 			intel_dsi->dev.dev_ops->enable(&intel_dsi->dev);
 
 		intel_dsi_port_enable(encoder);
-
 	}
+}
+
+static void intel_dsi_enable(struct intel_encoder *encoder)
+{
+	struct drm_device *dev = encoder->base.dev;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	int pipe = intel_crtc->pipe;
+
+	DRM_DEBUG_KMS("\n");
 
 	/* Adjust backlight timing for specific panel */
 	if (intel_dsi->backlight_on_delay >= 20)
@@ -691,6 +691,8 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 		count = 2;
 
 	do {
+		intel_dsi_device_ready(intel_encoder);
+
 		I915_WRITE(MIPI_DEVICE_READY(pipe), 0x0);
 
 		dsi_config(encoder);
