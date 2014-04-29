@@ -673,10 +673,7 @@ static int chv_gpio_get(struct gpio_chip *chip, unsigned offset)
 	reg = chv_gpio_reg(chip, offset, CV_PADCTRL0_REG);
 	value = chv_readl(reg);
 
-	if ((value & CV_GPIO_CFG_MASK) == CV_GPIO_TX_EN)
-		return !!(value & CV_GPIO_TX_STAT);
-	else
-		return value & CV_GPIO_RX_STAT;
+	return value & CV_GPIO_RX_STAT;
 }
 
 static void chv_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
@@ -734,7 +731,7 @@ static int chv_gpio_direction_output(struct gpio_chip *chip,
 				     unsigned offset, int value)
 {
 	struct chv_gpio *cg = to_chv_priv(chip);
-	void __iomem *reg;
+	void __iomem *ctrl0, *ctrl1;
 	unsigned long flags;
 	u32 reg_val;
 
@@ -744,21 +741,23 @@ static int chv_gpio_direction_output(struct gpio_chip *chip,
 	if (PAD_CFG_LOCKED(offset))
 		return 0;
 
-	reg = chv_gpio_reg(chip, offset, CV_PADCTRL0_REG);
+	ctrl0 = chv_gpio_reg(chip, offset, CV_PADCTRL0_REG);
+	ctrl1 = chv_gpio_reg(chip, offset, CV_PADCTRL1_REG);
 
 	spin_lock_irqsave(&cg->lock, flags);
 
-	reg_val = chv_readl(reg) & (~CV_GPIO_CFG_MASK);
-	/* Disable RX and Enable TX */
-	reg_val |= CV_GPIO_TX_EN;
+	/* Make sure interrupt of this pad is disabled */
+	chv_update_irq_type(cg, IRQ_TYPE_NONE, ctrl1);
 
-	/* Control TX State */
+	reg_val = chv_readl(ctrl0) & (~CV_GPIO_CFG_MASK);
+
+	/* Enable both RX and TX, control TX State */
 	if (value)
 		reg_val |= CV_GPIO_TX_STAT;
 	else
 		reg_val &= ~CV_GPIO_TX_STAT;
 
-	chv_writel(reg_val, reg);
+	chv_writel(reg_val, ctrl0);
 
 	spin_unlock_irqrestore(&cg->lock, flags);
 
@@ -802,8 +801,8 @@ static void chv_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 				"mux:%d %s %s %s %s %s "
 				"IntSel:%d ctrl0: 0x%x ctrl1: 0x%x\n",
 			i,
-			((ctrl0 & CV_GPIO_CFG_MASK) == 0x0) ? "out" : " ",
-			(ctrl0 & CV_GPIO_RX_EN) ? "in" : " ",
+			((ctrl0 & CV_GPIO_CFG_MASK) < CV_GPIO_RX_EN) ? "out" : " ",
+			((ctrl0 & CV_GPIO_CFG_MASK) == CV_GPIO_RX_EN) ? "in" : " ",
 			(ctrl0 & CV_GPIO_RX_STAT) ? "high" : " low ",
 			cg->pad_info[i].pad,
 			offs,
@@ -1066,7 +1065,7 @@ static void pinmux_set_handle(unsigned int num, int *value)
 	if (num == 16)
 		*value |= CV_GPIO_EN;
 	else if (num < 16) {
-		*value &= ~CV_PAD_MODE_MASK;
+		*value &= ~(CV_GPIO_EN | CV_PAD_MODE_MASK);
 		*value |= (num << 16);
 	}
 }
@@ -1102,16 +1101,13 @@ static void pullmode_set_handle(unsigned int num, int *value)
 
 static int pinvalue_get_handle(int value)
 {
-	if ((value & CV_GPIO_CFG_MASK) == CV_GPIO_TX_EN)
-		return !!(value & CV_GPIO_TX_STAT);
-	else
-		return value & CV_GPIO_RX_STAT;
+	return value & CV_GPIO_RX_STAT;
 }
 
 static void pinvalue_set_handle(unsigned int num, int *value)
 {
-	/* only can change output pin value */
-	if ((*value & CV_GPIO_CFG_MASK) != CV_GPIO_TX_EN)
+	/* change pin value if output enabled */
+	if ((*value & CV_GPIO_CFG_MASK) >= CV_GPIO_RX_EN)
 		return;
 
 	if (num)
