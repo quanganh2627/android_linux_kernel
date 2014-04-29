@@ -45,6 +45,7 @@
 #include <linux/iio/consumer.h>
 #include <linux/mfd/intel_mid_pmic.h>
 #include <linux/power/dc_xpwr_battery.h>
+#include <linux/intel_fg_helper.h>
 
 #define DC_PS_STAT_REG			0x00
 #define PS_STAT_VBUS_TRIGGER		(1 << 0)
@@ -82,7 +83,7 @@
 #define DC_FG_VLTFW_REG			0x3C
 #define FG_VLTFW_0C			0xA5	/* 0 DegC */
 #define DC_FG_VHTFW_REG			0x3D
-#define FG_VHTFW_56C			0x15	/* 56 DegC */
+#define FG_VHTFW_56C			0x1E	/* 45 DegC */
 
 #define DC_TEMP_IRQ_CFG_REG		0x42
 #define TEMP_IRQ_CFG_QWBTU		(1 << 0)
@@ -107,6 +108,7 @@
 #define FG_CNTL_CAP_ADJ_EN		(1 << 5)
 #define FG_CNTL_CC_EN			(1 << 6)
 #define FG_CNTL_GAUGE_EN		(1 << 7)
+#define FG_CNTL_DEF_EN_MASK		0xff
 
 #define DC_FG_REP_CAP_REG		0xB9
 #define FG_REP_CAP_VALID		(1 << 7)
@@ -121,8 +123,8 @@
 #define DC_FG_OCV_CURVE_REG		0xC0
 
 #define DC_FG_DES_CAP1_REG		0xE0
-#define DC_FG_DES_CAP1_VALID		(1 << 7)
-#define DC_FG_DES_CAP1_VAL_MASK		0x7F
+#define FG_DES_CAP1_VALID		(1 << 7)
+#define FG_DES_CAP1_VAL_MASK		0x7F
 
 #define DC_FG_DES_CAP0_REG		0xE1
 #define FG_DES_CAP0_VAL_MASK		0xFF
@@ -179,6 +181,7 @@
 #define NR_RETRY_CNT	3
 
 #define DEV_NAME			"dollar_cove_battery"
+#define BATT_OVP_OFFSET			50		/* 50mV */
 
 enum {
 	QWBTU_IRQ = 0,
@@ -195,11 +198,15 @@ struct pmic_fg_info {
 	int			irq[DC_FG_INTR_NUM];
 	struct power_supply	bat;
 	struct mutex		lock;
+	struct dc_xpwr_fg_cfg	*cfg;
+	bool			fg_init_done;
 
 	int			status;
 	/* Worker to monitor status and faults */
 	struct delayed_work status_monitor;
 };
+
+static struct pmic_fg_info *info_ptr;
 
 static enum power_supply_property pmic_fg_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
@@ -477,6 +484,11 @@ static int pmic_fg_battery_health(struct pmic_fg_info *info)
 	int temp, vocv;
 	int ret, health = POWER_SUPPLY_HEALTH_UNKNOWN;
 
+	if (info->pdata->technology != POWER_SUPPLY_TECHNOLOGY_LION) {
+		dev_err(&info->pdev->dev, "Invalid battery detected");
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
+
 	ret = pmic_fg_get_btemp(info, &temp);
 	if (ret < 0)
 		goto health_read_fail;
@@ -485,10 +497,10 @@ static int pmic_fg_battery_health(struct pmic_fg_info *info)
 	if (ret < 0)
 		goto health_read_fail;
 
-	if (vocv > info->pdata->design_max_volt)
+	if (vocv > (info->pdata->design_max_volt + BATT_OVP_OFFSET))
 		health = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
-	else if (temp > info->pdata->max_temp ||
-			temp < info->pdata->min_temp)
+	else if (temp >= info->pdata->max_temp ||
+			temp <= info->pdata->min_temp)
 		health = POWER_SUPPLY_HEALTH_OVERHEAT;
 	else if (vocv < info->pdata->design_min_volt)
 		health = POWER_SUPPLY_HEALTH_DEAD;
@@ -499,13 +511,66 @@ health_read_fail:
 	return health;
 }
 
+static int pmic_fg_get_charge_now(struct pmic_fg_info *info, int *value)
+{
+	int ret;
+
+	ret = pmic_fg_reg_readb(info, DC_FG_CC_MTR1_REG);
+	if (ret < 0)
+		goto pmic_fg_cnow_err;
+
+	*value = (ret & FG_CC_MTR1_VAL_MASK) << 8;
+
+	/*
+	 * higher byte and lower byte reads should be
+	 * back to back to get successful lower byte result.
+	 */
+	pmic_fg_reg_readb(info, DC_FG_CC_MTR1_REG);
+	ret = pmic_fg_reg_readb(info, DC_FG_CC_MTR0_REG);
+	if (ret < 0)
+		goto pmic_fg_cnow_err;
+	*value |= (ret & FG_CC_MTR0_VAL_MASK);
+	*value *= FG_DES_CAP_RES_LSB;
+
+	return 0;
+
+pmic_fg_cnow_err:
+	return ret;
+}
+
+static int pmic_fg_get_charge_full(struct pmic_fg_info *info, int *value)
+{
+	int ret;
+
+	ret = pmic_fg_reg_readb(info, DC_FG_DES_CAP1_REG);
+	if (ret < 0)
+		goto pmic_fg_cfull_err;
+	*value = (ret & FG_DES_CAP1_VAL_MASK) << 8;
+
+	/*
+	 * higher byte and lower byte reads should be
+	 * back to back to get successful lower byte result.
+	 */
+	pmic_fg_reg_readb(info, DC_FG_DES_CAP1_REG);
+	ret = pmic_fg_reg_readb(info, DC_FG_DES_CAP0_REG);
+	if (ret < 0)
+		goto pmic_fg_cfull_err;
+	*value |= (ret & FG_DES_CAP0_VAL_MASK);
+	*value *= FG_DES_CAP_RES_LSB;
+
+	return 0;
+
+pmic_fg_cfull_err:
+	return ret;
+}
+
 static int pmic_fg_get_battery_property(struct power_supply *psy,
 					enum power_supply_property psp,
 					union power_supply_propval *val)
 {
 	struct pmic_fg_info *info = container_of(psy,
 				struct pmic_fg_info, bat);
-	int ret = 0, value;
+	int ret = 0, value, cc_cap;
 
 	mutex_lock(&info->lock);
 	switch (psp) {
@@ -562,7 +627,22 @@ static int pmic_fg_get_battery_property(struct power_supply *psy,
 		if (!(ret & FG_REP_CAP_VALID))
 			dev_err(&info->pdev->dev,
 				"capacity measurement not valid\n");
-		val->intval = (ret & FG_REP_CAP_VAL_MASK);
+
+		/*
+		 * read the coulomb meter capacity to report SOC
+		 * when the FULL is detected, as RepSoC is not
+		 * hitting 100% in some cases.
+		 */
+		if (info->status == POWER_SUPPLY_STATUS_FULL) {
+			cc_cap = pmic_fg_reg_readb(info, DC_FG_CC_CAP_REG);
+			if (cc_cap < 0) {
+				ret = cc_cap;
+				goto pmic_fg_read_err;
+			}
+			val->intval = (cc_cap & FG_CC_CAP_VAL_MASK);
+		} else {
+			val->intval = (ret & FG_REP_CAP_VAL_MASK);
+		}
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		ret = pmic_fg_get_btemp(info, &value);
@@ -571,31 +651,19 @@ static int pmic_fg_get_battery_property(struct power_supply *psy,
 		val->intval = value * 10;
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
-		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
+		val->intval = info->pdata->technology;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW:
-		ret = pmic_fg_reg_readb(info, DC_FG_CC_MTR1_REG);
+		ret = pmic_fg_get_charge_now(info, &value);
 		if (ret < 0)
 			goto pmic_fg_read_err;
-
-		value = (ret & FG_CC_MTR1_VAL_MASK) << 8;
-		ret = pmic_fg_reg_readb(info, DC_FG_CC_MTR0_REG);
-		if (ret < 0)
-			goto pmic_fg_read_err;
-		value |= (ret & FG_CC_MTR0_VAL_MASK);
-		val->intval = value * FG_DES_CAP_RES_LSB;
+		val->intval = value;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		ret = pmic_fg_reg_readb(info, DC_FG_DES_CAP1_REG);
+		ret = pmic_fg_get_charge_full(info, &value);
 		if (ret < 0)
 			goto pmic_fg_read_err;
-
-		value = (ret & DC_FG_DES_CAP1_VAL_MASK) << 8;
-		ret = pmic_fg_reg_readb(info, DC_FG_DES_CAP0_REG);
-		if (ret < 0)
-			goto pmic_fg_read_err;
-		value |= (ret & FG_DES_CAP0_VAL_MASK);
-		val->intval = value * FG_DES_CAP_RES_LSB;
+		val->intval = value;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = info->pdata->design_cap * 1000;
@@ -635,6 +703,57 @@ static int pmic_fg_set_battery_property(struct power_supply *psy,
 	}
 
 	mutex_unlock(&info->lock);
+	return ret;
+}
+
+static int pmic_fg_update_config_params(struct pmic_fg_info *info)
+{
+	int ret, i;
+
+	ret = pmic_fg_reg_readb(info, DC_FG_DES_CAP1_REG);
+	if (ret < 0)
+		goto fg_svae_cfg_fail;
+	info->cfg->cap1 = ret;
+
+	/*
+	 * higher byte and lower byte reads should be
+	 * back to back to get successful lower byte result.
+	 */
+	pmic_fg_reg_readb(info, DC_FG_DES_CAP1_REG);
+	ret = pmic_fg_reg_readb(info, DC_FG_DES_CAP0_REG);
+	if (ret < 0)
+		goto fg_svae_cfg_fail;
+	else
+		info->cfg->cap0 = ret;
+
+	ret = pmic_fg_reg_readb(info, DC_FG_RDC1_REG);
+	if (ret < 0)
+		goto fg_svae_cfg_fail;
+	else
+		info->cfg->rdc1 = ret;
+
+	/*
+	 * higher byte and lower byte reads should be
+	 * back to back to get successful lower byte result.
+	 */
+	pmic_fg_reg_readb(info, DC_FG_RDC1_REG);
+	ret = pmic_fg_reg_readb(info, DC_FG_RDC0_REG);
+	if (ret < 0)
+		goto fg_svae_cfg_fail;
+	else
+		info->cfg->rdc0 = ret;
+
+	for (i = 0; i < BAT_CURVE_SIZE; i++) {
+		ret = pmic_fg_reg_readb(info, DC_FG_OCV_CURVE_REG + i);
+		if (ret < 0)
+			goto fg_svae_cfg_fail;
+		else
+			info->cfg->bat_curve[i] = ret;
+	}
+
+	return 0;
+
+fg_svae_cfg_fail:
 	return ret;
 }
 
@@ -766,11 +885,11 @@ static int pmic_fg_program_design_cap(struct pmic_fg_info *info)
 {
 	int ret;
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP1_REG, info->pdata->cap1);
+	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP1_REG, info->cfg->cap1);
 	if (ret < 0)
 		goto fg_prog_descap_fail;
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP0_REG, info->pdata->cap0);
+	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP0_REG, info->cfg->cap0);
 
 fg_prog_descap_fail:
 	return ret;
@@ -782,7 +901,7 @@ static int pmic_fg_program_ocv_curve(struct pmic_fg_info *info)
 
 	for (i = 0; i < BAT_CURVE_SIZE; i++) {
 		ret = pmic_fg_reg_writeb(info,
-			DC_FG_OCV_CURVE_REG + i, info->pdata->bat_curve[i]);
+			DC_FG_OCV_CURVE_REG + i, info->cfg->bat_curve[i]);
 		if (ret < 0)
 			goto fg_prog_ocv_fail;
 	}
@@ -795,11 +914,11 @@ static int pmic_fg_program_rdc_vals(struct pmic_fg_info *info)
 {
 	int ret;
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_RDC1_REG, info->pdata->rdc1);
+	ret = pmic_fg_reg_writeb(info, DC_FG_RDC1_REG, info->cfg->rdc1);
 	if (ret < 0)
 		goto fg_prog_ocv_fail;
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_RDC0_REG, info->pdata->rdc0);
+	ret = pmic_fg_reg_writeb(info, DC_FG_RDC0_REG, info->cfg->rdc0);
 
 fg_prog_ocv_fail:
 	return ret;
@@ -814,11 +933,12 @@ static void pmic_fg_init_config_regs(struct pmic_fg_info *info)
 	 * check if the config data is already
 	 * programmed and if so just return.
 	 */
-	ret = pmic_fg_reg_readb(info, DC_FG_DES_CAP1_REG);
+	ret = pmic_fg_reg_readb(info, DC_FG_CNTL_REG);
 	if (ret < 0) {
-		dev_warn(&info->pdev->dev, "CAP1 reg read err!!\n");
-	} else if (ret & DC_FG_DES_CAP1_VALID) {
+		dev_warn(&info->pdev->dev, "FG CNTL reg read err!!\n");
+	} else if ((ret & FG_CNTL_OCV_ADJ_EN) && (ret & FG_CNTL_CAP_ADJ_EN)) {
 		dev_info(&info->pdev->dev, "FG data is already initialized\n");
+		info->fg_init_done = true;
 		pmic_fg_dump_init_regs(info);
 		return;
 	} else {
@@ -845,10 +965,11 @@ static void pmic_fg_init_config_regs(struct pmic_fg_info *info)
 	if (ret < 0)
 		dev_err(&info->pdev->dev, "lowbatt thr set fail:%d\n", ret);
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_CNTL_REG, 0xef);
+	ret = pmic_fg_reg_writeb(info, DC_FG_CNTL_REG, FG_CNTL_DEF_EN_MASK);
 	if (ret < 0)
 		dev_err(&info->pdev->dev, "gauge cntl set fail:%d\n", ret);
 
+	info->fg_init_done = true;
 	pmic_fg_dump_init_regs(info);
 }
 
@@ -877,6 +998,40 @@ intr_failed:
 		free_irq(info->irq[i - 1], info);
 		info->irq[i - 1] = -1;
 	}
+}
+
+static int pmic_fg_save_fg_params(struct dc_xpwr_fg_cfg *cfg, int len)
+{
+	int ret;
+
+	if (!info_ptr || !info_ptr->cfg || !info_ptr->fg_init_done)
+		return -ENODEV;
+
+	mutex_lock(&info_ptr->lock);
+	ret = pmic_fg_update_config_params(info_ptr);
+	mutex_unlock(&info_ptr->lock);
+	if (ret < 0)
+		return ret;
+
+	memcpy(cfg, info_ptr->cfg, sizeof(struct dc_xpwr_fg_cfg));
+	return 0;
+}
+
+static int pmic_fg_set_config_params(struct dc_xpwr_fg_cfg *cfg, int len)
+{
+	if (!info_ptr)
+		return -ENODEV;
+
+	info_ptr->cfg = kmalloc(sizeof(struct dc_xpwr_fg_cfg), GFP_KERNEL);
+	if (!info_ptr->cfg)
+		return -ENOMEM;
+
+	memcpy(info_ptr->cfg, cfg, sizeof(struct dc_xpwr_fg_cfg));
+	mutex_lock(&info_ptr->lock);
+	pmic_fg_init_config_regs(info_ptr);
+	mutex_unlock(&info_ptr->lock);
+
+	return 0;
 }
 
 static void pmic_fg_init_hw_regs(struct pmic_fg_info *info)
@@ -914,9 +1069,10 @@ static int pmic_fg_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, info);
 	mutex_init(&info->lock);
 	INIT_DELAYED_WORK(&info->status_monitor, pmic_fg_status_monitor);
-
-	pmic_fg_init_config_regs(info);
 	pmic_fg_init_psy(info);
+	intel_fg_set_store_fn(pmic_fg_save_fg_params);
+	intel_fg_set_restore_fn(pmic_fg_set_config_params);
+	info_ptr = info;
 
 	info->bat.name = DEV_NAME;
 	info->bat.type = POWER_SUPPLY_TYPE_BATTERY;
@@ -946,6 +1102,7 @@ static int pmic_fg_remove(struct platform_device *pdev)
 	cancel_delayed_work_sync(&info->status_monitor);
 	for (i = 0; i < DC_FG_INTR_NUM && info->irq[i] != -1; i++)
 		free_irq(info->irq[i], info);
+	kfree(info->cfg);
 	power_supply_unregister(&info->bat);
 	return 0;
 }
