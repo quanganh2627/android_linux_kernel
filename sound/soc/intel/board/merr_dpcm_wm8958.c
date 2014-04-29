@@ -669,7 +669,6 @@ static int mrfld_8958_init(struct snd_soc_pcm_runtime *runtime)
 	 * IN1R
 	 * DMICDAT2
 	 */
-	snd_soc_dapm_nc_pin(&card->dapm, "DMIC2DAT");
 	snd_soc_dapm_nc_pin(&card->dapm, "LINEOUT1P");
 	snd_soc_dapm_nc_pin(&card->dapm, "LINEOUT1N");
 	snd_soc_dapm_nc_pin(&card->dapm, "LINEOUT2P");
