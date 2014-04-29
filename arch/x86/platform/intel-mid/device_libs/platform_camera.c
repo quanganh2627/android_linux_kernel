@@ -175,7 +175,7 @@ static struct camera_device_table cht_somc_cam_table[] = {
 	},
 };
 
-#ifdef CONFIG_PIXTER
+#ifdef CONFIG_VIDEO_PIXTER
 static struct camera_device_table pixter_cam_table[] = {
 	{
 		{SFI_DEV_TYPE_I2C, 4, 0x70, 0x0, 0x0, "pixter_0"},
@@ -186,7 +186,7 @@ static struct camera_device_table pixter_cam_table[] = {
 		{"pixter_1", SFI_DEV_TYPE_I2C, 0, &pixter_1_platform_data,
 			&intel_register_i2c_camera_device}
 	}
-}
+};
 #endif
 
 #endif
@@ -691,7 +691,7 @@ void __init camera_init_device(void)
 {
 	struct camera_device_table *table = NULL;
 	int entry_num = 0;
-#ifndef CONFIG_PIXTER
+#ifndef CONFIG_VIDEO_PIXTER
 	if (INTEL_MID_BOARD(1, TABLET, BYT)) {
 		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
 		    spid.hardware_id == BYT_TABLET_BLK_8PR1) {
