@@ -1529,7 +1529,6 @@ typedef struct drm_i915_private {
 		atomic_t down_threshold;
 	} turbodebug;
 
-	struct mipi_info mipi;
 	/* gen6+ rps state */
 	struct intel_gen6_power_mgmt rps;
 

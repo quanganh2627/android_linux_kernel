@@ -118,7 +118,10 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 		return intel_dsi->dev.dev_ops->mode_fixup(&intel_dsi->dev,
 							  mode, adjusted_mode);
 
+	config->dither = config->pipe_bpp == 18 ? 1 : 0;
+
 	return true;
+
 }
 
 static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)

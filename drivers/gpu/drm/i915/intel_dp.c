@@ -794,7 +794,7 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	 * recomments. This means we'll up-dither 16bpp framebuffers on
 	 * high-depth panels.
 	 */
-	if (is_edp(intel_dp) && dev_priv->vbt.edp_bpp) {
+	if (is_edp(intel_dp) && dev_priv->vbt.edp_bpp &&  dev_priv->vbt.edp_bpp < bpp) {
 		DRM_DEBUG_KMS("forcing bpp for eDP panel to BIOS-provided %i\n",
 			dev_priv->vbt.edp_bpp);
 		bpp = dev_priv->vbt.edp_bpp;
@@ -810,6 +810,9 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 			dev_priv->vbt.edp_bpp);
 		bpp = min_t(int, bpp, dev_priv->vbt.edp_bpp);
 	}
+
+	if (is_edp(intel_dp))
+		pipe_config->dither = pipe_config->pipe_bpp == 18 ? 1 : 0;
 
 	for (; bpp >= 6*3; bpp -= 2*3) {
 		mode_rate = intel_dp_link_required(adjusted_mode->clock, bpp);
