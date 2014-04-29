@@ -1576,6 +1576,9 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_PATH_INPUT("media3_in", SST_TASK_MMX, SST_SWM_IN_MEDIA3, NULL),
 	SST_PATH_OUTPUT("media0_out", SST_TASK_MMX, SST_SWM_OUT_MEDIA0, sst_set_media_path),
 	SST_PATH_OUTPUT("media1_out", SST_TASK_MMX, SST_SWM_OUT_MEDIA1, sst_set_media_path),
+	SST_PATH_OUTPUT("media2_out", SST_TASK_MMX, SST_PATH_INDEX_MEDIA2_OUT, sst_generic_modules_event),
+	SST_PATH_OUTPUT("media3_out", SST_TASK_MMX, SST_PATH_INDEX_MEDIA3_OUT, sst_generic_modules_event),
+
 
 	/* SBA PCM Paths */
 	SST_PATH_INPUT("pcm0_in", SST_TASK_SBA, SST_SWM_IN_PCM0, sst_set_media_path),
