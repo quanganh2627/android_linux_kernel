@@ -245,6 +245,11 @@ struct atomisp_metadata {
 	uint32_t *effective_width; /* mipi packets valid data size */
 };
 
+struct atomisp_ext_isp_ctrl {
+	uint32_t id;
+	uint32_t data;
+};
+
 struct atomisp_3a_statistics {
 	struct atomisp_grid_info  grid_info;
 	struct atomisp_3a_output __user *data;
@@ -670,6 +675,10 @@ enum atomisp_acc_memory {
 	ATOMISP_ACC_NR_MEMORY
 };
 
+enum atomisp_ext_isp_id {
+	EXT_ISP_ISO_CTRL = 0,
+};
+
 struct atomisp_sp_arg {
 	enum atomisp_acc_arg_type type;	/* Type  of SP argument */
 	void                    *value;	/* Value of SP argument */
@@ -947,11 +956,14 @@ struct v4l2_private_int_data {
 #define ATOMISP_IOC_G_METADATA \
 	_IOWR('v', BASE_VIDIOC_PRIVATE + 34, struct atomisp_metadata)
 
+#define ATOMISP_IOC_EXT_ISP_CTRL \
+	_IOWR('v', BASE_VIDIOC_PRIVATE + 35, struct atomisp_ext_isp_ctrl)
+
 #define ATOMISP_IOC_EXP_ID_UNLOCK \
-	_IOW('v', BASE_VIDIOC_PRIVATE + 35, int)
+	_IOW('v', BASE_VIDIOC_PRIVATE + 36, int)
 
 #define ATOMISP_IOC_EXP_ID_CAPTURE \
-	_IOW('v', BASE_VIDIOC_PRIVATE + 36, int)
+	_IOW('v', BASE_VIDIOC_PRIVATE + 37, int)
 
 /*
  * Reserved ioctls. We have customer implementing it internally.
