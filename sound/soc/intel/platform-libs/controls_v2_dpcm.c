@@ -406,6 +406,9 @@ static void sst_send_algo_cmd(struct sst_data *sst,
 	int len;
 	struct sst_cmd_set_params *cmd;
 
+	if (bc->params == NULL)
+		return;
+
 	/* bc->max includes sizeof algos + length field */
 	len = sizeof(cmd->dst) + sizeof(cmd->command_id) + bc->max;
 
