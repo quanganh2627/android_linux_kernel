@@ -693,23 +693,9 @@ static int sst_cdev_codec_caps(struct snd_compr_codec_caps *codec)
 {
 
 	if (codec->codec == SND_AUDIOCODEC_MP3) {
-		codec->num_descriptors = 2;
-		codec->descriptor[0].max_ch = 2;
-		codec->descriptor[0].sample_rates = SNDRV_PCM_RATE_8000_48000;
-		codec->descriptor[0].bit_rate[0] = 320; /* 320kbps */
-		codec->descriptor[0].bit_rate[1] = 192;
-		codec->descriptor[0].num_bitrates = 2;
-		codec->descriptor[0].profiles = 0;
 		codec->descriptor[0].modes = SND_AUDIOCHANMODE_MP3_STEREO;
 		codec->descriptor[0].formats = 0;
 	} else if (codec->codec == SND_AUDIOCODEC_AAC) {
-		codec->num_descriptors = 2;
-		codec->descriptor[1].max_ch = 2;
-		codec->descriptor[1].sample_rates = SNDRV_PCM_RATE_8000_48000;
-		codec->descriptor[1].bit_rate[0] = 320; /* 320kbps */
-		codec->descriptor[1].bit_rate[1] = 192;
-		codec->descriptor[1].num_bitrates = 2;
-		codec->descriptor[1].profiles = 0;
 		codec->descriptor[1].modes = 0;
 		codec->descriptor[1].formats =
 			(SND_AUDIOSTREAMFORMAT_MP4ADTS |
@@ -717,6 +703,19 @@ static int sst_cdev_codec_caps(struct snd_compr_codec_caps *codec)
 	} else {
 		return -EINVAL;
 	}
+
+	codec->num_descriptors = 2;
+	codec->descriptor[1].max_ch = 2;
+	codec->descriptor[0].sample_rates[0] = 48000;
+	codec->descriptor[0].sample_rates[1] = 44100;
+	codec->descriptor[0].sample_rates[2] = 32000;
+	codec->descriptor[0].sample_rates[3] = 16000;
+	codec->descriptor[0].sample_rates[4] = 8000;
+	codec->descriptor[0].num_sample_rates = 5;
+	codec->descriptor[1].bit_rate[0] = 320; /* 320kbps */
+	codec->descriptor[1].bit_rate[1] = 192;
+	codec->descriptor[1].num_bitrates = 2;
+	codec->descriptor[1].profiles = 0;
 
 	return 0;
 }
