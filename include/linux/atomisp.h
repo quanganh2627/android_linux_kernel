@@ -957,6 +957,12 @@ struct v4l2_private_int_data {
 #define ATOMISP_IOC_G_METADATA \
 	_IOWR('v', BASE_VIDIOC_PRIVATE + 34, struct atomisp_metadata)
 
+#define ATOMISP_IOC_EXP_ID_UNLOCK \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 35, int)
+
+#define ATOMISP_IOC_EXP_ID_CAPTURE \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 36, int)
+
 /*
  * Reserved ioctls. We have customer implementing it internally.
  * We can't use both numbers to not cause ABI conflict.
@@ -1049,6 +1055,8 @@ struct v4l2_private_int_data {
 #define V4L2_CID_PER_FRAME_SETTING		(V4L2_CID_CAMERA_LASTP1 + 27)
 
 #define V4L2_CID_START_ZSL_CAPTURE	(V4L2_CID_CAMERA_LASTP1 + 28)
+/* Lock and unlock raw buffer */
+#define V4L2_CID_ENABLE_RAW_BUFFER_LOCK (V4L2_CID_CAMERA_LASTP1 + 29)
 
 #define V4L2_BUF_FLAG_BUFFER_INVALID       0x0400
 #define V4L2_BUF_FLAG_BUFFER_VALID         0x0800
