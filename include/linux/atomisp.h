@@ -677,7 +677,8 @@ enum atomisp_acc_memory {
 
 enum atomisp_ext_isp_id {
 	EXT_ISP_ISO_CTRL = 0,
-	EXT_ISP_HDR_CAPTURE_CTRL
+	EXT_ISP_HDR_CAPTURE_CTRL,
+	EXT_ISP_LLS_CAPTURE_CTRL
 };
 
 struct atomisp_sp_arg {
