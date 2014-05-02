@@ -1094,6 +1094,15 @@ static int soc_fw_dapm_complete(struct soc_fw *sfw)
 	struct snd_soc_dapm_context *dapm = soc_fw_dapm_get(sfw);
 	int ret;
 
+	/* Card might not have been registered at this point.
+	 * If so, just return success.
+	 */
+	if (!dapm->card) {
+		dev_warn(sfw->dev, "ASoC: Parent card not yet available,"
+				"Do not add new widgets now\n");
+		return 0;
+	}
+
 	ret = snd_soc_dapm_new_widgets(dapm);
 	if (ret < 0)
 		dev_err(sfw->dev, "ASoC: failed to create new widgets %d\n",
