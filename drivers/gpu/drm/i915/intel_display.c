@@ -11034,6 +11034,17 @@ intel_user_framebuffer_create(struct drm_device *dev,
 		return ERR_PTR(-ENOENT);
 
 	obj->user_fb = 1;
+	if (obj->tiling_mode == I915_TILING_X) {
+		/* Tiled(X) Scanout buffers are more suitable
+		   for allocation from stolen area, as its very
+		   unlikely that they will be accessed directly
+		   from the CPU side and any allocation from
+		   stolen area is not directly CPU accessible,
+		   only through the aperture space it can be
+		   accessed */
+		i915_gem_object_move_to_stolen(obj);
+	}
+
 	return intel_framebuffer_create(dev, mode_cmd, obj);
 }
 
