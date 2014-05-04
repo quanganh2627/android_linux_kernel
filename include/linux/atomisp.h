@@ -656,11 +656,12 @@ enum atomisp_acc_arg_type {
 	ATOMISP_ACC_ARG_FRAME	     /* Frame argument */
 };
 
-#if defined(ISP2400) || defined(ISP2400B0)
 /** ISP memories, isp2400 */
 enum atomisp_acc_memory {
 	ATOMISP_ACC_MEMORY_PMEM0 = 0,
 	ATOMISP_ACC_MEMORY_DMEM0,
+	/* for backward compatibility */
+	ATOMISP_ACC_MEMORY_DMEM = ATOMISP_ACC_MEMORY_DMEM0,
 	ATOMISP_ACC_MEMORY_VMEM0,
 	ATOMISP_ACC_MEMORY_VAMEM0,
 	ATOMISP_ACC_MEMORY_VAMEM1,
@@ -668,17 +669,6 @@ enum atomisp_acc_memory {
 	ATOMISP_ACC_MEMORY_HMEM0,
 	ATOMISP_ACC_NR_MEMORY
 };
-#else /* defined(ISP2400) || defined(ISP2400B0) */
-/** ISP memories, isp2300 */
-enum atomisp_acc_memory {
-	ATOMISP_ACC_MEMORY_PMEM = 0,
-	ATOMISP_ACC_MEMORY_DMEM,
-	ATOMISP_ACC_MEMORY_VMEM,
-	ATOMISP_ACC_MEMORY_VAMEM1,
-	ATOMISP_ACC_MEMORY_VAMEM2,
-	ATOMISP_ACC_NR_MEMORY		/* Must be last */
-};
-#endif /* defined(ISP2400) || defined(ISP2400B0) */
 
 struct atomisp_sp_arg {
 	enum atomisp_acc_arg_type type;	/* Type  of SP argument */
