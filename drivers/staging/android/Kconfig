@@ -65,6 +65,11 @@ config ANDROID_LOGGER_PTI
 	default n
 	depends on ANDROID_LOGGER && INTEL_MID_PTI
 
+config ANDROID_LOGGER_SVENTX
+	tristate "Android log driver on SVENTX"
+	default n
+	depends on ANDROID_LOGGER && SVENTX
+
 config ANDROID_TIMED_OUTPUT
 	bool "Timed output class driver"
 	default y
