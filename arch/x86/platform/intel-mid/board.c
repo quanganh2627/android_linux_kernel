@@ -103,6 +103,7 @@
 #include "device_libs/platform_lm3642.h"
 #include "device_libs/platform_mt9v113.h"
 #include "device_libs/platform_ov5640.h"
+#include "device_libs/platform_imx208.h"
 #include "device_libs/platform_imx175.h"
 #include "device_libs/platform_imx135.h"
 #include "device_libs/platform_imx134.h"
@@ -293,6 +294,8 @@ struct devs_id __initconst device_ids[] = {
 	{"ov5693", SFI_DEV_TYPE_I2C, 0, &ov5693_platform_data,
 					&intel_register_i2c_camera_device},
 	{"ov5640", SFI_DEV_TYPE_I2C, 0, &ov5640_platform_data,
+					&intel_register_i2c_camera_device},
+	{"imx208", SFI_DEV_TYPE_I2C, 0, &imx208_platform_data,
 					&intel_register_i2c_camera_device},
 	{"imx175", SFI_DEV_TYPE_I2C, 0, &imx175_platform_data,
 					&intel_register_i2c_camera_device},
