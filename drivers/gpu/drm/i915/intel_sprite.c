@@ -495,6 +495,7 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 
 	intel_update_sprite_watermarks(dplane, crtc, 0, 0, false, false);
 	intel_plane->last_plane_state = false; /* false means disabled */
+	intel_plane->last_pixel_size = 0;
 }
 
 void intel_prepare_sprite_page_flip(struct drm_device *dev, int plane)
