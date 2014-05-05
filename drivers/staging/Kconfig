@@ -144,4 +144,6 @@ source "drivers/staging/dwc2/Kconfig"
 
 source "drivers/staging/npk/Kconfig"
 
+source "drivers/staging/sventx/Kconfig"
+
 endif # STAGING
