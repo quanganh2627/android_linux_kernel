@@ -294,7 +294,9 @@ static unsigned int is_ush_hsic(struct usb_device *udev)
 			pdev->device, udev->portnum);
 	/* Ignore and only valid for HSIC. Filter out
 	 * the USB devices added by other USB2 host driver */
-	if (pdev->device != USH_PCI_ID && pdev->device != PCI_DEVICE_ID_INTEL_CHT_USH)
+	if (pdev->device != USH_PCI_ID
+		&& pdev->device != PCI_DEVICE_ID_INTEL_CHT_USH
+		&& pdev->device != PCI_DEVICE_ID_INTEL_CHT_USH_A1)
 		return 0;
 
 	/* Ignore USB devices on external hub */
@@ -1713,6 +1715,13 @@ static DEFINE_PCI_DEVICE_TABLE(xhci_ush_pci_ids) = {
 	{
 		.vendor =       PCI_VENDOR_ID_INTEL,
 		.device =       PCI_DEVICE_ID_INTEL_CHT_USH,
+		.subvendor =    PCI_ANY_ID,
+		.subdevice =    PCI_ANY_ID,
+		.driver_data =  (unsigned long) &xhci_ush_pci_hc_driver,
+	},
+	{
+		.vendor =       PCI_VENDOR_ID_INTEL,
+		.device =       PCI_DEVICE_ID_INTEL_CHT_USH_A1,
 		.subvendor =    PCI_ANY_ID,
 		.subdevice =    PCI_ANY_ID,
 		.driver_data =  (unsigned long) &xhci_ush_pci_hc_driver,

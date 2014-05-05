@@ -46,6 +46,7 @@ static struct ush_hsic_pdata *get_hsic_platform_data(struct pci_dev *pdev)
 		break;
 
 	case PCI_DEVICE_ID_INTEL_CHT_USH:
+	case PCI_DEVICE_ID_INTEL_CHT_USH_A1:
 		dev_info(&pdev->dev,
 			" CherryTrail HSIC/SSIC device platform data configured\n");
 		pdata->has_modem = 1;
@@ -76,6 +77,8 @@ static void hsic_pci_early_quirks(struct pci_dev *pci_dev)
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BYT_USH,
 			hsic_pci_early_quirks);
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CHT_USH,
+			hsic_pci_early_quirks);
+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CHT_USH_A1,
 			hsic_pci_early_quirks);
 
 static void quirk_byt_ush_d3_delay(struct pci_dev *dev)
