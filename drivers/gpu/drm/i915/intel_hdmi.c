@@ -740,31 +740,6 @@ static void intel_hdmi_mode_set(struct intel_encoder *encoder)
 	else
 		hdmi_val |= SDVO_PIPE_SEL(crtc->pipe);
 
-	if (intel_hdmi->pfit) {
-		/*Enable panel fitter only if the scaling ratio is > 1 and the
-			input src size should be < 2kx2k */
-		if (((adjusted_mode->hdisplay < PFIT_SIZE_LIMIT) &&
-		(adjusted_mode->vdisplay < PFIT_SIZE_LIMIT)) &&
-		((adjusted_mode->hdisplay != crtc->base.fb->width) ||
-		(adjusted_mode->vdisplay != crtc->base.fb->height))) {
-			u32 val = 0;
-			if (intel_hdmi->pfit == AUTOSCALE)
-				val =  PFIT_ENABLE | (crtc->pipe <<
-					PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
-			if (intel_hdmi->pfit == PILLARBOX)
-				val =  PFIT_ENABLE | (crtc->pipe <<
-					PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
-			else if (intel_hdmi->pfit == LETTERBOX)
-				val =  PFIT_ENABLE | (crtc->pipe <<
-					PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
-			DRM_DEBUG_DRIVER("pfit val = %x", val);
-			I915_WRITE(PFIT_CONTROL, val);
-			crtc->base.panning_en = true;
-		} else
-			DRM_DEBUG_DRIVER("Wrong panel fitter input src config");
-	} else
-		crtc->base.panning_en = false;
-
 	I915_WRITE(intel_hdmi->hdmi_reg, hdmi_val);
 	POSTING_READ(intel_hdmi->hdmi_reg);
 
@@ -950,6 +925,8 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&encoder->base);
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_display_mode *adjusted_mode = &pipe_config->adjusted_mode;
+	struct intel_crtc *intel_crtc = encoder->new_crtc;
+	struct intel_connector *intel_connector = intel_hdmi->attached_connector;
 	int clock_12bpc = pipe_config->requested_mode.clock * 3 / 2;
 	int desired_bpp;
 
@@ -960,6 +937,11 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 			intel_hdmi->color_range = HDMI_COLOR_RANGE_16_235;
 		else
 			intel_hdmi->color_range = 0;
+	}
+
+	if (IS_VALLEYVIEW(dev)) {
+		intel_gmch_panel_fitting(intel_crtc, pipe_config,
+			intel_connector->panel.fitting_mode);
 	}
 
 	if (intel_hdmi->color_range)
@@ -1355,6 +1337,7 @@ intel_hdmi_set_property(struct drm_connector *connector,
 	struct intel_digital_port *intel_dig_port =
 		hdmi_to_dig_port(intel_hdmi);
 	struct drm_i915_private *dev_priv = connector->dev->dev_private;
+	struct intel_connector *intel_connector = to_intel_connector(connector);
 	int ret;
 
 	ret = drm_object_property_set_value(&connector->base, property, val);
@@ -1410,11 +1393,9 @@ intel_hdmi_set_property(struct drm_connector *connector,
 	}
 
 	if (property == dev_priv->force_pfit_property) {
-		if (val == intel_hdmi->pfit)
+		if (intel_connector->panel.fitting_mode == val)
 			return 0;
-
-		DRM_DEBUG_DRIVER("val = %llu", val);
-		intel_hdmi->pfit = val;
+		intel_connector->panel.fitting_mode = val;
 		goto done;
 	}
 
@@ -1576,7 +1557,6 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 
 	connector->interlace_allowed = 0;
 	connector->doublescan_allowed = 0;
-	intel_hdmi->pfit = 0;
 
 	switch (port) {
 	case PORT_B:

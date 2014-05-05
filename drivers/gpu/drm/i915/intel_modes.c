@@ -142,9 +142,10 @@ intel_attach_broadcast_rgb_property(struct drm_connector *connector)
 }
 
 static const struct drm_prop_enum_list pfit_names[] = {
-	{ 0, "Auto scale" },
-	{ 1, "PillarBox" },
-	{ 2, "LetterBox" },
+	{ 0, "Pfit off" },
+	{ 1, "Auto scale" },
+	{ 2, "PillarBox" },
+	{ 3, "LetterBox" },
 };
 
 void

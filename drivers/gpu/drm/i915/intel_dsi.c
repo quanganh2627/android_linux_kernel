@@ -101,11 +101,18 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 	struct drm_display_mode *fixed_mode = intel_connector->panel.fixed_mode;
 	struct drm_display_mode *adjusted_mode = &config->adjusted_mode;
 	struct drm_display_mode *mode = &config->requested_mode;
+	struct intel_crtc *intel_crtc = encoder->new_crtc;
+	struct drm_device *dev = encoder->base.dev;
 
 	DRM_DEBUG_KMS("\n");
 
 	if (fixed_mode)
 		intel_fixed_panel_mode(fixed_mode, adjusted_mode);
+
+	if (IS_VALLEYVIEW(dev)) {
+		intel_gmch_panel_fitting(intel_crtc, config,
+			intel_connector->panel.fitting_mode);
+	}
 
 	if (intel_dsi->dev.dev_ops->mode_fixup)
 		return intel_dsi->dev.dev_ops->mode_fixup(&intel_dsi->dev,
@@ -807,36 +814,6 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 
 		pipe = PIPE_B;
 	} while (--count > 0);
-
-	/* Enable panel fitter */
-	if ((adjusted_mode->hdisplay < PFIT_SIZE_LIMIT) &&
-		(adjusted_mode->vdisplay < PFIT_SIZE_LIMIT)) {
-		if (intel_dsi->pfit) {
-			/* Normal scenario, enable panel fitter only if the
-			scaling ratio is > 1 and the input src size < 2kx2k */
-			if ((adjusted_mode->hdisplay != intel_crtc->base.fb->width) ||
-			(adjusted_mode->vdisplay != intel_crtc->base.fb->height)) {
-				if (intel_dsi->pfit == AUTOSCALE)
-					val = PFIT_ENABLE | (intel_crtc->pipe <<
-						PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
-				if (intel_dsi->pfit == PILLARBOX)
-					val = PFIT_ENABLE | (intel_crtc->pipe <<
-						PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
-				else if (intel_dsi->pfit == LETTERBOX)
-					val = PFIT_ENABLE | (intel_crtc->pipe <<
-						PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
-				I915_WRITE(PFIT_CONTROL, val);
-				intel_crtc->base.panning_en = true;
-				DRM_DEBUG_DRIVER("pfit val = %x", val);
-			} else
-				DRM_DEBUG_DRIVER("Wrong pfit input src config");
-		} else
-			intel_crtc->base.panning_en = false;
-
-	} else
-		DRM_DEBUG_DRIVER("Wrong pfit input src config");
-
-	intel_crtc->config.gmch_pfit.control = val;
 }
 
 static enum drm_connector_status
@@ -889,23 +866,27 @@ static void intel_dsi_destroy(struct drm_connector *connector)
 
 static int intel_dsi_set_property(struct drm_connector *connector,
 		struct drm_property *property,
-		uint64_t value)
+		uint64_t val)
 {
-	struct intel_dsi *intel_dsi = intel_attached_dsi(connector);
 	struct drm_i915_private *dev_priv = connector->dev->dev_private;
+	struct intel_connector *intel_connector = to_intel_connector(connector);
 	int ret;
 
-	ret = drm_object_property_set_value(&connector->base, property, value);
+	ret = drm_object_property_set_value(&connector->base, property, val);
 	if (ret)
 		return ret;
 
 	if (property == dev_priv->force_pfit_property) {
-		if (value == intel_dsi->pfit)
-			return 0;
-		DRM_DEBUG_DRIVER("val = %d", (int)value);
-		intel_dsi->pfit = value;
-	}
 
+		if (intel_connector->panel.fitting_mode == val)
+			return 0;
+
+		intel_connector->panel.fitting_mode = val;
+		goto done;
+	}
+done:
+	if (intel_dsi->base.base.crtc)
+		intel_crtc_restore_mode(intel_dsi->base.base.crtc);
 	return 0;
 }
 
@@ -1037,7 +1018,6 @@ bool intel_dsi_init(struct drm_device *dev)
 	intel_dsi = kzalloc(sizeof(*intel_dsi), GFP_KERNEL);
 	if (!intel_dsi)
 		return false;
-	intel_dsi->pfit = 0;
 
 	intel_connector = kzalloc(sizeof(*intel_connector), GFP_KERNEL);
 	if (!intel_connector) {
@@ -1048,7 +1028,6 @@ bool intel_dsi_init(struct drm_device *dev)
 	intel_encoder = &intel_dsi->base;
 	encoder = &intel_encoder->base;
 	intel_dsi->attached_connector = intel_connector;
-
 	connector = &intel_connector->base;
 
 	drm_encoder_init(dev, encoder, &intel_dsi_funcs, DRM_MODE_ENCODER_DSI);
@@ -1136,7 +1115,7 @@ bool intel_dsi_init(struct drm_device *dev)
 	if ((dev_priv->scaling_reqd) ||
 		(BYT_CR_CONFIG && (i915_mipi_panel_id ==
 		MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID)))  {
-		intel_dsi->pfit = AUTOSCALE;
+		intel_connector->panel.fitting_mode = AUTOSCALE;
 		DRM_DEBUG_DRIVER("Enabling panel fitter as scaling required flag set\n");
 	}
 

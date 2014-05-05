@@ -4066,6 +4066,8 @@ static void i9xx_pfit_enable(struct intel_crtc *crtc)
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc_config *pipe_config = &crtc->config;
+	struct drm_display_mode *adjusted_mode = &crtc->config.adjusted_mode;
+	crtc->base.panning_en = false;
 
 	if (!crtc->config.gmch_pfit.control)
 		return;
@@ -4077,6 +4079,19 @@ static void i9xx_pfit_enable(struct intel_crtc *crtc)
 	if (I915_READ(PFIT_CONTROL) & PFIT_ENABLE)
 		return;
 	assert_pipe_disabled(dev_priv, crtc->pipe);
+
+	if (IS_VALLEYVIEW(dev)) {
+		/* If valleyview enable panel fitter only if the scaling ratio
+		is > 1 and the input src size should be < 2kx2k */
+		if (((adjusted_mode->hdisplay > PFIT_SIZE_LIMIT) ||
+		(adjusted_mode->vdisplay > PFIT_SIZE_LIMIT)) ||
+		((adjusted_mode->hdisplay == crtc->base.fb->width) &&
+		(adjusted_mode->vdisplay == crtc->base.fb->height))) {
+			DRM_ERROR("Wrong panel fitter input src conf");
+			return;
+		}
+		crtc->base.panning_en = true;
+	}
 
 	I915_WRITE(PFIT_PGM_RATIOS, pipe_config->gmch_pfit.pgm_ratios);
 	I915_WRITE(PFIT_CONTROL, pipe_config->gmch_pfit.control);

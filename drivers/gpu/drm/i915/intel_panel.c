@@ -193,6 +193,20 @@ void intel_gmch_panel_fitting(struct intel_crtc *intel_crtc,
 	mode = &pipe_config->requested_mode;
 	adjusted_mode = &pipe_config->adjusted_mode;
 
+	if (IS_VALLEYVIEW(dev)) {
+		if (fitting_mode == AUTOSCALE)
+			pfit_control = PFIT_SCALING_AUTO;
+		if (fitting_mode == PILLARBOX)
+			pfit_control = PFIT_SCALING_PILLAR;
+		else if (fitting_mode == LETTERBOX)
+			pfit_control = PFIT_SCALING_LETTER;
+
+		pfit_control |= (PFIT_ENABLE | (intel_crtc->pipe
+					<< PFIT_PIPE_SHIFT));
+		pfit_pgm_ratios = 0;
+		goto out;
+	}
+
 	/* Native modes don't need fitting */
 	if (adjusted_mode->hdisplay == mode->hdisplay &&
 	    adjusted_mode->vdisplay == mode->vdisplay)

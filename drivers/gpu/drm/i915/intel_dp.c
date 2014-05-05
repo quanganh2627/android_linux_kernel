@@ -761,15 +761,22 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 
 	pipe_config->has_dp_encoder = true;
 
-	if (is_edp(intel_dp) && intel_connector->panel.fixed_mode) {
-		intel_fixed_panel_mode(intel_connector->panel.fixed_mode,
-				       adjusted_mode);
-		if (!HAS_PCH_SPLIT(dev))
-			intel_gmch_panel_fitting(intel_crtc, pipe_config,
-						 intel_connector->panel.fitting_mode);
-		else
-			intel_pch_panel_fitting(intel_crtc, pipe_config,
-						intel_connector->panel.fitting_mode);
+	if (intel_connector->panel.fixed_mode) {
+		if (is_edp(intel_dp) || IS_VALLEYVIEW(dev)) {
+
+			intel_fixed_panel_mode(
+				intel_connector->panel.fixed_mode,
+				adjusted_mode);
+
+			if (!HAS_PCH_SPLIT(dev))
+				intel_gmch_panel_fitting(intel_crtc,
+					pipe_config,
+					intel_connector->panel.fitting_mode);
+			else
+				intel_pch_panel_fitting(intel_crtc,
+					pipe_config,
+					intel_connector->panel.fitting_mode);
+		}
 	}
 
 	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLCLK)
@@ -952,32 +959,6 @@ static void intel_dp_mode_set(struct intel_encoder *encoder)
 		intel_dp->DP |= DP_AUDIO_OUTPUT_ENABLE;
 		intel_write_eld(&encoder->base, adjusted_mode);
 	}
-
-	if (intel_dp->pfit) {
-		/* Enable panel fitter only if the scaling ratio is > 1 and the
-			input src size should be < 2kx2k */
-		if (((adjusted_mode->hdisplay < PFIT_SIZE_LIMIT) &&
-		(adjusted_mode->vdisplay < PFIT_SIZE_LIMIT)) &&
-		((adjusted_mode->hdisplay != crtc->base.fb->width) ||
-		(adjusted_mode->vdisplay != crtc->base.fb->height))) {
-			u32 val = 0;
-			if (intel_dp->pfit == AUTOSCALE)
-				val = PFIT_ENABLE | (crtc->pipe <<
-					PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
-			if (intel_dp->pfit == PILLARBOX)
-				val = PFIT_ENABLE | (crtc->pipe <<
-					PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
-			else if (intel_dp->pfit == LETTERBOX)
-				val = PFIT_ENABLE | (crtc->pipe <<
-					PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
-			DRM_DEBUG_DRIVER("pfit val = %x", val);
-			I915_WRITE(PFIT_CONTROL, val);
-			crtc->config.gmch_pfit.control = val;
-			crtc->base.panning_en = true;
-		} else
-			DRM_DEBUG_DRIVER("Wrong panel fitter input src config");
-	 } else
-		crtc->base.panning_en = false;
 
 	intel_dp_init_link_config(intel_dp);
 
@@ -3467,13 +3448,9 @@ intel_dp_set_property(struct drm_connector *connector,
 	}
 
 	if (property == dev_priv->force_pfit_property) {
-		if (val == intel_dp->pfit)
+		if (intel_connector->panel.fitting_mode == val)
 			return 0;
-
-		DRM_DEBUG_DRIVER("val = %d", (int)val);
-		intel_dp->pfit = val;
-		if (is_edp(intel_dp))
-			return 0;
+		intel_connector->panel.fitting_mode = val;
 		goto done;
 	}
 
@@ -4007,7 +3984,6 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 	/* Preserve the current hw state. */
 	intel_dp->DP = I915_READ(intel_dp->output_reg);
 	intel_dp->attached_connector = intel_connector;
-	intel_dp->pfit = 0;
 
 	type = DRM_MODE_CONNECTOR_DisplayPort;
 	/*
