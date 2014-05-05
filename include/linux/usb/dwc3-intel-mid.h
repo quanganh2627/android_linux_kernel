@@ -43,10 +43,20 @@ struct intel_dwc_otg_pdata {
 	int sdp_charging;
 	enum usb_phy_intf usb2_phy_type;
 
-	/* ZHSDRV and IHSTX of VS1 register for TI1211 PHY.
-	 * They impact the eye diagram qulity. And every
-	 * platform have different value.*/
-	int ulpi_eye_calibrate;
+	/* USB2 electronic calibration value.
+	 *
+	 * ULPI(TI1211):
+	 * ZHSDRV and IHSTX of VS1 register for TI1211 PHY.
+	 * They impact the eye diagram qulity.
+	 *
+	 * UTMI(Intel):
+	 * USB2PERPORT register.
+	 * D14:  0=full-bit PE; 1=half-bit PE
+	 * D[13:11]:  PE/DE bias (0-to-7)
+	 * D[10:08]:  TX bias (0-to-7)
+	 */
+	int ulpi_eye_calibration;
+	int utmi_eye_calibration;
 
 	/* If the VUSBPHY power rail using for providing
 	 * power for USB PHY. */

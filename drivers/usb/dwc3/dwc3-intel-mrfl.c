@@ -95,7 +95,7 @@ static void usb2phy_eye_optimization(struct dwc_otg2 *otg)
 	if (!phy)
 		return;
 
-	usb_phy_io_write(phy, data->ulpi_eye_calibrate, TUSB1211_VENDOR_SPECIFIC1_SET);
+	usb_phy_io_write(phy, data->ulpi_eye_calibration, TUSB1211_VENDOR_SPECIFIC1_SET);
 
 	usb_put_phy(phy);
 }

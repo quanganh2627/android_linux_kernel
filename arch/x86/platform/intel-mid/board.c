@@ -147,6 +147,9 @@
 /* UART devices */
 #include "device_libs/platform_gps.h"
 
+/* USB devices */
+#include "device_libs/pci/platform_usb_otg.h"
+
 static void __init *no_platform_data(void *info)
 {
 	return NULL;
@@ -449,5 +452,14 @@ struct devs_id __initconst device_ids[] = {
 		&sfi_handle_mdm},
 	{"XMM7260_CONF_12", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
 		&sfi_handle_mdm},
+	/* USB */
+	{"ULPICAL_7F", SFI_DEV_TYPE_USB, 0, &no_platform_data,
+		&sfi_handle_usb},
+	{"ULPICAL_7D", SFI_DEV_TYPE_USB, 0, &no_platform_data,
+		&sfi_handle_usb},
+	{"UTMICAL_PEDE3TX0", SFI_DEV_TYPE_USB, 0, &no_platform_data,
+		&sfi_handle_usb},
+	{"UTMICAL_PEDE6TX7", SFI_DEV_TYPE_USB, 0, &no_platform_data,
+		&sfi_handle_usb},
 	{},
 };
