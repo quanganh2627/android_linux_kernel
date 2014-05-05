@@ -789,7 +789,11 @@ static int npk_resume(struct pci_dev *pdev)
 #define npk_resume	NULL
 #endif
 
-#define BXT_NPK_PCI_ID 0x0963
+#define FPGA_NPK_PCI_ID 0xC0DE     /* FPGA */
+#define SPT_VP_NPK_PCI_ID 0x0963   /* Sunrise Point Virtual Platform */
+#define SPT_NPK_PCI_ID 0x9D26      /* Sunrise Point */
+#define BXT_VP_NPK_PCI_ID 0x0A8E   /* Broxton Virtual Platform */
+#define BXT_NPK_PCI_ID 0x0A80      /* Broxton */
 
 #define NPK_PCI_DEVICE(dev, info) {		\
 	.vendor = PCI_VENDOR_ID_INTEL,		\
@@ -799,6 +803,10 @@ static int npk_resume(struct pci_dev *pdev)
 	.driver_data = (unsigned long)info }
 
 static DEFINE_PCI_DEVICE_TABLE(npk_ids) = {
+	NPK_PCI_DEVICE(FPGA_NPK_PCI_ID, &npk_1_0_info),
+	NPK_PCI_DEVICE(SPT_VP_NPK_PCI_ID, &npk_1_0_info),
+	NPK_PCI_DEVICE(SPT_NPK_PCI_ID, &npk_1_0_info),
+	NPK_PCI_DEVICE(BXT_VP_NPK_PCI_ID, &npk_1_0_info),
 	NPK_PCI_DEVICE(BXT_NPK_PCI_ID, &npk_1_0_info),
 	{0},
 };
