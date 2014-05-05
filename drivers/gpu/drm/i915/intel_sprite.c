@@ -395,12 +395,27 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 			I915_READ(FW_BLC_SELF_VLV) & ~FW_CSPWRDWNEN);
 	}
 #endif
+	/* if panel fitter is enabled program the input src size */
+	if (intel_crtc->scaling_src_size &&
+		intel_crtc->config.gmch_pfit.control) {
+		I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
+		I915_WRITE(PFIT_CONTROL, intel_crtc->config.gmch_pfit.control);
+	}
+
 	I915_WRITE(SPSTRIDE(pipe, plane), fb->pitches[0]);
-	if ((dev_priv->vbt.is_180_rotation_enabled) && (pipe == 0))
-		I915_WRITE(SPPOS(pipe, plane), ((crtc->hwmode.vdisplay -
+	if ((dev_priv->vbt.is_180_rotation_enabled) && (pipe == 0)) {
+		uint32_t width = crtc->hwmode.hdisplay;
+		uint32_t height = crtc->hwmode.vdisplay;
+
+		if (intel_crtc->scaling_src_size && intel_crtc->config.gmch_pfit.control) {
+			width = ((intel_crtc->scaling_src_size >> 16) & 0xffff) + 1;
+			height = (intel_crtc->scaling_src_size & 0xffff) + 1;
+		}
+
+		I915_WRITE(SPPOS(pipe, plane), ((height -
 			(crtc_y + crtc_h + 1)) << 16) |
-			(crtc->hwmode.hdisplay - (crtc_x + crtc_w + 1)));
-	else
+			(width - (crtc_x + crtc_w + 1)));
+	} else
 		I915_WRITE(SPPOS(pipe, plane), (crtc_y << 16) | crtc_x);
 
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
@@ -1069,7 +1084,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		.y1 = crtc_y,
 		.y2 = crtc_y + crtc_h,
 	};
-	const struct drm_rect clip = {
+	struct drm_rect clip = {
 		.x2 = crtc->mode.hdisplay,
 		.y2 = crtc->mode.vdisplay,
 	};
@@ -1124,10 +1139,16 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	/*
 	 * FIXME the following code does a bunch of fuzzy adjustments to the
 	 * coordinates and sizes. We probably need some way to decide whether
-	 * more strict checking should be done instead.
-	 */
+	 * more strict checking should be done instead.*/
+
 	max_scale = intel_plane->max_downscale << 16;
 	min_scale = intel_plane->can_scale ? 1 : (1 << 16);
+
+	if (IS_VALLEYVIEW(dev) && intel_crtc->scaling_src_size &&
+		intel_crtc->config.gmch_pfit.control) {
+		clip.x2 = ((intel_crtc->scaling_src_size >> 16) & 0xffff) + 1;
+		clip.y2 = (intel_crtc->scaling_src_size & 0xffff) + 1;
+	}
 
 	hscale = drm_rect_calc_hscale_relaxed(&src, &dst, min_scale, max_scale);
 	BUG_ON(hscale < 0);

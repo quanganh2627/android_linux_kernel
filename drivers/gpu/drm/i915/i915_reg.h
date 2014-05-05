@@ -2416,6 +2416,7 @@ EDP_PSR_SW_TIMER
 #define   PFIT_SCALING_PROGRAMMED (1 << 26)
 #define   PFIT_SCALING_PILLAR	(2 << 26)
 #define   PFIT_SCALING_LETTER	(3 << 26)
+#define	  MASK_PFIT_SCALING_MODE (0xe3ffffff)
 #define PFIT_PGM_RATIOS	(dev_priv->info->display_mmio_offset + 0x61234)
 #define	PFIT_SIZE_LIMIT		2000
 /* Pre-965 */

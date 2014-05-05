@@ -868,8 +868,11 @@ static int intel_dsi_set_property(struct drm_connector *connector,
 		struct drm_property *property,
 		uint64_t val)
 {
+	struct intel_dsi *intel_dsi = intel_attached_dsi(connector);
 	struct drm_i915_private *dev_priv = connector->dev->dev_private;
 	struct intel_connector *intel_connector = to_intel_connector(connector);
+	struct intel_encoder *encoder = intel_connector->encoder;
+	struct intel_crtc *intel_crtc = encoder->new_crtc;
 	int ret;
 
 	ret = drm_object_property_set_value(&connector->base, property, val);
@@ -882,7 +885,27 @@ static int intel_dsi_set_property(struct drm_connector *connector,
 			return 0;
 
 		intel_connector->panel.fitting_mode = val;
-		goto done;
+		if (intel_crtc->config.gmch_pfit.control &&
+				intel_connector->panel.fitting_mode) {
+			u32 pfit_control = intel_crtc->config.gmch_pfit.control & MASK_PFIT_SCALING_MODE;
+
+			if (intel_connector->panel.fitting_mode == AUTOSCALE)
+				pfit_control |= PFIT_SCALING_AUTO;
+			else if (intel_connector->panel.fitting_mode == PILLARBOX)
+				pfit_control |= PFIT_SCALING_PILLAR;
+			else if (intel_connector->panel.fitting_mode == LETTERBOX)
+				pfit_control |= PFIT_SCALING_LETTER;
+
+			intel_crtc->config.gmch_pfit.control = pfit_control;
+			return 0;
+		} else
+			goto done;
+	}
+
+	if (property == dev_priv->scaling_src_size_property) {
+		intel_crtc->scaling_src_size = val;
+		DRM_DEBUG_DRIVER("src size = %x", intel_crtc->scaling_src_size);
+		return 0;
 	}
 done:
 	if (intel_dsi->base.base.crtc)
@@ -999,6 +1022,7 @@ intel_dsi_add_properties(struct intel_dsi *intel_dsi,
 				struct drm_connector *connector)
 {
 	intel_attach_force_pfit_property(connector);
+	intel_attach_scaling_src_size_property(connector);
 }
 
 bool intel_dsi_init(struct drm_device *dev)
@@ -1104,6 +1128,7 @@ bool intel_dsi_init(struct drm_device *dev)
 	fixed_mode->type |= DRM_MODE_TYPE_PREFERRED;
 	intel_panel_init(&intel_connector->panel, fixed_mode, NULL);
 	intel_panel_setup_backlight(connector);
+	intel_connector->panel.fitting_mode = 0;
 
 	/* Panel native resolution and desired mode can be different in
 	these two cases:

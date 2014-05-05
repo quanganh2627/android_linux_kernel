@@ -2364,6 +2364,15 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	else
 		dspcntr &= ~DISPPLANE_180_ROTATION_ENABLE;
 
+	if (IS_VALLEYVIEW(dev)) {
+		/* if panel fitter is enabled program the input src size */
+		if (intel_crtc->scaling_src_size &&
+			intel_crtc->config.gmch_pfit.control) {
+			I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
+			I915_WRITE(PFIT_CONTROL, intel_crtc->config.gmch_pfit.control);
+		}
+	}
+
 	I915_WRITE(reg, dspcntr);
 
 	linear_offset = y * fb->pitches[0] + x * (fb->bits_per_pixel / 8);
@@ -4066,8 +4075,6 @@ static void i9xx_pfit_enable(struct intel_crtc *crtc)
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc_config *pipe_config = &crtc->config;
-	struct drm_display_mode *adjusted_mode = &crtc->config.adjusted_mode;
-	crtc->base.panning_en = false;
 
 	if (!crtc->config.gmch_pfit.control)
 		return;
@@ -4079,19 +4086,6 @@ static void i9xx_pfit_enable(struct intel_crtc *crtc)
 	if (I915_READ(PFIT_CONTROL) & PFIT_ENABLE)
 		return;
 	assert_pipe_disabled(dev_priv, crtc->pipe);
-
-	if (IS_VALLEYVIEW(dev)) {
-		/* If valleyview enable panel fitter only if the scaling ratio
-		is > 1 and the input src size should be < 2kx2k */
-		if (((adjusted_mode->hdisplay > PFIT_SIZE_LIMIT) ||
-		(adjusted_mode->vdisplay > PFIT_SIZE_LIMIT)) ||
-		((adjusted_mode->hdisplay == crtc->base.fb->width) &&
-		(adjusted_mode->vdisplay == crtc->base.fb->height))) {
-			DRM_ERROR("Wrong panel fitter input src conf");
-			return;
-		}
-		crtc->base.panning_en = true;
-	}
 
 	I915_WRITE(PFIT_PGM_RATIOS, pipe_config->gmch_pfit.pgm_ratios);
 	I915_WRITE(PFIT_CONTROL, pipe_config->gmch_pfit.control);
@@ -5399,8 +5393,12 @@ static void intel_set_pipe_timings(struct intel_crtc *intel_crtc)
 	/* pipesrc controls the size that is scaled from, which should
 	 * always be the user's requested size.
 	 */
-	I915_WRITE(PIPESRC(pipe),
-		   ((mode->hdisplay - 1) << 16) | (mode->vdisplay - 1));
+	 if (IS_VALLEYVIEW(dev) && intel_crtc->scaling_src_size &&
+			intel_crtc->config.gmch_pfit.control)
+		I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
+	else
+		I915_WRITE(PIPESRC(pipe),
+			((mode->hdisplay - 1) << 16) | (mode->vdisplay - 1));
 }
 
 static void intel_get_pipe_timings(struct intel_crtc *crtc,

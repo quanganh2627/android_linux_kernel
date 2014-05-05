@@ -190,20 +190,33 @@ void intel_gmch_panel_fitting(struct intel_crtc *intel_crtc,
 	u32 pfit_control = 0, pfit_pgm_ratios = 0, border = 0;
 	struct drm_display_mode *mode, *adjusted_mode;
 
+	intel_crtc->base.panning_en = false;
+
 	mode = &pipe_config->requested_mode;
 	adjusted_mode = &pipe_config->adjusted_mode;
 
 	if (IS_VALLEYVIEW(dev)) {
+		/* The input src size should be < 2kx2k */
+		if ((adjusted_mode->hdisplay > PFIT_SIZE_LIMIT) ||
+			(adjusted_mode->vdisplay > PFIT_SIZE_LIMIT)) {
+			DRM_ERROR("Wrong panel fitter input src conf");
+			goto out;
+		}
+
 		if (fitting_mode == AUTOSCALE)
 			pfit_control = PFIT_SCALING_AUTO;
-		if (fitting_mode == PILLARBOX)
+		else if (fitting_mode == PILLARBOX)
 			pfit_control = PFIT_SCALING_PILLAR;
 		else if (fitting_mode == LETTERBOX)
 			pfit_control = PFIT_SCALING_LETTER;
-
+		else {
+			pfit_control = 0;
+			intel_crtc->base.panning_en = false;
+			goto out;
+		}
 		pfit_control |= (PFIT_ENABLE | (intel_crtc->pipe
 					<< PFIT_PIPE_SHIFT));
-		pfit_pgm_ratios = 0;
+		intel_crtc->base.panning_en = true;
 		goto out;
 	}
 
@@ -318,6 +331,7 @@ out:
 	if ((pfit_control & PFIT_ENABLE) == 0) {
 		pfit_control = 0;
 		pfit_pgm_ratios = 0;
+		intel_crtc->scaling_src_size = 0;
 	}
 
 	/* Make sure pre-965 set dither correctly for 18bpp panels. */

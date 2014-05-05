@@ -1338,6 +1338,8 @@ intel_hdmi_set_property(struct drm_connector *connector,
 		hdmi_to_dig_port(intel_hdmi);
 	struct drm_i915_private *dev_priv = connector->dev->dev_private;
 	struct intel_connector *intel_connector = to_intel_connector(connector);
+	struct intel_encoder *encoder = intel_connector->encoder;
+	struct intel_crtc *intel_crtc = encoder->new_crtc;
 	int ret;
 
 	ret = drm_object_property_set_value(&connector->base, property, val);
@@ -1396,7 +1398,27 @@ intel_hdmi_set_property(struct drm_connector *connector,
 		if (intel_connector->panel.fitting_mode == val)
 			return 0;
 		intel_connector->panel.fitting_mode = val;
-		goto done;
+		if (intel_crtc->config.gmch_pfit.control &&
+				intel_connector->panel.fitting_mode) {
+			u32 pfit_control = intel_crtc->config.gmch_pfit.control & MASK_PFIT_SCALING_MODE;
+
+			if (intel_connector->panel.fitting_mode == AUTOSCALE)
+				pfit_control |= PFIT_SCALING_AUTO;
+			else if (intel_connector->panel.fitting_mode == PILLARBOX)
+				pfit_control |= PFIT_SCALING_PILLAR;
+			else if (intel_connector->panel.fitting_mode == LETTERBOX)
+				pfit_control |= PFIT_SCALING_LETTER;
+
+			intel_crtc->config.gmch_pfit.control = pfit_control;
+			return 0;
+		} else
+			goto done;
+	}
+
+	if (property == dev_priv->scaling_src_size_property) {
+		intel_crtc->scaling_src_size = val;
+		DRM_DEBUG_DRIVER("src size = %x", intel_crtc->scaling_src_size);
+		return 0;
 	}
 
 	return -EINVAL;
@@ -1538,6 +1560,7 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
 	intel_attach_force_audio_property(connector);
 	intel_attach_broadcast_rgb_property(connector);
 	intel_attach_force_pfit_property(connector);
+	intel_attach_scaling_src_size_property(connector);
 	intel_hdmi->color_range_auto = true;
 }
 
@@ -1707,4 +1730,5 @@ void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 		hdmi_priv->is_hdcp_supported = true;
 		i915_hdmi_audio_init(hdmi_priv);
 	}
+	intel_connector->panel.fitting_mode = 0;
 }

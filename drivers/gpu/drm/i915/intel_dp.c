@@ -3377,6 +3377,7 @@ intel_dp_set_property(struct drm_connector *connector,
 	struct intel_connector *intel_connector = to_intel_connector(connector);
 	struct intel_encoder *intel_encoder = intel_attached_encoder(connector);
 	struct intel_dp *intel_dp = enc_to_intel_dp(&intel_encoder->base);
+	struct intel_crtc *intel_crtc = intel_encoder->new_crtc;
 	int ret;
 
 	ret = drm_object_property_set_value(&connector->base, property, val);
@@ -3451,7 +3452,27 @@ intel_dp_set_property(struct drm_connector *connector,
 		if (intel_connector->panel.fitting_mode == val)
 			return 0;
 		intel_connector->panel.fitting_mode = val;
-		goto done;
+		if (intel_crtc->config.gmch_pfit.control &&
+				intel_connector->panel.fitting_mode) {
+			u32 pfit_control = intel_crtc->config.gmch_pfit.control & MASK_PFIT_SCALING_MODE;
+
+			if (intel_connector->panel.fitting_mode == AUTOSCALE)
+				pfit_control |= PFIT_SCALING_AUTO;
+			else if (intel_connector->panel.fitting_mode == PILLARBOX)
+				pfit_control |= PFIT_SCALING_PILLAR;
+			else if (intel_connector->panel.fitting_mode == LETTERBOX)
+				pfit_control |= PFIT_SCALING_LETTER;
+
+			intel_crtc->config.gmch_pfit.control = pfit_control;
+			return 0;
+		} else
+			goto done;
+	}
+
+	if (property == dev_priv->scaling_src_size_property) {
+		intel_crtc->scaling_src_size = val;
+		DRM_DEBUG_DRIVER("src size = %x", intel_crtc->scaling_src_size);
+		return 0;
 	}
 
 	return -EINVAL;
@@ -3590,6 +3611,7 @@ intel_dp_add_properties(struct intel_dp *intel_dp, struct drm_connector *connect
 	intel_attach_force_audio_property(connector);
 	intel_attach_broadcast_rgb_property(connector);
 	intel_attach_force_pfit_property(connector);
+	intel_attach_scaling_src_size_property(connector);
 	intel_dp->color_range_auto = true;
 
 	if (is_edp(intel_dp)) {
@@ -4165,6 +4187,7 @@ intel_dp_init(struct drm_device *dev, int output_reg, enum port port)
 		kfree(intel_dig_port);
 		kfree(intel_connector);
 	}
+	intel_connector->panel.fitting_mode = 0;
 }
 
 int intel_edp_psr_ctl_ioctl(struct drm_device *device, void *data,

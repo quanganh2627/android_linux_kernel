@@ -170,3 +170,26 @@ intel_attach_force_pfit_property(struct drm_connector *connector)
 
 	drm_object_attach_property(obj, prop, 0);
 }
+
+void
+intel_attach_scaling_src_size_property(struct drm_connector *connector)
+{
+	struct drm_device *dev = connector->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_property *prop;
+	struct drm_mode_object *obj = &connector->base;
+
+	prop = dev_priv->scaling_src_size_property;
+	if (prop == NULL) {
+		prop = drm_property_create_range(dev, 0,
+						"scaling_src_size",
+						0,
+						UINT_MAX);
+		if (prop == NULL)
+			return;
+
+		dev_priv->scaling_src_size_property = prop;
+	}
+
+	drm_object_attach_property(obj, prop, 0);
+}
