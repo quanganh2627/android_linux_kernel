@@ -108,7 +108,8 @@ void soc_thrm_device_handler(struct sfi_device_table_entry *pentry,
 	if (INTEL_MID_BOARD(1, PHONE, MRFL) ||
 			INTEL_MID_BOARD(1, TABLET, MRFL))
 		pdev->dev.platform_data = &tng_soc_data;
-	else if (INTEL_MID_BOARD(1, PHONE, MOFD))
+	else if (INTEL_MID_BOARD(1, PHONE, MOFD) ||
+			INTEL_MID_BOARD(1, TABLET, MOFD))
 		pdev->dev.platform_data = &ann_mofd_soc_data;
 }
 
