@@ -1467,6 +1467,7 @@ typedef struct drm_i915_private {
 		u32 bin_data[DPST_BIN_COUNT];
 		u32 luma_data[DPST_LUMA_COUNT];
 		u32 num_interrupt;
+		u32 default_res;
 #endif
 	} dpst;
 
@@ -2665,6 +2666,7 @@ u32 i915_dpst_compute_brightness(struct drm_device *dev, u32 brightness_val);
 void i915_dpst_irq_handler(struct drm_device *dev);
 int i915_dpst_disable_hist_interrupt(struct drm_device *dev);
 int i915_dpst_enable_hist_interrupt(struct drm_device *dev);
+int i915_dpst_set_default_luma(struct drm_device *dev);
 
 /* intel_acpi.c */
 #ifdef CONFIG_ACPI

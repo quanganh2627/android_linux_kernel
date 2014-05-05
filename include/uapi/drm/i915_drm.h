@@ -1194,6 +1194,10 @@ struct drm_i915_gem_userptr {
 #define DPST_MAX_FACTOR		10000
 /* Threshold that will generate interrupts when crossed */
 #define DEFAULT_GUARDBAND_VAL 30
+/* Default Interrupt delay */
+#define DEFAULT_INTERRUPT_DELAY_SHIFT (4 << 22)
+
+#define DPST_UPDATE 2
 
 struct dpst_ie {
 	enum dpst_diet_alg {
