@@ -1772,6 +1772,20 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	if (host->vmmc && vdd_bit != -1) {
 		spin_unlock_irqrestore(&host->lock, flags);
 		mmc_regulator_set_ocr(host->mmc, host->vmmc, vdd_bit);
+		if (host->vqmmc) {
+			int ret;
+			if (!host->mmc->regulator_enabled &&
+					host->vqmmc_enabled) {
+				ret = regulator_disable(host->vqmmc);
+				if (!ret)
+					host->vqmmc_enabled = false;
+			} else if (host->mmc->regulator_enabled &&
+					!host->vqmmc_enabled) {
+				ret = regulator_enable(host->vqmmc);
+				if (!ret)
+					host->vqmmc_enabled = true;
+			}
+		}
 		spin_lock_irqsave(&host->lock, flags);
 	}
 
@@ -4365,7 +4379,9 @@ int sdhci_add_host(struct sdhci_host *host)
 			pr_warn("%s: Failed to enable vqmmc regulator: %d\n",
 				mmc_hostname(mmc), ret);
 			host->vqmmc = NULL;
-		}
+		} else
+			/* disable vqmmc regulator until there is a device */
+			regulator_disable(host->vqmmc);
 	}
 
 	if (host->quirks2 & SDHCI_QUIRK2_NO_1_8_V)
