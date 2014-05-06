@@ -404,6 +404,7 @@ void dump_word_array(const char *name, const u32 *the_array,
 #define dump_word_array(name, the_array, size_in_words) do {} while (0)
 #endif
 
+
 /**
  * alloc_crypto_ctx_id() - Allocate unique ID for crypto context
  * @client_ctx:	 The client context object
@@ -469,6 +470,8 @@ static inline void op_ctx_fini(struct sep_op_ctx *op_ctx)
 		dma_pool_free(op_ctx->client_ctx->drv_data->sep_data->
 			      spad_buf_pool, op_ctx->spad_buf_p,
 			      op_ctx->spad_buf_dma_addr);
+
+	delete_context((uintptr_t)op_ctx);
 	memset(op_ctx, 0, sizeof(struct sep_op_ctx));
 }
 
