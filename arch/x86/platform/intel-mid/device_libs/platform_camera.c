@@ -27,6 +27,7 @@
 #include "platform_lm3642.h"
 #include "platform_ap1302.h"
 #include "platform_pixter.h"
+#include "platform_m10mo.h"
 #ifdef CONFIG_CRYSTAL_COVE
 #include <linux/mfd/intel_mid_pmic.h>
 #endif
@@ -164,6 +165,14 @@ static struct camera_device_table cht_ffd_cam_table[] = {
 	}
 };
 
+static struct camera_device_table cht_somc_cam_table[] = {
+	{
+		{SFI_DEV_TYPE_I2C, 4, 0x1f, 0x0, 0x0, "m10mo"},
+		{"m10mo", SFI_DEV_TYPE_I2C, 0, &m10mo_platform_data,
+			&intel_register_i2c_camera_device}
+	},
+};
+
 #ifdef CONFIG_PIXTER
 static struct camera_device_table pixter_cam_table[] = {
 	{
@@ -283,6 +292,19 @@ static const struct intel_v4l2_subdev_id *get_v4l2_ids(int *n_subdev)
 
 static struct atomisp_platform_data *atomisp_platform_data;
 
+#ifdef CONFIG_ACPI
+void atomisp_register_device_table(int entry_num,
+	struct camera_device_table *table)
+{
+	int i;
+	for (i = 0; i < entry_num; i++, table++) {
+		if (table->dev.device_handler)
+			table->dev.device_handler(&table->entry,
+				&table->dev);
+	}
+}
+#endif
+
 void intel_register_i2c_camera_device(struct sfi_device_table_entry *pentry,
 					struct devs_id *dev)
 {
@@ -361,6 +383,7 @@ void intel_register_i2c_camera_device(struct sfi_device_table_entry *pentry,
 			kfree(subdev_table);
 			return;
 		}
+		i = 0;
 		atomisp_platform_data->subdevs = subdev_table;
 	}
 
@@ -411,6 +434,7 @@ static void atomisp_unregister_acpi_devices(struct atomisp_platform_data *pdata)
 		"2-0010",	/* CHT OV5693 */
 		"4-003c",	/* CHT AP1302 */
 		"1-0053",	/* CHT lm3554 */
+		"4-001f",	/* CHT m10mo */
 #if 0
 		"INTCF0B:00",	/* From ACPI ov2722 */
 		"INTCF1A:00",	/* From ACPI imx175 */
@@ -563,7 +587,6 @@ void __init camera_init_device(void)
 {
 	struct camera_device_table *table = NULL;
 	int entry_num = 0;
-	int i;
 #ifndef CONFIG_PIXTER
 	if (INTEL_MID_BOARD(1, TABLET, BYT)) {
 		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
@@ -579,27 +602,29 @@ void __init camera_init_device(void)
 		}
 	} else if (INTEL_MID_BOARD(1, TABLET, CHT) ||
 		   INTEL_MID_BOARD(1, PHONE, CHT)) {
-		if (spid.hardware_id == CHT_TABLET_RVP1 ||
-		    spid.hardware_id == CHT_TABLET_RVP2 ||
-		    spid.hardware_id == CHT_TABLET_RVP3 ||
-		    spid.hardware_id == CHT_TABLET_FRD_PR0 ||
-		    spid.hardware_id == CHT_TABLET_FRD_PR1 ||
-		    spid.hardware_id == CHT_TABLET_FRD_PR2) {
-			table = cht_ffd_cam_table;
-			entry_num = ARRAY_SIZE(cht_ffd_cam_table);
-		} else
-			pr_warn("unknown CHT platform variant.\n");
+		int fw_type = m10mo_platform_identify_fw();
+		if (fw_type != -1) {
+			table = cht_somc_cam_table;
+			entry_num = ARRAY_SIZE(cht_somc_cam_table);
+			pr_info("M10MO for SOMC is detected.\n");
+		} else {
+			if (spid.hardware_id == CHT_TABLET_RVP1 ||
+			    spid.hardware_id == CHT_TABLET_RVP2 ||
+			    spid.hardware_id == CHT_TABLET_RVP3 ||
+			    spid.hardware_id == CHT_TABLET_FRD_PR0 ||
+			    spid.hardware_id == CHT_TABLET_FRD_PR1 ||
+			    spid.hardware_id == CHT_TABLET_FRD_PR2) {
+				table = cht_ffd_cam_table;
+				entry_num = ARRAY_SIZE(cht_ffd_cam_table);
+			} else
+				pr_warn("unknown CHT platform variant.\n");
+		}
 	}
 #else
 	table = pixter_cam_table;
 	entry_num = ARRAY_SIZE(pixter_cam_table);
 #endif
-
-	for (i = 0; i < entry_num; i++, table++) {
-		if (table->dev.device_handler)
-			table->dev.device_handler(&table->entry,
-				&table->dev);
-	}
+	atomisp_register_device_table(entry_num, table);
 }
 device_initcall(camera_init_device);
 #endif

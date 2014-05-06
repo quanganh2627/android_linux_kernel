@@ -12,6 +12,9 @@
 #ifndef _PLATFORM_M10MO_H_
 #define _PLATFORM_M10MO_H_
 
+#include <media/m10mo_atomisp.h>
+
 extern void *m10mo_platform_data(void *info) __attribute__((weak));
+extern int m10mo_platform_identify_fw(void) __attribute__((weak));
 #endif
 

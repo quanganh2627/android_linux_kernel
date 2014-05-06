@@ -12,11 +12,20 @@
 #include <asm/intel_scu_ipcutil.h>
 #include <asm/intel-mid.h>
 #include <asm/intel_scu_flis.h>
+#ifdef CONFIG_INTEL_SOC_PMC
+#include <asm/intel_soc_pmc.h>
+#endif
+#ifdef CONFIG_ACPI
+#include <linux/acpi_gpio.h>
+#endif
 #include <linux/atomisp_platform.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/lnw_gpio.h>
 #include <linux/interrupt.h>
+#ifdef CONFIG_CRYSTAL_COVE
+#include <linux/mfd/intel_mid_pmic.h>
+#endif
 #include <linux/regulator/consumer.h>
 #include <media/v4l2-subdev.h>
 #include <media/m10mo_atomisp.h>
@@ -25,10 +34,21 @@
 #include "platform_camera.h"
 #include "platform_m10mo.h"
 
+#define OSC_CAM_CLK 0x1
+#define CLK_19P2MHz 0x1
+
+#ifdef CONFIG_CRYSTAL_COVE
+#define VPROG_2P8V 0x5d
+#define VPROG_1P2V 0x5a
+#define VPROG_ENABLE 0x63
+#define VPROG_DISABLE 0x62
+#endif
+
 static int camera_reset = -1;
 static int camera_power_down = -1;
 static void setup_m10mo_spi(struct m10mo_atomisp_spi_platform_data *spi_pdata,
 			    void *data);
+int m10mo_platform_identify_fw(void);
 
 static struct atomisp_camera_caps m10mo_camera_caps;
 
@@ -39,6 +59,8 @@ static int intr_gpio = -1;		/* m10mo interrupt pin */
  */
 static int cs_chip_select = -1;
 
+static enum atomisp_input_format input_format = ATOMISP_INPUT_FORMAT_YUV422_8;
+
 /*
  * Ext-ISP m10mo platform data
  */
@@ -47,11 +69,28 @@ static int m10mo_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	int ret;
 
 	if (camera_reset < 0) {
+#ifndef CONFIG_ACPI
 		ret = camera_sensor_gpio(-1, GP_CAMERA_0_RESET,
 					GPIOF_DIR_OUT, 1);
 		if (ret < 0)
 			return ret;
 		camera_reset = ret;
+#else
+		camera_reset = acpi_get_gpio("\\_SB.GPO1", 52);
+		pr_info("%s: camera_reset is %d\n", __func__, camera_reset);
+		ret = gpio_request(camera_reset, GP_CAMERA_0_RESET);
+		if (ret) {
+			pr_err("%s: failed to request reset pin\n", __func__);
+			return -EINVAL;
+		}
+
+		ret = gpio_direction_output(camera_reset, 1);
+		if (ret) {
+			pr_err("%s: failed to set direction for reset pin\n",
+				__func__);
+			gpio_free(camera_reset);
+		}
+#endif
 	}
 
 	if (flag) {
@@ -66,9 +105,11 @@ static int m10mo_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int m10mo_gpio_intr_ctrl(struct v4l2_subdev *sd)
 {
+#ifdef CONFIG_INTEL_SCU_FLIS
 	/* This should be done in pin cfg XML and not here */
 	config_pin_flis(ann_gp_camerasb_3, PULL, DOWN_50K);
 	config_pin_flis(ann_gp_camerasb_3, MUX, MUX_EN_INPUT_EN | INPUT_EN);
+#endif
 
 	if (intr_gpio >= 0)
 		return intr_gpio;
@@ -78,8 +119,20 @@ static int m10mo_gpio_intr_ctrl(struct v4l2_subdev *sd)
 
 static int m10mo_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 {
+#ifdef CONFIG_INTEL_SOC_PMC
+	int ret;
+	if (flag) {
+		ret = pmc_pc_set_freq(OSC_CAM_CLK, CLK_19P2MHz);
+		if (ret)
+			return ret;
+		ret = pmc_pc_configure(OSC_CAM_CLK, 1);
+	} else {
+		ret = pmc_pc_configure(OSC_CAM_CLK, 2);
+	}
+	pr_info("M10MO clock control. flag=%d ret=%d\n", flag, ret);
+	return ret;
+#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
 	static const unsigned int clock_khz = 19200;
-#ifdef CONFIG_INTEL_SCU_IPC_UTIL
 	return intel_scu_ipc_osc_clk(OSC_CLK_CAM0, flag ? clock_khz : 0);
 #else
 	pr_err("clock is not set.\n");
@@ -87,11 +140,42 @@ static int m10mo_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 #endif
 }
 
+static int m10mo_power_ctrl(struct v4l2_subdev *sd, int flag)
+{
+	int ret = 0;
+	pr_info("M10MO power control. flag=%d\n", flag);
+#ifdef CONFIG_CRYSTAL_COVE
+	if (flag) {
+		ret = intel_mid_pmic_writeb(VPROG_2P8V, VPROG_ENABLE);
+		if (ret) {
+			pr_err("Failed to power on V2P8SX.\n");
+			return ret;
+		}
+		ret = intel_mid_pmic_writeb(VPROG_1P2V, VPROG_ENABLE);
+		if (ret) {
+			pr_err("Failed to power on V1P2SX.\n");
+			/* Turn all powers off if one is failed. */
+			intel_mid_pmic_writeb(VPROG_2P8V, VPROG_DISABLE);
+			return ret;
+		}
+		/* Wait for 8ms to make all the power supplies to be stable. */
+		usleep_range(8000, 8000);
+	} else {
+		/* Turn all powers off even when some are failed. */
+		if (intel_mid_pmic_writeb(VPROG_2P8V, VPROG_DISABLE))
+			pr_err("Failed to power off V2P8SX.\n");
+		if (intel_mid_pmic_writeb(VPROG_1P2V, VPROG_DISABLE))
+			pr_err("Failed to power off V1P2SX.\n");
+	}
+#endif
+	return ret;
+}
+
 static int m10mo_csi_configure(struct v4l2_subdev *sd, int flag)
 {
 	static const int LANES = 4;
 	return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_PRIMARY, LANES,
-		ATOMISP_INPUT_FORMAT_YUV422_8, 0, flag);
+		input_format, 0, flag);
 }
 
 static struct m10mo_fw_id fw_ids[] = {
@@ -113,6 +197,7 @@ static void spi_hw_resources_setup(struct m10mo_atomisp_spi_platform_data *pdata
 	lnw_gpio_set_alt(cs_chip_select, LNW_GPIO);
 	gpio_direction_output(cs_chip_select, 0);
 
+#ifdef CONFIG_INTEL_SCU_FLIS
 	/* Setup flis configuration if requested to do so */
 	if (pdata->spi_clock_flis != -1)
 		config_pin_flis(pdata->spi_clock_flis, MUX,
@@ -129,6 +214,7 @@ static void spi_hw_resources_setup(struct m10mo_atomisp_spi_platform_data *pdata
 	if (pdata->spi_cs_flis != -1)
 		config_pin_flis(pdata->spi_cs_flis,
 				MUX, MUX_EN_OUTPUT_EN | OUTPUT_EN);
+#endif
 }
 
 static void spi_cs_control(u32 command)
@@ -156,11 +242,15 @@ static int m10mo_platform_init(void)
 	int ret;
 
 	if (intr_gpio == -1) {
+#ifndef CONFIG_ACPI
 		intr_gpio = get_gpio_by_name(gpio_name);
 		if (intr_gpio == -1) {
 			pr_err("Failed to get interrupt gpio\n");
 			return -EINVAL;
 		}
+#else
+		intr_gpio = acpi_get_gpio("\\_SB.GPO1", 54);
+#endif
 		pr_info("camera interrupt gpio: %d\n", intr_gpio);
 	}
 
@@ -197,6 +287,10 @@ static struct atomisp_camera_caps *m10mo_get_camera_caps(void)
 {
 	m10mo_camera_caps.sensor_num = 1;
 	m10mo_camera_caps.sensor[0].stream_num = 2;
+	if (m10mo_platform_identify_fw() == M10MO_FW_TYPE_2) {
+		m10mo_camera_caps.sensor_num = 2;
+		m10mo_camera_caps.sensor[1].stream_num = 2;
+	}
 	return &m10mo_camera_caps;
 }
 
@@ -205,6 +299,7 @@ static struct m10mo_platform_data m10mo_sensor_platform_data = {
 	.common.gpio_ctrl	= m10mo_gpio_ctrl,
 	.common.gpio_intr_ctrl	= m10mo_gpio_intr_ctrl,
 	.common.flisclk_ctrl	= m10mo_flisclk_ctrl,
+	.common.power_ctrl	= m10mo_power_ctrl,
 	.common.csi_cfg		= m10mo_csi_configure,
 	.common.platform_init	= m10mo_platform_init,
 	.common.platform_deinit = m10mo_platform_deinit,
@@ -220,11 +315,37 @@ static struct m10mo_platform_data m10mo_sensor_platform_data = {
 	.spi_pdata.spi_dataout_flis	= ann_gp_ssp_6_txd, /* Board specific */
 	.spi_pdata.spi_datain_flis	= ann_gp_ssp_6_rxd, /* Board specific */
 	.spi_pdata.spi_cs_flis		= ann_gp_ssp_6_fs, /* Board specific */
-
 	.ref_clock_rate = 24000000, /* Board specific */
 	.fw_ids		= fw_ids,
 	.spi_setup	= setup_m10mo_spi,
+	.identify_fw	= m10mo_platform_identify_fw,
 };
+
+int m10mo_platform_identify_fw(void)
+{
+#ifdef CONFIG_ACPI
+	static int fw_type = -1;
+	struct device *dev;
+	struct i2c_client *client;
+
+	if (fw_type != -1)
+		return fw_type;
+
+	dev = bus_find_device_by_name(&i2c_bus_type, NULL, "4-001f");
+	if (dev) {
+		client = to_i2c_client(dev);
+		if (strncmp(client->name, "SOM33FB:00", 10) == 0) {
+			m10mo_sensor_platform_data.ref_clock_rate = 19200000;
+			m10mo_sensor_platform_data.spi_setup = NULL;
+			input_format = ATOMISP_INPUT_FORMAT_YUV420_8_LEGACY;
+			fw_type = M10MO_FW_TYPE_2;
+		}
+	}
+	return fw_type;
+#else
+	return -1;
+#endif
+}
 
 static struct spi_board_info m10mo_spi_info[] = {
 	{

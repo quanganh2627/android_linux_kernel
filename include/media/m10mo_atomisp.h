@@ -35,6 +35,7 @@ struct m10mo_atomisp_spi_platform_data {
 
 #define M10MO_FW_TYPE_0 0
 #define M10MO_FW_TYPE_1 1
+#define M10MO_FW_TYPE_2 2
 #define M10MO_MAX_FW_ID_STRING 12
 
 struct m10mo_fw_id {
@@ -49,6 +50,7 @@ struct m10mo_platform_data {
 	struct m10mo_fw_id *fw_ids;
 	void (*spi_setup)(struct m10mo_atomisp_spi_platform_data *spi_pdata,
 			  void *data);
+	int (*identify_fw)(void);
 };
 
 #endif
