@@ -120,7 +120,7 @@ static int ov680_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int ov680_csi_configure(struct v4l2_subdev *sd, int flag)
 {
-	static const int LANES = 1;
+	static const int LANES = 2;
 	return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_SECONDARY, LANES,
 		 ATOMISP_INPUT_FORMAT_YUV422_8, -1, flag);
 }
