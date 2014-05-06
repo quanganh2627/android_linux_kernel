@@ -19,21 +19,44 @@
  * the prev/next entries already!
  */
 
+int panic_on_list_corruption;
+EXPORT_SYMBOL_GPL(panic_on_list_corruption);
+
+static int __init panic_on_list_corruption_setup(char *str)
+{
+	unsigned long enabled;
+	int ret;
+
+	ret = kstrtoul(str, 10, &enabled);
+	if (ret)
+		return ret;
+
+	if (enabled == 1)
+		panic_on_list_corruption = 1;
+
+	return 0;
+}
+early_param("panic_on_list_corruption", panic_on_list_corruption_setup);
+
 void __list_add(struct list_head *new,
 			      struct list_head *prev,
 			      struct list_head *next)
 {
-	WARN(next->prev != prev,
+	int warn = 0;
+
+	warn |= WARN(next->prev != prev,
 		"list_add corruption. next->prev should be "
 		"prev (%p), but was %p. (next=%p).\n",
 		prev, next->prev, next);
-	WARN(prev->next != next,
+	warn |= WARN(prev->next != next,
 		"list_add corruption. prev->next should be "
 		"next (%p), but was %p. (prev=%p).\n",
 		next, prev->next, prev);
-	WARN(new == prev || new == next,
+	warn |= WARN(new == prev || new == next,
 	     "list_add double add: new=%p, prev=%p, next=%p.\n",
 	     new, prev, next);
+	if ((warn) && (panic_on_list_corruption))
+		panic("List corruption");
 	next->prev = new;
 	new->next = next;
 	new->prev = prev;
@@ -59,9 +82,11 @@ void __list_del_entry(struct list_head *entry)
 		"but was %p\n", entry, prev->next) ||
 	    WARN(next->prev != entry,
 		"list_del corruption. next->prev should be %p, "
-		"but was %p\n", entry, next->prev))
+		"but was %p\n", entry, next->prev)) {
+		if (panic_on_list_corruption)
+			panic("List corruption");
 		return;
-
+	}
 	__list_del(prev, next);
 }
 EXPORT_SYMBOL(__list_del_entry);
@@ -86,12 +111,16 @@ EXPORT_SYMBOL(list_del);
 void __list_add_rcu(struct list_head *new,
 		    struct list_head *prev, struct list_head *next)
 {
-	WARN(next->prev != prev,
+	int warn = 0;
+
+	warn |= WARN(next->prev != prev,
 		"list_add_rcu corruption. next->prev should be prev (%p), but was %p. (next=%p).\n",
 		prev, next->prev, next);
-	WARN(prev->next != next,
+	warn |= WARN(prev->next != next,
 		"list_add_rcu corruption. prev->next should be next (%p), but was %p. (prev=%p).\n",
 		next, prev->next, prev);
+	if ((warn) && (panic_on_list_corruption))
+		panic("List corruption");
 	new->next = next;
 	new->prev = prev;
 	rcu_assign_pointer(list_next_rcu(prev), new);
