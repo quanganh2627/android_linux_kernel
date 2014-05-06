@@ -433,7 +433,7 @@ static int dwc3_intel_cht_handle_notification(struct notifier_block *nb,
 static int dwc3_set_id_mux(void __iomem *reg_base, int is_device_on)
 {
 	u32		reg;
-	u32		timeout = 500;
+	u32		timeout = 1000;
 
 	/* Set ID Mux to host. The power of the registers are always on. */
 	reg = readl(reg_base + DUAL_ROLE_CFG0);
@@ -459,8 +459,10 @@ static int dwc3_set_id_mux(void __iomem *reg_base, int is_device_on)
 				break;
 		}
 		timeout--;
-		if (!timeout)
+		if (!timeout) {
+			pr_err("cfg1 polling timeout, reg = 0x%08x\n", reg);
 			return -ETIMEDOUT;
+		}
 
 		mdelay(1);
 	} while (1);
