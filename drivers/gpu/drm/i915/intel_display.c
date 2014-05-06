@@ -9069,6 +9069,259 @@ free_work:
 	return ret;
 }
 
+static int intel_crtc_set_display(struct drm_crtc *crtc,
+				struct drm_mode_set_display *disp,
+				struct drm_file *file_priv)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_set_plane_zorder *zorder;
+	struct drm_i915_reserved_reg_bit_2 *rrb2;
+	struct drm_i915_plane_180_rotation *rotate;
+	struct drm_i915_set_plane_alpha *alpha;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct drm_mode_crtc_page_flip *flip;
+	struct drm_mode_set_plane *plane;
+	int i, tmp_ret, ret = 0;
+
+	disp->errored = 0;
+	disp->presented = 0;
+
+	/*
+	 * userspace app will not call this function again until the
+	 * page_flip done event is received so no locking is required here
+	 */
+	/* make sure to start from a fresh vblank */
+
+	if (disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_PANEL_FITTER) {
+		if (intel_crtc->config.gmch_pfit.control ||
+				disp->panel_fitter.mode) {
+			u32 pfit_control = intel_crtc->config.gmch_pfit.control
+				& MASK_PFIT_SCALING_MODE;
+
+			/* If any of the mode is set then panel fitter should be enabled*/
+			pfit_control = (1 << 31) | pfit_control;
+			if (disp->panel_fitter.mode == AUTOSCALE)
+				pfit_control |= PFIT_SCALING_AUTO;
+			else if (disp->panel_fitter.mode == PILLARBOX)
+				pfit_control |= PFIT_SCALING_PILLAR;
+			else if (disp->panel_fitter.mode == LETTERBOX)
+				pfit_control |= PFIT_SCALING_LETTER;
+			else
+				/* None of the above mode, then pfit is disabled */
+				pfit_control &= ~(1 << 31);
+
+			intel_crtc->config.gmch_pfit.control = pfit_control;
+		}
+
+		intel_crtc->scaling_src_size = (((disp->panel_fitter.src_w - 1)
+				<< 16) | (disp->panel_fitter.src_h - 1));
+	}
+
+	if (disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_ZORDER) {
+		zorder = kzalloc(sizeof(struct drm_i915_set_plane_zorder),
+				GFP_KERNEL);
+		if (!zorder) {
+			DRM_ERROR("Failed to alloc memory set zorder fail\n");
+			return -ENOMEM;
+		}
+		zorder->order = disp->zorder;
+		tmp_ret = i915_set_plane_zorder(dev, (void *)zorder, NULL);
+		if (tmp_ret) {
+			DRM_ERROR("i915_set_plane_zorder failed\n");
+			DRM_ERROR("::order %u ret %d\n", zorder->order,
+					tmp_ret);
+			ret = -EINVAL;
+		}
+		kfree(zorder);
+	}
+	for (i = 0; i < disp->num_planes; ++i) {
+		/* i915_set_plane_alpha and i915_enable_plane_reserved_reg_bit_2
+		 * require a "plane id" defined by PLANEA, SPRITEA, ..., CURSORA etc.
+		 * These are defined in uapi/drm/i915_drm.h as:
+		 * #define PLANEA		1
+		 * #define SPRITEA		2
+		 * #define SPRITEB		3
+		 * #define PLANEB		4
+		 * #define SPRITEC		5
+		 * #define SPRITED		6
+		 * #define CURSORA		7
+		 * #define CURSORB		8
+		 * #define PIPEA		9
+		 * #define PIPEB		10
+		 * Compare this with i915_set_plane_180_rotation which takes obj type/id directly
+		 * and is much cleaner.
+		 * i915_set_plane_alpha and i915_enable_plane_reserved_reg_bit_2 should
+		 * probably be updated to avoid those "plane ids".
+		 * For now, continue to use "plane id", and hack -2 to convert from obj_id.
+		 * (since  drm ids happen to be crtc 3, sprite 4,5 crtc 4, sprite 6,7 etc.)
+		*/
+		int plane_id = disp->plane[i]->obj_id - 2;
+
+		if (!(disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_PLANE(i)))
+			continue;
+		DRM_DEBUG("plane %u (obj_id %u, obj_type 0x%x)", i,
+				disp->plane[i]->obj_id, disp->plane[i]->obj_type);
+		if (disp->plane[i]->update_flag &
+				DRM_MODE_SET_DISPLAY_PLANE_UPDATE_ALPHA) {
+			alpha = kzalloc(sizeof(struct drm_i915_set_plane_alpha),
+					GFP_KERNEL);
+			if (!alpha) {
+				DRM_ERROR("Failed to alloc memory-set alpha\n");
+				disp->errored |= (1 << i);
+				ret = -ENOMEM;
+			} else {
+				alpha->alpha = disp->plane[i]->alpha;
+				alpha->plane = plane_id;
+				tmp_ret = i915_set_plane_alpha(dev, (void *)alpha, NULL);
+				if (tmp_ret) {
+					DRM_ERROR("i915_set_plane_alpha failed\n");
+					DRM_ERROR("::plane %u(obj id %u)alpha %u ret %d SKIPPED\n",
+						alpha->plane,
+						disp->plane[i]->obj_id,
+						alpha->alpha, tmp_ret);
+					ret = -EINVAL;
+					disp->errored |= (1 << i);
+				}
+				kfree(alpha);
+			}
+		}
+
+		if (disp->plane[i]->update_flag &
+				DRM_MODE_SET_DISPLAY_PLANE_UPDATE_TRANSFORM) {
+			rotate = kzalloc(sizeof(struct
+					drm_i915_plane_180_rotation),
+					GFP_KERNEL);
+			if (!rotate) {
+				DRM_ERROR(
+					"Failed to alloc memory-180 Rotate\n");
+				disp->errored |= (1 << i);
+				ret = -ENOMEM;
+			} else {
+				rotate->obj_id = disp->plane[i]->obj_id;
+				rotate->obj_type = disp->plane[i]->obj_type;
+				rotate->rotate = disp->plane[i]->transform ==
+					DRM_MODE_SET_DISPLAY_PLANE_TRANSFORM_ROT180 ? 1 : 0;
+				tmp_ret = i915_set_plane_180_rotation(dev, (void *)rotate, NULL);
+				if (tmp_ret) {
+					DRM_ERROR("i915_set_plane_180_rotation failed\n");
+					DRM_ERROR("::obj id %u obj type %u rotate %u ret %d\n",
+						rotate->obj_id,
+						rotate->obj_type,
+						rotate->rotate,
+						tmp_ret);
+					disp->errored |= (1 << i);
+					ret = -EINVAL;
+				}
+				kfree(rotate);
+			}
+		}
+		if (disp->plane[i]->update_flag &
+				DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2) {
+
+			rrb2 = kzalloc(sizeof(struct
+					drm_i915_reserved_reg_bit_2),
+					GFP_KERNEL);
+			if (!rrb2) {
+				DRM_ERROR("Failed to alloc memory-RRB2\n");
+				disp->errored |= (1 << i);
+				ret = -ENOMEM;
+			} else {
+				rrb2->enable = disp->plane[i]->rrb2_enable;
+				rrb2->plane = plane_id;
+				tmp_ret = i915_enable_plane_reserved_reg_bit_2(
+						dev, (void *)rrb2, NULL);
+				if (tmp_ret) {
+					DRM_ERROR("i915_enable_plane_reserved_bit2 failed\n");
+					DRM_ERROR("::plane %u (obj id %u) enable %u ret %d\n",
+						rrb2->plane, disp->plane[i]->obj_id,
+						rrb2->enable, tmp_ret);
+					disp->errored |= (1 << i);
+					ret = -EINVAL;
+				}
+				kfree(rrb2);
+			}
+		}
+		if (disp->plane[i]->update_flag &
+				DRM_MODE_SET_DISPLAY_PLANE_UPDATE_PRESENT) {
+			if (disp->plane[i]->obj_type == DRM_MODE_OBJECT_CRTC) {
+				flip = kzalloc(sizeof
+						(struct drm_mode_crtc_page_flip),
+						GFP_ATOMIC);
+				if (!flip) {
+					DRM_ERROR("Failed to alloc memory - page_flip\n");
+					disp->errored |= (1 << i);
+					ret = -ENOMEM;
+				}
+				/*
+				 * for primary and secondary planes page flip call drm
+				 * page flip ioctl, set_plane is done as part of this.
+				 */
+				flip->crtc_id = disp->plane[i]->obj_id;
+				flip->fb_id = disp->plane[i]->fb_id;
+				flip->flags = disp->plane[i]->flags;
+				flip->reserved = 0;
+				flip->user_data = disp->plane[i]->user_data;
+				tmp_ret = drm_mode_page_flip_ioctl(dev, flip, file_priv);
+				if (tmp_ret) {
+					DRM_ERROR("drm_mode_page_flio_ioctl failed\n");
+					DRM_ERROR("::crtc_id %u fb %u flags 0x%x ud %llu ret %d\n",
+						flip->crtc_id, flip->fb_id, flip->flags,
+						flip->user_data, tmp_ret);
+					disp->errored |= (1 << i);
+					ret = -EINVAL;
+				} else {
+					disp->presented |= (1 << i);
+				}
+				kfree(flip);
+			} else {
+				plane = kzalloc(sizeof
+						(struct drm_mode_set_plane),
+						GFP_ATOMIC);
+				if (!plane) {
+					DRM_ERROR("Failed to alloc memory - set_plane\n");
+					disp->errored |= (1 << i);
+					ret = -ENOMEM;
+				}
+				/*
+				 * for sprite plane call update_plane or setplane, which
+				 * internally does page_flip.
+				 */
+				plane->plane_id = disp->plane[i]->obj_id;
+				plane->crtc_id = disp->crtc_id;
+				plane->fb_id	= disp->plane[i]->fb_id;
+				plane->flags	= disp->plane[i]->flags;
+				plane->crtc_x = disp->plane[i]->crtc_x;
+				plane->crtc_y = disp->plane[i]->crtc_y;
+				plane->crtc_w = disp->plane[i]->crtc_w;
+				plane->crtc_h = disp->plane[i]->crtc_h;
+				plane->src_x	= disp->plane[i]->src_x;
+				plane->src_y	= disp->plane[i]->src_y;
+				plane->src_w	= disp->plane[i]->src_w;
+				plane->src_h	= disp->plane[i]->src_h;
+				plane->user_data = disp->plane[i]->user_data;
+				tmp_ret = drm_mode_setplane(dev, plane, file_priv);
+				if (tmp_ret) {
+					DRM_ERROR("drm_mode_setplane failed\n");
+					DRM_ERROR("::plane_id %u crtc_id %u fb %u flags 0x%x {%d,%d,%ux%u %d,%d,%ux%u} ud %llu ret %d\n",
+							plane->plane_id, plane->crtc_id,
+							plane->fb_id, plane->flags,
+							plane->crtc_x, plane->crtc_y,
+							plane->crtc_w, plane->crtc_h,
+							plane->src_x, plane->src_y,
+							plane->src_h, plane->src_w,
+							plane->user_data, tmp_ret);
+					ret = -EINVAL;
+					disp->errored |= (1<<i);
+				} else {
+					disp->presented |= (1<<i);
+				}
+				kfree(plane);
+			}
+		}
+	}
+	return ret;
+}
+
 static struct drm_crtc_helper_funcs intel_helper_funcs = {
 	.mode_set_base_atomic = intel_pipe_set_base_atomic,
 	.load_lut = intel_crtc_load_lut,
@@ -10343,6 +10596,7 @@ static const struct drm_crtc_funcs intel_crtc_funcs = {
 	.set_config = intel_crtc_set_config,
 	.destroy = intel_crtc_destroy,
 	.page_flip = intel_crtc_page_flip,
+	.set_display = intel_crtc_set_display,
 };
 
 static void intel_cpu_pll_init(struct drm_device *dev)
