@@ -349,12 +349,6 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	intel_panel_enable_backlight(dev, pipe);
 }
 
-static void intel_dsi_disable_empty(struct intel_encoder *encoder)
-{
-	/*make dsi disable function empty, and
-	 *do all work after disable pipe*/
-}
-
 static void intel_dsi_disable(struct intel_encoder *encoder)
 {
 	struct drm_device *dev = encoder->base.dev;
@@ -484,7 +478,6 @@ void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
 static void intel_dsi_post_disable(struct intel_encoder *encoder)
 {
 	DRM_DEBUG_KMS("\n");
-	intel_dsi_disable(encoder);
 
 	intel_dsi_clear_device_ready(encoder);
 }
@@ -1062,7 +1055,7 @@ bool intel_dsi_init(struct drm_device *dev)
 	intel_encoder->pre_enable = intel_dsi_pre_enable;
 	intel_encoder->enable = intel_dsi_enable;
 	intel_encoder->mode_set = intel_dsi_mode_set;
-	intel_encoder->disable = intel_dsi_disable_empty;
+	intel_encoder->disable = intel_dsi_disable;
 	intel_encoder->post_disable = intel_dsi_post_disable;
 	intel_encoder->get_hw_state = intel_dsi_get_hw_state;
 	intel_encoder->get_config = intel_dsi_get_config;
