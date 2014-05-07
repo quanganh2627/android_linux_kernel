@@ -1818,6 +1818,12 @@ struct drm_i915_gem_object {
 	unsigned int user_fb:1;
 
 	/*
+	 * Do the pages of an object, obtained from shmem, need to be cleared
+	 * after their pre-allocation
+	 */
+	unsigned int require_clear:1;
+
+	/*
 	 * Is the object to be mapped as read-only to the GPU
 	 * Only honoured if hardware has relevant pte bit
 	 */
