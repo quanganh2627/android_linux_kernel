@@ -1069,3 +1069,55 @@ failed:
 	return rc;
 }
 EXPORT_SYMBOL(sepapp_image_verify);
+
+int sepapp_hdmi_status(u8 status, u8 bksv[5])
+{
+	int sess_id = 0;
+	enum dxdi_sep_module ret_origin;
+	struct sep_client_ctx *sctx = NULL;
+	u8 uuid[16] = HDCP_APP_UUID;
+	struct dxdi_sepapp_kparams cmd_params;
+	int rc = 0;
+
+	pr_info("Hdmi status: status 0x%02x\n", status);
+
+	memset(&cmd_params, 0, sizeof(struct dxdi_sepapp_kparams));
+
+	cmd_params.params_types[0] = DXDI_SEPAPP_PARAM_VAL;
+	cmd_params.params[0].val.data[0] = status;
+	cmd_params.params[0].val.data[1] = 0;
+	cmd_params.params[0].val.copy_dir = DXDI_DATA_TO_DEVICE;
+
+	cmd_params.params_types[1] = DXDI_SEPAPP_PARAM_VAL;
+	memcpy(&cmd_params.params[1].val.data[0], bksv, sizeof(u32));
+	memcpy((uint8_t *)&cmd_params.params[1].val.data[1],
+		&bksv[4], sizeof(u8));
+	cmd_params.params[1].val.copy_dir = DXDI_DATA_TO_DEVICE;
+
+	sctx = dx_sepapp_context_alloc();
+	if (unlikely(!sctx))
+		return -ENOMEM;
+
+#ifdef SEP_RUNTIME_PM
+	dx_sep_pm_runtime_get();
+#endif
+
+	rc = dx_sepapp_session_open(sctx, uuid, 0, NULL, NULL, &sess_id,
+				    &ret_origin);
+	if (unlikely(rc != 0))
+		goto failed;
+
+	rc = dx_sepapp_command_invoke(sctx, sess_id, HDCP_RX_HDMI_STATUS,
+				      &cmd_params, &ret_origin);
+
+	dx_sepapp_session_close(sctx, sess_id);
+
+failed:
+#ifdef SEP_RUNTIME_PM
+	dx_sep_pm_runtime_put();
+#endif
+
+	dx_sepapp_context_free(sctx);
+	return rc;
+}
+EXPORT_SYMBOL(sepapp_hdmi_status);
