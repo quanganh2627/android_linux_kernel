@@ -348,122 +348,6 @@ i915_gem_object_create_stolen(struct drm_device *dev, u32 size)
 	return NULL;
 }
 
-static int i915_add_clear_obj_cmd(struct drm_i915_gem_object *obj)
-{
-	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
-	struct intel_ring_buffer *ring = &dev_priv->ring[BCS];
-	uint32_t obj_height = (obj->base.size / obj->stride);
-	u32 offset = i915_gem_obj_ggtt_offset(obj);
-	int ret;
-
-#define	COLOR_BLIT_OP		((0x2 << 29) | (0x40 << 22) | (0x3 << 20) | 0x3)
-#define	COLOR_BLIT_OP_DW1	((0x3 << 24) | (0xF0 << 16) | (obj->stride))
-#define	COLOR_BLIT_OP_DW2	((obj_height << 16) | (obj->stride))
-#define	COLOR_BLIT_OP_DW3	(offset)
-#define	COLOR_BLIT_OP_DW4	(0x0)
-
-	ret = intel_ring_begin(ring, 6);
-	if (ret)
-		return ret;
-	intel_ring_emit(ring, COLOR_BLIT_OP);
-	intel_ring_emit(ring, COLOR_BLIT_OP_DW1);
-	intel_ring_emit(ring, COLOR_BLIT_OP_DW2);
-	intel_ring_emit(ring, COLOR_BLIT_OP_DW3);
-	intel_ring_emit(ring, COLOR_BLIT_OP_DW4);
-	intel_ring_emit(ring, MI_NOOP);
-	intel_ring_advance(ring);
-
-	return 0;
-}
-
-static int i915_memset_stolen_obj_hw(struct drm_i915_gem_object *obj)
-{
-	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
-	struct intel_ring_buffer *ring = &dev_priv->ring[BCS];
-	unsigned alignment = 0;
-	bool map_and_fenceable =  true;
-	bool nonblocking = false;
-	u32 seqno;
-	int ret;
-
-	ret = i915_gem_obj_ggtt_pin(obj, alignment, map_and_fenceable,
-		nonblocking);
-	if (ret) {
-		DRM_ERROR("Mapping of User FB to GTT failed\n");
-		return ret;
-	}
-
-	/* Adding commands to the blitter ring to
-	 * clear out the contents of the buffer object
-	 */
-	ret = i915_add_clear_obj_cmd(obj);
-	if (ret) {
-		DRM_ERROR("couldn't add commands in blitter ring\n");
-		i915_gem_object_unpin(obj);
-		return ret;
-	}
-
-	seqno = intel_ring_get_seqno(ring);
-
-	obj->base.read_domains = I915_GEM_DOMAIN_RENDER;
-	obj->base.write_domain = I915_GEM_DOMAIN_RENDER;
-
-	i915_gem_object_move_to_active(obj, ring);
-
-	obj->dirty = 1;
-	obj->last_write_seqno = seqno;
-
-	/* Unconditionally force add_request to emit a full flush. */
-	ring->gpu_caches_dirty = true;
-
-	/* Add a breadcrumb for the completion of the batch buffer */
-	(void)i915_add_request(ring, NULL);
-
-	i915_gem_object_unpin(obj);
-
-	return 0;
-}
-
-static void i915_memset_stolen_obj_sw(struct drm_i915_gem_object *obj)
-{
-	if (!i915_gem_obj_ggtt_bound(obj)) {
-		int ret;
-		char __iomem *base;
-		int size = obj->base.size;
-		struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
-		unsigned alignment = 0;
-		bool map_and_fenceable =  true;
-		bool nonblocking = false;
-
-		ret = i915_gem_obj_ggtt_pin(obj, alignment, map_and_fenceable,
-					nonblocking);
-		if (ret) {
-			DRM_ERROR("Mapping of User FB to GTT failed\n");
-			return;
-		}
-
-		/* Get the CPU virtual address of the frame buffer */
-		base =
-			ioremap_wc(dev_priv->gtt.mappable_base +
-				i915_gem_obj_ggtt_offset(obj), size);
-		if (base == NULL) {
-			DRM_ERROR("Mapping of User FB to CPU failed\n");
-			i915_gem_object_unpin(obj);
-			return;
-		}
-
-		memset_io(base, 0, size);
-
-		iounmap(base);
-		i915_gem_object_unpin(obj);
-
-		DRM_DEBUG_DRIVER(
-		  "User FB obj ptr=%p cleared using CPU virtual address %p\n",
-		  obj, base);
-	} else
-		BUG_ON(1);
-}
-
 void
 i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 {
@@ -541,9 +425,7 @@ i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 	obj->base.read_domains = I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT;
 	obj->cache_level = HAS_LLC(dev) ? I915_CACHE_LLC : I915_CACHE_NONE;
 
-	ret = i915_memset_stolen_obj_hw(obj);
-	if (ret)
-		i915_memset_stolen_obj_sw(obj);
+	i915_gem_memset_obj(obj);
 
 out:
 	mutex_unlock(&dev->struct_mutex);
