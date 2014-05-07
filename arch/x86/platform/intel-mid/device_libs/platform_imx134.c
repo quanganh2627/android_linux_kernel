@@ -82,8 +82,8 @@ static int camera_vprog1_on;
 static int match_name(struct device *dev, void *data)
 {
 	const char *name = data;
-	struct i2c_client *client = to_i2c_client(dev);
-	return !strncmp(client->name, name, strlen(client->name));
+	struct i2c_client *client = i2c_verify_client(dev);
+	return client ? !strncmp(client->name, name, strlen(name)) : 0;
 }
 
 static struct i2c_client *i2c_find_client_by_name(char *name)
