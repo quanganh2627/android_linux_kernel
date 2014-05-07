@@ -200,8 +200,9 @@ struct pmic_fg_info {
 	struct mutex		lock;
 	struct dc_xpwr_fg_cfg	*cfg;
 	bool			fg_init_done;
-
 	int			status;
+	int			btemp;
+	int			health;
 	/* Worker to monitor status and faults */
 	struct delayed_work status_monitor;
 };
@@ -479,6 +480,43 @@ vocv_read_fail:
 	return ret;
 }
 
+static int pmic_fg_get_capacity(struct pmic_fg_info *info)
+{
+	int ret, value, cap, cc_cap;
+
+	ret = pmic_fg_get_vocv(info, &value);
+	if (ret < 0)
+		return ret;
+
+	/* do Vocv min threshold check */
+	if (value < info->pdata->design_min_volt)
+		return 0;
+
+
+	ret = pmic_fg_reg_readb(info, DC_FG_REP_CAP_REG);
+	if (ret < 0)
+		return ret;
+
+	if (!(ret & FG_REP_CAP_VALID))
+		dev_err(&info->pdev->dev,
+				"capacity measurement not valid\n");
+
+	/*
+	 * read the coulomb meter capacity to report SOC
+	 * when the FULL is detected, as RepSoC is not
+	 * hitting 100% in some cases.
+	 */
+	if (info->status == POWER_SUPPLY_STATUS_FULL) {
+		cc_cap = pmic_fg_reg_readb(info, DC_FG_CC_CAP_REG);
+		if (cc_cap < 0)
+			return cc_cap;
+		cap = (cc_cap & FG_CC_CAP_VAL_MASK);
+	} else {
+		cap = (ret & FG_REP_CAP_VAL_MASK);
+	}
+	return cap;
+}
+
 static int pmic_fg_battery_health(struct pmic_fg_info *info)
 {
 	int temp, vocv;
@@ -492,6 +530,8 @@ static int pmic_fg_battery_health(struct pmic_fg_info *info)
 	ret = pmic_fg_get_btemp(info, &temp);
 	if (ret < 0)
 		goto health_read_fail;
+
+	info->btemp = temp;
 
 	ret = pmic_fg_get_vocv(info, &vocv);
 	if (ret < 0)
@@ -579,6 +619,7 @@ static int pmic_fg_get_battery_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = pmic_fg_battery_health(info);
+		info->health = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		ret = pmic_fg_get_vbatt(info, &value);
@@ -610,39 +651,10 @@ static int pmic_fg_get_battery_property(struct power_supply *psy,
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		ret = pmic_fg_get_vocv(info, &value);
+		ret = pmic_fg_get_capacity(info);
 		if (ret < 0)
 			goto pmic_fg_read_err;
-
-		/* do Vocv min threshold check */
-		if (value < info->pdata->design_min_volt) {
-			val->intval = 0;
-			break;
-		}
-
-		ret = pmic_fg_reg_readb(info, DC_FG_REP_CAP_REG);
-		if (ret < 0)
-			goto pmic_fg_read_err;
-
-		if (!(ret & FG_REP_CAP_VALID))
-			dev_err(&info->pdev->dev,
-				"capacity measurement not valid\n");
-
-		/*
-		 * read the coulomb meter capacity to report SOC
-		 * when the FULL is detected, as RepSoC is not
-		 * hitting 100% in some cases.
-		 */
-		if (info->status == POWER_SUPPLY_STATUS_FULL) {
-			cc_cap = pmic_fg_reg_readb(info, DC_FG_CC_CAP_REG);
-			if (cc_cap < 0) {
-				ret = cc_cap;
-				goto pmic_fg_read_err;
-			}
-			val->intval = (cc_cap & FG_CC_CAP_VAL_MASK);
-		} else {
-			val->intval = (ret & FG_REP_CAP_VAL_MASK);
-		}
+		val->intval = ret;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		ret = pmic_fg_get_btemp(info, &value);
@@ -757,12 +769,40 @@ fg_svae_cfg_fail:
 	return ret;
 }
 
+
 static void pmic_fg_status_monitor(struct work_struct *work)
 {
 	struct pmic_fg_info *info = container_of(work,
 		struct pmic_fg_info, status_monitor.work);
+	static int cache_cap = -1, cache_health = POWER_SUPPLY_HEALTH_UNKNOWN
+			       , cache_temp = INT_MAX;
+	int present_cap, present_health;
 
-	power_supply_changed(&info->bat);
+	mutex_lock(&info->lock);
+	present_cap = pmic_fg_get_capacity(info);
+	if (present_cap < 0) {
+		mutex_unlock(&info->lock);
+		goto end_stat_mon;
+	}
+	/*
+	 *temp and ocv values are read here.
+	*/
+	present_health = pmic_fg_battery_health(info);
+	mutex_unlock(&info->lock);
+
+	/*
+	 *PSY change event is sent only upon change in
+	 *health,cap,temp.
+	*/
+	if ((cache_health != present_health)
+			|| (cache_cap != present_cap)
+			|| (info->btemp != cache_temp)) {
+		power_supply_changed(&info->bat);
+		cache_cap = present_cap;
+		cache_health = present_health;
+		cache_temp = info->btemp;
+	}
+end_stat_mon:
 	schedule_delayed_work(&info->status_monitor, STATUS_MON_DELAY_JIFFIES);
 }
 
