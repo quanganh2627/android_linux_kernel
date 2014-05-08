@@ -1566,8 +1566,10 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	i915_gem_object_shmem_preallocate(obj);
 
 	ret = i915_mutex_lock_interruptible(dev);
-	if (ret)
+	if (ret) {
+		i915_gem_check_undo_prealloc_pages(obj);
 		goto out;
+	}
 
 	/* keep the check under struct_mutex to avoid sync problem */
 	if (dev_priv->pm.shutdown_in_progress) {
@@ -1627,6 +1629,7 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 unpin:
 	i915_gem_object_unpin(obj);
 unlock:
+	i915_gem_check_undo_prealloc_pages(obj);
 	mutex_unlock(&dev->struct_mutex);
 out:
 	switch (ret) {
@@ -2154,6 +2157,27 @@ i915_gem_object_shmem_preallocate(struct drm_i915_gem_object *obj)
 	obj->base.write_domain = 0;
 
 	trace_i915_gem_obj_prealloc_end(obj);
+}
+
+void i915_gem_check_undo_prealloc_pages(struct drm_i915_gem_object *obj)
+{
+	struct i915_vma *vma, *v;
+	/* If somehow the object couldn't be cleared out completely after
+	 * preallocation, then in order to prevent the leak of uncleared
+	 * pages to User, the preallocation work shall be undone.
+	 */
+	if (obj->require_clear) {
+		DRM_ERROR("undo_prealloc: relinquish backing pages\n");
+		list_for_each_entry_safe(vma, v, &obj->vma_list, vma_link)
+			WARN_ON(i915_vma_unbind(vma));
+
+		i915_gem_object_put_pages(obj);
+
+		/* Relinquish the backing shmem pages to kernel */
+		shmem_truncate_range(file_inode(obj->base.filp),
+				0, (loff_t)-1);
+		obj->require_clear = false;
+	}
 }
 
 static int
