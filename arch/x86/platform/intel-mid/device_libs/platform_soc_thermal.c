@@ -51,7 +51,7 @@ static struct soc_throttle_data ann_mofd_soc_data[] = {
 
 static struct soc_throttle_data tng_soc_data[] = {
 	{
-		.power_limit = 0x6d, /* 3.5W */
+		.power_limit = 0xbb, /* 6W */
 		.floor_freq = 0x00,
 	},
 	{
