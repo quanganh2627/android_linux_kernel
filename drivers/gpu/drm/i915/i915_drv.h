@@ -2518,6 +2518,7 @@ int i915_gem_context_create_ioctl(struct drm_device *dev, void *data,
 int i915_gem_context_destroy_ioctl(struct drm_device *dev, void *data,
 				   struct drm_file *file);
 
+u32 intel_panel_get_max_backlight(struct drm_device *dev);
 void intel_panel_actually_set_backlight(struct drm_device *dev, u32 level);
 void intel_panel_actually_set_mipi_backlight(struct drm_device *dev, u32 level);
 

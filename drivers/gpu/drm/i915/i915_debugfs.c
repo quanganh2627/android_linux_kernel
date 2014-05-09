@@ -41,6 +41,7 @@
 #include "i915_debugfs.h"
 #include <linux/moduleparam.h>
 #include "linux/mfd/intel_mid_pmic.h"
+#include <linux/pwm.h>
 
 #define DRM_I915_RING_DEBUG 1
 
@@ -2813,7 +2814,15 @@ i915_read_dpst_api(struct file *filp,
 		if (dev_priv->is_mipi) {
 
 #ifdef CONFIG_CRYSTAL_COVE
-			len += scnprintf(&buf[len], (sizeof(buf) - len),
+			u32 max = intel_panel_get_max_backlight(dev);
+			u32 val = 0;
+			if (BYT_CR_CONFIG) {
+				val = lpio_bl_read(0, LPIO_PWM_CTRL);
+				val = (0xff - (val & 0xff)) * max/0xff;
+				len += scnprintf(&buf[len], (sizeof(buf) - len),
+					"DPST Applied Backlight Level: 0x%x\n", val);
+			} else
+				len += scnprintf(&buf[len], (sizeof(buf) - len),
 					"DPST Applied Backlight Level: 0x%x\n",
 					(intel_mid_pmic_readb(0x4E)));
 #else

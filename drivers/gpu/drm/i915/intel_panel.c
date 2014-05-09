@@ -395,7 +395,7 @@ static u32 i915_read_blc_pwm_ctl(struct drm_device *dev)
 	return val;
 }
 
-static u32 intel_panel_get_max_backlight(struct drm_device *dev)
+u32 intel_panel_get_max_backlight(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 max;
@@ -463,7 +463,11 @@ static u32 intel_panel_get_backlight(struct drm_device *dev)
 	 */
 	if (IS_VALLEYVIEW(dev) && dev_priv->is_mipi) {
 #ifdef CONFIG_CRYSTAL_COVE
-		val = intel_mid_pmic_readb(0x4E);
+		if (BYT_CR_CONFIG) {
+			val = lpio_bl_read(0, LPIO_PWM_CTRL);
+			val &= 0xff;
+		} else
+			val = intel_mid_pmic_readb(0x4E);
 #else
 		DRM_ERROR("Backlight not supported yet\n");
 #endif
