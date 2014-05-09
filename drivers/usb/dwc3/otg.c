@@ -963,7 +963,7 @@ static int dwc_otg2_set_host(struct usb_otg *x, struct usb_bus *host)
 static int ulpi_read(struct usb_phy *phy, u32 reg)
 {
 	struct dwc_otg2 *otg = container_of(phy, struct dwc_otg2, usb2_phy);
-	u32 val32 = 0, count = 200;
+	u32 val32 = 0, count = 10000;
 	u8 val, tmp;
 
 	if (phy->intf != USB2_PHY_ULPI)
@@ -973,7 +973,7 @@ static int ulpi_read(struct usb_phy *phy, u32 reg)
 
 	while (count) {
 		if (otg_read(otg, GUSB2PHYACC0) & GUSB2PHYACC0_VSTSBSY)
-			udelay(5);
+			udelay(1);
 		else
 			break;
 
@@ -985,7 +985,7 @@ static int ulpi_read(struct usb_phy *phy, u32 reg)
 		return -EBUSY;
 	}
 
-	count = 200;
+	count = 10000;
 	/* Determine if use extend registers access */
 	if (reg & EXTEND_ULPI_REGISTER_ACCESS_MASK) {
 		otg_dbg(otg, "Access extend registers 0x%x\n", reg);
@@ -1008,6 +1008,7 @@ static int ulpi_read(struct usb_phy *phy, u32 reg)
 			goto cleanup;
 		}
 
+		udelay(1);
 		count--;
 	}
 
@@ -1028,7 +1029,7 @@ cleanup:
 static int ulpi_write(struct usb_phy *phy, u32 val, u32 reg)
 {
 	struct dwc_otg2 *otg = container_of(phy, struct dwc_otg2, usb2_phy);
-	u32 val32 = 0, count = 200;
+	u32 val32 = 0, count = 10000;
 	u8 tmp;
 
 	if (phy->intf != USB2_PHY_ULPI)
@@ -1039,7 +1040,7 @@ static int ulpi_write(struct usb_phy *phy, u32 val, u32 reg)
 
 	while (count) {
 		if (otg_read(otg, GUSB2PHYACC0) & GUSB2PHYACC0_VSTSBSY)
-			udelay(5);
+			udelay(1);
 		else
 			break;
 
@@ -1066,18 +1067,19 @@ static int ulpi_write(struct usb_phy *phy, u32 val, u32 reg)
 	}
 	otg_write(otg, GUSB2PHYACC0, val32);
 
-	count = 200;
+	count = 10000;
 	while (count) {
 		if (otg_read(otg, GUSB2PHYACC0) & GUSB2PHYACC0_VSTSDONE) {
 			otg_dbg(otg, "%s - reg 0x%x data 0x%x write done\n",
 					__func__, reg, val);
 			goto cleanup;
 		}
-		udelay(5);
+
+		udelay(1);
 		count--;
 	}
 
-	otg_err(otg, "%s read PHY data failed.\n", __func__);
+	otg_err(otg, "%s write PHY data failed.\n", __func__);
 
 	return -ETIMEDOUT;
 
