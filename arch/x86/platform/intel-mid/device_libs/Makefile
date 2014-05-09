@@ -3,6 +3,7 @@ obj-y += platform_sst_audio.o
 obj-y += platform_clv_regulator.o
 obj-y += platform_mrfl_regulator.o
 obj-y += platform_byt_regulator.o
+obj-y += platform_cht_regulator.o
 obj-y += platform_soc_thermal.o
 obj-$(subst m,y,$(CONFIG_SND_BYT_MACHINE)) += platform_byt_audio.o
 obj-$(subst m,y,$(CONFIG_SND_CHT_MACHINE)) += platform_byt_audio.o
