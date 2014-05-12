@@ -772,6 +772,10 @@ int sst_format_vtsv_message(struct intel_sst_drv *ctx,
 	vinfo.vfiles[1].addr = (u32)((unsigned long)ctx->vcache.file2_in_mem
 				& 0xffffffff);
 	vinfo.vfiles[1].size = ctx->vcache.size2;
+	if (vinfo.vfiles[0].addr == 0 || vinfo.vfiles[1].addr == 0) {
+		pr_err("%s: invalid address for vtsv libs\n", __func__);
+		return -EINVAL;
+	}
 
 	/* Create the vtsv message */
 	pvt_id = sst_assign_pvt_id(ctx);
@@ -797,12 +801,9 @@ int sst_format_vtsv_message(struct intel_sst_drv *ctx,
 	return 0;
 }
 
-int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx)
+int sst_cache_vtsv_libs(struct intel_sst_drv *ctx)
 {
-	int retval = 0;
-	struct ipc_post *msg = NULL;
-	struct sst_block *block = NULL;
-
+	int retval;
 	/* Download both the data files */
 	retval = sst_request_vtsv_file("vtsv_net.bin", ctx,
 			&ctx->vcache.file1_in_mem, &ctx->vcache.size1);
@@ -817,6 +818,14 @@ int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx)
 		pr_err("vtsv data file2 request failed %d\n", retval);
 		return retval;
 	}
+	return retval;
+}
+
+int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx)
+{
+	int retval = 0;
+	struct ipc_post *msg = NULL;
+	struct sst_block *block = NULL;
 
 	retval = sst_format_vtsv_message(ctx, &msg, &block);
 	if (retval) {

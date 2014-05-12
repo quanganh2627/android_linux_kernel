@@ -984,13 +984,12 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 	int ret_val = 0;
 	pr_debug("Enter:%s, cmd:%d\n", __func__, cmd);
 
-	if (NULL == arg)
-		return -EINVAL;
-
 	switch (cmd) {
 	case SST_SET_RUNTIME_PARAMS: {
 		struct snd_sst_runtime_params *src;
 		struct snd_sst_runtime_params *dst;
+		if (NULL == arg)
+			return -EINVAL;
 
 		src = (struct snd_sst_runtime_params *)arg;
 		dst = &(sst_drv_ctx->runtime_param.param);
@@ -999,6 +998,8 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 		}
 	case SST_SET_ALGO_PARAMS: {
 		unsigned int device_input_mixer = *((unsigned int *)arg);
+		if (NULL == arg)
+			return -EINVAL;
 		pr_debug("LPE mixer algo param set %x\n", device_input_mixer);
 		mutex_lock(&sst_drv_ctx->mixer_ctrl_lock);
 		sst_drv_ctx->device_input_mixer = device_input_mixer;
@@ -1007,6 +1008,8 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 		break;
 	}
 	case SST_SET_BYTE_STREAM: {
+		if (NULL == arg)
+			return -EINVAL;
 		ret_val = intel_sst_check_device();
 		if (ret_val)
 			return ret_val;
@@ -1017,6 +1020,8 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 	}
 	case SST_GET_PROBE_BYTE_STREAM: {
 		struct snd_sst_probe_bytes *prb_bytes = (struct snd_sst_probe_bytes *)arg;
+		if (NULL == arg)
+			return -EINVAL;
 
 		if (sst_drv_ctx->probe_bytes) {
 			prb_bytes->len = sst_drv_ctx->probe_bytes->len;
@@ -1026,6 +1031,8 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 	}
 	case SST_SET_PROBE_BYTE_STREAM: {
 		struct snd_sst_probe_bytes *prb_bytes = (struct snd_sst_probe_bytes *)arg;
+		if (NULL == arg)
+			return -EINVAL;
 
 		if (sst_drv_ctx->probe_bytes) {
 			sst_drv_ctx->probe_bytes->len = prb_bytes->len;
@@ -1048,6 +1055,10 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 		if (ret_val)
 			pr_err("vtsv data send failed\n");
 		sst_pm_runtime_put(sst_drv_ctx);
+		break;
+	}
+	case SST_SET_VTSV_LIBS: {
+		ret_val = sst_cache_vtsv_libs(sst_drv_ctx);
 		break;
 	}
 	default:

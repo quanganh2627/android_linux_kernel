@@ -681,6 +681,7 @@ void sst_save_shim64(struct intel_sst_drv *ctx, void __iomem *shim,
 		     struct sst_shim_regs64 *shim_regs);
 void sst_firmware_load_cb(const struct firmware *fw, void *context);
 int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx);
+int sst_cache_vtsv_libs(struct intel_sst_drv *ctx);
 
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst);
 void sst_do_recovery(struct intel_sst_drv *sst);

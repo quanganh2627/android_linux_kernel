@@ -1673,13 +1673,22 @@ int sst_vtsv_enroll_set(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct snd_soc_dapm_widget *w;
 	int ret = 0;
 
 	sst->vtsv_enroll = ucontrol->value.integer.value[0];
 	mutex_lock(&sst->lock);
-	if (sst->vtsv_enroll)
-		ret = sst_dsp->ops->set_generic_params(SST_SET_VTSV_INFO,
-					(void *)&sst->vtsv_enroll);
+	if (sst->vtsv_enroll) {
+		ret = sst_dsp->ops->set_generic_params(SST_SET_VTSV_LIBS, NULL);
+		if (ret) {
+			mutex_unlock(&sst->lock);
+			return ret;
+		}
+		/* search for the VTSV widget by name and check its power status */
+		w = snd_soc_dapm_find_widget(&platform->dapm, "vtsv", false);
+		if (w && w->power)
+			ret = sst_dsp->ops->set_generic_params(SST_SET_VTSV_INFO, NULL);
+	}
 	mutex_unlock(&sst->lock);
 	return ret;
 }

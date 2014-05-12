@@ -1386,7 +1386,7 @@ static int sst_alloc_hostless_stream(const struct sst_pcm_format *pcm_params,
 }
 
 static int sst_hostless_stream_event(struct snd_soc_dapm_widget *w,
-					struct snd_kcontrol *k, int event)
+				     struct snd_kcontrol *k, int event)
 {
 	struct sst_ids *ids = w->priv;
 
@@ -1403,6 +1403,20 @@ static int sst_hostless_stream_event(struct snd_soc_dapm_widget *w,
 		return sst_dsp->ops->close(MERR_DPCM_HOSTLESS_STRID);
 }
 
+static int sst_vtsv_event(struct snd_soc_dapm_widget *w,
+			  struct snd_kcontrol *k, int event)
+{
+	int ret;
+
+	ret = sst_hostless_stream_event(w, k, event);
+	if (ret < 0)
+		return ret;
+
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		ret = sst_dsp->ops->set_generic_params(SST_SET_VTSV_INFO, NULL);
+	return ret;
+}
+
 static const struct snd_kcontrol_new sst_mix_sw_aware =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 0, 1, 0,
 		sst_mix_get, sst_mix_put);
@@ -1413,7 +1427,7 @@ static const struct snd_kcontrol_new sst_mix_sw_vad =
 
 static const struct snd_kcontrol_new sst_vad_enroll[] = {
 	SOC_SINGLE_BOOL_EXT("SST VTSV Enroll", 0, sst_vtsv_enroll_get,
-					sst_vtsv_enroll_set),
+		sst_vtsv_enroll_set),
 };
 
 static const struct snd_kcontrol_new sst_mix_sw_tone_gen =
@@ -1443,7 +1457,7 @@ static const struct sst_pcm_format vad_stream_fmt = {
 static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("tone"),
 	SST_DAPM_OUTPUT("aware", SST_PATH_INDEX_AWARE_OUT, SST_TASK_AWARE, &aware_stream_fmt, sst_hostless_stream_event),
-	SST_DAPM_OUTPUT("vad", SST_PATH_INDEX_VAD_OUT, SST_TASK_AWARE, &vad_stream_fmt, sst_hostless_stream_event),
+	SST_DAPM_OUTPUT("vtsv", SST_PATH_INDEX_VAD_OUT, SST_TASK_AWARE, &vad_stream_fmt, sst_vtsv_event),
 	SST_AIF_IN("modem_in",  sst_set_be_modules),
 	SST_AIF_IN("codec_in0", sst_set_be_modules),
 	SST_AIF_IN("codec_in1", sst_set_be_modules),
@@ -1606,7 +1620,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"aware_out", NULL, "aware_out aware 0"},
 	{"aware_out aware 0", "switch", "aware_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("aware_out mix 0"),
-	{"vad", NULL, "vad_out"},
+	{"vtsv", NULL, "vad_out"},
 	{"vad_out", NULL, "vad_out vad 0"},
 	{"vad_out vad 0", "switch", "vad_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("vad_out mix 0"),
