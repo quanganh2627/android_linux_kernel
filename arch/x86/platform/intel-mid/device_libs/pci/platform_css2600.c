@@ -125,7 +125,7 @@ static struct css2600_isys_subdev_pdata pdata = {
 
 static void css2600_quirk(struct pci_dev *pci_dev)
 {
-	if (MATCH2(PHONE, MOFD, V0))
+	if (INTEL_MID_BOARD(1, PHONE, MOFD))
 		pci_dev->dev.platform_data = &pdata;
 }
 
