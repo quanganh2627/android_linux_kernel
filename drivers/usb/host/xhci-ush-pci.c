@@ -419,8 +419,6 @@ static void hsicdev_remove(struct usb_device *udev)
 		mutex_lock(&hsic.hsic_mutex);
 		hsic.modem_dev = NULL;
 		mutex_unlock(&hsic.hsic_mutex);
-		usb_enable_autosuspend(hsic.rh_dev);
-		hsic.autosuspend_enable = 1;
 		s3_wake_unlock();
 	}
 }
@@ -521,41 +519,48 @@ static int set_port_feature(struct usb_device *hdev, int port1, int feature)
 
 static void ush_hsic_port_disable(void)
 {
-	printk(KERN_ERR "%s---->\n", __func__);
 	hsic_enable = 0;
-	hsic.autosuspend_enable = 0;
-	if (hsic.modem_dev) {
+	if ((hsic.modem_dev) && (hsic.autosuspend_enable != 0)) {
 		dev_dbg(&pci_dev->dev,
 			"Disable auto suspend in port disable\n");
 		usb_disable_autosuspend(hsic.modem_dev);
-	}
-	if (hsic.rh_dev) {
-		dev_dbg(&pci_dev->dev,
-			"%s----> disable port\n", __func__);
 		usb_disable_autosuspend(hsic.rh_dev);
+		hsic.autosuspend_enable = 0;
+	}
+
+	if (hsic.rh_dev) {
+		if (hsic.autosuspend_enable != 0) {
+			dev_dbg(&pci_dev->dev,
+			"Disable auto suspend in port disable\n");
+			usb_disable_autosuspend(hsic.rh_dev);
+			hsic.autosuspend_enable = 0;
+		}
 		clear_port_feature(hsic.rh_dev, hsic.hsic_port_num,
 				USB_PORT_FEAT_POWER);
 		usb_enable_autosuspend(hsic.rh_dev);
+		hsic.autosuspend_enable = 1;
 	}
 	s3_wake_unlock();
 }
 
 static void ush_hsic_port_enable(void)
 {
-	printk(KERN_ERR "%s---->\n", __func__);
 	hsic_enable = 1;
-	hsic.autosuspend_enable = 0;
-	if (hsic.modem_dev) {
+	if ((hsic.modem_dev) && (hsic.autosuspend_enable != 0)) {
 		dev_dbg(&pci_dev->dev,
 			"Disable auto suspend in port enable\n");
 		usb_disable_autosuspend(hsic.modem_dev);
+		usb_disable_autosuspend(hsic.rh_dev);
+		hsic.autosuspend_enable = 0;
 	}
 
 	if (hsic.rh_dev) {
-		dev_dbg(&pci_dev->dev,
-			"%s----> enable port\n", __func__);
-		printk(KERN_ERR "%s----> Enable PP\n", __func__);
-		usb_disable_autosuspend(hsic.rh_dev);
+		if (hsic.autosuspend_enable != 0) {
+			dev_dbg(&pci_dev->dev,
+			"Disable auto suspend in port enable\n");
+			usb_disable_autosuspend(hsic.rh_dev);
+			hsic.autosuspend_enable = 0;
+		}
 		set_port_feature(hsic.rh_dev, hsic.hsic_port_num,
 				USB_PORT_FEAT_POWER);
 	}
@@ -787,8 +792,8 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 		ush_hsic_port_enable();
 	} else {
 		dev_dbg(dev, "disable hsic\n");
-		if (hsic.rh_dev) {
-			hsic.autosuspend_enable = 0;
+		if ((hsic.rh_dev) && (hsic.autosuspend_enable == 0)) {
+			hsic.autosuspend_enable = 1;
 			usb_enable_autosuspend(hsic.rh_dev);
 		}
 	}
