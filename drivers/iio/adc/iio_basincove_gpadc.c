@@ -45,6 +45,10 @@
 #include <linux/iio/types.h>
 #include <linux/iio/consumer.h>
 
+#define OHM_MULTIPLIER 10
+#define ADC_TO_TEMP 1
+#define TEMP_TO_ADC 0
+
 struct gpadc_info {
 	int initialized;
 	/* This mutex protects gpadc sample/config from concurrent conflict.
@@ -67,6 +71,26 @@ struct gpadc_info {
 	bool is_pmic_provisioned;
 };
 
+static const char * const iio_ev_type_text[] = {
+	[IIO_EV_TYPE_THRESH] = "thresh",
+	[IIO_EV_TYPE_MAG] = "mag",
+	[IIO_EV_TYPE_ROC] = "roc",
+	[IIO_EV_TYPE_THRESH_ADAPTIVE] = "thresh_adaptive",
+	[IIO_EV_TYPE_MAG_ADAPTIVE] = "mag_adaptive",
+};
+
+static const char * const iio_ev_dir_text[] = {
+	[IIO_EV_DIR_EITHER] = "either",
+	[IIO_EV_DIR_RISING] = "rising",
+	[IIO_EV_DIR_FALLING] = "falling"
+};
+
+static const char * const iio_ev_info_text[] = {
+	[IIO_EV_INFO_ENABLE] = "en",
+	[IIO_EV_INFO_VALUE] = "value",
+	[IIO_EV_INFO_HYSTERESIS] = "hysteresis",
+};
+
 static inline int gpadc_clear_bits(u16 addr, u8 mask)
 {
 	return intel_scu_ipc_update_register(addr, 0, mask);
@@ -85,6 +109,24 @@ static inline int gpadc_write(u16 addr, u8 data)
 static inline int gpadc_read(u16 addr, u8 *data)
 {
 	return intel_scu_ipc_ioread8(addr, data);
+}
+
+int shadycove_pmic_adc_temp_conv(int in_val, int *out_val, int conv)
+{
+	if (conv == ADC_TO_TEMP) {
+		if (in_val < PMIC_DIE_ADC_MIN || in_val > PMIC_DIE_ADC_MAX)
+			return -EINVAL;
+
+		*out_val = (ADC_COEFFICIENT * (in_val - 2047)) - TEMP_OFFSET;
+	} else {
+		if (in_val < PMIC_DIE_TEMP_MIN || in_val > PMIC_DIE_TEMP_MAX)
+			return -EINVAL;
+
+		/* 'in_val' is in C, convert to mC as TEMP_OFFSET is in mC */
+		*out_val = (((in_val * 1000) + TEMP_OFFSET) / ADC_COEFFICIENT) + 2047;
+	}
+
+	return 0;
 }
 
 static int gpadc_busy_wait(struct gpadc_regs_t *regs)
@@ -360,6 +402,40 @@ static struct attribute_group intel_basincove_gpadc_attr_group = {
 	.attrs = intel_basincove_gpadc_attrs,
 };
 
+static u16 get_scove_tempzone_val(u16 resi_val)
+{
+	u8 cursel = 0, hys = 0;
+	u16 trsh = 0, count = 0, bsr_num = 0;
+	u16 tempzone_val = 0;
+
+	/* multiply to convert into Ohm*/
+	resi_val *= OHM_MULTIPLIER;
+
+	/* CUR = max(floor(log2(round(ADCNORM/2^5)))-7,0)
+	 * TRSH = round(ADCNORM/(2^(4+CUR)))
+	 * HYS = if(∂ADCNORM>0 then max(round(∂ADCNORM/(2^(7+CUR))),1) else 0
+	 */
+
+	/*
+	 * while calculating the CUR[2:0], instead of log2
+	 * do a BSR (bit scan reverse) since we are dealing with integer values
+	 */
+	bsr_num = resi_val;
+	bsr_num /= (1 << 5);
+
+	while (bsr_num >>= 1)
+		count++;
+
+	cursel = max((count - 7), 0);
+
+	/* calculate the TRSH[8:0] to be programmed */
+	trsh = ((resi_val) / (1 << (4 + cursel)));
+
+	tempzone_val = (hys << 12) | (cursel << 9) | trsh;
+
+	return tempzone_val;
+}
+
 static int basincove_adc_read_raw(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *chan,
 			int *val, int *val2, long m)
@@ -417,9 +493,171 @@ end:
 	return ret;
 }
 
+static int basincove_adc_read_event_value(struct iio_dev *indio_dev,
+			struct iio_chan_spec const *chan,
+			enum iio_event_type type, enum iio_event_direction dir,
+			enum iio_event_info info, int *val, int *val2)
+{
+	int err;
+	int ch = chan->channel;
+	u16 reg_h, reg_l;
+	u8 val_h, val_l;
+	struct gpadc_info *gp_info = iio_priv(indio_dev);
+
+	dev_dbg(gp_info->dev, "ch:%d, adc_read_event: %s-%s-%s\n", ch,
+			iio_ev_type_text[type], iio_ev_dir_text[dir],
+			iio_ev_info_text[info]);
+
+	if (type == IIO_EV_TYPE_THRESH) {
+		switch (dir) {
+		case IIO_EV_DIR_RISING:
+			reg_h = gp_info->gpadc_regmaps[ch].alrt_max_h;
+			reg_l = gp_info->gpadc_regmaps[ch].alrt_max_l;
+			break;
+		case IIO_EV_DIR_FALLING:
+			reg_h = gp_info->gpadc_regmaps[ch].alrt_min_h;
+			reg_l = gp_info->gpadc_regmaps[ch].alrt_min_l;
+			break;
+		default:
+			dev_err(gp_info->dev,
+				"iio_event_direction %d not supported\n",
+				dir);
+			return -EINVAL;
+		}
+	} else {
+		dev_err(gp_info->dev,
+				"iio_event_type %d not supported\n",
+				type);
+		return -EINVAL;
+	}
+
+	dev_dbg(gp_info->dev, "reg_h:%x, reg_l:%x\n", reg_h, reg_l);
+
+	err = gpadc_read(reg_l, &val_l);
+	if (err) {
+		dev_err(gp_info->dev, "Error reading register:%X\n", reg_l);
+		return -EINVAL;
+	}
+	err = gpadc_read(reg_h, &val_h);
+	if (err) {
+		dev_err(gp_info->dev, "Error reading register:%X\n", reg_h);
+		return -EINVAL;
+	}
+
+	switch (info) {
+	case IIO_EV_INFO_VALUE:
+		*val = ((val_h & 0xF) << 8) + val_l;
+		if ((gp_info->pmic_id & PMIC_VENDOR_ID_MASK)
+				== SHADYCOVE_VENDORID) {
+			if (ch != PMIC_GPADC_CHANNEL_PMICTEMP) {
+				int thrsh = *val & 0x01FF;
+				int cur = (*val >> 9) & 0x07;
+
+				*val = thrsh * (1 << (4 + cur))
+					/ OHM_MULTIPLIER;
+			}
+		}
+
+		break;
+	case IIO_EV_INFO_HYSTERESIS:
+		*val = (val_h >> 4) & 0x0F;
+		break;
+	default:
+		dev_err(gp_info->dev,
+				"iio_event_info %d not supported\n",
+				info);
+		return -EINVAL;
+	}
+
+	dev_dbg(gp_info->dev, "read_event_sent: %x\n", *val);
+	return IIO_VAL_INT;
+}
+
+static int basincove_adc_write_event_value(struct iio_dev *indio_dev,
+			struct iio_chan_spec const *chan,
+			enum iio_event_type type, enum iio_event_direction dir,
+			enum iio_event_info info, int val, int val2)
+{
+	int err;
+	int ch = chan->channel;
+	u16 reg_h, reg_l;
+	u8 val_h, val_l, mask;
+	struct gpadc_info *gp_info = iio_priv(indio_dev);
+
+	dev_dbg(gp_info->dev, "ch:%d, adc_write_event: %s-%s-%s\n", ch,
+			iio_ev_type_text[type], iio_ev_dir_text[dir],
+			iio_ev_info_text[info]);
+
+	dev_dbg(gp_info->dev, "write_event_value: %x\n", val);
+
+	if (type == IIO_EV_TYPE_THRESH) {
+		switch (dir) {
+		case IIO_EV_DIR_RISING:
+			reg_h = gp_info->gpadc_regmaps[ch].alrt_max_h;
+			reg_l = gp_info->gpadc_regmaps[ch].alrt_max_l;
+			break;
+		case IIO_EV_DIR_FALLING:
+			reg_h = gp_info->gpadc_regmaps[ch].alrt_min_h;
+			reg_l = gp_info->gpadc_regmaps[ch].alrt_min_l;
+			break;
+		default:
+			dev_err(gp_info->dev,
+				"iio_event_direction %d not supported\n",
+				dir);
+			return -EINVAL;
+		}
+	} else {
+		dev_err(gp_info->dev,
+				"iio_event_type %d not supported\n",
+				type);
+		return -EINVAL;
+	}
+
+	dev_dbg(gp_info->dev, "reg_h:%x, reg_l:%x\n", reg_h, reg_l);
+
+	switch (info) {
+	case IIO_EV_INFO_VALUE:
+		if ((gp_info->pmic_id & PMIC_VENDOR_ID_MASK)
+				== SHADYCOVE_VENDORID) {
+			if (ch != PMIC_GPADC_CHANNEL_PMICTEMP)
+				val = get_scove_tempzone_val(val);
+		}
+
+		val_h = (val >> 8) & 0xF;
+		val_l = val & 0xFF;
+		mask = 0x0F;
+
+		err = intel_scu_ipc_update_register(reg_l, val_l, 0xFF);
+		if (err) {
+			dev_err(gp_info->dev, "Error updating register:%X\n", reg_l);
+			return -EINVAL;
+		}
+		break;
+	case IIO_EV_INFO_HYSTERESIS:
+		val_h = (val << 4) & 0xF0;
+		mask = 0xF0;
+		break;
+	default:
+		dev_err(gp_info->dev,
+				"iio_event_info %d not supported\n",
+				info);
+		return -EINVAL;
+	}
+
+	err = intel_scu_ipc_update_register(reg_h, val_h, mask);
+	if (err) {
+		dev_err(gp_info->dev, "Error updating register:%X\n", reg_h);
+		return -EINVAL;
+	}
+
+	return IIO_VAL_INT;
+}
+
 static const struct iio_info basincove_adc_info = {
 	.read_raw = &basincove_adc_read_raw,
 	.read_all_raw = &basincove_adc_read_all_raw,
+	.read_event_value = &basincove_adc_read_event_value,
+	.write_event_value = &basincove_adc_write_event_value,
 	.driver_module = THIS_MODULE,
 };
 

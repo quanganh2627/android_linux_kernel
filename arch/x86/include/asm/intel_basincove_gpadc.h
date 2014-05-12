@@ -29,6 +29,14 @@
 
 #define GPADC_RSL(channel, res) (res->data[ffs(channel)-1])
 
+/* Constants defined specific to ShadyCove PMIC */
+#define PMIC_DIE_ADC_MIN	0x35
+#define PMIC_DIE_ADC_MAX	0x4C6D
+#define PMIC_DIE_TEMP_MIN	-40 /* in C */
+#define PMIC_DIE_TEMP_MAX	125
+#define ADC_COEFFICIENT		269
+#define TEMP_OFFSET		273150 /* in mC */
+
 #define PMIC_ID_ADDR    0x00
 #define PMIC_VENDOR_ID_MASK     (0x03 << 6)
 #define PMIC_MINOR_REV_MASK     0x07
@@ -66,6 +74,10 @@ struct gpadc_regmap_t {
 	int cntl;       /* GPADC Conversion Control Bit indicator */
 	int rslth;      /* GPADC Conversion Result Register Addr High */
 	int rsltl;      /* GPADC Conversion Result Register Addr Low */
+	int alrt_min_h;
+	int alrt_min_l;
+	int alrt_max_h;
+	int alrt_max_l;
 };
 
 struct gpadc_regs_t {
@@ -94,6 +106,8 @@ struct intel_basincove_gpadc_platform_data {
 struct gpadc_result {
 	int data[SCOVE_GPADC_CH_NUM];
 };
+
+extern int shadycove_pmic_adc_temp_conv(int, int *, int);
 
 int iio_basincove_gpadc_sample(struct iio_dev *indio_dev,
 				int ch, struct gpadc_result *res);
