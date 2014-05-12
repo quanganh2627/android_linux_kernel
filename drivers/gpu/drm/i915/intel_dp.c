@@ -4182,12 +4182,12 @@ intel_dp_init(struct drm_device *dev, int output_reg, enum port port)
 	intel_encoder->cloneable = false;
 	intel_encoder->hot_plug = intel_dp_hot_plug;
 
+	intel_connector->panel.fitting_mode = 0;
 	if (!intel_dp_init_connector(intel_dig_port, intel_connector)) {
 		drm_encoder_cleanup(encoder);
 		kfree(intel_dig_port);
 		kfree(intel_connector);
 	}
-	intel_connector->panel.fitting_mode = 0;
 }
 
 int intel_edp_psr_ctl_ioctl(struct drm_device *device, void *data,
