@@ -53,6 +53,12 @@
 #define OUTPUT_MODE_FILE 0x0100
 #define OUTPUT_MODE_TEXT 0x0200
 
+/*
+ * Camera HAL sets this flag in v4l2_buffer reserved2 to indicate this
+ * buffer has a per-frame parameter.
+ */
+#define ATOMISP_BUFFER_HAS_PER_FRAME_SETTING	0x80000000
+
 /* Configuration used by Bayer noise reduction and YCC noise reduction */
 struct atomisp_nr_config {
 	/* [gain] Strength of noise reduction for Bayer NR (Used by Bayer NR) */
@@ -1101,8 +1107,6 @@ struct v4l2_private_int_data {
 
 /* Query real flash status register value */
 #define V4L2_CID_FLASH_STATUS_REGISTER  (V4L2_CID_CAMERA_LASTP1 + 26)
-
-#define V4L2_CID_PER_FRAME_SETTING		(V4L2_CID_CAMERA_LASTP1 + 27)
 
 #define V4L2_CID_START_ZSL_CAPTURE	(V4L2_CID_CAMERA_LASTP1 + 28)
 /* Lock and unlock raw buffer */
