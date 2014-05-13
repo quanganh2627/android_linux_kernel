@@ -236,9 +236,9 @@ static int wm8994_fill_mofd_pr_data(struct wm8994_pdata *pdata)
 		return -EINVAL;
 	}
 
-	/* Only MOFD v0-PR0 & v1-PR1, utilizes the LDOs */
+	/* Only MOFD v0-PR0 & v1-PR0, utilizes the LDOs */
 	if (INTEL_MID_BOARD(3, PHONE, MOFD, V0, PRO, PR0) ||
-		INTEL_MID_BOARD(3, PHONE, MOFD, V1, PRO, PR1)) {
+		INTEL_MID_BOARD(3, PHONE, MOFD, V1, PRO, PR0)) {
 
 		pr_debug("%s: Assign LDOs to MOFD PR0's pdata...\n", __func__);
 		pdata->ldo[0].enable = pdata->ldo[1].enable = 0;
