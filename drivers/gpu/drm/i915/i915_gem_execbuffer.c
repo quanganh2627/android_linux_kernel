@@ -59,6 +59,11 @@ i915_do_secure_ops(
 	struct list_head *active_list;
 	struct drm_i915_private *dev_priv;
 
+	if (!user_obj) {
+		DRM_ERROR("No user batch\n");
+		return -ENOMEM;
+	}
+
 	shmem_ret = i915_gem_obj_prepare_shmem_read(user_obj, &needs_clflush);
 	if (shmem_ret) {
 		DRM_ERROR("CMD: failed to prep read\n");
