@@ -649,8 +649,7 @@ stay_host:
 
 	user_mask = USER_A_BUS_DROP |
 				USER_ID_B_CHANGE_EVENT;
-	otg_mask = OEVT_CONN_ID_STS_CHNG_EVNT |
-			OEVT_A_DEV_SESS_END_DET_EVNT;
+	otg_mask = OEVT_CONN_ID_STS_CHNG_EVNT;
 
 	rc = sleep_until_event(otg,
 			otg_mask, user_mask,
