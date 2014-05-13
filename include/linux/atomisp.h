@@ -430,6 +430,8 @@ struct atomisp_parameters {
 	void	*shd_2500_config;       /* Skylake: shading config */
 	void	*dm_2500_config;        /* Skylake: demosaic config */
 	void	*rgbpp_2500_config;     /* Skylake: RGBPP config */
+	void	*dvs_stat_2500_config;  /* Skylake: DVS STAT config */
+	void	*lace_stat_2500_config; /* Skylake: LACE STAT config */
 	void	*yuvp1_2500_config;     /* Skylake: yuvp1 config */
 	void	*yuvp2_2500_config;     /* Skylake: yuvp2 config */
 	void	*tnr_2500_config;       /* Skylake: TNR config */
