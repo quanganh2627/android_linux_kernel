@@ -686,7 +686,8 @@ enum atomisp_ext_isp_id {
 	EXT_ISP_CAF_STATUS_CTRL,
 	EXT_ISP_AF_STATUS_CTRL,
 	EXT_ISP_GET_AF_MODE_CTRL,
-	EXT_ISP_BURST_CAPTURE_CTRL
+	EXT_ISP_BURST_CAPTURE_CTRL,
+	EXT_ISP_FLASH_MODE_CTRL
 };
 
 #define EXT_ISP_FOCUS_MODE_NORMAL	0
@@ -716,6 +717,12 @@ enum atomisp_burst_capture_options {
 	EXT_ISP_BURST_CAPTURE_CTRL_START = 0,
 	EXT_ISP_BURST_CAPTURE_CTRL_STOP
 };
+
+#define EXT_ISP_FLASH_MODE_OFF		0
+#define EXT_ISP_FLASH_MODE_ON		1
+#define EXT_ISP_FLASH_MODE_AUTO		2
+#define EXT_ISP_LED_TORCH_OFF		3
+#define EXT_ISP_LED_TORCH_ON		4
 
 struct atomisp_sp_arg {
 	enum atomisp_acc_arg_type type;	/* Type  of SP argument */
