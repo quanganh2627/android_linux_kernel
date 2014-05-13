@@ -817,6 +817,10 @@ i915_gem_execbuffer_relocate_slow(struct drm_device *dev,
 	int i, total, ret;
 	int count = args->buffer_count;
 
+	/* Decrement the pin count for bound objects,
+	   before the unlock */
+	i915_gem_execbuffer_unreserve(&eb->objects);
+
 	/* We may process another execbuffer during the unlock... */
 	while (!list_empty(&eb->objects)) {
 		obj = list_first_entry(&eb->objects,
@@ -825,10 +829,6 @@ i915_gem_execbuffer_relocate_slow(struct drm_device *dev,
 		list_del_init(&obj->exec_list);
 		drm_gem_object_unreference(&obj->base);
 	}
-
-	/* Decrement the pin count for bound objects,
-	   before the unlock */
-	i915_gem_execbuffer_unreserve(&eb->objects);
 
 	mutex_unlock(&dev->struct_mutex);
 
