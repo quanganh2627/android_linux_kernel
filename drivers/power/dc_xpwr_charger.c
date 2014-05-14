@@ -179,6 +179,7 @@
 #define ILIM_3000MA			3000	/* 3000mA */
 
 #define DC_CHRG_INTR_NUM		9
+#define FULL_THREAD_JIFFIES		(HZ * 30) /* 30sec */
 
 #define DEV_NAME			"dollar_cove_charger"
 
@@ -223,6 +224,7 @@ struct pmic_chrg_info {
 	bool is_charging_enabled;
 	bool is_charger_enabled;
 	bool is_hw_chrg_term;
+	struct delayed_work chrg_full_wrkr;
 };
 
 static enum power_supply_property pmic_chrg_usb_props[] = {
@@ -396,12 +398,6 @@ set_inlmt_fail:
 	return ret;
 }
 
-static inline int pmic_chrg_set_iterm(struct pmic_chrg_info *info, int iterm)
-{
-	info->iterm = iterm;
-	return 0;
-}
-
 static int pmic_chrg_enable_charger(struct pmic_chrg_info *info, bool enable)
 {
 	int ret;
@@ -496,6 +492,17 @@ health_read_fail:
 	return health;
 }
 
+static void xpwr_full_worker(struct work_struct *work)
+{
+	struct pmic_chrg_info *info = container_of(work,
+							struct pmic_chrg_info,
+							chrg_full_wrkr.work);
+
+	power_supply_changed(NULL);
+	/* schedule the thread to let the framework know about FULL */
+	schedule_delayed_work(&info->chrg_full_wrkr, FULL_THREAD_JIFFIES);
+}
+
 static int get_charging_status(struct pmic_chrg_info *info)
 {
 	int stat = POWER_SUPPLY_STATUS_UNKNOWN;
@@ -562,6 +569,9 @@ static int pmic_chrg_usb_set_property(struct power_supply *psy,
 		if (ret < 0)
 			dev_warn(&info->pdev->dev, "enable charging failed\n");
 		info->is_charging_enabled = val->intval;
+		if (!val->intval)
+			/* Cancel Full charge worker when disable charging */
+			cancel_delayed_work_sync(&info->chrg_full_wrkr);
 		break;
 	case POWER_SUPPLY_PROP_ENABLE_CHARGER:
 		/*
@@ -732,7 +742,10 @@ static irqreturn_t pmic_chrg_thread_handler(int irq, void *dev)
 		break;
 	case CHARGE_DONE_IRQ:
 		dev_info(&info->pdev->dev, "Charging Done INTR\n");
-		break;
+
+		/* schedule the thread to let the framework know about FULL */
+		schedule_delayed_work(&info->chrg_full_wrkr, 0);
+		return IRQ_HANDLED;
 	case CHARGE_CHARGING_IRQ:
 		dev_info(&info->pdev->dev, "Start Charging IRQ\n");
 		break;
@@ -823,6 +836,9 @@ static void pmic_chrg_init_hw_regs(struct pmic_chrg_info *info)
 
 	/* do not turn-off charger o/p after charge cycle ends */
 	intel_mid_pmic_setb(DC_CHRG_CNTL2_REG, CNTL2_CHG_OUT_TURNON);
+
+	/* set the Charge end condition to 20% of CC */
+	intel_mid_pmic_setb(DC_CHRG_CCCV_REG, CHRG_CCCV_ITERM_20P);
 
 	/* enable interrupts */
 	intel_mid_pmic_setb(DC_BAT_IRQ_CFG_REG, BAT_IRQ_CFG_BAT_MASK);
@@ -915,6 +931,7 @@ static int pmic_chrg_probe(struct platform_device *pdev)
 			ret);
 		goto psy_reg_failed;
 	}
+	INIT_DELAYED_WORK(&info->chrg_full_wrkr, xpwr_full_worker);
 
 	return 0;
 
