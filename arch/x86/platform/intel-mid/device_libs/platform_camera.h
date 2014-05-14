@@ -14,6 +14,7 @@
 
 #include <linux/atomisp_platform.h>
 #include <asm/intel-mid.h>
+#include <asm/intel_scu_ipcutil.h>
 
 extern const struct intel_v4l2_subdev_id v4l2_ids[] __attribute__((weak));
 
@@ -47,6 +48,10 @@ extern void intel_register_i2c_camera_device(
 				__attribute__((weak));
 char *camera_get_msr_filename(char *buf, int buf_size, char *sensor, int cam);
 
+struct vprog_status {
+	unsigned int user;
+};
+
 /*
  * FIXME! This PMIC power access workaround for CHT
  * since currently no VRF for CHT
@@ -63,11 +68,32 @@ enum camera_pmic_pin {
 	CAMERA_POWER_NUM,
 };
 
-struct vprog_status {
-	unsigned int user;
+int camera_set_pmic_power(enum camera_pmic_pin pin, bool flag);
+#endif
+
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
+enum camera_vprog {
+	CAMERA_VPROG1,
+	CAMERA_VPROG2,
+	CAMERA_VPROG3,
+	CAMERA_VPROG_NUM,
 };
 
-int camera_set_pmic_power(enum camera_pmic_pin pin, bool flag);
+enum camera_vprog_voltage {
+	DEFAULT_VOLTAGE,
+	CAMERA_1_05_VOLT,
+	CAMERA_1_5_VOLT,
+	CAMERA_1_8_VOLT,
+	CAMERA_1_83_VOLT,
+	CAMERA_1_85_VOLT,
+	CAMERA_2_5_VOLT,
+	CAMERA_2_8_VOLT,
+	CAMERA_2_85_VOLT,
+	CAMERA_2_9_VOLT,
+};
 
+int camera_set_vprog_power(enum camera_vprog vprog, bool flag,
+			   enum camera_vprog_voltage voltage);
 #endif
+
 #endif

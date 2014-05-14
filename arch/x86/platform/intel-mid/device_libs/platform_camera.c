@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <media/v4l2-subdev.h>
 #include <asm/intel-mid.h>
+#include <asm/intel_scu_pmic.h>
 #include "platform_camera.h"
 #include "platform_imx175.h"
 #include "platform_imx134.h"
@@ -571,6 +572,101 @@ int camera_set_pmic_power(enum camera_pmic_pin pin, bool flag)
 }
 EXPORT_SYMBOL_GPL(camera_set_pmic_power);
 #endif
+
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
+/*
+ *  Simple power management is needed since camera sensors
+ *  share the same power rail. When 2 sensors are working simulatenously,
+ *  the power rail should be off after all callers stop.
+ */
+
+static int camera_set_vprog3(bool flag, enum camera_vprog_voltage voltage)
+{
+	/*
+	 * Currently it is not possible to control the voltage outside of
+	 * intel_scu_ipcut so have to do it manually here
+	 */
+#define MSIC_VPROG3_MRFLD_CTRL		0xae
+#define MSIC_VPROG3_MRFLD_ON_1_05	0x01	/* 1.05V and Auto mode */
+#define MSIC_VPROG3_MRFLD_ON_1_83	0x41	/* 1.83V and Auto mode */
+#define MSIC_VPROG_MRFLD_OFF		0	/* OFF */
+
+	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
+		if (voltage == CAMERA_1_05_VOLT) {
+			return intel_scu_ipc_iowrite8(MSIC_VPROG3_MRFLD_CTRL,
+			       flag ? MSIC_VPROG3_MRFLD_ON_1_05 :
+			       MSIC_VPROG_MRFLD_OFF);
+		} else if (voltage == CAMERA_1_83_VOLT) {
+			return intel_scu_ipc_iowrite8(MSIC_VPROG3_MRFLD_CTRL,
+			       flag ? MSIC_VPROG3_MRFLD_ON_1_83 :
+			       MSIC_VPROG_MRFLD_OFF);
+		} else {
+			pr_err("Error: Unsupported vprog3 voltage\n");
+			return -ENODEV;
+		}
+	} else {
+		pr_err("Error: vprog3 not supported\n");
+		return -ENODEV;
+	}
+}
+
+int camera_set_vprog_power(enum camera_vprog vprog, bool flag,
+			   enum camera_vprog_voltage voltage)
+{
+	static struct vprog_status status[CAMERA_VPROG_NUM];
+	static DEFINE_MUTEX(mutex_power);
+	int ret = 0;
+
+	if (vprog >= CAMERA_VPROG_NUM) {
+		pr_err("%s: invalid vprog number: %d\n", __func__, vprog);
+		return -EINVAL;
+	}
+
+	mutex_lock(&mutex_power);
+	/*
+	 * only set power at: first to power on last to power off
+	 */
+	if ((flag && status[vprog].user == 0)
+	    || (!flag && status[vprog].user == 1)) {
+		switch (vprog) {
+		case CAMERA_VPROG1:
+			if (voltage == DEFAULT_VOLTAGE) {
+				ret = intel_scu_ipc_msic_vprog1(flag);
+			} else {
+				pr_err("Error: non-default vprog1 voltage\n");
+				ret = -EINVAL;
+			}
+			break;
+		case CAMERA_VPROG2:
+			if (voltage == DEFAULT_VOLTAGE) {
+				ret = intel_scu_ipc_msic_vprog2(flag);
+			} else {
+				pr_err("Error: non-default vprog2 voltage\n");
+				ret = -EINVAL;
+			}
+			break;
+		case CAMERA_VPROG3:
+			ret = camera_set_vprog3(flag, voltage);
+			break;
+		default:
+			pr_err("camera set vprog power: invalid pin number.\n");
+			ret = -EINVAL;
+		}
+		if (ret)
+			goto done;
+	}
+
+	if (flag)
+		status[vprog].user++;
+	else
+		if (status[vprog].user)
+			status[vprog].user--;
+done:
+	mutex_unlock(&mutex_power);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(camera_set_vprog_power);
+#endif /* CONFIG_INTEL_SCU_IPC_UTIL */
 
 #define HEXPREF(x)	((x) != 0 ? "0x" : "")
 #define HEX(x)		HEXPREF(x), (x)
