@@ -3327,6 +3327,7 @@ CONFIG_IIO=y
 # CONFIG_MAX1363 is not set
 # CONFIG_TI_ADC081C is not set
 # CONFIG_IIO_BASINCOVE_GPADC is not set
+# CONFIG_IIO_SCALE_GPADC is not set
 
 #
 # Amplifiers
