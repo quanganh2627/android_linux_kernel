@@ -1883,7 +1883,13 @@ struct thermal_zone_device *thermal_zone_device_register(const char *type,
 
 	INIT_DELAYED_WORK(&(tz->poll_queue), thermal_zone_device_check);
 
-	thermal_zone_device_update(tz);
+	/*
+	 * Emulation temperature may need user land to provide
+	 * temperature data. In that case, do not try to update
+	 * this 'tzd' during registration.
+	 */
+	if (!tz->ops->set_emul_temp)
+		thermal_zone_device_update(tz);
 
 	if (!result)
 		return tz;
