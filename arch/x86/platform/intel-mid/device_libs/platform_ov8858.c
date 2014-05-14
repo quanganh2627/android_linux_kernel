@@ -30,7 +30,7 @@ static int ov8858_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	int ret;
 	if (camera_reset < 0) {
 		ret = camera_sensor_gpio(-1, GP_CAMERA_0_RESET,
-					GPIOF_DIR_OUT, 1);
+					GPIOF_DIR_OUT, 0);
 		if (ret < 0)
 			return ret;
 		camera_reset = ret;
@@ -38,7 +38,7 @@ static int ov8858_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (flag) {
 		gpio_set_value(camera_reset, 0);
-		msleep(20);
+		msleep(20); /* Wait for power lines to stabilize */
 		gpio_set_value(camera_reset, 1);
 	} else {
 		gpio_set_value(camera_reset, 0);
@@ -74,8 +74,10 @@ static int ov8858_power_ctrl(struct v4l2_subdev *sd, int flag)
 #define MSIC_VPROG3_MRFLD_ON	0x41	/* 1.83V and Auto mode */
 #define MSIC_VPROG_MRFLD_OFF	0	/* OFF */
 	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
-		return intel_scu_ipc_iowrite8(MSIC_VPROG3_MRFLD_CTRL,
+		ret = intel_scu_ipc_iowrite8(MSIC_VPROG3_MRFLD_CTRL,
 			flag ? MSIC_VPROG3_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
+		msleep(20); /* Wait for power lines to stabilize */
+		return ret;
 	} else {
 		pr_err("Failed to set regulator vprog3 %s\n",
 		       flag ? "on" : "off");
