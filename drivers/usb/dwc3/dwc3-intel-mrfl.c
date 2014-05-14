@@ -1023,6 +1023,10 @@ static int dwc3_intel_handle_notification(struct notifier_block *nb,
 			cap_record.chrg_evt =
 				POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
 		}
+
+		if (cap->chrg_type == POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK)
+			otg->otg_events |= OEVT_CONN_ID_STS_CHNG_EVNT;
+
 		state = NOTIFY_OK;
 		break;
 	default:
