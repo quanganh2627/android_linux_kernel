@@ -87,6 +87,10 @@ struct ush_hsic_pdata {
 	int                     wakeup_gpio;
 	int                     reenum_delay;
 	int			hsic_port_num;
+	int			has_hsic;
+	int			has_ssic;
+	int			ssic_port_num;
+	int			ssic_enabled;
 };
 
 static int hsic_notify(struct notifier_block *self,
