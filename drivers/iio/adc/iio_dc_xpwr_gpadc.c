@@ -76,6 +76,9 @@
 #define ADC_BAT_CUR_DATAL_MASK		0x1F
 #define ADC_NON_BAT_CUR_DATAL_MASK	0x0F
 
+#define ADC_TS_PIN_CNRTL_REG           0x84
+#define ADC_TS_PIN_ON                  0xF3
+
 #define DEV_NAME			"dollar_cove_adc"
 
 static struct gpadc_regmap_t {
@@ -154,18 +157,7 @@ static int iio_dc_xpwr_gpadc_sample(struct iio_dev *indio_dev,
 		if (ch & (1 << i)) {
 			th = intel_mid_pmic_readb(gpadc_regmaps[i].rslth);
 			tl = intel_mid_pmic_readb(gpadc_regmaps[i].rsltl);
-			/*
-			 * Battery Charge and Discharge current
-			 * channel's DATAL(lower byte) size is 5 bits
-			 * and all other channels has DATAL size is 4 bits.
-			 * So the result's DATAH should be shifted and
-			 * DATAL should be masked with right values.
-			 */
-			if ((ch & ADC_CHANNEL2_MASK) ||
-				(ch & ADC_CHANNEL3_MASK))
-				res->data[i] = (th  << 5) + (tl & 0x1F);
-			else
-				res->data[i] = (th << 4) + (tl & 0x0F);
+			res->data[i] = (th << 4) + ((tl >> 4) & 0x0F);
 		}
 	}
 
@@ -251,6 +243,9 @@ static int dc_xpwr_gpadc_probe(struct platform_device *pdev)
 	info->dev = &pdev->dev;
 	platform_set_drvdata(pdev, indio_dev);
 	mutex_init(&info->lock);
+
+	/* Current Source from TS pin always ON */
+	intel_mid_pmic_writeb(ADC_TS_PIN_CNRTL_REG, ADC_TS_PIN_ON);
 
 	/*
 	 * To enable X-power PMIC Fuel Gauge functionality
