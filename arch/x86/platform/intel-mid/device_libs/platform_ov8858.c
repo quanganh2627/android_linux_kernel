@@ -21,8 +21,6 @@
 #include "platform_camera.h"
 #include "platform_ov8858.h"
 
-
-
 static int camera_reset;
 
 static int ov8858_gpio_ctrl(struct v4l2_subdev *sd, int flag)
@@ -61,28 +59,37 @@ static int ov8858_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 static int ov8858_power_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	int ret;
-	ret = intel_scu_ipc_msic_vprog1(flag);
+
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
+	ret = camera_set_vprog_power(CAMERA_VPROG1, flag, DEFAULT_VOLTAGE);
+#else
+	ret = -EINVAL;
+#endif
 	if (ret) {
 		pr_err("Failed to set regulator vprog1 %s\n",
 		       flag ? "on" : "off");
 		return ret;
 	}
 
-	/* This is a hack. Should be done from intel_scu_ipcut but currently
-	 * it is not possible to control the voltage outside of that file. */
-#define MSIC_VPROG3_MRFLD_CTRL	0xAE
-#define MSIC_VPROG3_MRFLD_ON	0x41	/* 1.83V and Auto mode */
-#define MSIC_VPROG_MRFLD_OFF	0	/* OFF */
-	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
-		ret = intel_scu_ipc_iowrite8(MSIC_VPROG3_MRFLD_CTRL,
-			flag ? MSIC_VPROG3_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
-		msleep(20); /* Wait for power lines to stabilize */
-		return ret;
-	} else {
+
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
+	ret = camera_set_vprog_power(CAMERA_VPROG3, flag, CAMERA_1_83_VOLT);
+#else
+	ret = -EINVAL;
+#endif
+	if (ret) {
 		pr_err("Failed to set regulator vprog3 %s\n",
 		       flag ? "on" : "off");
-		return -ENODEV;
+		if (flag)
+			camera_set_vprog_power(CAMERA_VPROG1, !flag,
+					       DEFAULT_VOLTAGE);
+		return ret;
 	}
+
+	if (flag)
+		msleep(20); /* Wait for power lines to stabilize */
+
+	return ret;
 }
 
 static int ov8858_csi_configure(struct v4l2_subdev *sd, int flag)
