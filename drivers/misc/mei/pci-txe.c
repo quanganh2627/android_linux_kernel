@@ -442,6 +442,7 @@ static int mei_txe_pci_resume(struct device *device)
 {
 	struct pci_dev *pdev = to_pci_dev(device);
 	struct mei_device *dev;
+	struct mei_txe_hw *hw;
 	int err;
 
 	dev = pci_get_drvdata(pdev);
@@ -468,6 +469,12 @@ static int mei_txe_pci_resume(struct device *device)
 				pdev->irq);
 		return err;
 	}
+
+	hw = to_txe_hw(dev);
+	err = mei_txe_setup_satt2(dev,
+		dma_to_phys(&dev->pdev->dev, hw->pool_paddr), hw->pool_size);
+	if (err)
+		return err;
 
 	err = mei_restart(dev);
 
