@@ -868,6 +868,13 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 
 	pr_debug("Entry %s\n", __func__);
 
+	/* Audio Platform clock is on by default. The machine driver requests
+	 * this clock to be turned ON and OFF on playing any stream. But
+	 * until any stream is played the clock remains ON. Hence request the
+	 * clock to be turned OFF initially.
+	 */
+	pmc_pc_configure(VLV2_PLAT_CLK_AUDIO, PLAT_CLK_FORCE_OFF);
+
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_ATOMIC);
 	if (!drv) {
 		pr_err("allocation failed\n");
