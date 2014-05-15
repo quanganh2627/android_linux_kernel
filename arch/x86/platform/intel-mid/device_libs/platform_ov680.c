@@ -113,17 +113,33 @@ static int ov680_power_ctrl(struct v4l2_subdev *sd, int flag)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 
-	ret = intel_scu_ipc_msic_vprog1(flag);
-	dev_dbg(&client->dev,
-		"%s: Turning VPROG1  - ret = %x - %s\n",
-		__func__, ret, flag ? "on" : "off");
+	dev_dbg(&client->dev, "%s: vprog1 %s\n", __func__, flag ? "on" : "off");
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
+	ret = camera_set_vprog_power(CAMERA_VPROG1, flag, DEFAULT_VOLTAGE);
+#else
+	ret = -EINVAL;
+#endif
 	if (ret) {
-		dev_err(&client->dev, "power control failed\n");
+		dev_err(&client->dev, "vprog1 power control failed\n");
+		return ret;
+	}
+
+	dev_dbg(&client->dev, "%s: vprog3 %s\n", __func__, flag ? "on" : "off");
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
+	ret = camera_set_vprog_power(CAMERA_VPROG3, flag, CAMERA_1_83_VOLT);
+#else
+	ret = -EINVAL;
+#endif
+	if (ret) {
+		dev_err(&client->dev, "vprog3 power control failed\n");
+		if (flag)
+			camera_set_vprog_power(CAMERA_VPROG1, !flag,
+					       DEFAULT_VOLTAGE);
 		return ret;
 	}
 
 	if (flag)
-		msleep(20);
+		msleep(20); /* Wait for power lines to stabilize */
 
 	return ret;
 }
