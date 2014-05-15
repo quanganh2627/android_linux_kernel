@@ -527,6 +527,13 @@ config X86_INTEL_LPSS
 	  things like clock tree (common clock framework) which are needed
 	  by the LPSS peripheral drivers.
 
+config X86_INTEL_OSC_CLK
+	bool "Intel OSC CLK Support"
+	select COMMON_CLK
+	---help---
+	  Select to build support for Intel OSC0~OSC4 clock. Selecting
+	  this option enables Linux common clock framework.
+
 config X86_RDC321X
 	bool "RDC R-321x SoC"
 	depends on X86_32

@@ -1905,6 +1905,9 @@ mid_pmu_probe(struct pci_dev *dev, const struct pci_device_id *pci_id)
 
 	mid_pmu_cxt->pmu_reg = pmu;
 
+	/* CCU is in same PCI device with PMU, offset is 0x800 */
+	ccu_osc_clk_init((void __iomem *)pmu + 0x800);
+
 	/* Map the memory of emergency emmc up */
 	mid_pmu_cxt->emergency_emmc_up_addr =
 		devm_ioremap_nocache(&mid_pmu_cxt->pmu_dev->dev, PMU_PANIC_EMMC_UP_ADDR, 4);
@@ -1965,6 +1968,12 @@ static void mid_pmu_remove(struct pci_dev *dev)
 {
 	/* Freeing up the irq */
 	free_irq(dev->irq, &pmu_sc_irq);
+
+	/* If CCU/OSC is inuse, don't remove PMU */
+	if (ccu_osc_clk_uninit() < 0) {
+		pr_warn("ccu/osc is in using. abort\n");
+		return;
+	}
 
 	if (pmu_ops->remove)
 		pmu_ops->remove();

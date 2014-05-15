@@ -533,4 +533,11 @@ static inline bool nc_device_state(void)
 	return !mid_pmu_cxt->display_off || !mid_pmu_cxt->camera_off;
 }
 
+#ifdef CONFIG_X86_INTEL_OSC_CLK
+extern int ccu_osc_clk_init(void __iomem *ccubase);
+extern int ccu_osc_clk_uninit(void);
+#else
+static inline int ccu_osc_clk_init(void __iomem *ccubase) {return 0; }
+static inline int ccu_osc_clk_uninit(void) {return 0; }
+#endif /* CONFIG_X86_INTEL_OSC_CLK */
 #endif
