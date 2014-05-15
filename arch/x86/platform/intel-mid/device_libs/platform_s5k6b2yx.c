@@ -111,7 +111,11 @@ static int s5k6b2yx_power_ctrl(struct v4l2_subdev *sd, int flag)
 		return ret;
 	}
 
-	ret = intel_scu_ipc_msic_vprog2(flag);
+#ifdef CONFIG_INTEL_SCU_IPC_UTIL
+	ret = camera_set_vprog_power(CAMERA_VPROG2, flag, DEFAULT_VOLTAGE);
+#else
+	ret = -EINVAL;
+#endif
 	if (ret)
 		pr_err("Failed to set regulator vprog2 %s - err:[%d]\n",
 				flag ? "on" : "off", ret);
