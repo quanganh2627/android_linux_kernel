@@ -31,6 +31,8 @@
 #ifdef CONFIG_INTEL_SOC_PMC
 #define OSC_CAM0_CLK 0x0
 #define CLK_19P2MHz 0x1
+#define CLK_ON	0x1
+#define CLK_OFF	0x2
 #endif
 static int camera_vprog1_on;
 static int camera_reset;
@@ -92,7 +94,7 @@ static int ov5693_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 		if (ret)
 			pr_err("ov5693 clock set failed.\n");
 	}
-	pmc_pc_configure(OSC_CAM0_CLK, flag);
+	pmc_pc_configure(OSC_CAM0_CLK, flag ? CLK_ON : CLK_OFF);
 	return 0;
 #elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
 	return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
