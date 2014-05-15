@@ -209,6 +209,12 @@ static int smsc375x_detect_dev(struct smsc375x_chip *chip)
 	chrg_type = stat & STAT_CHRG_TYPE_MASK;
 	chip->is_sdp = false;
 
+	/* Enabling the OVP switch on VBUS to draw maximum current */
+	ret = smsc375x_write_reg(client, SMSC375X_REG_CFG,
+			(cfg | (CFG_OVERRIDE_VBUS | CFG_EN_OVP_SWITCH)));
+	if (ret < 0)
+		goto dev_det_i2c_failed;
+
 	if (chrg_type == STAT_CHRG_TYPE_SDP) {
 		dev_info(&chip->client->dev,
 				"SDP cable connecetd\n");
@@ -238,6 +244,13 @@ static int smsc375x_detect_dev(struct smsc375x_chip *chip)
 			(chrg_type == STAT_CHRG_TYPE_SE1H)) {
 		dev_info(&chip->client->dev,
 				"DCP/SE1 cable connecetd\n");
+		/* Driving Vdat_src pin as the PET expects the voltage on DP
+		 * to remain >0.5V for the duration of the time VBUS is valid
+		 */
+		ret = smsc375x_write_reg(client, SMSC375X_REG_CHRG_CFG,
+				(CHRG_CFG_I2C_CNTL | CHRG_CFG_EN_VDAT_SRC));
+		if (ret < 0)
+			goto dev_det_i2c_failed;
 		notify_charger = true;
 		cable = SMSC375X_EXTCON_DCP;
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
