@@ -103,20 +103,30 @@ static int imx135_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (is_moorefield()) {
 #ifdef CONFIG_INTEL_SCU_IPC_UTIL
-		ret = intel_scu_ipc_msic_vprog1(flag);
+		ret = camera_set_vprog_power(CAMERA_VPROG1, flag,
+					     DEFAULT_VOLTAGE);
 		if (ret) {
-			pr_err("imx135 power failed\n");
+			pr_err("imx135 power %s vprog1 failed\n",
+			       flag ? "on" : "off");
 			return ret;
 		}
-		ret = intel_scu_ipc_msic_vprog3(flag);
+
+		ret = camera_set_vprog_power(CAMERA_VPROG3, flag,
+					     CAMERA_1_05_VOLT);
+		if (ret) {
+			pr_err("imx135 power %s vprog3 failed\n",
+			       flag ? "on" : "off");
+			if (flag)
+				camera_set_vprog_power(CAMERA_VPROG1, !flag,
+						       DEFAULT_VOLTAGE);
+			return ret;
+		}
+
+		if (flag)
+			usleep_range(1000, 1200);
 #else
 		ret = -ENODEV;
 #endif
-		if (ret)
-			pr_err("imx135 power failed\n");
-		if (flag)
-			usleep_range(1000, 1200);
-
 		return ret;
 	}
 
