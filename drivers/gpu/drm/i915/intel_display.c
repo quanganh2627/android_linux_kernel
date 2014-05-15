@@ -2408,17 +2408,10 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		I915_WRITE(DSPADDR(plane), i915_gem_obj_ggtt_offset(obj) + linear_offset);
 	POSTING_READ(reg);
 
-	if (intel_crtc->last_pixel_size != pixel_size) {
-		/* Theoretically this vblank is required for 4->2 pixel size change.
-		 * DL vaue immediately get updated in hardware whereas primary plane
-		 * control register update happen in next vblank. So 4->2 transition
-		 * we need a vblank otherwise will may hit underrun. as we still
-		 * have underrun issue we enabled for 2->4 as well.
-		 */
-		intel_wait_for_vblank(dev, pipe);
-	}
-	if (intel_crtc->last_pixel_size > pixel_size)
+	if (intel_crtc->last_pixel_size > pixel_size) {
+		dev_priv->pf_change_status[plane] |= BPP_CHANGED_PRIMARY;
 		intel_update_watermarks(dev);
+	}
 
 	intel_crtc->last_pixel_size = pixel_size;
 	return 0;
@@ -11404,6 +11397,7 @@ void intel_modeset_init(struct drm_device *dev)
 					      pipe_name(i), sprite_name(i, j), ret);
 		}
 	}
+	memset(&dev_priv->pf_change_status, 0, sizeof(dev_priv->pf_change_status));
 
 	intel_cpu_pll_init(dev);
 	intel_shared_dpll_init(dev);

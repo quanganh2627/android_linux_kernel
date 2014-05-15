@@ -453,20 +453,16 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), i915_gem_obj_ggtt_offset(obj) +
 			     sprsurf_offset);
 
-	if (intel_plane->last_plane_state && (intel_plane->last_pixel_size != pixel_size)) {
-		/* Theoretically this vblank is required for 4->2 pixel size change.
-		 * DL vaue immediately get updated in hardware whereas sprite
-		 * control register update happen in next vblank. So 4->2 transition
-		 * we need a vblank otherwise will may hit underrun. as we still
-		 * have underrun issue we enabled for 2->4 as well.
-		 */
-		intel_wait_for_vblank(dev, pipe);
-	}
 	intel_plane->last_plane_state = true; /* true means enabled */
 	if (event == NULL)
 		POSTING_READ(SPSURF(pipe, plane));
 
 	if (intel_plane->last_pixel_size > pixel_size) {
+		if (plane == PLANE_A)
+			dev_priv->pf_change_status[pipe] |= BPP_CHANGED_SPRITEA;
+		else
+			dev_priv->pf_change_status[pipe] |= BPP_CHANGED_SPRITEB;
+
 		intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size, true,
 						src_w != crtc_w || src_h != crtc_h);
 	}
