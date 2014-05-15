@@ -80,7 +80,8 @@ static int imx132_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (is_moorefield()) {
 #ifdef CONFIG_INTEL_SCU_IPC_UTIL
-		ret = intel_scu_ipc_msic_vprog1(flag);
+		ret = camera_set_vprog_power(CAMERA_VPROG1, flag,
+					     DEFAULT_VOLTAGE);
 #else
 		ret = -ENODEV;
 #endif
