@@ -240,6 +240,47 @@ static void dwc_xhci_enable_phy_suspend(struct usb_hcd *hcd, bool enable)
 	writel(val, hcd->regs + GUSB2PHYCFG0);
 }
 
+/* Some SS UMS will be enter polling state after plug in with micro A cable.
+ * If trigger warm reset, then link can be rescued to U0.
+ *
+ * This function copy from hub_port_reset function is USB core.
+ */
+static int dwc3_link_issue_wa(struct xhci_hcd *xhci)
+{
+	__le32 __iomem **addr;
+	int delay_time, ret;
+	u32 pls, val, delay;
+
+	addr = dwc3_xhci.xhci->usb3_ports;
+	val = xhci_readl(dwc3_xhci.xhci, addr[0]);
+
+	/* If PORTSC.CCS bit haven't set. We can trigger warm reset
+	 * to double confirm if really have no device or link can't trained to
+	 * U0.
+	 */
+	if (!(val & PORT_CONNECT)) {
+		val |= PORT_WR;
+		xhci_writel(xhci, val, addr[0]);
+		xhci_dbg(xhci, "%s: trigger warm reset\n", __func__);
+	}
+
+	/* Waiting warm reset complete. */
+	for (delay_time = 0; delay_time < 800; delay_time += delay) {
+		msleep(delay);
+		val = xhci_readl(dwc3_xhci.xhci, addr[0]);
+		if (!(val & PORT_RESET))
+			break;
+
+		if (delay_time >= 20)
+			delay = 200;
+	}
+
+	if (val & PORT_RESET)
+		xhci_err(xhci, "%s port reset failed!\n", __func__);
+
+	return 0;
+}
+
 static void dwc_silicon_wa(struct usb_hcd *hcd)
 {
 	void __iomem *addr;
@@ -517,6 +558,7 @@ static int __dwc3_start_host(struct usb_hcd *hcd)
 	if (ret)
 		goto put_usb3_hcd;
 
+	dwc3_link_issue_wa(xhci);
 	pm_runtime_put(hcd->self.controller);
 
 	ret = device_create_file(hcd->self.controller, &dev_attr_pm_get);
