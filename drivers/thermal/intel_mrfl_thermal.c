@@ -39,7 +39,6 @@
 
 #include <asm/intel_scu_pmic.h>
 #include <asm/intel_mid_rpmsg.h>
-#include <asm/intel_basincove_gpadc.h>
 #include <asm/intel_mid_thermal.h>
 #include <linux/iio/consumer.h>
 
