@@ -1145,6 +1145,7 @@ CONFIG_UID_STAT=y
 # CONFIG_ALTERA_STAPL is not set
 # CONFIG_INTEL_MEI_TXE is not set
 # CONFIG_VMWARE_VMCI is not set
+# CONFIG_INTEL_ISH is not set
 CONFIG_HAVE_IDE=y
 # CONFIG_IDE is not set
 
