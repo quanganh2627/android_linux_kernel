@@ -19,6 +19,8 @@
 #include "platform_camera.h"
 #include "platform_s5k6b2yx.h"
 
+#define OSC_CLK_CAM1_SS 3
+
 enum {
 	VT_CAM_RESET = 0,
 	VT_CAM_VIS_STBY,
@@ -65,12 +67,17 @@ static void cam_gpio_deinit(void)
 static int s5k6b2yx_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	if (flag) {
+		gpio_set_value(cam_gpios[VT_CAM_RESET].gpio, 0);
+
+		/* 1ms from VANA and VDIG to XSHUTDOWN raising */
+		usleep_range(1000, 1500);
+
 		gpio_set_value(cam_gpios[VT_CAM_RESET].gpio, 1);
 
 		/* s5k6b2yx initializing time: t3 = 46uS + 16 EXTCLK
 		 * 46us) + 0.8uS(19.2Mhz) before sccb communication
 		 */
-		usleep_range(100, 1000);
+		usleep_range(200, 300);
 	} else {
 		gpio_set_value(cam_gpios[VT_CAM_RESET].gpio, 0);
 	}
@@ -84,12 +91,9 @@ static int s5k6b2yx_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 	static const unsigned int clock_khz = 19200;
 	int ret;
 
-	/* need to check the first argument of intel_scu_ipc_osc_clk */
-	ret = intel_scu_ipc_osc_clk(/*OSC_CLK_CAM1*/ 3, flag ? clock_khz : 0);
-	if (ret < 0) {
+	ret = intel_scu_ipc_osc_clk(OSC_CLK_CAM1_SS, flag ? clock_khz : 0);
+	if (ret < 0)
 		pr_err("%s, camera clock failed, result : %d\n", __func__, ret);
-		return ret;
-	}
 
 	return ret;
 }
@@ -102,7 +106,7 @@ static int s5k6b2yx_power_ctrl(struct v4l2_subdev *sd, int flag)
 		ret = regulator_enable(regulator);
 	else
 		ret = regulator_disable(regulator);
-	if (unlikely(ret < 0)) {
+	if (unlikely(ret)) {
 		pr_err("%s: failed to control regulator [%d]!!\n", __func__, flag);
 		return ret;
 	}
@@ -111,20 +115,6 @@ static int s5k6b2yx_power_ctrl(struct v4l2_subdev *sd, int flag)
 	if (ret)
 		pr_err("Failed to set regulator vprog2 %s - err:[%d]\n",
 				flag ? "on" : "off", ret);
-
-	if (flag)
-		usleep_range(1000, 2000);
-
-	if (flag) {
-		ret = cam_gpio_init();
-		if (ret < 0) {
-			pr_err("%s, camera gpio init failed, result : %d\n",
-								__func__, ret);
-			return ret;
-		}
-	} else {
-		cam_gpio_deinit();
-	}
 
 	return ret;
 }
@@ -138,19 +128,28 @@ static int s5k6b2yx_csi_configure(struct v4l2_subdev *sd, int flag)
 
 static int s5k6b2yx_platform_init(struct i2c_client *client)
 {
+	int ret;
+
 	regulator = regulator_get(NULL, "VT_CAM_1.8");
 
 	if (IS_ERR(regulator)) {
 		pr_err("%s: failed to get regulator VTCAM_EN\n", __func__);
 		return -ENODEV;
 	}
-	return 0;
+
+	ret = cam_gpio_init();
+	if (ret)
+		pr_err("%s, camera gpio init failed, result : %d\n",
+						__func__, ret);
+	return ret;
 }
 
 static int s5k6b2yx_platform_deinit(void)
 {
-	regulator_put(regulator);
+	if (regulator)
+		regulator_put(regulator);
 
+	cam_gpio_deinit();
 	return 0;
 }
 
