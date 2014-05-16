@@ -951,6 +951,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	struct dentry *d1, *d2, *d3, *d4;
 	struct pmc_dev *pmc_cxt;
 	u32 funcdis_reg, funcdis2_reg;
+	int i;
 
 	pmc_cxt = devm_kzalloc(&pdev->dev,
 			sizeof(struct pmc_dev), GFP_KERNEL);
@@ -1092,6 +1093,9 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 		funcdis2_reg |= ((BIT(0))|(BIT(3))|(BIT(4))); /*SMB,GMM,ISH*/
 		writel(funcdis_reg, pmc_cxt->func_dis);
 		writel(funcdis2_reg, pmc_cxt->func_dis2);
+		pr_info("Forcing all platform clocks to OFF\n");
+		for (i = 0; i < PLT_CLK_MAXCOUNT; i++)
+			pmc_pc_configure(i, CLK_CONFG_FORCE_OFF);
 	}
 	writel(PMC_WAKE_EN_SETTING, pmc_cxt->s0ix_wake_en);
 
