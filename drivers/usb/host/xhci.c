@@ -155,6 +155,7 @@ int xhci_reset(struct xhci_hcd *xhci)
 	u32 command;
 	u32 state;
 	int ret, i;
+	struct usb_hcd *hcd;
 
 	/* If any ports under compliance test, then giveup to reset host */
 	if ((xhci->quirks & XHCI_COMP_PLC_QUIRK) &&
@@ -168,6 +169,14 @@ int xhci_reset(struct xhci_hcd *xhci)
 	if ((state & STS_HALT) == 0) {
 		xhci_warn(xhci, "Host controller not halted, aborting reset.\n");
 		return 0;
+	}
+
+	hcd = xhci_to_hcd(xhci);
+	if (hcd && hcd->driver->private_reset) {
+		xhci_dbg(xhci, "Begin to do Work Around before HCRST\n");
+		ret = hcd->driver->private_reset(hcd);
+		if (ret)
+			return ret;
 	}
 
 	xhci_dbg(xhci, "// Reset the HC\n");

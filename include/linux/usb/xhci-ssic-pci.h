@@ -233,5 +233,6 @@ struct ssic_xhci_hcd {
 	struct wake_lock	ssic_wake_lock;
 	unsigned long		wakelock_state;
 	unsigned long		power_state;
+	unsigned		first_reset;
 };
 #endif

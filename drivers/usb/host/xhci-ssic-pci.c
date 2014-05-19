@@ -24,6 +24,7 @@ static const char ssic_group_name[] = "ssic";
 
 static struct pci_dev		*ssic_pci_dev;
 static struct ssic_xhci_hcd	ssic_hcd;
+static int xhci_ssic_private_reset(struct usb_hcd *hcd);
 
 static int is_ssic_host(struct usb_device *udev)
 {
@@ -1612,4 +1613,113 @@ static int xhci_ipc_hub_control(struct usb_hcd *hcd,
 error:
 	spin_unlock_irqrestore(&xhci->lock, flags);
 	return retval;
+}
+static int xhci_ssic_private_reset(struct usb_hcd *hcd)
+{
+	struct xhci_hcd		*xhci;
+	u32			temp;
+	int			i;
+	struct pci_dev		*pdev;
+
+	if (!hcd) {
+		pr_err("%s hcd is NULL, return -EINVAL\n",
+				__func__);
+		return -EINVAL;
+	}
+
+	xhci = hcd_to_xhci(hcd);
+
+	if (!xhci) {
+		pr_err("%s xhci is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	pdev = to_pci_dev(hcd->self.controller);
+	if (!pdev) {
+		pr_err("%s pdev is NULL, return\n", __func__);
+		return -ENODEV;
+	}
+
+	if (pdev->vendor == PCI_VENDOR_ID_INTEL && pdev->device == PCI_DEVICE_ID_INTEL_MOOR_SSIC) {
+		if (!hsic_pdata) {
+			pr_err("%s hsic_pdata is NULL, return\n");
+			return -ENODEV;
+		}
+
+		if (hsic_pdata->has_ssic) {
+			if (ssic_hcd.first_reset == 0) {
+				ssic_hcd.policy_regs = hcd->regs + SSIC_POLICY_BASE;
+				ssic_hcd.profile_regs = hcd->regs + SSIC_LOCAL_REMOTE_PROFILE_REGISTER;
+				ssic_hcd.first_reset = 1;
+
+				/* disable SSIC port1 for ANN */
+				temp = xhci_readl(xhci, (&ssic_hcd.policy_regs->config_reg2 + 12));
+				xhci_dbg(xhci, "CONFIG register2 for Port1 before write = 0x%X\n", temp);
+				temp |= SSIC_PORT_UNUSED;
+				xhci_writel(xhci, temp,
+						(&ssic_hcd.policy_regs->config_reg2 + 12));
+				xhci_dbg(xhci, "CONFIG register2 for Port1 after write = 0x%X\n",
+						xhci_readl(xhci,
+							(&ssic_hcd.policy_regs->config_reg2 + 12)));
+
+				/* Config SSIC Configuration Register2 */
+				temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2);
+				xhci_dbg(xhci, "Config register2 = %X\n", temp);
+				/* disable SSIC port0 for ANN for the first time bring-up */
+				temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2);
+				temp |= SSIC_PORT_UNUSED;
+				xhci_writel(xhci, temp, &ssic_hcd.policy_regs->config_reg2);
+				xhci_dbg(xhci, "CONFIG register2 for Port0 after write = 0x%X\n",
+						xhci_readl(xhci, (&ssic_hcd.policy_regs->config_reg2)));
+			}
+
+		/* do flow before do HCRST every time */
+		for (i = 0; i < 2; i++) {
+			/* read the config register 2 */
+			temp =  xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2 + 12 * i);
+			if (temp & SSIC_PORT_UNUSED) {
+				temp &= ~PROG_DONE;
+				xhci_dbg(xhci, "Clear PROG_DONE for port %d\n", i);
+				xhci_writel(xhci, temp, (&ssic_hcd.policy_regs->config_reg2 + 12 * i));
+				xhci_dbg(xhci, "CONFIG register2  after clear PROG_DONE = 0x%X\n",
+						xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2 + 12 * i));
+
+				temp &= ~SSIC_PORT_UNUSED;
+				xhci_writel(xhci, temp, (&ssic_hcd.policy_regs->config_reg2 + 12 * i));
+				xhci_dbg(xhci, "CONFIG register2  after clear PORT_UNUSED = 0x%X\n",
+						xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2 + 12 * i));
+
+				temp |= PROG_DONE;
+				xhci_dbg(xhci, "Set PROG_DONE for port %d\n", i);
+				xhci_writel(xhci, temp, (&ssic_hcd.policy_regs->config_reg2 + 12 * i));
+				xhci_dbg(xhci, "CONFIG register2  after Set PROG_DONE = 0x%X\n",
+				xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2 + 12 * i));
+
+				xhci_dbg(xhci, "Begin to do msleep 100 ms\n");
+				msleep(100);
+				xhci_dbg(xhci, "End of msleep 100 ms\n");
+
+				temp &= ~PROG_DONE;
+				xhci_dbg(xhci, "Clear PROG_DONE for port %d\n", i);
+				xhci_writel(xhci, temp, (&ssic_hcd.policy_regs->config_reg2 + 12 * i));
+				xhci_dbg(xhci, "CONFIG register2  after clear PROG_DONE = 0x%X\n",
+				xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2 + 12 * i));
+
+				temp |= SSIC_PORT_UNUSED;
+				xhci_writel(xhci, temp, (&ssic_hcd.policy_regs->config_reg2 + 12 * i));
+				xhci_dbg(xhci, "CONFIG register2  after set PORT_UNUSED = 0x%X\n",
+				xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2 + 12 * i));
+
+				temp |= PROG_DONE;
+				xhci_dbg(xhci, "Set PROG_DONE for port %d\n", i);
+				xhci_writel(xhci, temp, (&ssic_hcd.policy_regs->config_reg2 + 12 * i));
+				xhci_dbg(xhci, "CONFIG register2  after Set PROG_DONE = 0x%X\n",
+				xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2 + 12 * i));
+
+				}
+			}
+		}
+	}
+
+	return 0;
 }

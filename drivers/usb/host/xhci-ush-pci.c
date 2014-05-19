@@ -1307,6 +1307,7 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 		usb_register_notify(&ssic_hcd.ssicdev_nb);
 
 		ssic_hcd.ssic_port = hsic_pdata->ssic_port_num;
+		ssic_hcd.first_reset = 0;
 	}
 
 	/* Register the USB 2.0 roothub.
@@ -1769,6 +1770,7 @@ static const struct hc_driver xhci_ush_pci_hc_driver = {
 	 */
 	.update_device =        xhci_update_device,
 	.set_usb2_hw_lpm =      xhci_set_usb2_hardware_lpm,
+	.private_reset =	xhci_ssic_private_reset,
 };
 
 static DEFINE_PCI_DEVICE_TABLE(xhci_ush_pci_ids) = {
