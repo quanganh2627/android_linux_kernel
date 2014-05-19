@@ -71,7 +71,7 @@ static int m10mo_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	if (camera_reset < 0) {
 #ifndef CONFIG_ACPI
 		ret = camera_sensor_gpio(-1, GP_CAMERA_0_RESET,
-					GPIOF_DIR_OUT, 1);
+					GPIOF_DIR_OUT, 0);
 		if (ret < 0)
 			return ret;
 		camera_reset = ret;
@@ -94,7 +94,13 @@ static int m10mo_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	}
 
 	if (flag) {
+		/* reset = 0 is requied in case of ESD failure */
+		gpio_set_value(camera_reset, 0);
+
+		usleep_range(100, 200);
+
 		gpio_set_value(camera_reset, 1);
+
 		usleep_range(1000, 1500);
 	} else {
 		gpio_set_value(camera_reset, 0);
