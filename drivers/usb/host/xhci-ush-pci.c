@@ -36,7 +36,13 @@
 #include <linux/usb/phy.h>
 #include <linux/usb/otg.h>
 #include "xhci.h"
-#include "../core/usb.h"
+#include "../core/hub.h"
+
+static struct ush_hsic_pdata *hsic_pdata;
+static int set_port_feature(struct usb_device *hdev, int port1, int feature);
+static int clear_port_feature(struct usb_device *hdev, int port1, int feature);
+
+#include "xhci-ssic-pci.c"
 
 static struct pci_dev	*pci_dev;
 static struct class *hsic_class;
@@ -1247,7 +1253,6 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	struct xhci_hcd *xhci;
 	struct hc_driver *driver;
 	struct usb_hcd *hcd;
-	struct ush_hsic_pdata *hsic_pdata;
 	struct usb_phy *usb_phy;
 
 	hsic_pdata = dev->dev.platform_data;
@@ -1259,39 +1264,50 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	driver = (struct hc_driver *)id->driver_data;
 	pci_dev = dev;
 
-	wake_lock_init(&hsic.s3_wake_lock,
-			WAKE_LOCK_SUSPEND, "hsic_s3_wlock");
-	hsic.hsic_pm_nb.notifier_call = hsic_pm_notify;
-	usb_register_notify(&hsic.hsic_pm_nb);
-	hsic.hsic_s3_entry_nb.notifier_call = hsic_s3_entry_notify;
-	register_pm_notifier(&hsic.hsic_s3_entry_nb);
 
-	hsic.hsic_port_num = hsic_pdata->hsic_port_num;
-	retval = hsic_get_gpio_num(pci_dev);
-	if (retval < 0) {
-		dev_err(&dev->dev, "failed to get gpio value\n");
-		return -ENODEV;
+	if (hsic_pdata->has_hsic) {
+		wake_lock_init(&hsic.s3_wake_lock,
+				WAKE_LOCK_SUSPEND, "hsic_s3_wlock");
+		hsic.hsic_pm_nb.notifier_call = hsic_pm_notify;
+		usb_register_notify(&hsic.hsic_pm_nb);
+		hsic.hsic_s3_entry_nb.notifier_call = hsic_s3_entry_notify;
+		register_pm_notifier(&hsic.hsic_s3_entry_nb);
+
+		hsic.hsic_port_num = hsic_pdata->hsic_port_num;
+		retval = hsic_get_gpio_num(pci_dev);
+		if (retval < 0) {
+			dev_err(&dev->dev, "failed to get gpio value\n");
+			return -ENODEV;
+		}
+
+		/* AUX GPIO init */
+		retval = hsic_aux_gpio_init(hsic_pdata->aux_gpio);
+		if (retval < 0) {
+			dev_err(&dev->dev, "AUX GPIO init fail\n");
+			retval = -ENODEV;
+		}
+
+		/* AUX GPIO init */
+		retval = hsic_wakeup_gpio_init(hsic_pdata->wakeup_gpio);
+		if (retval < 0) {
+			dev_err(&dev->dev, "Wakeup GPIO init fail\n");
+			retval = -ENODEV;
+		}
+
+		wake_lock_init(&hsic.resume_wake_lock,
+			WAKE_LOCK_SUSPEND, "hsic_aux2_wlock");
+
+		hsic.hsicdev_nb.notifier_call = hsic_notify;
+		usb_register_notify(&hsic.hsicdev_nb);
 	}
 
-	/* AUX GPIO init */
-	retval = hsic_aux_gpio_init(hsic_pdata->aux_gpio);
-	if (retval < 0) {
-		dev_err(&dev->dev, "AUX GPIO init fail\n");
-		retval = -ENODEV;
+	if (hsic_pdata->has_ssic) {
+		/* register ssic notify block before usb3 root hub probe */
+		ssic_hcd.ssicdev_nb.notifier_call = ssic_notify;
+		usb_register_notify(&ssic_hcd.ssicdev_nb);
+
+		ssic_hcd.ssic_port = hsic_pdata->ssic_port_num;
 	}
-
-	/* AUX GPIO init */
-	retval = hsic_wakeup_gpio_init(hsic_pdata->wakeup_gpio);
-	if (retval < 0) {
-		dev_err(&dev->dev, "Wakeup GPIO init fail\n");
-		retval = -ENODEV;
-	}
-
-	wake_lock_init(&hsic.resume_wake_lock,
-		WAKE_LOCK_SUSPEND, "hsic_aux2_wlock");
-
-	hsic.hsicdev_nb.notifier_call = hsic_notify;
-	usb_register_notify(&hsic.hsicdev_nb);
 
 	/* Register the USB 2.0 roothub.
 	 * FIXME: USB core must know to register the USB 2.0 roothub first.
@@ -1318,41 +1334,84 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	 */
 	*((struct xhci_hcd **) xhci->shared_hcd->hcd_priv) = xhci;
 
-	if (hsic.hsic_enable_created == 0) {
-		retval = create_device_files(dev);
-		if (retval < 0) {
-			dev_dbg(&dev->dev, "error create device files\n");
-			goto dealloc_usb2_hcd;
-		}
-
-		retval = create_class_device_files(dev);
-		if (retval < 0) {
-			dev_dbg(&dev->dev, "error create class device files\n");
-			goto dealloc_usb2_hcd;
-		}
-		hsic.hsic_enable_created = 1;
-	}
-
-	if (hsic.hsic_mutex_init == 0) {
-		mutex_init(&hsic.hsic_mutex);
-		mutex_init(&hsic.wlock_mutex);
-		hsic.hsic_mutex_init = 1;
-	}
-
-	if (hsic.aux_wq_init == 0) {
-		init_waitqueue_head(&hsic.aux_wq);
-		hsic.aux_wq_init = 1;
-	}
-
-	hsic.work_queue = create_singlethread_workqueue("hsic");
-	INIT_WORK(&hsic.wakeup_work, wakeup_work);
-	INIT_DELAYED_WORK(&(hsic.hsic_aux), hsic_aux_work);
-
 	retval = usb_add_hcd(xhci->shared_hcd, dev->irq,
 			IRQF_SHARED);
 	if (retval)
 		goto put_usb3_hcd;
 	/* Roothub already marked as USB 3.0 speed */
+
+	/* need to check if hsic_pdata->has_hsic == 1 */
+	if (hsic_pdata->has_hsic) {
+		if (hsic.hsic_enable_created == 0) {
+			retval = create_device_files(dev);
+			if (retval < 0) {
+				dev_dbg(&dev->dev, "error create device files\n");
+				goto dealloc_usb2_hcd;
+			}
+
+			retval = create_class_device_files(dev);
+			if (retval < 0) {
+				dev_dbg(&dev->dev, "error create class device files\n");
+				goto dealloc_usb2_hcd;
+			}
+
+			hsic.hsic_enable_created = 1;
+		}
+
+		if (hsic.hsic_mutex_init == 0) {
+			mutex_init(&hsic.hsic_mutex);
+			mutex_init(&hsic.wlock_mutex);
+			hsic.hsic_mutex_init = 1;
+		}
+
+		if (hsic.aux_wq_init == 0) {
+			init_waitqueue_head(&hsic.aux_wq);
+			hsic.aux_wq_init = 1;
+		}
+
+		hsic.work_queue = create_singlethread_workqueue("hsic");
+		INIT_WORK(&hsic.wakeup_work, wakeup_work);
+		INIT_DELAYED_WORK(&(hsic.hsic_aux), hsic_aux_work);
+
+		hsic.port_disconnect = 0;
+		hsic_enable = 1;
+		hsic.s3_rt_state = RESUMED;
+
+		/* Disable the HSIC port */
+		dev_info(&dev->dev, "disable hsic on driver init\n");
+		clear_port_feature(hsic.rh_dev, hsic.hsic_port_num,
+		USB_PORT_FEAT_POWER);
+	}
+
+	if (hsic_pdata->has_ssic) {
+		ssic_pci_dev = dev;
+		retval = sysfs_create_group(&dev->dev.kobj, &ssic_attr_group);
+		if (retval < 0) {
+			dev_err(&dev->dev, "error create SSIC device files\n");
+			goto put_usb3_hcd;
+		}
+
+		wake_lock_init(&ssic_hcd.ssic_wake_lock,
+				WAKE_LOCK_SUSPEND, "ssic_wake_lock");
+		ssic_hcd.ssic_pm_nb.notifier_call = ssic_pm_notify;
+		usb_register_notify(&ssic_hcd.ssic_pm_nb);
+		ssic_hcd.ssic_power_nb.notifier_call = ssic_power_notify;
+		register_pm_notifier(&ssic_hcd.ssic_power_nb);
+
+		mutex_init(&ssic_hcd.ssic_mutex);
+		mutex_init(&ssic_hcd.wakelock_mutex);
+
+		/* set default value for later use */
+		ssic_hcd.autosuspend_enable = SSIC_AUTOSUSPEND;
+		ssic_hcd.port_inactivity_duration = SSIC_PORT_INACTIVITYDURATION;
+		ssic_hcd.bus_inactivity_duration = SSIC_BUS_INACTIVITYDURATION;
+		/* Enable remote wakeup feature for Modem and root hub */
+		ssic_hcd.remote_wakeup_enable = 1;
+		/* Set the ssic_enable to 0 as requested */
+		ssic_hcd.ssic_enable = 0;
+		xhci_dbg(xhci, "set ssic_enable == 0\n");
+		ssic_hcd.power_state = POWER_RESUMED;
+	}
 
 	/* CHT: pass host parameter to OTG */
 	usb_phy = usb_get_phy(USB_PHY_TYPE_USB2);
@@ -1369,15 +1428,7 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	if (!pci_dev_run_wake(dev))
 		pm_runtime_put_noidle(&dev->dev);
 
-	/* Disable the HSIC port */
-	dev_info(&dev->dev, "disable hsic on driver init\n");
-	clear_port_feature(hsic.rh_dev, hsic.hsic_port_num,
-		USB_PORT_FEAT_POWER);
-
 	pm_runtime_allow(&dev->dev);
-	hsic.port_disconnect = 0;
-	hsic_enable = 1;
-	hsic.s3_rt_state = RESUMED;
 	return 0;
 
 put_usb3_hcd:
@@ -1406,18 +1457,30 @@ static void xhci_ush_pci_remove(struct pci_dev *dev)
 
 	usb_hcd_pci_remove(dev);
 
-	/* Free the aux irq */
-	hsic_aux_irq_free();
-	hsic_wakeup_irq_free();
-	gpio_free(hsic.aux_gpio);
-	gpio_free(hsic.wakeup_gpio);
+	if (hsic_pdata->has_hsic) {
+		/* Free the aux irq */
+		hsic_aux_irq_free();
+		hsic_wakeup_irq_free();
+		gpio_free(hsic.aux_gpio);
+		gpio_free(hsic.wakeup_gpio);
 
-	hsic.port_disconnect = 1;
-	hsic_enable = 0;
-	wake_lock_destroy(&(hsic.resume_wake_lock));
-	wake_lock_destroy(&hsic.s3_wake_lock);
-	usb_unregister_notify(&hsic.hsic_pm_nb);
-	unregister_pm_notifier(&hsic.hsic_s3_entry_nb);
+		hsic.port_disconnect = 1;
+		hsic_enable = 0;
+		wake_lock_destroy(&(hsic.resume_wake_lock));
+		wake_lock_destroy(&hsic.s3_wake_lock);
+		usb_unregister_notify(&hsic.hsic_pm_nb);
+		unregister_pm_notifier(&hsic.hsic_s3_entry_nb);
+	}
+
+	if (hsic_pdata->has_ssic) {
+		usb_unregister_notify(&ssic_hcd.ssicdev_nb);
+		usb_unregister_notify(&ssic_hcd.ssic_pm_nb);
+		unregister_pm_notifier(&ssic_hcd.ssic_power_nb);
+
+		wake_lock_destroy(&ssic_hcd.ssic_wake_lock);
+		ssic_hcd.ssic_enable = 0;
+		sysfs_remove_group(&dev->dev.kobj, &ssic_attr_group);
+	}
 
 	kfree(xhci);
 }
@@ -1436,14 +1499,16 @@ static void xhci_ush_pci_shutdown(struct pci_dev *dev)
 
 	if (test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags) &&
 			hcd->driver->shutdown) {
-		disable_irq(gpio_to_irq(hsic.aux_gpio));
-		disable_irq(gpio_to_irq(hsic.wakeup_gpio));
-		hcd->driver->shutdown(hcd);
-		if (hsic.rh_dev) {
-			dev_dbg(&pci_dev->dev,
-				"%s: disable port\n", __func__);
-			clear_port_feature(hsic.rh_dev, hsic.hsic_port_num,
-					USB_PORT_FEAT_POWER);
+		if (hsic_pdata->has_hsic) {
+			disable_irq(gpio_to_irq(hsic.aux_gpio));
+			disable_irq(gpio_to_irq(hsic.wakeup_gpio));
+			if (hsic.rh_dev) {
+				dev_dbg(&pci_dev->dev,
+					"%s: disable port\n", __func__);
+				clear_port_feature(hsic.rh_dev, hsic.hsic_port_num,
+						USB_PORT_FEAT_POWER);
+			}
+			hcd->driver->shutdown(hcd);
 		}
 		pci_disable_device(dev);
 	}
@@ -1477,7 +1542,10 @@ static int xhci_ush_hcd_pci_resume_noirq(struct device *dev)
 
 	dev_dbg(dev, "%s --->\n", __func__);
 	retval = usb_hcd_pci_pm_ops.resume_noirq(dev);
-	hsic.s3_rt_state = RESUMED;
+	if (hsic_pdata->has_hsic)
+		hsic.s3_rt_state = RESUMED;
+	if (hsic_pdata->has_ssic)
+		ssic_hcd.power_state = POWER_RESUMED;
 	dev_dbg(dev, "%s <--- retval = %d\n", __func__, retval);
 	return retval;
 }
@@ -1575,6 +1643,21 @@ static int xhci_ush_pci_setup(struct usb_hcd *hcd)
 	pci_read_config_byte(pdev, XHCI_SBRN_OFFSET, &xhci->sbrn);
 	xhci_dbg(xhci, "Got SBRN %u\n", (unsigned int) xhci->sbrn);
 
+	if (!hsic_pdata) {
+		xhci_err(xhci,  "hsic_pdata is NULL, return -EINVAL\n");
+		return -EINVAL;
+	}
+
+	if (hsic_pdata->has_ssic) {
+		ssic_hcd.policy_regs = hcd->regs + SSIC_POLICY_BASE;
+		ssic_hcd.profile_regs = hcd->regs + SSIC_LOCAL_REMOTE_PROFILE_REGISTER;
+		retval = xhci_ssic_init(hcd);
+		if (retval) {
+			xhci_dbg(xhci, "xhci_ssic_init() return %d\n",
+					retval);
+			return retval;
+		}
+	}
 	/* Find any debug ports */
 	retval = xhci_pci_reinit(xhci, pdev);
 	if (!retval)
@@ -1591,7 +1674,7 @@ static int xhci_ush_pci_suspend(struct usb_hcd *hcd, bool do_wakeup)
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 	int     retval = 0;
 
-	if (hcd->state != HC_STATE_SUSPENDED ||
+	if (hcd->state != HC_STATE_SUSPENDED || !xhci->shared_hcd ||
 		xhci->shared_hcd->state != HC_STATE_SUSPENDED)
 		return -EINVAL;
 
@@ -1631,7 +1714,7 @@ static int xhci_ush_pci_resume(struct usb_hcd *hcd, bool hibernated)
 #endif
 
 static const struct hc_driver xhci_ush_pci_hc_driver = {
-	.description =          "Baytrail-USH",
+	.description =          "USH HSIC/SSIC",
 	.product_desc =         "xHCI Host Controller",
 	.hcd_priv_size =        sizeof(struct xhci_hcd *),
 
@@ -1677,7 +1760,7 @@ static const struct hc_driver xhci_ush_pci_hc_driver = {
 	.get_frame_number =     xhci_get_frame,
 
 	/* Root hub support */
-	.hub_control =          xhci_hub_control,
+	.hub_control =          xhci_ipc_hub_control,
 	.hub_status_data =      xhci_hub_status_data,
 	.bus_suspend =          xhci_bus_suspend,
 	.bus_resume =           xhci_bus_resume,
@@ -1710,6 +1793,13 @@ static DEFINE_PCI_DEVICE_TABLE(xhci_ush_pci_ids) = {
 		.subdevice =    PCI_ANY_ID,
 		.driver_data =  (unsigned long) &xhci_ush_pci_hc_driver,
 	},
+	{
+		.vendor =       PCI_VENDOR_ID_INTEL,
+		.device =       PCI_DEVICE_ID_INTEL_MOOR_SSIC,
+		.subvendor =    PCI_ANY_ID,
+		.subdevice =    PCI_ANY_ID,
+		.driver_data =  (unsigned long) &xhci_ush_pci_hc_driver,
+	},
 
 	{ /* end: all zeroes */ }
 };
@@ -1724,7 +1814,7 @@ static const struct dev_pm_ops xhci_ush_pm_ops = {
 };
 
 static struct pci_driver xhci_ush_driver = {
-	.name = "BYT-USH",
+	.name = "USH HSIC/SSIC",
 	.id_table =     xhci_ush_pci_ids,
 
 	.probe =        xhci_ush_pci_probe,
