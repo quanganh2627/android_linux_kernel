@@ -48,6 +48,7 @@
 #define	D3_STS1			0xA4
 #define FUNC_DIS		0x34
 #define FUNC_DIS2		0x38
+#define PMC_PSS			0x98
 
 #define	PMC_MMIO_BAR		1
 #define	BASE_ADDRESS_MASK	0xFFFFFFFE00
@@ -113,6 +114,21 @@
 #define PLT_CLK_MAXCOUNT	6
 #define MTPMC 0xB0
 #define VLV_PM_STS 0xC
+const char *pg_device_cht[] = {
+	"0 - Reserved", "1 - SATA", "2 - HDA", "3 - SEC",
+	"4 - PCIE 5", "5 - LPSS ", "6 - LPE", "7 - UFS",
+	"8 - Reserved", "9 - Reserved", "10 - Reserved",
+	"11 - UXD(xDCI)", "12 - UXD FD SX(xDCI)",
+	"13 - Reserved ", "14 - Reserved ",
+	"15 - UX Engine(xHCI) ", "16 - USB SUS ",
+	"17 - GMM", "18 - ISH ", "19 - Reserved",
+	"20 - Reserved", "21 - Reserved",
+	"22 - Reserved", "23 - Reserved",
+	"24 - Reserved", "25 - Reserved",
+	"26 - DFX Master ", "27 - DFX Cluster1",
+	"28 - DFX Cluster2", "29 - DFX Cluster3",
+	"30 - DFX Cluster4", "31 - DFX Cluster5"
+};
 
 const char *d3_device_cht[] = {
 	"0 - LPSS 0 DMA 1", "1 - LPSS 0 PMW 0",
@@ -189,6 +205,7 @@ struct pmc_dev {
 	u32 __iomem *d3_sts1;
 	u32 __iomem *func_dis;
 	u32 __iomem *func_dis2;
+	u32 __iomem *pmc_pss;
 	u32 __iomem *pc[PLT_CLK_MAXCOUNT];
 	u32 __iomem *lpcc;
 	u32 __iomem *mtpmc_1;
@@ -465,10 +482,13 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 	struct pmc_dev *pmc_cxt = (struct pmc_dev *)s->private;
 	int i, j;
 	u32 val, nc_pwr_sts, reg, reg_d3sts0, reg_d3sts1, reg_func_dis,
-	    reg_func_dis2, tmp;
-	u8 bit;
+		reg_func_dis2, tmp, pg_status;
+	u8 bit, bit1;
 	u32 ignore_flag;
+	/*All Reserved bit removed*/
+	u32 pg_ignore_flag = 0x3F86701;
 	const char **d3_device;
+	const char **pg_device;
 	const struct nc_device *nc_devices;
 
 	pmc_cxt->residency_total = 0;
@@ -491,6 +511,8 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 	pr_info("func_dis = %x\n", reg_func_dis);
 	reg_func_dis2 = readl(pmc_cxt->func_dis2);
 	pr_info("func_dis2 = %x\n", reg_func_dis2);
+	pg_status = readl(pmc_cxt->pmc_pss);
+	pr_info("Power Gate status = %x\n", pg_status);
 
 	if (platform_is(INTEL_ATOM_BYT)) {
 		nc_devices = nc_devices_byt;
@@ -509,9 +531,10 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 		d3_device = d3_device_cht;
 		/* shift 3rd & 4th bits to 1st & 2nd position to align them in
 		 * order and ignore 3rd bit of d3_sts1 as it is reserved */
-		tmp = reg_func_dis2 & 0x01;
+		reg_func_dis2 &= 0x19;
+		tmp = reg_func_dis2 & 0x1;
 		reg_func_dis2 >>= 2;
-		reg_func_dis2 &= (tmp & 0x08);
+		reg_func_dis2 |= tmp;
 	}
 
 	seq_puts(s, "State \t\t Time[sec] \t\t Residency[%%] \t\t Count\n");
@@ -535,7 +558,7 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 
 	seq_puts(s, "\nSOUTH COMPLEX DEVICES :\n");
 
-	for (j = 0; j < SC_NUM_DEVICES; j++) {
+	for (j = 0; j < (SC_NUM_DEVICES-2); j++) {
 		if (j >= 32) {
 			ignore_flag = reg_func_dis2 & 0x01;
 			reg_func_dis2 >>= 1;
@@ -563,6 +586,22 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 
 	seq_puts(s, "\n");
 
+	if (platform_is(INTEL_ATOM_CHT)) {
+		seq_puts(s, "\nIP POWER GATE STATUS :\n");
+		pg_device = pg_device_cht;
+		for (j = 0; j < (SC_NUM_DEVICES-5); j++) {
+					bit  = pg_status & 0x01;
+					bit1 = pg_ignore_flag & 0x01;
+			if (bit1 != 1)
+				seq_printf(s, "%9s  : %s\n", *(pg_device + j),
+						bit ? "is PG" : "not PG");
+			pg_status >>= 1;
+			pg_ignore_flag >>= 1;
+			continue;
+		}
+
+		seq_puts(s, "\n");
+	}
 	return 0;
 }
 
@@ -905,6 +944,8 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	pmc_cxt->func_dis2 = devm_ioremap_nocache(&pdev->dev,
 		pmc_cxt->base_address + FUNC_DIS2, 4);
 
+	pmc_cxt->pmc_pss = devm_ioremap_nocache(&pdev->dev,
+		pmc_cxt->base_address + PMC_PSS, 4);
 /* These changes should be reverted once PMC bugs are fixed*/
 	{
 		int i;
