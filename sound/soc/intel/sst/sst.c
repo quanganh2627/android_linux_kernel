@@ -105,7 +105,7 @@ static inline void set_imr_interrupts(struct intel_sst_drv *ctx, bool enable)
 }
 
 #define SST_IS_PROCESS_REPLY(header) ((header & PROCESS_MSG) ? true : false)
-#define SST_VALIDATE_MAILBOX_SIZE(size) ((size <= SST_MAILBOX_SIZE) ? true : false)
+#define SST_VALIDATE_MAILBOX_SIZE(size) ((size <= sst_drv_ctx->mailbox_size) ? true : false)
 
 static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 {
@@ -152,7 +152,7 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 			size = header.p.header_low_payload;
 			if (SST_VALIDATE_MAILBOX_SIZE(size)) {
 				memcpy_fromio(msg->mailbox_data,
-					drv->mailbox + drv->mailbox_recv_offset, size);
+					drv->ipc_mailbox + drv->mailbox_recv_offset, size);
 			} else {
 				pr_err("Mailbox not copied, payload siz is: %u\n", size);
 				header.p.header_low_payload = 0;
@@ -252,7 +252,7 @@ static irqreturn_t intel_sst_intr_mfld(int irq, void *context)
 			size = header.part.data;
 			if (SST_VALIDATE_MAILBOX_SIZE(size)) {
 				memcpy_fromio(msg->mailbox_data,
-					drv->mailbox + drv->mailbox_recv_offset + 4, size);
+					drv->ipc_mailbox + drv->mailbox_recv_offset + 4, size);
 			} else {
 				pr_err("Mailbox not copied, payload siz is: %u\n", size);
 				header.part.data = 0;
@@ -402,25 +402,23 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 
 	switch (sst->pci_id) {
 	case SST_MRFLD_PCI_ID:
-	case PCI_DEVICE_ID_INTEL_SST_MOOR:
-	case SST_CHT_PCI_ID:
 		sst->tstamp = SST_TIME_STAMP_MRFLD;
 		sst->ops = &mrfld_ops;
-
-		/* Override the recovery ops for CHT platforms */
-		if (sst->pci_id == SST_CHT_PCI_ID)
+		return 0;
+	case PCI_DEVICE_ID_INTEL_SST_MOOR:
+		sst->tstamp = SST_TIME_STAMP_MOFD;
+		sst->ops = &mrfld_ops;
+		if (!sst->pdata->enable_recovery) {
+			pr_debug("Recovery disabled for this mofd platform\n");
 			sst->ops->do_recovery = sst_do_recovery;
-		/* For MOFD platforms disable/enable recovery based on
-		 * platform data
-		 */
-		if (sst->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR) {
-			if (!sst->pdata->enable_recovery) {
-				pr_debug("Recovery disabled for this mofd platform\n");
-				sst->ops->do_recovery = sst_do_recovery;
-			} else
-				pr_debug("Recovery enabled for this mofd platform\n");
-		}
-
+		} else
+			pr_debug("Recovery enabled for this mofd platform\n");
+		return 0;
+	case SST_CHT_PCI_ID:
+		sst->tstamp = SST_TIME_STAMP_MOFD;
+		sst->ops = &mrfld_ops;
+		/* Override the recovery ops for CHT platforms */
+		sst->ops->do_recovery = sst_do_recovery;
 		return 0;
 	case SST_BYT_PCI_ID:
 		sst->tstamp = SST_TIME_STAMP_BYT;
@@ -515,8 +513,6 @@ static int intel_sst_probe(struct pci_dev *pci,
 	u32 ssp_base_add;
 	u32 dma_base_add;
 	u32 len;
-
-
 
 	pr_debug("Probe for DID %x\n", pci->device);
 	ret = sst_alloc_drv_context(&pci->dev);
@@ -657,6 +653,14 @@ static int intel_sst_probe(struct pci_dev *pci,
 		goto do_unmap_shim;
 	}
 	pr_debug("SRAM Ptr %p\n", sst_drv_ctx->mailbox);
+
+	if (sst_drv_ctx->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR) {
+		sst_drv_ctx->ipc_mailbox = sst_drv_ctx->ddr + SST_DDR_MAILBOX_BASE;
+		sst_drv_ctx->mailbox_size = SST_MAILBOX_SIZE_MOFD;
+	} else {
+		sst_drv_ctx->ipc_mailbox = sst_drv_ctx->mailbox;
+		sst_drv_ctx->mailbox_size = SST_MAILBOX_SIZE;
+	}
 
 	/* IRAM */
 	sst_drv_ctx->iram_end = pci_resource_end(pci, 3);

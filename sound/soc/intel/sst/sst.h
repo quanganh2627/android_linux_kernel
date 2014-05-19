@@ -302,7 +302,6 @@ struct fw_block_info {
 struct sst_ipc_msg_wq {
 	union ipc_header_mrfld mrfld_header;
 	struct ipc_dsp_hdr dsp_hdr;
-	char mailbox[SST_MAILBOX_SIZE];
 	struct work_struct	wq;
 	union ipc_header header;
 };
@@ -484,6 +483,7 @@ struct intel_sst_drv {
 	void __iomem		*mailbox;
 	void __iomem		*iram;
 	void __iomem		*dram;
+	void __iomem            *ipc_mailbox;
 	unsigned int		mailbox_add;
 	unsigned int		iram_base;
 	unsigned int		dram_base;
@@ -493,6 +493,7 @@ struct intel_sst_drv {
 	unsigned int		ddr_end;
 	unsigned int		ddr_base;
 	unsigned int		mailbox_recv_offset;
+	unsigned int		mailbox_size;
 	atomic_t		pm_usage_count;
 	struct sst_shim_regs64	*shim_regs64;
 	struct list_head        block_list;
