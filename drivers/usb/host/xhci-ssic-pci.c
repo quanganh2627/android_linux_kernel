@@ -1183,6 +1183,256 @@ static int xhci_ssic_config_register_bank(struct xhci_hcd *xhci)
 	return 0;
 }
 
+static int ann_config_register(struct usb_hcd *hcd)
+{
+	struct xhci_hcd *xhci;
+	u32		temp;
+
+	if (!hcd) {
+		pr_err("%s hcd is NULL, return -EINVAL\n", __func__);
+		return -EINVAL;
+	}
+
+	xhci = hcd_to_xhci(hcd);
+	if (!xhci) {
+		pr_err("%s xhci is NULL\n", __func__);
+		return -ENODEV;
+	}
+
+	if (hcd->regs) {
+		/* XHCC1 Write Value : 0x3401FD */
+		temp = xhci_readl(xhci, hcd->regs + 0x8640);
+		xhci_dbg(xhci, "XHCC1(0x8640) read value is = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8640));
+		temp |= (0x1 << 18);
+		temp |= (0x3 << 20);
+		xhci_writel(xhci, temp, hcd->regs + 0x8640);
+		xhci_dbg(xhci, "XHCC1(0x8640) write value is = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8640));
+
+		/* XHCC2 Write Value : 0x3CFC68F */
+		temp = xhci_readl(xhci, hcd->regs + 0x8644);
+		xhci_dbg(xhci, "XHCC2(0x8644) = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8644));
+		temp |= (0x1 << 25);
+		temp |= (0x7 << 22);
+		temp |= (0x3F << 14);
+		temp &= ~(0x1 << 11);
+		temp |= (0x1 << 10);
+		temp |= (0x2 << 8);
+		temp |= (0x2 << 6);
+		temp |= (0x1 << 3);
+		temp |= (0x7 << 0);
+		xhci_writel(xhci, temp, hcd->regs + 0x8644);
+		xhci_dbg(xhci, "XHCC2 after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8644));
+
+		/* XHCLKGTEN  Write Value : 0xFBF6D3F */
+		temp = xhci_readl(xhci, hcd->regs + 0x8650);
+		temp |= (0x1 << 27);
+		temp |= (0x1 << 26);
+		temp |= (0x1 << 25);
+		temp |= (0x1 << 24);
+		temp |= (0xb << 20);
+		temp |= (0xF << 16);
+		temp &= ~(0x1 << 15);
+		temp |= (0x1 << 14);
+		temp |= (0x1 << 13);
+		temp |= (0x3 << 10);
+		temp |= (0x1 << 8);
+		temp |= (0x1 << 5);
+		temp |= (0x1 << 4);
+		temp |= (0x1 << 3);
+		temp |= (0x1 << 2);
+		temp |= (0x1 << 1);
+		temp |= (0x1 << 0);
+		xhci_writel(xhci, temp, hcd->regs + 0x8650);
+		xhci_dbg(xhci, "XHCLKGTEN(0x8650) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8650));
+
+		/* PCE 9C  0x40000 */
+		temp = xhci_readl(xhci, hcd->regs + 0x869C);
+		temp &= ~(0x1 << 21);
+		temp &= ~(0x1 << 19);
+		temp |= (0x1 << 18);
+		temp &= ~(0x1 << 17);
+		temp &= ~(0x1 << 16);
+		xhci_writel(xhci, temp, hcd->regs + 0x869C);
+		xhci_dbg(xhci, "PCE(0x869C) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x869C));
+
+		/* HSCFG2 0x3800 */
+		temp = xhci_readl(xhci, hcd->regs + 0x86A4);
+		xhci_dbg(xhci, "HSCFG2 before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x86A4));
+		temp |= (0x3 << 11);
+		xhci_writel(xhci, temp, hcd->regs + 0x86A4);
+		xhci_dbg(xhci, "HSCFG2(0x86A4) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x86A4));
+
+		/* SSCFG1 0x200CF */
+		temp = xhci_readl(xhci, hcd->regs + 0x86A8);
+		xhci_dbg(xhci, "SSCFG1 before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x86A8));
+		temp |= (0x1 << 17);
+		temp &= ~(0x1 << 14);
+		xhci_writel(xhci, temp, hcd->regs + 0x86A8);
+		xhci_dbg(xhci, "SSCFG1(0x86A8) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x86A8));
+
+		/* U2DEL and U1DEL 0x20000A */
+		temp = xhci_readl(xhci, &xhci->cap_regs->hcs_params3);
+		xhci_dbg(xhci, "HCSPARAM3 before Write = 0x%X\n", temp);
+		temp &= ~(0x1 << 0);
+		temp &= ~(0x1 << 18);
+		temp |= (0x200 << 16);
+		temp |= (0xA);
+		xhci_writel(xhci, temp, &xhci->cap_regs->hcs_params3);
+		xhci_dbg(xhci, "HCSPARAM3 after Write = 0x%X\n",
+				xhci_readl(xhci, &xhci->cap_regs->hcs_params3));
+
+		/* XECP_CMDM_CTRL_REG1 0x3511AEFC */
+		temp = xhci_readl(xhci, hcd->regs + 0x818C);
+		xhci_dbg(xhci, "XECP_CMDM_CTRL_REG1 before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x818C));
+		temp |= (0x1 << 20);
+		temp |= (0x1 << 16);
+		temp &= ~(0x1 << 8);
+		xhci_writel(xhci, temp, hcd->regs + 0x818C);
+		xhci_dbg(xhci, "XECP_CMDM_CTRL_REG1(0x818C) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x818C));
+
+		/* XECP_CMDM_CTRL_REG3 0x220505A */
+		temp = xhci_readl(xhci, hcd->regs + 0x8194);
+		xhci_dbg(xhci, "XECP_CMDM_CTRL_REG3 before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8194));
+		temp |= (0x1 << 25);
+		xhci_writel(xhci, temp, hcd->regs + 0x8194);
+		xhci_dbg(xhci, "XECP_CMDM_CTRL_REG3(0x8194) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8194));
+
+		/* PMCTRL 0x1C1FF94 */
+		temp = xhci_readl(xhci, hcd->regs + 0x80A4);
+		xhci_dbg(xhci, "PMCTRL before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x80A4));
+		temp &= ~(0x1 << 31);
+		temp &= ~(0x1 << 29);
+		temp |= (0x1 << 24);
+		temp |= (0x1 << 23);
+		temp |= (0x1 << 22);
+		temp |= (0x1 << 2);
+		xhci_writel(xhci, temp, hcd->regs + 0x80A4);
+		xhci_dbg(xhci, "PMCTRL(0x80A4) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x80A4));
+
+		/* AUX_CTRL_REG1  0x80CCBCE0 */
+		temp = xhci_readl(xhci, hcd->regs + 0x80E0);
+		xhci_dbg(xhci, "AUX_CTRL_REG1 before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x80E0));
+		temp |= (0x1 << 22);
+		temp &= ~(0x1 << 16);
+		temp &= ~(0x1 << 9);
+		temp |= (0x1 << 6);
+		xhci_writel(xhci, temp, hcd->regs + 0x80E0);
+		xhci_dbg(xhci, "AUX_CTRL_REG1(0x80E0) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x80E0));
+
+		/* HOST_CTRL_SCH_REG  0xA0C100 */
+		temp = xhci_readl(xhci, hcd->regs + 0x8094);
+		xhci_dbg(xhci, "HOST_CTRL_SCH_REG before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8094));
+		temp |= (0x1 << 23);
+		temp |= (0x1 << 21);
+		temp |= (0x1 << 14);
+		xhci_writel(xhci, temp, hcd->regs + 0x8094);
+		xhci_dbg(xhci, "HOST_CTRL_SCH_REG(0x8094) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8094));
+
+		/* HOST_CTRL_TRM_REG2 0xF0FC8B88 */
+		temp = xhci_readl(xhci, hcd->regs + 0x8110);
+		xhci_dbg(xhci, "HOST_CTRL_TRM_REG2 before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8110));
+		temp |= (0x1 << 20);
+		temp |= (0x1 << 11);
+		temp &= ~(0x1 << 2);
+		xhci_writel(xhci, temp, hcd->regs + 0x8110);
+		xhci_dbg(xhci, "HOST_CTRL_TRM_REG2(0x8110) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8110));
+
+		/* AUX_CTRL_REG2 0x81192206 */
+		temp = xhci_readl(xhci, hcd->regs + 0x8154);
+		xhci_dbg(xhci, "AUX_CTRL_REG2 before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8154));
+		temp |= (0x1 << 31);
+		temp &= ~(0x1 << 21);
+		temp |= (0x1 << 13);
+		xhci_writel(xhci, temp, hcd->regs + 0x8154);
+		xhci_dbg(xhci, "AUX_CTRL_REG2 after Write(0x8154) = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8154));
+
+		/* AUX_CLOCK_CONTROL 0xC403C */
+		temp = xhci_readl(xhci, hcd->regs + 0x816C);
+		xhci_dbg(xhci, "AUX_CLOCK_CTRL before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x816C));
+		temp |= (0x1 << 19);
+		temp |= (0x1 << 18);
+		temp |= (0x1 << 14);
+		temp &= ~(0x3 << 12);
+		temp &= ~(0xF << 8);
+		temp |= (0x1 << 5);
+		temp |= (0x1 << 4);
+		temp |= (0x1 << 3);
+		temp |= (0x1 << 2);
+		xhci_writel(xhci, temp, hcd->regs + 0x816C);
+		xhci_dbg(xhci, "AUX_CLOCK_CTRL after(0x816C) Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x816C));
+
+		/* IF_PWR_CTRL_REG0  0xFF03C132 */
+		temp = xhci_readl(xhci, hcd->regs + 0x8140);
+		xhci_dbg(xhci, "IF_PWR_CTRL_REG0 before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8140));
+		temp |= (0xFF << 24);
+		temp &= ~(0x1 << 12);
+		temp &= ~(0x1 << 15);
+		temp &= ~(0x1 << 16);
+		temp |= (0x3C << 12);
+		temp |= (0x132 << 0);
+		xhci_writel(xhci, temp, hcd->regs + 0x8140);
+		xhci_dbg(xhci, "IF_PWR_CTRL_REG0(0x8140) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8140));
+
+		/* IF_PWR_CTRL_REG1  0x33F */
+		temp = xhci_readl(xhci, hcd->regs + 0x8144);
+		xhci_dbg(xhci, "IF_PWR_CTRL_REG1 before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8144));
+		temp |= (0x1 << 8);
+		temp &= ~(0x1 << 7);
+		temp &= ~(0x1 << 6);
+		xhci_writel(xhci, temp, hcd->regs + 0x8144);
+		xhci_dbg(xhci, "IF_PWR_CTRL_REG1(0x8144) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8144));
+
+		/* Latency Tolerance 0x40047D */
+		temp = xhci_readl(xhci, hcd->regs + 0x8174);
+		xhci_dbg(xhci, "Latency Tolerance before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8174));
+		temp &= ~(0x1 << 24);
+		xhci_writel(xhci, temp, hcd->regs + 0x8174);
+		xhci_dbg(xhci, "Latency Tolerance(0x8174) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x8174));
+
+		/* MISC REG 0x101037F */
+		temp = xhci_readl(xhci, hcd->regs + 0x80B0);
+		xhci_err(xhci, "MISC REG before Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x80B0));
+		temp |= (0x1 << 24);
+		xhci_writel(xhci, temp, hcd->regs + 0x80B0);
+		xhci_err(xhci, "MISC REG(0x80B0) after Write = 0x%X\n",
+				xhci_readl(xhci, hcd->regs + 0x80B0));
+	}
+	return 0;
+}
+
 /* xhci_ssic_init: Controller initialization flow for config local
  * and remote MPHY via MMIO registers.
  */
@@ -1191,6 +1441,7 @@ static int xhci_ssic_init(struct usb_hcd *hcd)
 	struct xhci_hcd		*xhci;
 	u32			temp;
 	struct pci_dev		*pdev;
+	int			retval;
 
 	if (!hcd) {
 		pr_err("%s hcd is NULL, return -EINVAL\n", __func__);
@@ -1207,6 +1458,16 @@ static int xhci_ssic_init(struct usb_hcd *hcd)
 	if (!pdev) {
 		pr_err("%s pdev is NULL, return\n", __func__);
 		return -ENODEV;
+	}
+
+	/* ANN only MMIO register set config */
+	if (pdev->vendor == PCI_VENDOR_ID_INTEL && pdev->device == PCI_DEVICE_ID_INTEL_MOOR_SSIC) {
+		xhci_dbg(xhci, "ANN SSIC Controller, need to config MMIO register set\n");
+		retval = ann_config_register(hcd);
+		if (retval < 0) {
+			xhci_dbg(xhci, "ANN config register return %d\n", retval);
+			return retval;
+		}
 	}
 
 	/* Config SSIC Configuration Register2 */
