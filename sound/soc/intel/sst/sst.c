@@ -463,6 +463,13 @@ void sst_init_lib_mem_mgr(struct intel_sst_drv *ctx)
 	const struct sst_lib_dnld_info *lib_info = ctx->pdata->lib_info;
 
 	memset(mgr, 0, sizeof(*mgr));
+	if (!lib_info) {
+		/* lib info can be null if a platform is in early stage and
+		 * use cases with downloadable modules are not yet supported
+		 */
+		pr_warn("Unable to init lib mem mgr\n");
+		return;
+	}
 	mgr->current_base = lib_info->mod_base + lib_info->mod_table_offset
 						+ lib_info->mod_table_size;
 	mgr->avail = lib_info->mod_end - mgr->current_base + 1;
