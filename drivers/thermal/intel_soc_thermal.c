@@ -576,6 +576,13 @@ static void notify_thermal_event(struct thermal_zone_device *tzd,
 {
 	char *thermal_event[5];
 
+	/*
+	 * Send UEvents only when temperature goes below the lower
+	 * temperature threshold or above the upper temperature threshold.
+	 */
+	if ((event == 0 && level == 1) || (event == 1 && level == 0))
+		return;
+
 	pr_info("Thermal Event: sensor: %s, cur_temp: %ld, event: %d, level: %d\n",
 				tzd->type, temp, event, level);
 
