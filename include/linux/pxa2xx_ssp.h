@@ -80,7 +80,9 @@
 #define SSSR_RFS	(1 << 6)	/* Receive FIFO Service Request */
 #define SSSR_ROR	(1 << 7)	/* Receive FIFO Overrun */
 
-#ifdef CONFIG_ARCH_PXA
+#define SSCR2_CLK_DEL_EN (1 << 3)	/* Delay logic for capturing data from device */
+
+#if defined(CONFIG_ARCH_PXA) || defined(CONFIG_X86_INTEL_MID)
 #define RX_THRESH_DFLT	8
 #define TX_THRESH_DFLT	8
 
@@ -174,6 +176,7 @@ enum pxa_ssp_type {
 	PXA168_SSP,
 	PXA910_SSP,
 	CE4100_SSP,
+	INTEL_SSP,
 	LPSS_SSP,
 };
 

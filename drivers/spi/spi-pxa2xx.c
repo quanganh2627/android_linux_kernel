@@ -190,7 +190,7 @@ static void lpss_ssp_cs_control(struct driver_data *drv_data, bool enable)
 	else
 		value |= SPI_CS_CONTROL_CS_HIGH;
 
-	if (chip->lpss_cs)
+	if (chip->chip_select)
 		value |= SPI_CS_CONTROL_CS_SEL;
 	else
 		value &= ~SPI_CS_CONTROL_CS_SEL;
@@ -217,6 +217,11 @@ static void cs_assert(struct driver_data *drv_data)
 		return;
 	}
 
+	if (drv_data->ssp_type == INTEL_SSP) {
+		write_SSFS((1 << chip->chip_select), drv_data->ioaddr);
+		return;
+	}
+
 	lpss_ssp_cs_control(drv_data, true);
 }
 
@@ -234,6 +239,11 @@ static void cs_deassert(struct driver_data *drv_data)
 
 	if (gpio_is_valid(chip->gpio_cs)) {
 		gpio_set_value(chip->gpio_cs, !chip->gpio_cs_inverted);
+		return;
+	}
+
+	if (drv_data->ssp_type == INTEL_SSP) {
+		write_SSFS(0, drv_data->ioaddr);
 		return;
 	}
 
@@ -811,6 +821,10 @@ static void pump_transfers(unsigned long data)
 			write_SSTO(chip->timeout, reg);
 		/* first set CR1 without interrupt and service enables */
 		write_SSCR1(cr1 & SSCR1_CHANGE_MASK, reg);
+		/* for INTEL_SSP, if speed is 25Mhz, need set CLK_DEL_EN bit to SSCR2 */
+		if ((drv_data->ssp_type == INTEL_SSP) && !((cr0 & SSCR0_SCR(0xfff)) >> 8))
+			write_SSCR2((read_SSCR2(reg) | SSCR2_CLK_DEL_EN), reg);
+
 		/* restart the SSP */
 		write_SSCR0(cr0, reg);
 
@@ -992,8 +1006,8 @@ static int setup(struct spi_device *spi)
 		chip->enable_dma = drv_data->master_info->enable_dma;
 	}
 
-	if (is_lpss_ssp(drv_data)) {
-		chip->lpss_cs = spi->chip_select;
+	if (is_lpss_ssp(drv_data) || drv_data->ssp_type == INTEL_SSP) {
+		chip->chip_select = spi->chip_select;
 		chip->enable_dma = drv_data->master_info->enable_dma;
 	}
 
@@ -1272,22 +1286,12 @@ static int pxa2xx_spi_probe(struct platform_device *pdev)
 	/* Enable SOC clock */
 	clk_prepare_enable(ssp->clk);
 
-	drv_data->max_clk_rate = clk_get_rate(ssp->clk);
+	if (drv_data->ssp_type == INTEL_SSP)
+		drv_data->max_clk_rate = 25000000;
+	else
+		drv_data->max_clk_rate = clk_get_rate(ssp->clk);
 
 	lpss_ssp_setup(drv_data);
-
-	/* Load default SSP configuration */
-	write_SSCR0(0, drv_data->ioaddr);
-	write_SSCR1(SSCR1_RxTresh(RX_THRESH_DFLT) |
-				SSCR1_TxTresh(TX_THRESH_DFLT),
-				drv_data->ioaddr);
-	write_SSCR0(SSCR0_SCR(2)
-			| SSCR0_Motorola
-			| SSCR0_DataSize(8),
-			drv_data->ioaddr);
-	if (!pxa25x_ssp_comp(drv_data))
-		write_SSTO(0, drv_data->ioaddr);
-	write_SSPSP(0, drv_data->ioaddr);
 
 	tasklet_init(&drv_data->pump_transfers, pump_transfers,
 		     (unsigned long)drv_data);

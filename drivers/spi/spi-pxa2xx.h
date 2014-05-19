@@ -105,11 +105,11 @@ struct chip_data {
 	u8 enable_dma;
 	u8 bits_per_word;
 	u32 speed_hz;
+	u8 chip_select;
 	union {
 		int gpio_cs;
 		unsigned int frm;
 	};
-	u8 lpss_cs;
 	int gpio_cs_inverted;
 	int (*write)(struct driver_data *drv_data);
 	int (*read)(struct driver_data *drv_data);
@@ -130,8 +130,11 @@ DEFINE_SSP_REG(SSITR, 0x0c)
 DEFINE_SSP_REG(SSDR, 0x10)
 DEFINE_SSP_REG(SSTO, 0x28)
 DEFINE_SSP_REG(SSPSP, 0x2c)
+DEFINE_SSP_REG(SSCR2, 0x40)
 DEFINE_SSP_REG(SSITF, SSITF)
 DEFINE_SSP_REG(SSIRF, SSIRF)
+DEFINE_SSP_REG(SSFS, 0x44)
+DEFINE_SSP_REG(SFIFOL, 0x68)
 
 #define START_STATE ((void *)0)
 #define RUNNING_STATE ((void *)1)
