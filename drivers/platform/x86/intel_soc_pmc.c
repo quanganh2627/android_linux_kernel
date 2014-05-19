@@ -733,6 +733,56 @@ static const struct file_operations s0i3_enable_operations = {
 	.release        = single_release,
 };
 
+static int func_dis_show(struct seq_file *s, void *unused)
+{
+	return 0;
+}
+
+static ssize_t func_dis_write(struct file *file,
+		const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	char buf[64];
+	int val;
+	unsigned int buf_size;
+	u32 mtpmc_1 = 0;
+	u32 fd;
+
+	buf_size = count < 64 ? count : 64;
+
+	if (copy_from_user(buf, userbuf, buf_size))
+		return -EFAULT;
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EFAULT;
+
+	if (val < (SC_NUM_DEVICES-4)) {
+		fd = readl(pmc->func_dis);
+		fd |= (1<<val);
+		writel(fd, pmc->func_dis);
+		pr_info("Disabling IP %s\n", d3_device_cht[val]);
+	} else if (val < (SC_NUM_DEVICES-1)) {
+		fd = readl(pmc->func_dis2);
+		fd |= (1<<val);
+		writel(fd, pmc->func_dis2);
+		pr_info("Disabling IP %s\n", d3_device_cht[val]);
+	} else
+		pr_err("Invalid South IP\n");
+
+	return count;
+}
+static int func_dis_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, func_dis_show, inode->i_private);
+}
+
+static const struct file_operations func_dis_operations = {
+	.open           = func_dis_open,
+	.read           = seq_read,
+	.write          = func_dis_write,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+
 static int sc_set_power_show(struct seq_file *s, void *unused)
 {
 	return 0;
@@ -898,7 +948,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 				const struct pci_device_id *id)
 {
 	int error = 0, state;
-	struct dentry *d1, *d2, *d3;
+	struct dentry *d1, *d2, *d3, *d4;
 	struct pmc_dev *pmc_cxt;
 	u32 funcdis_reg, funcdis2_reg;
 
@@ -1009,8 +1059,8 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	if (platform_is(INTEL_ATOM_CHT)) {
 		/* temperory debugfs entry for S0i3 enabling */
 		d3 = debugfs_create_file("s0i3_enable", S_IFREG | S_IRUGO,
-								NULL, NULL, &s0i3_enable_operations);
-	}
+							NULL, NULL, &s0i3_enable_operations);
+
 	if (!d3) {
 		dev_err(&pdev->dev, "Can not create a debug file\n");
 		error = -ENOMEM;
@@ -1019,9 +1069,18 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 		goto err_release_region;
 	}
 
-	writel(PMC_WAKE_EN_SETTING, pmc_cxt->s0ix_wake_en);
-/*Function Disabling unused IPs for S0ix*/
-	if (platform_is(INTEL_ATOM_CHT)) {
+	d4 = debugfs_create_file("func_dis", S_IFREG | S_IRUGO,
+								NULL, NULL, &func_dis_operations);
+
+	if (!d4) {
+		dev_err(&pdev->dev, "Can not create a debug file\n");
+		error = -ENOMEM;
+		debugfs_remove(d1);
+		debugfs_remove(d2);
+		goto err_release_region;
+	}
+
+
 		funcdis_reg = readl(pmc_cxt->func_dis);
 		funcdis2_reg = readl(pmc_cxt->func_dis2);
 		funcdis_reg  |= /*PWM0,PWM1,SPI2,SPI3,MIPI*/
@@ -1034,6 +1093,7 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 		writel(funcdis_reg, pmc_cxt->func_dis);
 		writel(funcdis2_reg, pmc_cxt->func_dis2);
 	}
+	writel(PMC_WAKE_EN_SETTING, pmc_cxt->s0ix_wake_en);
 
 	return 0;
 
