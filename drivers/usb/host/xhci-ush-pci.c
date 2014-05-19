@@ -1264,6 +1264,17 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 	driver = (struct hc_driver *)id->driver_data;
 	pci_dev = dev;
 
+	/* disable Anniedale SSIC by default and enable by request */
+	if (hsic_pdata->has_ssic) {
+		if (!hsic_pdata->ssic_enabled) {
+			if (!is_ssic_probe()) {
+				retval = pci_set_power_state(dev, PCI_D3hot);
+				return -ENODEV;
+			} else {
+				hsic_pdata->ssic_enabled = 1;
+			}
+		}
+	}
 
 	if (hsic_pdata->has_hsic) {
 		wake_lock_init(&hsic.s3_wake_lock,

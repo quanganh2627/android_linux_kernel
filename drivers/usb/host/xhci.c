@@ -38,6 +38,20 @@ static int link_quirk;
 module_param(link_quirk, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(link_quirk, "Don't clear the chain bit on a link TRB");
 
+/* Anniedale SSIC driver probe flag */
+static unsigned int ssic_probe;
+module_param(ssic_probe, uint, S_IRUGO);
+MODULE_PARM_DESC(ssic_probe, "ANN SSIC flag, default disable SSIC\n");
+
+/*
+ * for external read access to <ssic_probe>
+ */
+unsigned int is_ssic_probe(void)
+{
+	return ssic_probe;
+}
+EXPORT_SYMBOL_GPL(is_ssic_probe);
+
 /* TODO: copied from ehci-hcd.c - can this be refactored? */
 /*
  * xhci_handshake - spin reading hc until handshake completes or fails
