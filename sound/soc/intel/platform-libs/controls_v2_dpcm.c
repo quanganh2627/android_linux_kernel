@@ -681,12 +681,9 @@ static const uint swm_mixer_input_ids[SST_SWM_INPUT_COUNT] = {
 	[SST_IP_VOIP]		= SST_SWM_IN_VOIP,
 	[SST_IP_PCM0]		= SST_SWM_IN_PCM0,
 	[SST_IP_PCM1]		= SST_SWM_IN_PCM1,
+	[SST_IP_PCM2]		= SST_SWM_IN_PCM2,
 	[SST_IP_LOW_PCM0]	= SST_SWM_IN_LOW_PCM0,
 	[SST_IP_FM]		= SST_SWM_IN_FM,
-	[SST_IP_MEDIA0]		= SST_SWM_IN_MEDIA0,
-	[SST_IP_MEDIA1]		= SST_SWM_IN_MEDIA1,
-	[SST_IP_MEDIA2]		= SST_SWM_IN_MEDIA2,
-	[SST_IP_MEDIA3]		= SST_SWM_IN_MEDIA3,
 };
 
 /**
@@ -791,7 +788,7 @@ static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-/* SBA mixers - 16 inputs */
+/* SBA mixers - 17 inputs */
 #define SST_SBA_DECLARE_MIX_CONTROLS(kctl_name, mixer_reg)			\
 	static const struct snd_kcontrol_new kctl_name[] = {			\
 		SOC_SINGLE_EXT("modem_in", mixer_reg, SST_IP_MODEM, 1, 0,	\
@@ -822,6 +819,8 @@ static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
 				sst_mix_get, sst_mix_put),			\
 		SOC_SINGLE_EXT("pcm1_in", mixer_reg, SST_IP_PCM1, 1, 0,		\
 				sst_mix_get, sst_mix_put),			\
+		SOC_SINGLE_EXT("pcm2_in", mixer_reg, SST_IP_PCM2, 1, 0,		\
+				sst_mix_get, sst_mix_put),			\
 		SOC_SINGLE_EXT("low_pcm0_in", mixer_reg, SST_IP_LOW_PCM0, 1, 0,	\
 				sst_mix_get, sst_mix_put),			\
 		SOC_SINGLE_EXT("fm_in", mixer_reg, SST_IP_FM, 1, 0,		\
@@ -843,23 +842,10 @@ static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
 	{ mix_name, "voip_in",		"voip_in" },		\
 	{ mix_name, "pcm0_in",		"pcm0_in" },		\
 	{ mix_name, "pcm1_in",		"pcm1_in" },		\
+	{ mix_name, "pcm2_in",		"pcm2_in" },		\
 	{ mix_name, "low_pcm0_in",	"low_pcm0_in" },	\
 	{ mix_name, "fm_in",		"fm_in" }
 
-#define SST_MMX_DECLARE_MIX_CONTROLS(kctl_name, mixer_reg)			\
-	static const struct snd_kcontrol_new kctl_name[] = {			\
-		SOC_SINGLE_EXT("media0_in", mixer_reg, SST_IP_MEDIA0, 1, 0,	\
-				sst_mix_get, sst_mix_put),			\
-		SOC_SINGLE_EXT("media1_in", mixer_reg, SST_IP_MEDIA1, 1, 0,	\
-				sst_mix_get, sst_mix_put),			\
-		SOC_SINGLE_EXT("media2_in", mixer_reg, SST_IP_MEDIA2, 1, 0,	\
-				sst_mix_get, sst_mix_put),			\
-		SOC_SINGLE_EXT("media3_in", mixer_reg, SST_IP_MEDIA3, 1, 0,	\
-				sst_mix_get, sst_mix_put),			\
-	}
-
-SST_MMX_DECLARE_MIX_CONTROLS(sst_mix_media0_controls, SST_MIX_MEDIA0);
-SST_MMX_DECLARE_MIX_CONTROLS(sst_mix_media1_controls, SST_MIX_MEDIA1);
 
 /* 18 SBA mixers */
 SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_pcm0_controls, SST_MIX_PCM0);
@@ -1576,17 +1562,14 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	/* MediaX IN paths are set via ALLOC, so no SET_MEDIA_PATH command */
 	SST_PATH_INPUT("media0_in", SST_TASK_MMX, SST_SWM_IN_MEDIA0, sst_generic_modules_event),
 	SST_PATH_INPUT("media1_in", SST_TASK_MMX, SST_SWM_IN_MEDIA1, NULL),
-	SST_PATH_INPUT("media2_in", SST_TASK_MMX, SST_SWM_IN_MEDIA2, sst_set_media_path),
-	SST_PATH_INPUT("media3_in", SST_TASK_MMX, SST_SWM_IN_MEDIA3, NULL),
-	SST_PATH_OUTPUT("media0_out", SST_TASK_MMX, SST_SWM_OUT_MEDIA0, sst_set_media_path),
-	SST_PATH_OUTPUT("media1_out", SST_TASK_MMX, SST_SWM_OUT_MEDIA1, sst_set_media_path),
+	SST_PATH_INPUT("media2_in", SST_TASK_MMX, SST_SWM_IN_MEDIA2, NULL),
 	SST_PATH_OUTPUT("media2_out", SST_TASK_MMX, SST_PATH_INDEX_MEDIA2_OUT, sst_generic_modules_event),
 	SST_PATH_OUTPUT("media3_out", SST_TASK_MMX, SST_PATH_INDEX_MEDIA3_OUT, sst_generic_modules_event),
-
 
 	/* SBA PCM Paths */
 	SST_PATH_INPUT("pcm0_in", SST_TASK_SBA, SST_SWM_IN_PCM0, sst_set_media_path),
 	SST_PATH_INPUT("pcm1_in", SST_TASK_SBA, SST_SWM_IN_PCM1, sst_set_media_path),
+	SST_PATH_INPUT("pcm2_in", SST_TASK_SBA, SST_SWM_IN_PCM2, sst_set_media_path),
 	SST_PATH_OUTPUT("pcm0_out", SST_TASK_SBA, SST_SWM_OUT_PCM0, sst_set_media_path),
 	SST_PATH_OUTPUT("pcm1_out", SST_TASK_SBA, SST_SWM_OUT_PCM1, sst_set_media_path),
 	SST_PATH_OUTPUT("pcm2_out", SST_TASK_SBA, SST_SWM_OUT_PCM2, sst_set_media_path),
@@ -1623,12 +1606,6 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_PATH_OUTPUT("hf_out", SST_TASK_SBA, SST_SWM_OUT_HF, sst_set_speech_path),
 	SST_PATH_OUTPUT("speech_out", SST_TASK_SBA, SST_SWM_OUT_SPEECH, sst_set_speech_path),
 	SST_PATH_OUTPUT("rxspeech_out", SST_TASK_SBA, SST_SWM_OUT_RXSPEECH, sst_set_speech_path),
-
-	/* Media Mixers */
-	SST_SWM_MIXER("media0_out mix 0", SST_MIX_MEDIA0, SST_TASK_MMX, SST_SWM_OUT_MEDIA0,
-		      sst_mix_media0_controls, sst_swm_mixer_event),
-	SST_SWM_MIXER("media1_out mix 0", SST_MIX_MEDIA1, SST_TASK_MMX, SST_SWM_OUT_MEDIA1,
-		      sst_mix_media1_controls, sst_swm_mixer_event),
 
 	/* SBA PCM mixers */
 	SST_SWM_MIXER("pcm0_out mix 0", SST_MIX_PCM0, SST_TASK_SBA, SST_SWM_OUT_PCM0,
@@ -1689,22 +1666,11 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 static const struct snd_soc_dapm_route intercon[] = {
 	{"media0_in", NULL, "Compress Playback"},
 	{"media1_in", NULL, "Headset Playback"},
-	{"media2_in", NULL, "pcm0_out"},
-	{"media3_in", NULL, "Deepbuffer Playback"},
+	{"media2_in", NULL, "Deepbuffer Playback"},
 
-	{"media0_out mix 0", "media0_in", "media0_in"},
-	{"media0_out mix 0", "media1_in", "media1_in"},
-	{"media0_out mix 0", "media2_in", "media2_in"},
-	{"media0_out mix 0", "media3_in", "media3_in"},
-	{"media1_out mix 0", "media0_in", "media0_in"},
-	{"media1_out mix 0", "media1_in", "media1_in"},
-	{"media1_out mix 0", "media2_in", "media2_in"},
-	{"media1_out mix 0", "media3_in", "media3_in"},
-
-	{"media0_out", NULL, "media0_out mix 0"},
-	{"media1_out", NULL, "media1_out mix 0"},
-	{"pcm0_in", NULL, "media0_out"},
-	{"pcm1_in", NULL, "media1_out"},
+	{"pcm0_in", NULL, "media0_in"},
+	{"pcm1_in", NULL, "media1_in"},
+	{"pcm2_in", NULL, "media2_in"},
 
 	{"Headset Capture", NULL, "media2_out"},
 	{"media2_out", NULL, "pcm1_out"},
@@ -1881,53 +1847,50 @@ static const struct snd_kcontrol_new sst_probe_controls[] = {
 		SST_MODULE_ID_VOLUME, path_id, instance, task_id,			\
 		sst_gain_tlv_common, gain_var)
 
-#define SST_NUM_GAINS 38
+#define SST_NUM_GAINS 35
 static struct sst_gain_value sst_gains[SST_NUM_GAINS];
 
 static const struct snd_kcontrol_new sst_gain_controls[] = {
-	SST_GAIN("media0_in", SST_PATH_INDEX_MEDIA0_IN, SST_TASK_MMX, 0, &sst_gains[0]),
-	SST_GAIN("media1_in", SST_PATH_INDEX_MEDIA1_IN, SST_TASK_MMX, 0, &sst_gains[1]),
-	SST_GAIN("media2_in", SST_PATH_INDEX_MEDIA2_IN, SST_TASK_MMX, 0, &sst_gains[2]),
-	SST_GAIN("media3_in", SST_PATH_INDEX_MEDIA3_IN, SST_TASK_MMX, 0, &sst_gains[3]),
+	SST_GAIN("pcm0_in", SST_PATH_INDEX_PCM0_IN, SST_TASK_SBA, 0, &sst_gains[0]),
+	SST_GAIN("pcm1_in", SST_PATH_INDEX_PCM1_IN, SST_TASK_SBA, 0, &sst_gains[1]),
+	SST_GAIN("pcm2_in", SST_PATH_INDEX_PCM2_IN, SST_TASK_SBA, 0, &sst_gains[2]),
+	SST_GAIN("low_pcm0_in", SST_PATH_INDEX_LOW_PCM0_IN, SST_TASK_SBA, 0, &sst_gains[3]),
 
-	SST_GAIN("pcm0_in", SST_PATH_INDEX_PCM0_IN, SST_TASK_SBA, 0, &sst_gains[4]),
-	SST_GAIN("pcm1_in", SST_PATH_INDEX_PCM1_IN, SST_TASK_SBA, 0, &sst_gains[5]),
-	SST_GAIN("low_pcm0_in", SST_PATH_INDEX_LOW_PCM0_IN, SST_TASK_SBA, 0, &sst_gains[6]),
-	SST_GAIN("pcm1_out", SST_PATH_INDEX_PCM1_OUT, SST_TASK_SBA, 0, &sst_gains[7]),
-	SST_GAIN("pcm2_out", SST_PATH_INDEX_PCM2_OUT, SST_TASK_SBA, 0, &sst_gains[8]),
+	SST_GAIN("pcm1_out", SST_PATH_INDEX_PCM1_OUT, SST_TASK_SBA, 0, &sst_gains[4]),
+	SST_GAIN("pcm2_out", SST_PATH_INDEX_PCM2_OUT, SST_TASK_SBA, 0, &sst_gains[5]),
 
-	SST_GAIN("voip_in", SST_PATH_INDEX_VOIP_IN, SST_TASK_SBA, 0, &sst_gains[9]),
-	SST_GAIN("voip_out", SST_PATH_INDEX_VOIP_OUT, SST_TASK_SBA, 0, &sst_gains[10]),
-	SST_GAIN("tone_in", SST_PATH_INDEX_TONE_IN, SST_TASK_SBA, 0, &sst_gains[11]),
+	SST_GAIN("voip_in", SST_PATH_INDEX_VOIP_IN, SST_TASK_SBA, 0, &sst_gains[6]),
+	SST_GAIN("voip_out", SST_PATH_INDEX_VOIP_OUT, SST_TASK_SBA, 0, &sst_gains[7]),
+	SST_GAIN("tone_in", SST_PATH_INDEX_TONE_IN, SST_TASK_SBA, 0, &sst_gains[8]),
 
-	SST_GAIN("aware_out", SST_PATH_INDEX_AWARE_OUT, SST_TASK_SBA, 0, &sst_gains[12]),
-	SST_GAIN("vad_out", SST_PATH_INDEX_VAD_OUT, SST_TASK_SBA, 0, &sst_gains[13]),
+	SST_GAIN("aware_out", SST_PATH_INDEX_AWARE_OUT, SST_TASK_SBA, 0, &sst_gains[9]),
+	SST_GAIN("vad_out", SST_PATH_INDEX_VAD_OUT, SST_TASK_SBA, 0, &sst_gains[10]),
 
-	SST_GAIN("hf_sns_out", SST_PATH_INDEX_HF_SNS_OUT, SST_TASK_SBA, 0, &sst_gains[14]),
-	SST_GAIN("hf_out", SST_PATH_INDEX_HF_OUT, SST_TASK_SBA, 0, &sst_gains[15]),
-	SST_GAIN("speech_out", SST_PATH_INDEX_SPEECH_OUT, SST_TASK_SBA, 0, &sst_gains[16]),
-	SST_GAIN("txspeech_in", SST_PATH_INDEX_TX_SPEECH_IN, SST_TASK_SBA, 0, &sst_gains[17]),
-	SST_GAIN("rxspeech_out", SST_PATH_INDEX_RX_SPEECH_OUT, SST_TASK_SBA, 0, &sst_gains[18]),
-	SST_GAIN("speech_in", SST_PATH_INDEX_SPEECH_IN, SST_TASK_SBA, 0, &sst_gains[19]),
+	SST_GAIN("hf_sns_out", SST_PATH_INDEX_HF_SNS_OUT, SST_TASK_SBA, 0, &sst_gains[11]),
+	SST_GAIN("hf_out", SST_PATH_INDEX_HF_OUT, SST_TASK_SBA, 0, &sst_gains[12]),
+	SST_GAIN("speech_out", SST_PATH_INDEX_SPEECH_OUT, SST_TASK_SBA, 0, &sst_gains[13]),
+	SST_GAIN("txspeech_in", SST_PATH_INDEX_TX_SPEECH_IN, SST_TASK_SBA, 0, &sst_gains[14]),
+	SST_GAIN("rxspeech_out", SST_PATH_INDEX_RX_SPEECH_OUT, SST_TASK_SBA, 0, &sst_gains[15]),
+	SST_GAIN("speech_in", SST_PATH_INDEX_SPEECH_IN, SST_TASK_SBA, 0, &sst_gains[16]),
 
-	SST_GAIN("codec_in0", SST_PATH_INDEX_CODEC_IN0, SST_TASK_SBA, 0, &sst_gains[20]),
-	SST_GAIN("codec_in1", SST_PATH_INDEX_CODEC_IN1, SST_TASK_SBA, 0, &sst_gains[21]),
-	SST_GAIN("codec_out0", SST_PATH_INDEX_CODEC_OUT0, SST_TASK_SBA, 0, &sst_gains[22]),
-	SST_GAIN("codec_out1", SST_PATH_INDEX_CODEC_OUT1, SST_TASK_SBA, 0, &sst_gains[23]),
-	SST_GAIN("bt_out", SST_PATH_INDEX_BT_OUT, SST_TASK_SBA, 0, &sst_gains[24]),
-	SST_GAIN("fm_out", SST_PATH_INDEX_FM_OUT, SST_TASK_SBA, 0, &sst_gains[25]),
-	SST_GAIN("bt_in", SST_PATH_INDEX_BT_IN, SST_TASK_SBA, 0, &sst_gains[26]),
-	SST_GAIN("fm_in", SST_PATH_INDEX_FM_IN, SST_TASK_SBA, 0, &sst_gains[27]),
-	SST_GAIN("modem_in", SST_PATH_INDEX_MODEM_IN, SST_TASK_SBA, 0, &sst_gains[28]),
-	SST_GAIN("modem_out", SST_PATH_INDEX_MODEM_OUT, SST_TASK_SBA, 0, &sst_gains[29]),
-	SST_GAIN("media_loop1_out", SST_PATH_INDEX_MEDIA_LOOP1_OUT, SST_TASK_SBA, 0, &sst_gains[30]),
-	SST_GAIN("media_loop2_out", SST_PATH_INDEX_MEDIA_LOOP2_OUT, SST_TASK_SBA, 0, &sst_gains[31]),
-	SST_GAIN("sprot_loop_out", SST_PATH_INDEX_SPROT_LOOP_OUT, SST_TASK_SBA, 0, &sst_gains[32]),
-	SST_VOLUME("media0_in", SST_PATH_INDEX_MEDIA0_IN, SST_TASK_MMX, 0, &sst_gains[33]),
-	SST_GAIN("sidetone_in", SST_PATH_INDEX_SIDETONE_IN, SST_TASK_SBA, 0, &sst_gains[34]),
-	SST_GAIN("speech_out", SST_PATH_INDEX_SPEECH_OUT, SST_TASK_FBA_UL, 1, &sst_gains[35]),
-	SST_GAIN("pcm3_out", SST_PATH_INDEX_PCM3_OUT, SST_TASK_SBA, 0, &sst_gains[36]),
-	SST_GAIN("pcm4_out", SST_PATH_INDEX_PCM4_OUT, SST_TASK_SBA, 0, &sst_gains[37]),
+	SST_GAIN("codec_in0", SST_PATH_INDEX_CODEC_IN0, SST_TASK_SBA, 0, &sst_gains[17]),
+	SST_GAIN("codec_in1", SST_PATH_INDEX_CODEC_IN1, SST_TASK_SBA, 0, &sst_gains[18]),
+	SST_GAIN("codec_out0", SST_PATH_INDEX_CODEC_OUT0, SST_TASK_SBA, 0, &sst_gains[19]),
+	SST_GAIN("codec_out1", SST_PATH_INDEX_CODEC_OUT1, SST_TASK_SBA, 0, &sst_gains[20]),
+	SST_GAIN("bt_out", SST_PATH_INDEX_BT_OUT, SST_TASK_SBA, 0, &sst_gains[21]),
+	SST_GAIN("fm_out", SST_PATH_INDEX_FM_OUT, SST_TASK_SBA, 0, &sst_gains[22]),
+	SST_GAIN("bt_in", SST_PATH_INDEX_BT_IN, SST_TASK_SBA, 0, &sst_gains[23]),
+	SST_GAIN("fm_in", SST_PATH_INDEX_FM_IN, SST_TASK_SBA, 0, &sst_gains[24]),
+	SST_GAIN("modem_in", SST_PATH_INDEX_MODEM_IN, SST_TASK_SBA, 0, &sst_gains[25]),
+	SST_GAIN("modem_out", SST_PATH_INDEX_MODEM_OUT, SST_TASK_SBA, 0, &sst_gains[26]),
+	SST_GAIN("media_loop1_out", SST_PATH_INDEX_MEDIA_LOOP1_OUT, SST_TASK_SBA, 0, &sst_gains[27]),
+	SST_GAIN("media_loop2_out", SST_PATH_INDEX_MEDIA_LOOP2_OUT, SST_TASK_SBA, 0, &sst_gains[28]),
+	SST_GAIN("sprot_loop_out", SST_PATH_INDEX_SPROT_LOOP_OUT, SST_TASK_SBA, 0, &sst_gains[29]),
+	SST_VOLUME("media0_in", SST_PATH_INDEX_MEDIA0_IN, SST_TASK_MMX, 0, &sst_gains[30]),
+	SST_GAIN("sidetone_in", SST_PATH_INDEX_SIDETONE_IN, SST_TASK_SBA, 0, &sst_gains[31]),
+	SST_GAIN("speech_out", SST_PATH_INDEX_SPEECH_OUT, SST_TASK_FBA_UL, 1, &sst_gains[32]),
+	SST_GAIN("pcm3_out", SST_PATH_INDEX_PCM3_OUT, SST_TASK_SBA, 0, &sst_gains[33]),
+	SST_GAIN("pcm4_out", SST_PATH_INDEX_PCM4_OUT, SST_TASK_SBA, 0, &sst_gains[34]),
 };
 
 static const struct snd_kcontrol_new sst_algo_controls[] = {
