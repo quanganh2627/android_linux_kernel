@@ -148,6 +148,8 @@ struct atomisp_camera_caps {
 	int sensor_num;
 	/* The capacities of each sensor. */
 	struct atomisp_sensor_caps sensor[MAX_SENSORS_PER_PORT];
+	/* Define whether stream control is required for multiple streams. */
+	bool multi_stream_ctrl;
 };
 
 /*
