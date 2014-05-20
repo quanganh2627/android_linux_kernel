@@ -792,7 +792,14 @@ static ssize_t hsic_port_enable_store(struct device *dev,
 		hsic_enter_exit_d3(1);
 		usleep_range(5000, 6000);
 		hsic_enter_exit_d3(0);
-		ehci_hsic_start_host(pci_dev);
+		retval = ehci_hsic_start_host(pci_dev);
+		if (retval < 0) {
+			dev_err(&pci_dev->dev,
+				"start host fail, retval %d\n", retval);
+			mutex_unlock(&hsic.hsic_mutex);
+			return retval;
+		}
+
 		hsic.autosuspend_enable = 0;
 		usb_disable_autosuspend(hsic.rh_dev);
 	} else {
