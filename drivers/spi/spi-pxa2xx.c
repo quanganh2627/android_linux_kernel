@@ -270,7 +270,10 @@ static bool is_tx_fifo_full(struct driver_data *drv_data)
 {
 	void __iomem *reg = drv_data->ioaddr;
 
-	if (!is_lpss_ssp(drv_data))
+	/* workaround for debug UART */
+	if (drv_data->ssp_type == INTEL_SSP && (drv_data->ssp->port_id == 5))
+		return ((read_SFIFOL(reg) & 0xFFFF) != 0);
+	else if (!is_lpss_ssp(drv_data))
 		return ((read_SSSR(reg) & SSSR_TFL_MASK) == SSSR_TFL_MASK);
 	else
 		return ((read_SSITF(reg) & SSITF_TFL_MASK) == SSITF_TFL_MASK);
