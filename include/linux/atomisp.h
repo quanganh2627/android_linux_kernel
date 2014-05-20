@@ -405,6 +405,10 @@ struct atomisp_dvs_6axis_config {
 	uint32_t *ycoords_uv;
 };
 
+struct atomisp_formats_config {
+	uint32_t video_full_range_flag;
+};
+
 struct atomisp_parameters {
 	struct atomisp_wb_config   *wb_config;  /* White Balance config */
 	struct atomisp_cc_config   *cc_config;  /* Color Correction config */
@@ -1053,6 +1057,12 @@ struct v4l2_private_int_data {
 
 #define ATOMISP_IOC_S_ENABLE_DZ_CAPT_PIPE \
 	_IOWR('v', BASE_VIDIOC_PRIVATE + 38, unsigned int)
+
+#define ATOMISP_IOC_G_FORMATS_CONFIG \
+	_IOR('v', BASE_VIDIOC_PRIVATE + 39, struct atomisp_formats_config)
+
+#define ATOMISP_IOC_S_FORMATS_CONFIG \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 39, struct atomisp_formats_config)
 /*
  * Reserved ioctls. We have customer implementing it internally.
  * We can't use both numbers to not cause ABI conflict.
