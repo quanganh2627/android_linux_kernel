@@ -1430,6 +1430,99 @@ done:
 	return 0;
 }
 
+static void vlv_set_hdmi_level_shifter_settings(struct intel_encoder *encoder)
+{
+	struct drm_device *dev = encoder->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *crtc = to_intel_crtc(encoder->base.crtc);
+	struct drm_display_mode *adjusted_mode = &crtc->config.adjusted_mode;
+	struct intel_digital_port *dport = enc_to_dig_port(&encoder->base);
+	int port = vlv_dport_to_channel(dport);
+
+	u32 de_emp_reg_val = 0;
+	u32 transcale_reg_val = 0;
+	u32 pre_emp_reg_val = 0;
+	u32 clk_de_emp_reg_val = 0;
+
+
+	/*
+	 * FIXME: Need to get HDMI pre-emp, vswing settings from VBT.
+	 * definitions:
+	 * 0 = 1000MV_2DB
+	 * 1 = 1000MV_0DB
+	 * 2 = 800MV_0DB
+	 * 3 = 600MV_2DB
+	 * 4 = 600MV_0DB
+	 */
+	u8 pre_emp_vswing_setting = 0;
+
+
+	/*
+	 * As per EV requirement need to set 1000MV_0DB for pixel clock
+	 * < 74.250 Mhz
+	 */
+	if (adjusted_mode->clock < 74250)
+		pre_emp_vswing_setting = 1;	/* 1 = 1000MV_0DB */
+	else
+		/* Customize the below variable as per customer requirement */
+		pre_emp_vswing_setting = 0;	/* 0 = 1000MV_2DB */
+
+	/*FIXME: The Application notes doesn't have pcs_ctrl_reg_val for
+	 * settings 1V_0DB, 0.8V_0DB, 0.6V_0DB. The pcs_ctrl_reg_val value
+	 * for these is selected from higher demp_vswing settings for which
+	 * the data is given.
+	 */
+	switch (pre_emp_vswing_setting) {
+	case 0:
+		de_emp_reg_val = 0x2B245F5F;
+		transcale_reg_val = 0x5578B83A;
+		clk_de_emp_reg_val = 0x2B247878;
+		pre_emp_reg_val = 0x2000;
+		break;
+	case 1:
+		de_emp_reg_val = 0x2B405555;
+		transcale_reg_val = 0x5580A03A;
+		clk_de_emp_reg_val = 0x2B405555;
+		pre_emp_reg_val = 0x4000;
+		break;
+	case 2:
+		de_emp_reg_val = 0x2B245555;
+		transcale_reg_val = 0x5560B83A;
+		clk_de_emp_reg_val = 0x2B245555;
+		pre_emp_reg_val = 0x4000;
+		break;
+	case 3:
+		de_emp_reg_val = 0x2B406262;
+		transcale_reg_val = 0x5560B83A;
+		clk_de_emp_reg_val = 0x2B407878;
+		pre_emp_reg_val = 0x2000;
+		break;
+	case 4:
+		de_emp_reg_val = 0x2B404040;
+		transcale_reg_val = 0x5548B83A;
+		clk_de_emp_reg_val = 0x2B404040;
+		pre_emp_reg_val = 0x4000;
+		break;
+	default:
+		DRM_ERROR("Incorrect pre-emp vswing setting\n");
+		de_emp_reg_val = 0x2B245F5F;
+		transcale_reg_val = 0x5578B83A;
+		clk_de_emp_reg_val = 0x2B247878;
+		pre_emp_reg_val = 0x2000;
+		break;
+	}
+
+
+	vlv_dpio_write(dev_priv, DPIO_TX_OCALINIT(port), 0x00000000);
+	vlv_dpio_write(dev_priv, DPIO_TX_SWING_CTL4(port), de_emp_reg_val);
+	vlv_dpio_write(dev_priv, DPIO_TX_SWING_CTL2(port), transcale_reg_val);
+	vlv_dpio_write(dev_priv, DPIO_TX_SWING_CTL3(port), 0x0c782040);
+	vlv_dpio_write(dev_priv, DPIO_TX3_SWING_CTL4(port), clk_de_emp_reg_val);
+	vlv_dpio_write(dev_priv, DPIO_PCS_STAGGER0(port), 0x00030000);
+	vlv_dpio_write(dev_priv, DPIO_PCS_CTL_OVER1(port), pre_emp_reg_val);
+	vlv_dpio_write(dev_priv, DPIO_TX_OCALINIT(port), DPIO_TX_OCALINIT_EN);
+}
+
 static void intel_hdmi_pre_enable(struct intel_encoder *encoder)
 {
 	struct intel_digital_port *dport = enc_to_dig_port(&encoder->base);
@@ -1455,21 +1548,7 @@ static void intel_hdmi_pre_enable(struct intel_encoder *encoder)
 	val |= 0x001000c4;
 	vlv_dpio_write(dev_priv, DPIO_DATA_CHANNEL(port), val);
 
-	/* HDMI 1.0V-2dB */
-	vlv_dpio_write(dev_priv, DPIO_TX_OCALINIT(port), 0);
-	vlv_dpio_write(dev_priv, DPIO_TX_SWING_CTL4(port),
-			 0x2b245f5f);
-	vlv_dpio_write(dev_priv, DPIO_TX_SWING_CTL2(port),
-			 0x5578b83a);
-	vlv_dpio_write(dev_priv, DPIO_TX_SWING_CTL3(port),
-			 0x0c782040);
-	vlv_dpio_write(dev_priv, DPIO_TX3_SWING_CTL4(port),
-			 0x2b247878);
-	vlv_dpio_write(dev_priv, DPIO_PCS_STAGGER0(port), 0x00030000);
-	vlv_dpio_write(dev_priv, DPIO_PCS_CTL_OVER1(port),
-			 0x00002000);
-	vlv_dpio_write(dev_priv, DPIO_TX_OCALINIT(port),
-			 DPIO_TX_OCALINIT_EN);
+	vlv_set_hdmi_level_shifter_settings(encoder);
 
 	/* Program lane clock */
 	vlv_dpio_write(dev_priv, DPIO_PCS_CLOCKBUF0(port),
