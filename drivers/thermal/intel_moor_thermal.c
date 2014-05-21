@@ -584,9 +584,9 @@ static int show_emul_temp(struct thermal_zone_device *tzd, long *temp)
 	thermal_event[1] = kasprintf(GFP_KERNEL, "EVENT=%d", EMUL_TEMP_EVENT);
 	thermal_event[2] = NULL;
 
+	INIT_COMPLETION(td_info->temp_write_complete);
 	kobject_uevent_env(&tzd->device.kobj, KOBJ_CHANGE, thermal_event);
 
-	INIT_COMPLETION(td_info->temp_write_complete);
 	timeout = wait_for_completion_timeout(&td_info->temp_write_complete,
 						TEMP_WRITE_TIMEOUT);
 	if (timeout == 0) {
