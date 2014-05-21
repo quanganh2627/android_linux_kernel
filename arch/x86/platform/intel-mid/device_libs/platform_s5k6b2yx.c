@@ -26,6 +26,12 @@ enum {
 	VT_CAM_VIS_STBY,
 };
 
+enum {
+	S5K6B2YX_HW_STBY = 0,
+	S5K6B2YX_SW_STBY,
+	S5K6B2YX_VIS_STBY
+};
+
 static struct gpio cam_gpios[] = {
 	[VT_CAM_RESET] = {
 		.flags = GPIOF_OUT_INIT_LOW,
@@ -66,23 +72,37 @@ static void cam_gpio_deinit(void)
 
 static int s5k6b2yx_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
-	if (flag) {
+	switch (flag) {
+	case S5K6B2YX_SW_STBY:
 		gpio_set_value(cam_gpios[VT_CAM_RESET].gpio, 0);
 
 		/* 1ms from VANA and VDIG to XSHUTDOWN raising */
 		usleep_range(1000, 1500);
 
+		gpio_set_value(cam_gpios[VT_CAM_VIS_STBY].gpio, 0);
 		gpio_set_value(cam_gpios[VT_CAM_RESET].gpio, 1);
 
-		/* s5k6b2yx initializing time: t3 = 46uS + 16 EXTCLK
+		/* s5k6b2yx normal initializing time: t3 = 46uS + 16 EXTCLK
 		 * 46us) + 0.8uS(19.2Mhz) before sccb communication
 		 */
 		usleep_range(200, 300);
-	} else {
+		break;
+	case S5K6B2YX_VIS_STBY:
 		gpio_set_value(cam_gpios[VT_CAM_RESET].gpio, 0);
+		gpio_set_value(cam_gpios[VT_CAM_VIS_STBY].gpio, 1);
+
+		/* s5k6b2yx vision initializing time: t3 = 27uS + 21 EXTCLK
+		 * 27us) + 1uS(19.2Mhz) before sccb communication
+		 */
+		usleep_range(100, 1000);
+		break;
+	case S5K6B2YX_HW_STBY:
+	default:
+		gpio_set_value(cam_gpios[VT_CAM_RESET].gpio, 0);
+		gpio_set_value(cam_gpios[VT_CAM_VIS_STBY].gpio, 0);
+		break;
 	}
 
-	/* MAX - need to implement VISION mode */
 	return 0;
 }
 
