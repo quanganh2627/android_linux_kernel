@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/mfd/intel_mid_pmic.h>
+#include <linux/clk.h>
 #include <media/v4l2-subdev.h>
 
 #include "platform_camera.h"
@@ -78,16 +79,28 @@ static int ov680_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 static int ov680_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-#ifdef CONFIG_INTEL_SCU_IPC_UTIL
-	int ret;
+#ifdef CONFIG_X86_INTEL_OSC_CLK
+	int ret = 0;
 	static const unsigned int clock_khz = 19200;
-	/*
-	 * According to the schematics, on a reworked MOFD VV
-	 * board, OSC_CLK_OUT4 is the input clock signal for
-	 * ov680, which is represented by OSC_CLK 3 in the system.
-	 */
-	ret = intel_scu_ipc_osc_clk(3, flag ? clock_khz : 0);
-	dev_dbg(&client->dev, "ov680 clock enabled\n");
+
+	struct clk *pclk = clk_get(NULL, "osc.4");
+	if (pclk == NULL) {
+		dev_err(&client->dev, "get osc clock failed\n");
+		return -EINVAL;
+	}
+	clk_prepare(pclk);
+	clk_set_rate(pclk, clock_khz);
+	if (flag) {
+		ret = clk_enable(pclk);
+		msleep(20);
+		dev_dbg(&client->dev, "osc clock 4 enabled\n");
+	} else {
+		clk_disable(pclk);
+		msleep(20);
+		dev_dbg(&client->dev, "osc clock 4 disabled\n");
+	}
+	clk_put(pclk);
+
 	return ret;
 #else
 	dev_err(&client->dev, "ov680 clock is not set\n");
@@ -100,9 +113,6 @@ static int ov680_power_ctrl(struct v4l2_subdev *sd, int flag)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 
-	ret = ov680_flisclk_ctrl(sd, flag);
-	if (ret)
-		dev_err(&client->dev, "clock control failed\n");
 	ret = intel_scu_ipc_msic_vprog1(flag);
 	dev_dbg(&client->dev,
 		"%s: Turning VPROG1  - ret = %x - %s\n",
