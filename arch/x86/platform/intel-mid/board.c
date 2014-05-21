@@ -442,5 +442,9 @@ struct devs_id __initconst device_ids[] = {
 		&sfi_handle_mdm},
 	{"XMM7260_CONF_10", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
 		&sfi_handle_mdm},
+	{"XMM7260_CONF_11", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
+	{"XMM7260_CONF_12", SFI_DEV_TYPE_MDM, 0, &modem_platform_data,
+		&sfi_handle_mdm},
 	{},
 };
