@@ -62,6 +62,18 @@
 /* Custom format for RAW capture from M10MO 0x3130314d */
 #define V4L2_PIX_FMT_CUSTOM_M10MO_RAW	v4l2_fourcc('M', '1', '0', '1')
 
+/* Custom media bus formats being used in atomisp */
+#define V4L2_MBUS_FMT_CUSTOM_YUV420	0x8001
+#define V4L2_MBUS_FMT_CUSTOM_YVU420	0x8002
+#define V4L2_MBUS_FMT_CUSTOM_YUV422P	0x8003
+#define V4L2_MBUS_FMT_CUSTOM_YUV444	0x8004
+#define V4L2_MBUS_FMT_CUSTOM_NV12	0x8005
+#define V4L2_MBUS_FMT_CUSTOM_NV21	0x8006
+#define V4L2_MBUS_FMT_CUSTOM_NV16	0x8007
+#define V4L2_MBUS_FMT_CUSTOM_YUYV	0x8008
+#define V4L2_MBUS_FMT_CUSTOM_SBGGR16	0x8009
+#define V4L2_MBUS_FMT_CUSTOM_RGB32	0x800a
+
 /* Custom media bus format for M10MO RAW capture */
 #define V4L2_MBUS_FMT_CUSTOM_M10MO_RAW	0x800b
 
