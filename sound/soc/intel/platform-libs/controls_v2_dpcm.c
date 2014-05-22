@@ -1704,8 +1704,9 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"pcm0_in", NULL, "media0_out"},
 	{"pcm1_in", NULL, "media1_out"},
 
-	{"Headset Capture", NULL, "pcm1_out"},
-	{"Headset Capture", NULL, "pcm3_out"},
+	{"Headset Capture", NULL, "media2_out"},
+	{"media2_out", NULL, "pcm1_out"},
+	{"media2_out", NULL, "pcm3_out"},
 	{"pcm0_out", NULL, "pcm0_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("pcm0_out mix 0"),
 	{"pcm1_out", NULL, "pcm1_out mix 0"},
