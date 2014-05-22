@@ -83,6 +83,7 @@ static int is_hybridvp(struct dwc_otg2 *otg)
 
 static void usb2phy_eye_optimization(struct dwc_otg2 *otg)
 {
+	void __iomem *addr;
 	struct usb_phy *phy;
 	struct intel_dwc_otg_pdata *data;
 
@@ -95,7 +96,14 @@ static void usb2phy_eye_optimization(struct dwc_otg2 *otg)
 	if (!phy)
 		return;
 
-	usb_phy_io_write(phy, data->ulpi_eye_calibration, TUSB1211_VENDOR_SPECIFIC1_SET);
+	if ((data->usb2_phy_type == USB2_PHY_ULPI) && !!data->ulpi_eye_calibration)
+		usb_phy_io_write(phy, data->ulpi_eye_calibration, TUSB1211_VENDOR_SPECIFIC1_SET);
+	else if ((data->usb2_phy_type == USB2_PHY_UTMI) && !!data->utmi_eye_calibration) {
+		addr = ioremap_nocache(UTMI_PHY_USB2PERPORT, 4);
+		writel(data->utmi_eye_calibration, addr);
+		iounmap(addr);
+	} else
+		otg_info(otg, "usb2 phy eye optimization fail, use default setup!\n");
 
 	usb_put_phy(phy);
 }

@@ -233,4 +233,6 @@ struct intel_dwc_otg_pdata {
 #define MERR_SMIP_VIOLATE_BC_ADDR	0xFFFCE717
 #define SMIP_VIOLATE_BC_MASK	0x40
 
+/* UTMI(Intel) PHY USB2PERPORT register */
+#define UTMI_PHY_USB2PERPORT	0xf90B1200
 #endif /* __DWC3_INTEL_H */
