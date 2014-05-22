@@ -346,6 +346,7 @@ int m10mo_platform_identify_fw(void)
 			m10mo_sensor_platform_data.ref_clock_rate = 19200000;
 			m10mo_sensor_platform_data.spi_setup = NULL;
 			input_format = ATOMISP_INPUT_FORMAT_YUV420_8_LEGACY;
+			m10mo_camera_caps.multi_stream_ctrl = true;
 			fw_type = M10MO_FW_TYPE_2;
 		}
 	}
