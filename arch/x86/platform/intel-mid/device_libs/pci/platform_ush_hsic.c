@@ -73,7 +73,8 @@ static struct ush_hsic_pdata *get_hsic_platform_data(struct pci_dev *pdev)
 		pdata->has_hsic = 0;
 		pdata->has_ssic = 1;
 		pdata->ssic_port_num = 1;
-		pdata->ssic_enabled = 1;
+		/* Disable SSIC by default. Will enable it after everything is ready.*/
+		pdata->ssic_enabled = 0;
 		break;
 
 	default:
