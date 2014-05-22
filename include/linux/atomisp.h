@@ -59,6 +59,12 @@
  */
 #define ATOMISP_BUFFER_HAS_PER_FRAME_SETTING	0x80000000
 
+/* Custom format for RAW capture from M10MO 0x3130314d */
+#define V4L2_PIX_FMT_CUSTOM_M10MO_RAW	v4l2_fourcc('M', '1', '0', '1')
+
+/* Custom media bus format for M10MO RAW capture */
+#define V4L2_MBUS_FMT_CUSTOM_M10MO_RAW	0x800b
+
 /* Configuration used by Bayer noise reduction and YCC noise reduction */
 struct atomisp_nr_config {
 	/* [gain] Strength of noise reduction for Bayer NR (Used by Bayer NR) */
