@@ -497,7 +497,7 @@ static int store_trip_temp(struct thermal_zone_device *tzd,
 	struct thermal_device_info *td_info = tzd->devdata;
 	uint16_t alert_reg = alert_regs_h[trip][td_info->sensor->index];
 
-	if (trip_temp < 1000) {
+	if (trip_temp != 0 && trip_temp < 1000) {
 		dev_err(&tzd->device, "Temperature should be in mC\n");
 		return -EINVAL;
 	}
