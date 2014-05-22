@@ -37,6 +37,7 @@
 
 #define SST_V1_MAILBOX_RECV	0x800
 #define SST_V2_MAILBOX_RECV	0x400
+#define SST_V3_MAILBOX_RECV    0x1000
 
 #define MRFLD_FW_LSP_DDR_BASE 0xC5E00000
 #define MRFLD_FW_MOD_END (MRFLD_FW_LSP_DDR_BASE + 0x1FFFFF)
@@ -165,6 +166,12 @@ static const struct sst_ipc_info mrfld_ipc_info = {
 	.mbox_recv_off = SST_V2_MAILBOX_RECV,
 };
 
+static const struct sst_ipc_info moor_ipc_info = {
+	.use_32bit_ops = false,
+	.ipc_offset = 0,
+	.mbox_recv_off = SST_V3_MAILBOX_RECV,
+};
+
 static const struct sst_lib_dnld_info  mrfld_lib_dnld_info = {
 	.mod_base           = MRFLD_FW_LSP_DDR_BASE,
 	.mod_end            = MRFLD_FW_MOD_END,
@@ -209,9 +216,11 @@ static void set_mrfld_sst_config(struct sst_platform_info *sst_info)
 	/* By default set recovery to true for all mrfld based devices */
 	sst_info->enable_recovery = 1;
 	/* Disable recovery for MOFD V1 */
-	if (INTEL_MID_BOARD(2, PHONE, MOFD, V1, PRO) ||
-		 INTEL_MID_BOARD(2, PHONE, MOFD, V1, ENG))
+	if (INTEL_MID_BOARD(1, PHONE, MOFD) ||
+		 INTEL_MID_BOARD(1, PHONE, MOFD)) {
 		sst_info->enable_recovery = 0;
+		sst_info->ipc_info = &moor_ipc_info;
+	}
 
 	return ;
 
