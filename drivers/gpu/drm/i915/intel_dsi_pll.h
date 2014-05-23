@@ -27,7 +27,7 @@
 
 void intel_drrs_update_dsi_pll(struct intel_dsi *intel_dsi);
 int intel_drrs_configure_dsi_pll(struct intel_dsi *intel_dsi,
-			struct drm_display_mode *mode);
+			struct intel_dsi_mnp *intel_dsi_mnp);
 int intel_configure_dsi_pll(struct intel_dsi *intel_dsi,
 		struct drm_display_mode *mode);
 int intel_enable_dsi_pll(struct intel_dsi *intel_dsi);

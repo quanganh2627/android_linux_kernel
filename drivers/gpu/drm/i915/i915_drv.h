@@ -190,6 +190,12 @@ struct intel_link_m_n {
 	uint32_t	link_n;
 };
 
+struct intel_dsi_mnp {
+	uint32_t m;
+	uint32_t n;
+	uint32_t p;
+};
+
 void intel_link_compute_m_n(int bpp, int nlanes,
 			    int pixel_clock, int link_clock,
 			    struct intel_link_m_n *m_n);

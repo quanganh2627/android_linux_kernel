@@ -346,6 +346,11 @@ struct intel_crtc_config {
 	/* m2_n2 for eDP downclock */
 	struct intel_link_m_n dp_m2_n2;
 
+	struct intel_dsi_mnp dsi_mnp;
+
+	/* Divider values for DSI downclock */
+	struct intel_dsi_mnp dsi_mnp2;
+
 	/*
 	 * Frequence the dpll for the port should run at. Differs from the
 	 * adjusted dotclock e.g. for DP or 12bpc hdmi mode.

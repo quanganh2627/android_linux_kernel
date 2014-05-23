@@ -1039,10 +1039,10 @@ intel_dsi_set_drrs_state(struct intel_encoder *intel_encoder,
 
 	if (refresh_rate_type == DRRS_HIGH_RR)
 		intel_drrs_configure_dsi_pll(intel_dsi,
-				intel_connector->panel.fixed_mode);
+				&intel_crtc->config.dsi_mnp);
 	else
 		intel_drrs_configure_dsi_pll(intel_dsi,
-				intel_connector->panel.downclock_mode);
+				&intel_crtc->config.dsi_mnp2);
 	/* To bring in the new divider values */
 	intel_drrs_update_dsi_pll(intel_dsi);
 }
