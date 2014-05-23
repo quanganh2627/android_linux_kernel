@@ -49,10 +49,14 @@ extern struct snd_effect_ops effects_ops;
 
 /* module parameters */
 static int dpcm_enable;
+static int dfw_enable;
 
 /* dpcm_enable should be =0 for mofd_v0 and =1 for mofd_v1 */
 module_param(dpcm_enable, int, 0644);
 MODULE_PARM_DESC(dpcm_enable, "DPCM module parameter");
+/* dfw_enable should be =0 for mofd_v0 and =1 for mofd_v1 */
+module_param(dfw_enable, int, 0644);
+MODULE_PARM_DESC(dfw_enable, "DFW module parameter");
 
 static DEFINE_MUTEX(sst_dsp_lock);
 
@@ -999,7 +1003,9 @@ static int sst_soc_probe(struct snd_soc_platform *platform)
 			INTEL_MID_BOARD(1, TABLET, MRFL) ||
 			INTEL_MID_BOARD(1, PHONE, MOFD) ||
 			INTEL_MID_BOARD(1, TABLET, MOFD)) {
-		if (dpcm_enable == 1)
+		if (dpcm_enable == 1 && dfw_enable == 1)
+			ret = sst_dsp_init_v2_dpcm_dfw(platform);
+		else if (dpcm_enable == 1)
 			ret = sst_dsp_init_v2_dpcm(platform);
 		else
 			ret = sst_dsp_init(platform);
@@ -1008,6 +1014,8 @@ static int sst_soc_probe(struct snd_soc_platform *platform)
 		ret = snd_soc_register_effect(platform->card, &effects_ops);
 	}
 	if (INTEL_MID_BOARD(1, TABLET, CHT)) {
+		if (dpcm_enable == 1 && dfw_enable == 1)
+			ret = sst_dsp_init_v2_dpcm_dfw(platform);
 		if (dpcm_enable == 1)
 			ret = sst_dsp_init_v2_dpcm(platform);
 		else
