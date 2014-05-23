@@ -696,7 +696,8 @@ enum atomisp_ext_isp_id {
 	EXT_ISP_GET_AF_MODE_CTRL,
 	EXT_ISP_BURST_CAPTURE_CTRL,
 	EXT_ISP_FLASH_MODE_CTRL,
-	EXT_ISP_ZOOM_CTRL
+	EXT_ISP_ZOOM_CTRL,
+	EXT_ISP_CID_SHOT_MODE
 };
 
 #define EXT_ISP_FOCUS_MODE_NORMAL	0
@@ -732,6 +733,19 @@ enum atomisp_burst_capture_options {
 #define EXT_ISP_FLASH_MODE_AUTO		2
 #define EXT_ISP_LED_TORCH_OFF		3
 #define EXT_ISP_LED_TORCH_ON		4
+
+#define EXT_ISP_SHOT_MODE_AUTO		0
+#define EXT_ISP_SHOT_MODE_BEAUTY_FACE	1
+#define EXT_ISP_SHOT_MODE_BEST_PHOTO	2
+#define EXT_ISP_SHOT_MODE_DRAMA		3
+#define EXT_ISP_SHOT_MODE_BEST_FACE	4
+#define EXT_ISP_SHOT_MODE_ERASER	5
+#define EXT_ISP_SHOT_MODE_PANORAMA	6
+#define EXT_ISP_SHOT_MODE_RICH_TONE_HDR	7
+#define EXT_ISP_SHOT_MODE_NIGHT		8
+#define EXT_ISP_SHOT_MODE_SOUND_SHOT	9
+#define EXT_ISP_SHOT_MODE_ANIMATED_PHOTO	10
+#define EXT_ISP_SHOT_MODE_SPORTS	11
 
 struct atomisp_sp_arg {
 	enum atomisp_acc_arg_type type;	/* Type  of SP argument */
