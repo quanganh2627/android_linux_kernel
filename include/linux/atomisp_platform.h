@@ -49,8 +49,10 @@ enum atomisp_input_format {
 	ATOMISP_INPUT_FORMAT_YUV420_8_LEGACY,/* 8 bits per subpixel (legacy) */
 	ATOMISP_INPUT_FORMAT_YUV420_8, /* 8 bits per subpixel */
 	ATOMISP_INPUT_FORMAT_YUV420_10,/* 10 bits per subpixel */
+	ATOMISP_INPUT_FORMAT_YUV420_16,/* 16 bits per subpixel */
 	ATOMISP_INPUT_FORMAT_YUV422_8, /* UYVY..UVYV, 8 bits per subpixel */
 	ATOMISP_INPUT_FORMAT_YUV422_10,/* UYVY..UVYV, 10 bits per subpixel */
+	ATOMISP_INPUT_FORMAT_YUV422_16,/* UYVY..UVYV, 16 bits per subpixel */
 	ATOMISP_INPUT_FORMAT_RGB_444,  /* BGR..BGR, 4 bits per subpixel */
 	ATOMISP_INPUT_FORMAT_RGB_555,  /* BGR..BGR, 5 bits per subpixel */
 	ATOMISP_INPUT_FORMAT_RGB_565,  /* BGR..BGR, 5 bits B and R, 6 bits G */
