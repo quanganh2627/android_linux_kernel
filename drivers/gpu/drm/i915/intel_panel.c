@@ -963,6 +963,38 @@ int intel_panel_init(struct intel_panel *panel,
 }
 
 /*
+ * intel_dsi_calc_panel_downclock - calculate the reduced downclock for DSI
+ * @dev: drm device
+ * @fixed_mode : panel native mode
+ * @connector: DSI connector
+ *
+ * Return downclock_avail
+ * Calculate the reduced downclock for DSI.
+ */
+
+struct drm_display_mode *
+intel_dsi_calc_panel_downclock(struct drm_device *dev,
+			struct drm_display_mode *fixed_mode,
+			struct drm_connector *connector)
+{
+	struct drm_display_mode *downclock_mode;
+
+	/* Allocate */
+	downclock_mode = drm_mode_duplicate(dev, fixed_mode);
+	if (!downclock_mode) {
+		DRM_DEBUG_KMS("%s: No memory\n", __func__);
+		return NULL;
+	}
+
+	/* By default downclock refresh rate is 40 */
+	downclock_mode->vrefresh = 40;
+	downclock_mode->clock =  downclock_mode->vrefresh *
+		downclock_mode->vtotal * downclock_mode->htotal / 1000;
+
+	return downclock_mode;
+}
+
+/*
  * intel_find_panel_downclock - find the reduced downclock for LVDS in EDID
  * @dev: drm device
  * @fixed_mode : panel native mode

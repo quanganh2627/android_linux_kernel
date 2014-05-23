@@ -29,6 +29,7 @@
 #include <linux/mfd/intel_mid_pmic.h>
 #include "i915_drv.h"
 #include "intel_drv.h"
+#include "intel_dsi.h"
 #include "../../../platform/x86/intel_ips.h"
 #include <linux/module.h>
 #include <drm/i915_powerwell.h>
@@ -621,6 +622,68 @@ out_disable:
 	i915_gem_stolen_cleanup_compression(dev);
 }
 
+void intel_set_drrs_state(struct drm_device *dev, int refresh_rate)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_connector *intel_connector = dev_priv->drrs.connector;
+	struct intel_encoder *intel_encoder = NULL;
+	struct intel_crtc *intel_crtc = NULL;
+	enum drrs_refresh_rate_type index;
+
+	if (refresh_rate <= 0) {
+		DRM_INFO("Refresh rate should be positive non-zero.\n");
+		return;
+	}
+
+	if (intel_connector == NULL) {
+		DRM_DEBUG_KMS("DRRS is not supported on this encoder\n");
+		return;
+	}
+
+	intel_encoder = intel_attached_encoder(&intel_connector->base);
+	intel_crtc = intel_encoder->new_crtc;
+
+	if (!intel_crtc) {
+		DRM_DEBUG_KMS("DRRS: intel_crtc not initialized\n");
+		return;
+	}
+
+	if (dev_priv->drrs_state.type < SEAMLESS_DRRS_SUPPORT) {
+		DRM_INFO("Seamless DRRS not supported.\n");
+		return;
+	}
+
+	if (intel_connector->panel.fixed_mode->vrefresh == refresh_rate)
+		index = DRRS_HIGH_RR;
+	else
+		index = DRRS_LOW_RR;
+
+	if (index == dev_priv->drrs_state.refresh_rate_type) {
+		DRM_INFO("DRRS requested for previously set RR...ignoring\n");
+		return;
+	}
+
+	if (!intel_crtc->active) {
+		DRM_INFO("Encoder has been disabled. CRTC not Active\n");
+		return;
+	}
+
+	if (INTEL_INFO(dev)->gen > 6 && INTEL_INFO(dev)->gen < 8) {
+		intel_encoder->set_drrs_state(intel_encoder, index);
+	} else {
+		DRM_ERROR("DRRS not enabled for gen %d\n",
+							INTEL_INFO(dev)->gen);
+		return;
+	}
+
+	mutex_lock(&dev_priv->drrs_state.mutex);
+	dev_priv->drrs_state.refresh_rate_type = index;
+	mutex_unlock(&dev_priv->drrs_state.mutex);
+
+	DRM_INFO("Refresh Rate set to : %dHz\n", refresh_rate);
+}
+
+
 static void intel_drrs_work_fn(struct work_struct *__work)
 {
 	struct intel_drrs_work *work =
@@ -633,7 +696,7 @@ static void intel_drrs_work_fn(struct work_struct *__work)
 	if (dev_priv->drrs.is_clone)
 		return;
 
-	intel_dp_set_drrs_state(work->crtc->dev,
+	intel_set_drrs_state(work->crtc->dev,
 		dev_priv->drrs.connector->panel.downclock_mode->vrefresh);
 
 	/* Update Watermark Values */
@@ -645,22 +708,17 @@ static void intel_cancel_drrs_work(struct drm_i915_private *dev_priv)
 	if (dev_priv->drrs.drrs_work == NULL)
 		return;
 
+
 	cancel_delayed_work_sync(&dev_priv->drrs.drrs_work->work);
 }
 
 static void intel_enable_drrs(struct drm_crtc *crtc)
 {
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_dp *intel_dp = NULL;
-
-	intel_dp = enc_to_intel_dp(&dev_priv->drrs.connector->encoder->base);
-	if (intel_dp == NULL)
-		return;
+	struct drm_i915_private *dev_priv = crtc->dev->dev_private;
 
 	intel_cancel_drrs_work(dev_priv);
 
-	if (intel_dp->drrs_state.refresh_rate_type != DRRS_LOW_RR) {
+	if (dev_priv->drrs_state.refresh_rate_type != DRRS_LOW_RR) {
 		dev_priv->drrs.drrs_work->crtc = crtc;
 
 		/* Delay the actual enabling to let pageflipping cease and the
@@ -674,19 +732,14 @@ static void intel_enable_drrs(struct drm_crtc *crtc)
 void intel_disable_drrs(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_dp *intel_dp = NULL;
 
 	if (dev_priv->drrs.connector == NULL)
 		return;
 
-	intel_dp = enc_to_intel_dp(&dev_priv->drrs.connector->encoder->base);
-	if (intel_dp == NULL)
-		return;
-
 	/* as part of disable DRRS, reset refresh rate to HIGH_RR */
-	if (intel_dp->drrs_state.refresh_rate_type == DRRS_LOW_RR) {
+	if (dev_priv->drrs_state.refresh_rate_type == DRRS_LOW_RR) {
 		intel_cancel_drrs_work(dev_priv);
-		intel_dp_set_drrs_state(dev,
+		intel_set_drrs_state(dev,
 			dev_priv->drrs.connector->panel.fixed_mode->vrefresh);
 	}
 
@@ -763,6 +816,39 @@ void intel_init_drrs_idleness_detection(struct drm_device *dev,
 	INIT_DELAYED_WORK(&work->work, intel_drrs_work_fn);
 
 	dev_priv->drrs.drrs_work = work;
+}
+
+bool
+intel_drrs_init(struct drm_device *dev,
+			struct intel_connector *intel_connector,
+			struct drm_display_mode *downclock_mode) {
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/* DRRS will be extended to all gen 7+ platforms */
+	if (INTEL_INFO(dev)->gen <= 6 && INTEL_INFO(dev)->gen >= 8) {
+		DRM_ERROR("DRRS is not enabled on Gen %d\n",
+						INTEL_INFO(dev)->gen);
+		return false;
+	}
+
+	/* First check if DRRS is enabled from VBT struct */
+	if (dev_priv->vbt.drrs_type != SEAMLESS_DRRS_SUPPORT) {
+		DRM_INFO("VBT doesn't support SEAMLESS DRRS\n");
+		return false;
+	}
+
+	intel_connector->panel.downclock_avail = true;
+	intel_connector->panel.downclock =
+					downclock_mode->clock;
+
+	intel_init_drrs_idleness_detection(dev, intel_connector);
+	mutex_init(&dev_priv->drrs_state.mutex);
+
+	dev_priv->drrs_state.type = dev_priv->vbt.drrs_type;
+	dev_priv->drrs_state.refresh_rate_type = DRRS_HIGH_RR;
+	DRM_INFO("SEAMLESS DRRS supported on this panel.\n");
+
+	return true;
 }
 
 

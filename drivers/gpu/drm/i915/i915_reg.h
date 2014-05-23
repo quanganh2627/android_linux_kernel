@@ -1948,6 +1948,8 @@
 #define BCLRPAT(pipe) _PIPE(pipe, _BCLRPAT_A, _BCLRPAT_B)
 #define VSYNCSHIFT(trans) _TRANSCODER(trans, _VSYNCSHIFT_A, _VSYNCSHIFT_B)
 
+#define VERTICAL_ACTIVE_DISPLAY_MASK		(0xfff)
+
 /* HSW eDP PSR registers */
 #define EDP_PSR_CTL				0x64800
 #define   EDP_PSR_ENABLE			(1<<31)

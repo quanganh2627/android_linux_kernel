@@ -1023,6 +1023,30 @@ intel_dsi_add_properties(struct intel_dsi *intel_dsi,
 	intel_attach_scaling_src_size_property(connector);
 }
 
+void
+intel_dsi_set_drrs_state(struct intel_encoder *intel_encoder,
+			enum drrs_refresh_rate_type refresh_rate_type)
+{
+	struct drm_i915_private *dev_priv =
+				intel_encoder->base.dev->dev_private;
+	struct intel_connector *intel_connector = dev_priv->drrs.connector;
+	struct intel_dsi *intel_dsi = NULL;
+	struct intel_crtc *intel_crtc = NULL;
+
+	intel_encoder = intel_attached_encoder(&intel_connector->base);
+	intel_dsi = enc_to_intel_dsi(&intel_encoder->base);
+	intel_crtc = intel_encoder->new_crtc;
+
+	if (refresh_rate_type == DRRS_HIGH_RR)
+		intel_drrs_configure_dsi_pll(intel_dsi,
+				intel_connector->panel.fixed_mode);
+	else
+		intel_drrs_configure_dsi_pll(intel_dsi,
+				intel_connector->panel.downclock_mode);
+	/* To bring in the new divider values */
+	intel_drrs_update_dsi_pll(intel_dsi);
+}
+
 bool intel_dsi_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1032,6 +1056,7 @@ bool intel_dsi_init(struct drm_device *dev)
 	struct intel_connector *intel_connector;
 	struct drm_connector *connector;
 	struct drm_display_mode *fixed_mode = NULL;
+	struct drm_display_mode *downclock_mode = NULL;
 	const struct intel_dsi_device *dsi;
 	unsigned int i;
 
@@ -1065,6 +1090,7 @@ bool intel_dsi_init(struct drm_device *dev)
 	intel_encoder->post_disable = intel_dsi_post_disable;
 	intel_encoder->get_hw_state = intel_dsi_get_hw_state;
 	intel_encoder->get_config = intel_dsi_get_config;
+	intel_encoder->set_drrs_state = intel_dsi_set_drrs_state;
 
 	intel_connector->get_hw_state = intel_connector_get_hw_state;
 
@@ -1124,7 +1150,16 @@ bool intel_dsi_init(struct drm_device *dev)
 
 	dev_priv->is_mipi = true;
 	fixed_mode->type |= DRM_MODE_TYPE_PREFERRED;
-	intel_panel_init(&intel_connector->panel, fixed_mode, NULL);
+	if (INTEL_INFO(dev)->gen > 6) {
+		downclock_mode = intel_dsi_calc_panel_downclock(dev,
+							fixed_mode, connector);
+		if (downclock_mode)
+			intel_drrs_init(dev, intel_connector, downclock_mode);
+		else
+			DRM_DEBUG_KMS("Downclock_mode is not found\n");
+	}
+
+	intel_panel_init(&intel_connector->panel, fixed_mode, downclock_mode);
 	intel_panel_setup_backlight(connector);
 	intel_connector->panel.fitting_mode = 0;
 

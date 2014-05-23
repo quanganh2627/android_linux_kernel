@@ -666,6 +666,7 @@ struct drm_display_mode *generic_get_modes(struct intel_dsi_device *dsi)
 		DRM_DEBUG_DRIVER("Sending target timings");
 	}
 
+	target->vrefresh = drm_mode_vrefresh(target);
 	target->type |= DRM_MODE_TYPE_PREFERRED;
 	return target;
 }

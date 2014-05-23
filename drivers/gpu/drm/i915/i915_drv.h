@@ -673,6 +673,28 @@ enum no_psr_reason {
 	PSR_HSW_NOT_DDIA,
 };
 
+enum drrs_support_type {
+	DRRS_NOT_SUPPORTED = 0,
+	STATIC_DRRS_SUPPORT = 1,
+	SEAMLESS_DRRS_SUPPORT = 2
+};
+
+/*
+ * HIGH_RR is the highest panel refresh rate
+ * LOW_RR is the lowest panel refresh rate
+ */
+enum drrs_refresh_rate_type {
+	DRRS_HIGH_RR,
+	DRRS_LOW_RR,
+	DRRS_MAX_RR, /* RR count */
+};
+
+struct drrs_info {
+	enum drrs_support_type type;
+	enum drrs_refresh_rate_type refresh_rate_type;
+	struct mutex mutex;
+};
+
 struct i915_drrs {
 	struct intel_connector *connector;
 	bool is_clone;
@@ -1171,12 +1193,6 @@ enum modeset_restore {
 	MODESET_SUSPENDED,
 };
 
-enum drrs_support_type {
-	DRRS_NOT_SUPPORTED = 0,
-	STATIC_DRRS_SUPPORT = 1,
-	SEAMLESS_DRRS_SUPPORT = 2
-};
-
 struct intel_vbt_target_res {
 	int xres;
 	int yres;
@@ -1428,6 +1444,7 @@ typedef struct drm_i915_private {
 
 	struct i915_fbc fbc;
 	struct i915_drrs drrs;
+	struct drrs_info drrs_state;
 	struct intel_opregion opregion;
 	struct intel_vbt_data vbt;
 	/* Mismatch in required mode and panel native mode
