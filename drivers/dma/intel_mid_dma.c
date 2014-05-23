@@ -1086,7 +1086,8 @@ static struct dma_async_tx_descriptor *intel_mid_dma_prep_memcpy_v2(
 			else
 				return NULL;
 
-		} else if (midc->dma->pci_id == INTEL_MRFLD_GP_DMAC2_ID) {
+		} else if ((midc->dma->pci_id == INTEL_MRFLD_GP_DMAC2_ID) ||
+				(midc->dma->pci_id == PCI_DEVICE_ID_INTEL_GP_DMAC2_MOOR)) {
 			if (mids->dma_slave.direction == DMA_MEM_TO_DEV) {
 				cfg_hi.cfgx_v2.src_per = 0;
 
