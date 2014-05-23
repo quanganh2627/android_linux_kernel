@@ -21,6 +21,8 @@
 #include <linux/sizes.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/pxa2xx_spi.h>
+#include <linux/dma-mapping.h>
+#include <linux/intel_mid_dma.h>
 
 struct driver_data {
 	/* Driver model hookup */
@@ -66,6 +68,8 @@ struct driver_data {
 	int tx_nents;
 	void *dummy;
 	atomic_t dma_running;
+	struct intel_mid_dma_slave    dmas_tx;
+	struct intel_mid_dma_slave    dmas_rx;
 
 	/* Current message transfer state info */
 	struct spi_message *cur_msg;
@@ -195,6 +199,7 @@ extern int pxa2xx_spi_dma_prepare(struct driver_data *drv_data, u32 dma_burst);
 extern void pxa2xx_spi_dma_start(struct driver_data *drv_data);
 extern int pxa2xx_spi_dma_setup(struct driver_data *drv_data);
 extern void pxa2xx_spi_dma_release(struct driver_data *drv_data);
+extern void pxa2xx_spi_dma_suspend(struct driver_data *drv_data);
 extern void pxa2xx_spi_dma_resume(struct driver_data *drv_data);
 extern int pxa2xx_spi_set_dma_burst_and_threshold(struct chip_data *chip,
 						  struct spi_device *spi,
@@ -216,6 +221,7 @@ static inline int pxa2xx_spi_dma_setup(struct driver_data *drv_data)
 	return 0;
 }
 static inline void pxa2xx_spi_dma_release(struct driver_data *drv_data) {}
+static inline void pxa2xx_spi_dma_suspend(struct driver_data *drv_data) {}
 static inline void pxa2xx_spi_dma_resume(struct driver_data *drv_data) {}
 static inline int pxa2xx_spi_set_dma_burst_and_threshold(struct chip_data *chip,
 							 struct spi_device *spi,

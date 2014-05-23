@@ -250,6 +250,11 @@ void pxa2xx_spi_dma_release(struct driver_data *drv_data)
 	lpss_dma_unregister(lpss_dma);
 }
 
+void pxa2xx_spi_dma_suspend(struct driver_data *drv_data)
+{
+
+}
+
 void pxa2xx_spi_dma_resume(struct driver_data *drv_data)
 {
 

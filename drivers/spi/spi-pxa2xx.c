@@ -1275,6 +1275,9 @@ static int pxa2xx_spi_probe(struct platform_device *pdev)
 		goto out_error_master_alloc;
 	}
 
+	if ((drv_data->ssp_type == INTEL_SSP) && (drv_data->ssp->port_id != 5))
+		platform_info->enable_dma = true;
+
 	/* Setup DMA if requested */
 	drv_data->tx_channel = -1;
 	drv_data->rx_channel = -1;
@@ -1306,6 +1309,12 @@ static int pxa2xx_spi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "problem registering spi master\n");
 		goto out_error_clock_enabled;
 	}
+
+	if (!pdev->dev.dma_mask) {
+		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
+		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	}
+	dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
 
 	pm_runtime_set_autosuspend_delay(&pdev->dev, 50);
 	pm_runtime_use_autosuspend(&pdev->dev);
@@ -1392,8 +1401,6 @@ static int pxa2xx_spi_resume(struct device *dev)
 	struct ssp_device *ssp = drv_data->ssp;
 	int status = 0;
 
-	pxa2xx_spi_dma_resume(drv_data);
-
 	/* Enable the SSP clock */
 	clk_prepare_enable(ssp->clk);
 
@@ -1417,12 +1424,15 @@ static int pxa2xx_spi_runtime_suspend(struct device *dev)
 	struct driver_data *drv_data = dev_get_drvdata(dev);
 
 	clk_disable_unprepare(drv_data->ssp->clk);
+	pxa2xx_spi_dma_suspend(drv_data);
 	return 0;
 }
 
 static int pxa2xx_spi_runtime_resume(struct device *dev)
 {
 	struct driver_data *drv_data = dev_get_drvdata(dev);
+
+	pxa2xx_spi_dma_resume(drv_data);
 
 	clk_prepare_enable(drv_data->ssp->clk);
 
