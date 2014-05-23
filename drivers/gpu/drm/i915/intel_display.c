@@ -83,6 +83,7 @@ static void ironlake_crtc_clock_get(struct intel_crtc *crtc,
 static int intel_set_mode(struct drm_crtc *crtc, struct drm_display_mode *mode,
 			  int x, int y, struct drm_framebuffer *old_fb);
 
+static void intel_drop_scratch_page_for_fb(struct drm_i915_gem_object *obj);
 
 typedef struct {
 	int	min, max;
@@ -2127,6 +2128,7 @@ void intel_unpin_fb_obj(struct drm_i915_gem_object *obj)
 {
 	i915_gem_object_unpin_fence(obj);
 	i915_gem_object_unpin_from_display_plane(obj);
+	intel_drop_scratch_page_for_fb(obj);
 }
 
 int i915_enable_plane_reserved_reg_bit_2(struct drm_device *dev, void *data,
@@ -8368,7 +8370,7 @@ static void intel_crtc_destroy(struct drm_crtc *crtc)
 }
 
 static inline void
-intel_use_srcatch_page_for_fb(struct drm_i915_gem_object *obj)
+intel_use_scratch_page_for_fb(struct drm_i915_gem_object *obj)
 {
 	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
 	int ret;
@@ -8413,8 +8415,8 @@ intel_use_srcatch_page_for_fb(struct drm_i915_gem_object *obj)
 	}
 }
 
-static inline void
-intel_drop_srcatch_page_for_fb(struct drm_i915_gem_object *obj)
+static void
+intel_drop_scratch_page_for_fb(struct drm_i915_gem_object *obj)
 {
 	int ret;
 	/*
@@ -8426,14 +8428,15 @@ intel_drop_srcatch_page_for_fb(struct drm_i915_gem_object *obj)
 	 * for rendering. This is a valid assumption as there is no
 	 * such handling in driver for other regular fb objects also.
 	 */
-	if ((unsigned long)obj->pages ==
-				(unsigned long)obj) {
+	if ((unsigned long)obj->pages == (unsigned long)obj) {
 		ret = i915_gem_object_ggtt_unbind(obj);
 		/* EBUSY is ok: this means that pin count is still not zero */
-		if (ret && ret != -EBUSY)
+		if (!ret) {
+			ret = i915_gem_object_put_pages(obj);
+			if (!ret)
+				obj->has_dma_mapping = 0;
+		} else if (ret != -EBUSY)
 			DRM_ERROR("unbind error %d\n", ret);
-		i915_gem_object_put_pages(obj);
-		obj->has_dma_mapping = 0;
 	}
 }
 
@@ -8446,7 +8449,6 @@ void intel_unpin_work_fn(struct work_struct *__work)
 
 	mutex_lock(&dev->struct_mutex);
 	intel_unpin_fb_obj(work->old_fb_obj);
-	intel_drop_srcatch_page_for_fb(work->old_fb_obj);
 	drm_gem_object_unreference(&work->pending_flip_obj->base);
 	drm_gem_object_unreference(&work->old_fb_obj->base);
 
@@ -8785,7 +8787,7 @@ static int intel_gen7_queue_mmio_flip(struct drm_device *dev,
 	struct i915_flip_work *work = &flip_works[intel_crtc->plane];
 	int ret;
 
-	intel_use_srcatch_page_for_fb(obj);
+	intel_use_scratch_page_for_fb(obj);
 	ret = intel_pin_and_fence_fb_obj(dev, obj, obj->ring);
 	if (ret)
 		goto err;
