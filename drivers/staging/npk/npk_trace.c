@@ -72,10 +72,11 @@ static int chain_blks(struct npk_pci_device *npk_dev, u32 idx)
 
 			entry = (struct msu_blk_entry *)win->blk_list[j].blk;
 
-			entry->sw_tag = sw_tag;
+			entry->sw_tag.raw = sw_tag;
 			entry->blk_size = BLK_ENTRIES_PER_PAGE;
 			entry->next_blk_addr = next_blk_pa >> PAGE_SHIFT;
 			entry->next_win_addr = next_win_pa >> PAGE_SHIFT;
+			entry->hw_tag.raw = 0;
 		}
 	}
 
@@ -275,7 +276,7 @@ static int print_msu_info(unsigned long arg)
 				entry = (struct msu_blk_entry *)win->blk_list[j].blk;
 
 				pr_info("\t blk index: %d at 0x%p\n", j, entry);
-				pr_info("\t sw tag: %d\n", entry->sw_tag);
+				pr_info("\t sw tag: %d\n", entry->sw_tag.raw);
 				pr_info("\t blk size: %d\n", entry->blk_size);
 				pr_info("\t next blk: 0x%x\n", entry->next_blk_addr);
 				pr_info("\t next win: 0x%x\n", entry->next_win_addr);
@@ -846,6 +847,148 @@ static int npk_trace_mmap(struct file *filep, struct vm_area_struct *vma)
 	put_npk_dev();
 	return ret;
 }
+
+#ifndef NPK_PCI_STUB
+static int npk_get_current_window(struct npk_pci_device *npk_dev)
+{
+	struct npk_msu_reg *msu_reg;
+	u32 mscnwsa;
+	dma_addr_t next_win_pa;
+	int i, next;
+
+	msu_reg = &npk_dev->dev_info->msu_reg[msu_win->idx];
+
+	if (npk_reg_read_no_lock(msu_reg->mscnwsa, &mscnwsa))
+		return -EFAULT;
+
+	next_win_pa = mscnwsa << PAGE_SHIFT;
+
+	for (i = 0; i < msu_win->nr_of_wins; i++) {
+		if (i == msu_win->nr_of_wins - 1)
+			next = 0;
+		else
+			next = i + 1;
+		if (msu_win->win_list[next].blk_list[0].blk_pa == next_win_pa)
+			return i;
+	}
+
+	return -EFAULT;
+}
+#else
+static inline int npk_get_current_window(struct npk_pci_device *d) { return 0; }
+#endif
+
+int npk_win_get_ctx(struct msu_win_ctx *ctx)
+{
+	struct msu_blk_entry *hdr;
+	struct npk_pci_device *npk_dev = get_npk_dev();
+	int win;
+
+	if (!npk_dev)
+		return -ENODEV;
+
+	if (!msu_win) {
+		put_npk_dev();
+		return -ENODEV;
+	}
+
+	if (!ctx) {
+		put_npk_dev();
+		return -EINVAL;
+	}
+
+	ctx->nr_wins = msu_win->nr_of_wins;
+	ctx->nr_blks = msu_win->win_list->nr_of_blks;
+
+	win = npk_get_current_window(npk_dev);
+	if (win < 0) {
+		put_npk_dev();
+		return win;
+	}
+
+	ctx->cur_win = win;
+	hdr = (struct msu_blk_entry *)msu_win->win_list[win].blk_list[0].blk;
+	ctx->win_wrap = (bool)hdr->hw_tag.bits.window_wrapped;
+
+	/* TODO check threshold */
+	ctx->data_ready = true;
+
+	put_npk_dev();
+	return 0;
+}
+EXPORT_SYMBOL(npk_win_get_ctx);
+
+static int window_find_last_block(struct msu_window *win)
+{
+	struct msu_blk_entry *hdr;
+	int b;
+
+	for (b = 0; b < win->nr_of_blks; b++) {
+		hdr = (struct msu_blk_entry *)win->blk_list[b].blk;
+
+		if (!hdr)
+			return -1;
+
+		if (hdr->hw_tag.bits.end_block)
+			return b;
+	}
+
+	return -1;
+}
+
+int npk_win_get_ordered_blocks(int win, struct scatterlist *sg_array)
+{
+	struct msu_window *_win;
+	struct msu_blk_entry *hdr;
+	int start_block, end_block, nb_blocks, sg, b;
+	struct npk_pci_device *npk_dev = get_npk_dev();
+
+	if (!npk_dev)
+		return -ENODEV;
+
+	if (!msu_win) {
+		put_npk_dev();
+		return -ENODEV;
+	}
+
+	if (win < 0 || win >= msu_win->nr_of_wins || !sg_array) {
+		put_npk_dev();
+		return -EINVAL;
+	}
+
+	_win = &msu_win->win_list[win];
+	if (!_win) {
+		put_npk_dev();
+		return -EINVAL;
+	}
+
+	/* Get index of last block written */
+	end_block = window_find_last_block(_win);
+	if (end_block == -1) {
+		put_npk_dev();
+		return -EFAULT;
+	}
+
+	hdr = (struct msu_blk_entry *)_win->blk_list[0].blk;
+	if (hdr->hw_tag.bits.block_wrapped) {
+		nb_blocks = _win->nr_of_blks;
+		start_block = (end_block + 1) % nb_blocks;
+	} else {
+		nb_blocks = end_block + 1;
+		start_block = 0;
+	}
+
+	sg_init_table(sg_array, nb_blocks);
+	for (sg = 0, b = start_block; sg < nb_blocks; sg++, b = (b + 1) % nb_blocks) {
+		sg_set_buf(&sg_array[sg], _win->blk_list[b].blk, PAGE_SIZE);
+		if (b == end_block)
+			sg_mark_end(&sg_array[sg]);
+	}
+
+	put_npk_dev();
+	return sg;
+}
+EXPORT_SYMBOL(npk_win_get_ordered_blocks);
 
 static long npk_trace_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 {

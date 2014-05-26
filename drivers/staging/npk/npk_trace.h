@@ -44,20 +44,50 @@ struct msu_ctx {
 	u32 right;
 };
 
+union software_tag {
+	u32 raw;
+	struct {
+		u32 last_block:1;
+		u32 last_window:1;
+		u32 reserved:30;
+	} bits;
+} __packed;
+
+union hardware_tag {
+	u32 raw;
+	struct {
+		u32 trigger_present:1;
+		u32 block_wrapped:1;
+		u32 window_wrapped:1;
+		u32 end_block:1;
+		u32 reserved:28;
+	} bits;
+} __packed;
+
 struct msu_blk_entry {
-	u32 sw_tag;
+	union software_tag sw_tag;
 	u32 blk_size;
 	u32 next_blk_addr;
 	u32 next_win_addr;
 	u32 reserved[4];
-	u32 hw_tag;
+	union hardware_tag hw_tag;
 	u32 len;
 	u32 timestamp_l;
 	u32 timestamp_h;
 	u32 reserved1[4];
 } __packed;
 
+struct msu_win_ctx {
+	int nr_wins;
+	int nr_blks;
+	int cur_win;
+	bool win_wrap;
+	bool data_ready;
+};
+
 int npk_trace_start(void);
 int npk_trace_stop(void);
+int npk_win_get_ctx(struct msu_win_ctx *ctx);
+int npk_win_get_ordered_blocks(int win, struct scatterlist *sg_array);
 
 #endif /* _NPK_TRACE_H */
