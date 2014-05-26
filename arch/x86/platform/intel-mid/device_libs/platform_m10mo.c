@@ -323,6 +323,7 @@ static struct m10mo_platform_data m10mo_sensor_platform_data = {
 	.spi_pdata.spi_dataout_flis	= ann_gp_ssp_6_txd, /* Board specific */
 	.spi_pdata.spi_datain_flis	= ann_gp_ssp_6_rxd, /* Board specific */
 	.spi_pdata.spi_cs_flis		= ann_gp_ssp_6_fs, /* Board specific */
+	.def_fw_type    = M10MO_FW_TYPE_0,
 	.ref_clock_rate = 24000000, /* Board specific */
 	.fw_ids		= fw_ids,
 	.spi_setup	= setup_m10mo_spi,
