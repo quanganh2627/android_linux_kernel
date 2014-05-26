@@ -18,6 +18,24 @@
 #define BCOVE_GPADC_CH_NUM	9
 #define SCOVE_GPADC_CH_NUM	12
 
+
+#ifdef CONFIG_WHISKEY_COVE
+
+#define WCOVE_VENDORID	0x00
+#define WCOVE_GPADC_CH_NUM	12
+#define MUSBID		(1 << 5)
+#define MPEAK		(1 << 6)
+#define MBATTEMP	(1 << 3)
+#define MSYSTEMP	(1 << 2)
+#define MBATT		(1 << 1)
+#define MVIBATT		(1 << 0)
+#define MGPMEAS		(1 << 4)
+#define MCCTICK		(1 << 7)
+#define PMIC_SPARE03_ADDR	0x5FC2
+#define PMIC_ID_ADDR		0x6E00
+
+#else
+
 #define MUSBID		(1 << 0)
 #define MPEAK		(1 << 1)
 #define MBATTEMP	(1 << 2)
@@ -27,9 +45,11 @@
 #define MGPMEAS		(1 << 6)
 #define MCCTICK		(1 << 7)
 
+#endif
+
 #define GPADC_RSL(channel, res) (res->data[ffs(channel)-1])
 
-/* Constants defined specific to ShadyCove PMIC */
+/* Constants defined specific to SC PMIC and WC PMIC*/
 #define PMIC_DIE_ADC_MIN	0x35
 #define PMIC_DIE_ADC_MAX	0x4C6D
 #define PMIC_DIE_TEMP_MIN	-40 /* in C */
@@ -37,7 +57,6 @@
 #define ADC_COEFFICIENT		269
 #define TEMP_OFFSET		273150 /* in mC */
 
-#define PMIC_ID_ADDR    0x00
 #define PMIC_VENDOR_ID_MASK     (0x03 << 6)
 #define PMIC_MINOR_REV_MASK     0x07
 #define PMIC_MAJOR_REV_MASK     (0x07 << 3)
@@ -49,10 +68,19 @@
 #define PMIC_MINOR_REV_X0       0x00
 #define PMIC_MINOR_REV_X1       (0x01 << 0)
 
-/* Register on I2C-dev2-0x6E */
-#define PMIC_SPARE03_ADDR	0x010B
 #define PMIC_PROVISIONED	(0x01 << 1)
 #define PMIC_PROV_MASK		(0x03 << 0)
+
+#ifdef CONFIG_WHISKEY_COVE
+#define GPADC_NUM_CHANNELS	WCOVE_GPADC_CH_NUM
+#define DRIVERNAME	"whiskey_cove_adc"
+#else
+#define GPADC_NUM_CHANNELS	SCOVE_GPADC_CH_NUM
+#define DRIVERNAME	"bcove_adc"
+#define PMIC_ID_ADDR		0x00
+/* Register on I2C-dev2-0x6E */
+#define PMIC_SPARE03_ADDR	0x010B
+#endif
 
 enum gpadc_channel_type {
 	PMIC_GPADC_CHANNEL_VBUS = 0,
@@ -106,6 +134,18 @@ struct intel_basincove_gpadc_platform_data {
 struct gpadc_result {
 	int data[SCOVE_GPADC_CH_NUM];
 };
+
+#ifdef CONFIG_ACPI
+static inline bool is_whiskey_cove()
+{
+	return true;
+}
+#else
+static inline bool is_whiskey_cove()
+{
+	return false;
+}
+#endif
 
 extern int shadycove_pmic_adc_temp_conv(int, int *, int);
 

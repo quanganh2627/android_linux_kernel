@@ -215,8 +215,10 @@ void __init *bcove_adc_platform_data(void *info)
 
 	install_irq_resource(pdev, entry->irq);
 
+#ifndef CONFIG_ACPI
 	register_rpmsg_service("rpmsg_bcove_adc", RPROC_SCU,
 				RP_BCOVE_ADC);
+#endif
 out:
 	return &bcove_adc_pdata;
 }

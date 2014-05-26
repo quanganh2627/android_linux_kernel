@@ -77,6 +77,7 @@ obj-$(subst m,y,$(CONFIG_KEYBOARD_GPIO)) += platform_gpio_keys.o
 # ADC
 obj-$(subst m,y,$(CONFIG_MSIC_GPADC))	+= platform_msic_adc.o
 obj-$(subst m,y,$(CONFIG_IIO_BASINCOVE_GPADC))	+= platform_bcove_adc.o
+obj-$(subst m,y,$(CONFIG_WHISKEY_COVE))	+= platform_bcove_adc.o
 obj-$(subst m,y,$(CONFIG_IIO_SCALE_GPADC))	+= platform_scale_adc.o
 # UART Devices
 obj-$(subst m,y,$(CONFIG_SERIAL_MFD_HSU_EXT)) += platform_hsu.o
