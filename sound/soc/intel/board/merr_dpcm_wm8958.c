@@ -30,7 +30,6 @@
 #include <linux/async.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
-#include <asm/intel_scu_pmic.h>
 #include <asm/intel_mid_rpmsg.h>
 #include <asm/platform_mrfld_audio.h>
 #include <asm/intel_sst_mrfld.h>
@@ -64,7 +63,6 @@
 struct mrfld_8958_mc_private {
 	struct snd_soc_jack jack;
 	int jack_retry;
-	u8 pmic_id;
 	void __iomem    *osc_clk0_reg;
 	int spk_gpio;
 };
@@ -335,53 +333,11 @@ static int mrfld_8958_set_spk_boost(struct snd_soc_dapm_widget *w,
 
 	return ret;
 }
-#define PMIC_ID_ADDR		0x00
-#define PMIC_CHIP_ID_A0_VAL	0xC0
-
-static int mrfld_8958_set_vflex_vsel(struct snd_soc_dapm_widget *w,
-				struct snd_kcontrol *k, int event)
-{
-#define VFLEXCNT		0xAB
-#define VFLEXVSEL_5V		0x01
-#define VFLEXVSEL_B0_VSYS_PT	0x80	/* B0: Vsys pass-through */
-#define VFLEXVSEL_A0_4P5V	0x41	/* A0: 4.5V */
-
-	struct snd_soc_dapm_context *dapm = w->dapm;
-	struct snd_soc_card *card = dapm->card;
-	struct mrfld_8958_mc_private *ctx = snd_soc_card_get_drvdata(card);
-
-	u8 vflexvsel, pmic_id = ctx->pmic_id;
-	int retval = 0;
-
-	pr_debug("%s: ON? %d\n", __func__, SND_SOC_DAPM_EVENT_ON(event));
-
-	vflexvsel = (pmic_id == PMIC_CHIP_ID_A0_VAL) ? VFLEXVSEL_A0_4P5V : VFLEXVSEL_B0_VSYS_PT;
-	pr_debug("pmic_id %#x vflexvsel %#x\n", pmic_id,
-		SND_SOC_DAPM_EVENT_ON(event) ? VFLEXVSEL_5V : vflexvsel);
-
-	/*FIXME: seems to be issue with bypass mode in MOOR, for now
-		force the bias off volate as VFLEXVSEL_5V */
-	if ((INTEL_MID_BOARD(1, PHONE, MOFD)) ||
-			(INTEL_MID_BOARD(1, TABLET, MOFD)))
-		vflexvsel = VFLEXVSEL_5V;
-
-	if (SND_SOC_DAPM_EVENT_ON(event))
-		retval = intel_scu_ipc_iowrite8(VFLEXCNT, VFLEXVSEL_5V);
-	else if (SND_SOC_DAPM_EVENT_OFF(event))
-		retval = intel_scu_ipc_iowrite8(VFLEXCNT, vflexvsel);
-	if (retval)
-		pr_err("Error writing to VFLEXCNT register\n");
-
-	return retval;
-}
 
 static const struct snd_soc_dapm_widget widgets[] = {
 	SND_SOC_DAPM_HP("Headphones", NULL),
 	SND_SOC_DAPM_MIC("AMIC", NULL),
 	SND_SOC_DAPM_MIC("DMIC", NULL),
-	SND_SOC_DAPM_SUPPLY("VFLEXCNT", SND_SOC_NOPM, 0, 0,
-			mrfld_8958_set_vflex_vsel,
-			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 };
 static const struct snd_soc_dapm_widget spk_boost_widget[] = {
 	/* DAPM route is added only for Moorefield */
@@ -424,9 +380,6 @@ static const struct snd_soc_dapm_route map[] = {
 
 	{ "ssp1 Tx", NULL, "bt_fm_out"},
 	{ "bt_fm_in", NULL, "ssp1 Rx" },
-
-	{ "AIF1 Playback", NULL, "VFLEXCNT" },
-	{ "AIF1 Capture", NULL, "VFLEXCNT" },
 };
 static const struct snd_soc_dapm_route mofd_spk_boost_map[] = {
 	{"SPKOUTLP", NULL, "SPK_BOOST"},
@@ -944,12 +897,6 @@ static int snd_mrfld_8958_mc_probe(struct platform_device *pdev)
 	if (!drv->osc_clk0_reg) {
 		pr_err("osc clk0 ctrl ioremap failed\n");
 		ret_val = -1;
-		goto unalloc;
-	}
-
-	ret_val = intel_scu_ipc_ioread8(PMIC_ID_ADDR, &drv->pmic_id);
-	if (ret_val) {
-		pr_err("Error reading PMIC ID register\n");
 		goto unalloc;
 	}
 
