@@ -47,6 +47,7 @@ struct m10mo_platform_data {
 	struct camera_sensor_platform_data common;
 	struct m10mo_atomisp_spi_platform_data spi_pdata;
 	int ref_clock_rate;
+	unsigned int def_fw_type;
 	struct m10mo_fw_id *fw_ids;
 	void (*spi_setup)(struct m10mo_atomisp_spi_platform_data *spi_pdata,
 			  void *data);
