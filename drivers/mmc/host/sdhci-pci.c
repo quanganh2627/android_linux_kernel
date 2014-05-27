@@ -958,8 +958,7 @@ static void intel_moor_sdio_remove_slot(struct sdhci_pci_slot *slot, int dead)
 
 static const struct sdhci_pci_fixes sdhci_intel_moor_emmc = {
 	.quirks		= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
-	.quirks2	= SDHCI_QUIRK2_BROKEN_AUTO_CMD23 |
-				SDHCI_QUIRK2_HIGH_SPEED_SET_LATE,
+	.quirks2	= SDHCI_QUIRK2_HIGH_SPEED_SET_LATE,
 	.allow_runtime_pm = true,
 	.probe_slot	= intel_moor_emmc_probe_slot,
 	.remove_slot	= intel_moor_emmc_remove_slot,
@@ -967,8 +966,7 @@ static const struct sdhci_pci_fixes sdhci_intel_moor_emmc = {
 
 static const struct sdhci_pci_fixes sdhci_intel_moor_sd = {
 	.quirks		= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
-	.quirks2	= SDHCI_QUIRK2_BROKEN_AUTO_CMD23 |
-				SDHCI_QUIRK2_HIGH_SPEED_SET_LATE,
+	.quirks2	= SDHCI_QUIRK2_HIGH_SPEED_SET_LATE,
 	.allow_runtime_pm = true,
 	.probe_slot	= intel_moor_sd_probe_slot,
 	.remove_slot	= intel_moor_sd_remove_slot,
@@ -976,8 +974,7 @@ static const struct sdhci_pci_fixes sdhci_intel_moor_sd = {
 
 static const struct sdhci_pci_fixes sdhci_intel_moor_sdio = {
 	.quirks		= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
-	.quirks2	= SDHCI_QUIRK2_BROKEN_AUTO_CMD23 |
-				SDHCI_QUIRK2_HIGH_SPEED_SET_LATE |
+	.quirks2	= SDHCI_QUIRK2_HIGH_SPEED_SET_LATE |
 				SDHCI_QUIRK2_FAKE_VDD |
 				SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.allow_runtime_pm = true,
