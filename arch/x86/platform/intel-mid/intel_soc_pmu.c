@@ -1302,6 +1302,19 @@ unlock:
 }
 EXPORT_SYMBOL(pmu_nc_get_power_state);
 
+void pmu_set_s0i1_disp_vote(bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&mid_pmu_cxt->nc_ready_lock, flags);
+
+	if (pmu_ops->set_s0i1_disp_vote)
+		pmu_ops->set_s0i1_disp_vote(enable);
+
+	spin_unlock_irqrestore(&mid_pmu_cxt->nc_ready_lock, flags);
+}
+EXPORT_SYMBOL(pmu_set_s0i1_disp_vote);
+
 /*
 * update_dev_res - Calulates & Updates the device residency when
 * a device state change occurs.

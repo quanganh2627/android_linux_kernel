@@ -400,6 +400,7 @@ struct platform_pmu_ops {
 	pci_power_t (*pci_choose_state) (int);
 	void (*set_power_state_ops) (int);
 	void (*set_s0ix_complete) (void);
+	void (*set_s0i1_disp_vote) (bool);
 	int (*nc_set_power_state) (int, int, int, int *);
 	bool (*check_nc_sc_status) (void);
 };

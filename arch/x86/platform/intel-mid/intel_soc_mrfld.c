@@ -367,6 +367,24 @@ static int mrfld_nc_set_power_state(int islands, int state_type,
 	return ret;
 }
 
+/* Provide s0i1-display vote to display driver. We add this operation in pmu
+ * driver to sync operation with display island power on/off with touching
+ * the same register.
+ * register also defined:  linux/modules/intel_media/display/tng/drv/pmu_tng.h */
+#define DSP_SS_PM 0x36
+#define PUNIT_DSPSSPM_ENABLE_S0i1_DISPLAY     (1<<8)
+static void set_s0i1_disp_vote(bool enable)
+{
+	u32 dsp_ss_pm_val = intel_mid_msgbus_read32(PUNIT_PORT, DSP_SS_PM);
+
+	if (enable)
+		dsp_ss_pm_val |= PUNIT_DSPSSPM_ENABLE_S0i1_DISPLAY;
+	else
+		dsp_ss_pm_val &= ~PUNIT_DSPSSPM_ENABLE_S0i1_DISPLAY;
+
+	intel_mid_msgbus_write32(PUNIT_PORT, DSP_SS_PM, dsp_ss_pm_val);
+}
+
 void s0ix_complete(void)
 {
 	if (mid_pmu_cxt->s0ix_entered) {
@@ -403,10 +421,12 @@ ret:
 }
 EXPORT_SYMBOL(could_do_s0ix);
 
+
 struct platform_pmu_ops mrfld_pmu_ops = {
 	.init	 = mrfld_pmu_init,
 	.enter	 = mrfld_pmu_enter,
 	.set_s0ix_complete = s0ix_complete,
+	.set_s0i1_disp_vote = set_s0i1_disp_vote,
 	.nc_set_power_state = mrfld_nc_set_power_state,
 	.check_nc_sc_status = mrfld_nc_sc_status_check,
 };
