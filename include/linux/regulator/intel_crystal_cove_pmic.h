@@ -52,36 +52,36 @@ struct regulator_info {
 };
 
 /* Voltage tables for Regulators */
-static const u16 V2P85S_VSEL_TABLE[] = {
-	2565, 2700, 2850, 2900, 2950, 3000, 3135, 3300,
+static const unsigned int V2P85S_VSEL_TABLE[] = {
+	2565000, 2700000, 2850000, 2900000, 2950000, 3000000, 3135000, 3300000,
 };
 
-static const u16 V2P85SX_VSEL_TABLE[] = {
-	2900,
+static const unsigned int V2P85SX_VSEL_TABLE[] = {
+	2900000,
 };
 
-static const u16 V3P3SX_VSEL_TABLE[] = {
-	3332,
+static const unsigned int V3P3SX_VSEL_TABLE[] = {
+	3332000,
 };
 
-static const u16 V1P8S_VSEL_TABLE[] = {
-	1817,
+static const unsigned int  V1P8S_VSEL_TABLE[] = {
+	1817000,
 };
 
-static const u16 V1P8SX_VSEL_TABLE[] = {
-	1817,
+static const unsigned int  V1P8SX_VSEL_TABLE[] = {
+	1817000,
 };
 
-static const u16 VSYS_S_VSEL_TABLE[] = {
-	4200,
+static const unsigned int  VSYS_S_VSEL_TABLE[] = {
+	4200000,
 };
 
-static const u16 V1P0A_VSEL_TABLE[] = {
-	900, 950, 1000, 1020, 1030, 1050, 1100,
+static const unsigned V1P0A_VSEL_TABLE[] = {
+	900000, 950000, 1000000, 1020000, 1030000, 1050000, 1100000,
 };
 
-static const u16 V1P8A_VSEL_TABLE[] = {
-	1620, 1710, 1800, 1836, 1854, 1890, 1980,
+static const unsigned V1P8A_VSEL_TABLE[] = {
+	1620000, 1710000, 1800000, 1836000, 1854000, 1890000, 1980000,
 };
 
 struct pmic_regulator_gpio_en {
