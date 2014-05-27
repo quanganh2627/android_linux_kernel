@@ -174,6 +174,15 @@ static int ssic_port_enable(struct xhci_hcd *xhci, int enable)
 			dev_dbg(&ssic_pci_dev->dev,
 					"%s----> enable port\n", __func__);
 
+			/* In Cherryview, REGISTER_BANK_VALID is lost after D3/D0 transition.
+			 * Make sure this bit is set before PROG_DONE bit is set
+			 */
+			temp = xhci_readl(xhci, &ssic_hcd.profile_regs->access_control);
+			if (!(temp & REGISTER_BANK_VALID)) {
+				temp |= REGISTER_BANK_VALID;
+				xhci_writel(xhci, temp, &ssic_hcd.profile_regs->access_control);
+			}
+
 			/* Config SSIC Configuration Register2 */
 			temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2);
 			xhci_dbg(xhci, "Config Register2 = 0x%08X before write\n", temp);
