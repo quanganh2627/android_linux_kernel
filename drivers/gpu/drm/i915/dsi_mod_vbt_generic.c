@@ -214,16 +214,17 @@ static void generic_exec_sequence(struct intel_dsi *intel_dsi, char *sequence)
 
 static void generic_get_panel_info(int pipe, struct drm_connector *connector)
 {
+	struct intel_connector *intel_connector = to_intel_connector(connector);
+
 	DRM_DEBUG_KMS("\n");
+
 	if (!connector)
 		return;
 
 	if (pipe == 0) {
-		/* FIXME: Fill from VBT */
-		connector->display_info.width_mm = 0;
-		connector->display_info.height_mm = 0;
+		connector->display_info.width_mm = intel_connector->panel.fixed_mode->width_mm;
+		connector->display_info.height_mm =  intel_connector->panel.fixed_mode->height_mm;
 	}
-
 	return;
 }
 
