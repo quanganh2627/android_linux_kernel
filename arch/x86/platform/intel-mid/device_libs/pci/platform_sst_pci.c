@@ -45,6 +45,11 @@
 #define MRFLD_FW_MOD_TABLE_OFFSET 0x80000
 #define MRFLD_FW_MOD_TABLE_SIZE 0x100
 
+#define MOFD_FW_LSP_DDR_BASE 0xC5E00000
+#define MOFD_FW_MOD_END (MRFLD_FW_LSP_DDR_BASE + 0x1FFFFF)
+#define MOFD_FW_MOD_TABLE_OFFSET 0x100000
+#define MOFD_FW_MOD_TABLE_SIZE 0x100
+
 struct sst_platform_info sst_data;
 
 static struct sst_ssp_info ssp_inf_ctp = {
@@ -189,6 +194,14 @@ static const struct sst_lib_dnld_info  mrfld_lib_dnld_info = {
 	.mod_ddr_dnld       = true,
 };
 
+static const struct sst_lib_dnld_info  mofd_lib_dnld_info = {
+	.mod_base           = MOFD_FW_LSP_DDR_BASE,
+	.mod_end            = MOFD_FW_MOD_END,
+	.mod_table_offset   = MOFD_FW_MOD_TABLE_OFFSET,
+	.mod_table_size     = MOFD_FW_MOD_TABLE_SIZE,
+	.mod_ddr_dnld       = true,
+};
+
 static int set_ctp_sst_config(struct sst_platform_info *sst_info)
 {
 	unsigned int conf_len;
@@ -224,18 +237,26 @@ static void set_mrfld_sst_config(struct sst_platform_info *sst_info)
 	sst_info->lib_info = &mrfld_lib_dnld_info;
 	/* By default set recovery to true for all mrfld based devices */
 	sst_info->enable_recovery = 1;
-	/* Disable recovery for MOFD V1 */
-	if (INTEL_MID_BOARD(1, PHONE, MOFD) ||
-		 INTEL_MID_BOARD(1, PHONE, MOFD)) {
-		sst_info->enable_recovery = 0;
-		sst_info->ipc_info = &moor_ipc_info;
-		sst_info->debugfs_data = &moor_debugfs_data;
-	}
 
 	return ;
 
 }
 
+static void set_mofd_sst_config(struct sst_platform_info *sst_info)
+{
+	sst_info->ssp_data = &ssp_inf_mrfld;
+	sst_info->pdata = &sst_mrfld_pdata;
+	sst_info->bdata = NULL;
+	sst_info->probe_data = &mrfld_sst_info;
+	sst_info->ipc_info = &moor_ipc_info;
+	sst_info->debugfs_data = &moor_debugfs_data;
+	sst_info->lib_info = &mofd_lib_dnld_info;
+
+	sst_info->enable_recovery = 0;
+
+	return ;
+
+}
 static struct sst_platform_info *get_sst_platform_data(struct pci_dev *pdev)
 {
 	int ret;
@@ -249,8 +270,11 @@ static struct sst_platform_info *get_sst_platform_data(struct pci_dev *pdev)
 		sst_pinfo = &sst_data;
 		break;
 	case PCI_DEVICE_ID_INTEL_SST_MRFLD:
-	case PCI_DEVICE_ID_INTEL_SST_MOOR:
 		set_mrfld_sst_config(&sst_data);
+		sst_pinfo = &sst_data;
+		break;
+	case PCI_DEVICE_ID_INTEL_SST_MOOR:
+		set_mofd_sst_config(&sst_data);
 		sst_pinfo = &sst_data;
 		break;
 	default:
