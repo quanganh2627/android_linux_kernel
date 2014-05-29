@@ -34,8 +34,8 @@
 #include "platform_camera.h"
 #include "platform_m10mo.h"
 
-#define OSC_CAM_CLK 0x1
-#define CLK_19P2MHz 0x1
+#define OSC_CAM_CLK 0x0
+#define CLK_19P2MHz 0x0
 
 #ifdef CONFIG_CRYSTAL_COVE
 #define VPROG_2P8V 0x5d
