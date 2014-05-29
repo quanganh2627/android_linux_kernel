@@ -43,7 +43,7 @@
 #define SDHCI_USE_LEDS_CLASS
 #endif
 
-#define MAX_TUNING_LOOP 40
+#define MAX_TUNING_LOOP 41
 
 static unsigned int debug_quirks = 0;
 static unsigned int debug_quirks2;
