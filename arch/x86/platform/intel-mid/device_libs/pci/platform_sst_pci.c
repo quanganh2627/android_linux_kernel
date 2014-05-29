@@ -33,6 +33,7 @@
 #define DMA_SIZE_MRFLD 0x4000
 #define SST_CHECKPOINT_OFFSET 0x1C00
 #define SST_CHECKPOINT_OFFSET_MRFLD 0x0C00
+#define SST_CHECKPOINT_OFFSET_MOFD 0x0600
 #define CHECKPOINT_DUMP_SZ 256
 
 #define SST_V1_MAILBOX_RECV	0x800
@@ -160,6 +161,14 @@ static struct sst_platform_debugfs_data mrfld_debugfs_data = {
 	.checkpoint_size = CHECKPOINT_DUMP_SZ,
 };
 
+static struct sst_platform_debugfs_data moor_debugfs_data = {
+	.ssp_reg_size = SSP_SIZE,
+	.dma_reg_size = DMA_SIZE_MRFLD,
+	.num_ssp = 3,
+	.num_dma = 2,
+	.checkpoint_offset = SST_CHECKPOINT_OFFSET_MOFD,
+	.checkpoint_size = CHECKPOINT_DUMP_SZ,
+};
 static const struct sst_ipc_info mrfld_ipc_info = {
 	.use_32bit_ops = false,
 	.ipc_offset = 0,
@@ -220,6 +229,7 @@ static void set_mrfld_sst_config(struct sst_platform_info *sst_info)
 		 INTEL_MID_BOARD(1, PHONE, MOFD)) {
 		sst_info->enable_recovery = 0;
 		sst_info->ipc_info = &moor_ipc_info;
+		sst_info->debugfs_data = &moor_debugfs_data;
 	}
 
 	return ;
