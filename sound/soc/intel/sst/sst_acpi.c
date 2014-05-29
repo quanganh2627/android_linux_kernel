@@ -185,6 +185,7 @@ static const struct sst_lib_dnld_info  byt_lib_dnld_info = {
 	.mod_end            = SST_BYT_IMR_VIRT_END,
 	.mod_table_offset   = BYT_FW_MOD_TABLE_OFFSET,
 	.mod_table_size     = BYT_FW_MOD_TABLE_SIZE,
+	.mod_offset	    = BYT_FW_MOD_OFFSET,
 	.mod_ddr_dnld       = true,
 };
 

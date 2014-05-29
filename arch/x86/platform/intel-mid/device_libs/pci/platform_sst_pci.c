@@ -44,10 +44,13 @@
 #define MRFLD_FW_MOD_END (MRFLD_FW_LSP_DDR_BASE + 0x1FFFFF)
 #define MRFLD_FW_MOD_TABLE_OFFSET 0x80000
 #define MRFLD_FW_MOD_TABLE_SIZE 0x100
+#define MRFLD_FW_MOD_OFFSET (MRFLD_FW_MOD_TABLE_OFFSET + MRFLD_FW_MOD_TABLE_SIZE)
+
 
 #define MOFD_FW_LSP_DDR_BASE 0xC5E00000
 #define MOFD_FW_MOD_END (MRFLD_FW_LSP_DDR_BASE + 0x1FFFFF)
-#define MOFD_FW_MOD_TABLE_OFFSET 0x100000
+#define MOFD_FW_MOD_TABLE_OFFSET 0x3000
+#define MOFD_FW_MOD_OFFSET 0x100000
 #define MOFD_FW_MOD_TABLE_SIZE 0x100
 
 struct sst_platform_info sst_data;
@@ -191,6 +194,7 @@ static const struct sst_lib_dnld_info  mrfld_lib_dnld_info = {
 	.mod_end            = MRFLD_FW_MOD_END,
 	.mod_table_offset   = MRFLD_FW_MOD_TABLE_OFFSET,
 	.mod_table_size     = MRFLD_FW_MOD_TABLE_SIZE,
+	.mod_offset         = MRFLD_FW_MOD_OFFSET,
 	.mod_ddr_dnld       = true,
 };
 
@@ -199,6 +203,7 @@ static const struct sst_lib_dnld_info  mofd_lib_dnld_info = {
 	.mod_end            = MOFD_FW_MOD_END,
 	.mod_table_offset   = MOFD_FW_MOD_TABLE_OFFSET,
 	.mod_table_size     = MOFD_FW_MOD_TABLE_SIZE,
+	.mod_offset         = MOFD_FW_MOD_OFFSET,
 	.mod_ddr_dnld       = true,
 };
 
