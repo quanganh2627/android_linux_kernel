@@ -26,6 +26,7 @@
 
 static int camera_reset = -1; /* GP_CAMERASB03 - CAM_2_3_RST_N - ALS_INT_N_R */
 static int isp1_pwdn = -1; /* GP_CAMERASB08- FLASH_RST_N_R */
+static struct atomisp_camera_caps ov680_camera_caps;
 
 static int ov680_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
@@ -161,6 +162,15 @@ static int ov680_platform_deinit(void)
 	return 0;
 }
 
+static struct atomisp_camera_caps *ov680_get_camera_caps(void)
+{
+	ov680_camera_caps.sensor_num = 1;
+	ov680_camera_caps.sensor[0].stream_num = 1;
+	ov680_camera_caps.sensor[0].is_slave = 1;
+
+	return &ov680_camera_caps;
+}
+
 static struct camera_sensor_platform_data ov680_sensor_platform_data = {
 	.gpio_ctrl      = ov680_gpio_ctrl,
 	.flisclk_ctrl   = ov680_flisclk_ctrl,
@@ -168,6 +178,7 @@ static struct camera_sensor_platform_data ov680_sensor_platform_data = {
 	.csi_cfg        = ov680_csi_configure,
 	.platform_init  = ov680_platform_init,
 	.platform_deinit = ov680_platform_deinit,
+	.get_camera_caps = ov680_get_camera_caps,
 };
 
 void *ov680_platform_data(void *info)

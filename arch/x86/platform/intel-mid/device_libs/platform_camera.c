@@ -504,6 +504,7 @@ const struct atomisp_camera_caps *atomisp_get_default_camera_caps(void)
 	if (!init) {
 		default_camera_caps.sensor_num = 1;
 		default_camera_caps.sensor[0].stream_num = 1;
+		default_camera_caps.sensor[0].is_slave = false;
 		init = true;
 	}
 	return &default_camera_caps;

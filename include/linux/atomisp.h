@@ -1157,6 +1157,8 @@ struct v4l2_private_int_data {
 /* Lock and unlock raw buffer */
 #define V4L2_CID_ENABLE_RAW_BUFFER_LOCK (V4L2_CID_CAMERA_LASTP1 + 29)
 
+#define V4L2_CID_DEPTH_MODE		(V4L2_CID_CAMERA_LASTP1 + 30)
+
 #define V4L2_BUF_FLAG_BUFFER_INVALID       0x0400
 #define V4L2_BUF_FLAG_BUFFER_VALID         0x0800
 

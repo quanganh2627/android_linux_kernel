@@ -142,6 +142,7 @@ struct atomisp_platform_data {
 struct atomisp_sensor_caps {
 	/* The number of streams this sensor can output. */
 	int stream_num;
+	bool is_slave;
 };
 
 /* Describe the capacities of sensors connected to one camera port. */
