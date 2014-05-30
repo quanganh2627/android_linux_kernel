@@ -121,13 +121,20 @@ static void flush_to_bottom_log(struct logger_log *log,
 	do_write_log(log, buf, header.len - sizeof(extendedtag) - 1);
 
 	/* send this segment's payload to the plugins */
-	list_for_each_entry(plugin, &log->plugins, list)
+	list_for_each_entry(plugin, &log->plugins, list) {
+		plugin->write_seg((void *)&extendedtag,
+				  sizeof(extendedtag),
+				  false, /* not from user */
+				  true,  /* start of msg */
+				  false,  /* end of msg */
+				  plugin->data);
 		plugin->write_seg((void *)buf,
 				  header.len - sizeof(extendedtag) - 1,
 				  false, /* not from user */
-				  true,  /* start of msg */
+				  false,  /* start of msg */
 				  true,  /* end of msg */
 				  plugin->data);
+	}
 
 	/* the write offset is updated to add the final extra byte */
 	log->w_off = logger_offset(log, log->w_off + 1);
