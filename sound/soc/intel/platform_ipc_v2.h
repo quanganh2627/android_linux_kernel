@@ -36,7 +36,7 @@
 /* IPC base address and mailbox, timestamp offsets */
 #define SST_MAILBOX_SIZE 0x0400
 #define SST_MAILBOX_SIZE_MOFD 0x1000
-#define SST_DDR_MAILBOX_BASE     0x7E000 /* Mailbox offset from IMR base */
+#define SST_DDR_MAILBOX_BASE     0x1000 /* Mailbox offset from IMR base */
 #define SST_MAILBOX_SEND 0x0000
 #define SST_TIME_STAMP 0x1800
 #define SST_TIME_STAMP_MRFLD 0x680
