@@ -35,20 +35,31 @@ struct m10mo_atomisp_spi_platform_data {
 
 #define M10MO_MAX_FW_ID_STRING 12
 
-#define M10MO_AF_MODE_0			0
-#define M10MO_AF_MODE_1			1
+#define M10MO_RESOLUTION_MODE_OFFSET		(0)
+#define M10MO_AF_MODE_OFFSET				(4)
+#define M10MO_MIPI_FREQ_MODE_OFFSET			(8)
+#define M10MO_CLOCK_RATE_MODE_OFFSET		(12)
 
-#define M10MO_RESOLUTION_MODE_0	0
-#define M10MO_RESOLUTION_MODE_1	1
+#define M10MO_RESOLUTION_MODE_0		(0 << M10MO_RESOLUTION_MODE_OFFSET)
+#define M10MO_RESOLUTION_MODE_1		(1 << M10MO_RESOLUTION_MODE_OFFSET)
+#define M10MO_AF_MODE_0				(0 << M10MO_AF_MODE_OFFSET)
+#define M10MO_AF_MODE_1				(1 << M10MO_AF_MODE_OFFSET)
+#define M10MO_MIPI_FREQ_MODE_0		(0 << M10MO_MIPI_FREQ_MODE_OFFSET)
+#define M10MO_MIPI_FREQ_MODE_1		(1 << M10MO_MIPI_FREQ_MODE_OFFSET)
+#define M10MO_CLOCK_RATE_MODE_0		(0 << M10MO_CLOCK_RATE_MODE_OFFSET)
+#define M10MO_CLOCK_RATE_MODE_1		(1 << M10MO_CLOCK_RATE_MODE_OFFSET)
 
-#define M10MO_FW_TYPE_0		((M10MO_RESOLUTION_MODE_1 & M10MO_MASK) | \
-	(M10MO_AF_MODE_0 << 16))
-#define M10MO_FW_TYPE_1		((M10MO_RESOLUTION_MODE_1 & M10MO_MASK) | \
-	(M10MO_AF_MODE_1 << 16))
-#define M10MO_FW_TYPE_2		((M10MO_RESOLUTION_MODE_1 & M10MO_MASK) | \
-	(M10MO_AF_MODE_1 << 16))
+#define M10MO_MASK	(0xF)
 
-#define M10MO_MASK	0x0000FFFF
+#define M10MO_FW_TYPE_0	((M10MO_RESOLUTION_MODE_1) | \
+		(M10MO_AF_MODE_0) | \
+		(M10MO_MIPI_FREQ_MODE_0) | \
+		(M10MO_CLOCK_RATE_MODE_0))
+
+#define M10MO_FW_TYPE_1	((M10MO_RESOLUTION_MODE_1) | \
+		(M10MO_AF_MODE_1) | \
+		(M10MO_MIPI_FREQ_MODE_1) | \
+		(M10MO_CLOCK_RATE_MODE_1))
 
 struct m10mo_fw_id {
 	char *id_string;
@@ -58,7 +69,7 @@ struct m10mo_fw_id {
 struct m10mo_platform_data {
 	struct camera_sensor_platform_data common;
 	struct m10mo_atomisp_spi_platform_data spi_pdata;
-	int ref_clock_rate;
+	int *ref_clock_rate;
 	unsigned int def_fw_type;
 	struct m10mo_fw_id *fw_ids;
 	void (*spi_setup)(struct m10mo_atomisp_spi_platform_data *spi_pdata,

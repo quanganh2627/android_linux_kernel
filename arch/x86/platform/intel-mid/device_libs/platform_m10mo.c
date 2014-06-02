@@ -189,11 +189,16 @@ static int m10mo_csi_configure(struct v4l2_subdev *sd, int flag)
 }
 
 static struct m10mo_fw_id fw_ids[] = {
-	{ "TEST", ((M10MO_RESOLUTION_MODE_1 & M10MO_MASK) | (M10MO_AF_MODE_0 << 16)) },
-	{ "S13F0SAHE01", ((M10MO_RESOLUTION_MODE_1 & M10MO_MASK) | (M10MO_AF_MODE_0 << 16)) },
-	{ "O13F0SAHE01", ((M10MO_RESOLUTION_MODE_1 & M10MO_MASK) | (M10MO_AF_MODE_0 << 16)) },
-	{ "T13F0SAHE01", ((M10MO_RESOLUTION_MODE_1 & M10MO_MASK) | (M10MO_AF_MODE_1 << 16)) },
+	{ "TEST",        M10MO_FW_TYPE_0 },
+	{ "S13F0SAHE01", M10MO_FW_TYPE_0 },
+	{ "O13F0SAHE01", M10MO_FW_TYPE_0 },
+	{ "T13F0SAHE01", M10MO_FW_TYPE_1 },
 	{ NULL, 0},
+};
+
+static u32 clock_rate[] = {
+	24000000,
+	19200000,
 };
 
 static void spi_hw_resources_setup(struct m10mo_atomisp_spi_platform_data *pdata)
@@ -328,8 +333,9 @@ static struct m10mo_platform_data m10mo_sensor_platform_data = {
 	.spi_pdata.spi_dataout_flis	= ann_gp_ssp_6_txd, /* Board specific */
 	.spi_pdata.spi_datain_flis	= ann_gp_ssp_6_rxd, /* Board specific */
 	.spi_pdata.spi_cs_flis		= ann_gp_ssp_6_fs, /* Board specific */
+
 	.def_fw_type    = M10MO_FW_TYPE_0,
-	.ref_clock_rate = 24000000, /* Board specific */
+	.ref_clock_rate = clock_rate, /* Board specific */
 	.fw_ids		= fw_ids,
 	.spi_setup	= setup_m10mo_spi,
 	.identify_fw	= m10mo_platform_identify_fw,
