@@ -1443,6 +1443,42 @@ static int sst_vtsv_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static int sst_vtsv_path_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+
+	pr_debug("in %s\n", __func__);
+	memcpy(ucontrol->value.bytes.data, sst->vtsv_path, SST_MAX_VTSV_PATH_BYTE_CTL_LEN);
+	return 0;
+}
+
+static int sst_vtsv_path_set(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct snd_soc_dapm_widget *w;
+	u16 ret = 0, len;
+
+	pr_debug("in %s\n", __func__);
+	len = *(u16 *)ucontrol->value.bytes.data;
+	if (len > SST_MAX_VTSV_PATH_LEN) {
+		pr_err("Invalid VTSV path length %d \n", len);
+		return -EINVAL;
+	}
+
+	memcpy(sst->vtsv_path, ucontrol->value.bytes.data, (len + sizeof(u16)));
+	ret = sst_dsp->ops->set_generic_params(SST_SET_VTSV_LIBS, sst->vtsv_path);
+
+	w = snd_soc_dapm_find_widget(&platform->dapm, "vtsv", false);
+	if (w && w->power)
+		ret = sst_dsp->ops->set_generic_params(SST_SET_VTSV_INFO, NULL);
+
+	return ret;
+}
+
 static const struct snd_kcontrol_new sst_mix_sw_aware =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 0, 1, 0,
 		sst_mix_get, sst_mix_put);
@@ -1452,8 +1488,8 @@ static const struct snd_kcontrol_new sst_mix_sw_vad =
 		sst_mix_get, sst_mix_put);
 
 static const struct snd_kcontrol_new sst_vad_enroll[] = {
-	SOC_SINGLE_BOOL_EXT("SST VTSV Enroll", 0, sst_vtsv_enroll_get,
-		sst_vtsv_enroll_set),
+	SND_SOC_BYTES_EXT("SST VTSV Enroll", SST_MAX_VTSV_PATH_BYTE_CTL_LEN, sst_vtsv_path_get,
+		sst_vtsv_path_set),
 };
 
 static const struct snd_kcontrol_new sst_mix_sw_tone_gen =
@@ -2352,6 +2388,12 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 				   SST_NUM_WIDGETS * sizeof(*sst->widget),
 				   GFP_KERNEL);
 	if (!sst->widget) {
+		pr_err("%s: kzalloc failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	sst->vtsv_path = devm_kzalloc(platform->dev, SST_MAX_VTSV_PATH_BYTE_CTL_LEN, GFP_KERNEL);
+	if (!sst->vtsv_path) {
 		pr_err("%s: kzalloc failed\n", __func__);
 		return -ENOMEM;
 	}
