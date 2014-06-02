@@ -135,6 +135,10 @@ struct sst_pcm_format {
 	unsigned int channels_max;
 };
 
+struct sst_vtsv_result {
+	u8 data[VTSV_MAX_TOTAL_RESULT_ARRAY_SIZE];
+};
+
 struct sst_data {
 	struct platform_device *pdev;
 	struct sst_platform_data *pdata;
@@ -149,5 +153,6 @@ struct sst_data {
 	bool vtsv_enroll;
 	char *vtsv_path;
 	struct sst_lowlatency_deepbuff ll_db;
+	struct sst_vtsv_result vtsv_result;
 };
 #endif
