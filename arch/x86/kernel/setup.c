@@ -494,8 +494,18 @@ static void __init memblock_x86_reserve_range_setup_data(void)
 }
 
 #ifdef CONFIG_CRASH_DUMP
+static unsigned noramremove = 1;
+static int __init setup_early_ramremove(char *buf)
+{
+	noramremove = 0;
+	return 0;
+}
+
 static void __init e820_crashdump_remove_ram(void)
 {
+	/* if user decides not to remove all RAM ranges */
+	if (noramremove == 1)
+		return;
 	/*
 	* We are doing a crash dump, so remove all RAM ranges
 	* as they are the ones that need to be dumped.
@@ -509,6 +519,7 @@ static void __init e820_crashdump_remove_ram(void)
 	sanitize_e820_map(e820.map, ARRAY_SIZE(e820.map), &e820.nr_map);
 	e820_print_map("crash_dump");
 }
+early_param("ramremove", setup_early_ramremove);
 #endif
 
 /*
