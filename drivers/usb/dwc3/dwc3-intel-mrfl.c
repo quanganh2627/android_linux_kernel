@@ -100,6 +100,11 @@ static void usb2phy_eye_optimization(struct dwc_otg2 *otg)
 		usb_phy_io_write(phy, data->ulpi_eye_calibration, TUSB1211_VENDOR_SPECIFIC1_SET);
 	else if ((data->usb2_phy_type == USB2_PHY_UTMI) && !!data->utmi_eye_calibration) {
 		addr = ioremap_nocache(UTMI_PHY_USB2PERPORT, 4);
+		if (!addr) {
+			otg_info(otg, "UTMI phy register ioremap failed, use default setup!\n");
+			usb_put_phy(phy);
+			return;
+		}
 		writel(data->utmi_eye_calibration, addr);
 		iounmap(addr);
 	} else
