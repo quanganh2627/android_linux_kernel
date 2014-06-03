@@ -31,6 +31,7 @@
 #define VLV_HSU_OVF_IRQ	0x0820	/* Overflow interrupt related */
 
 static unsigned int clock;
+static int hsu_device_cfg = config_base;
 static struct hsu_port_pin_cfg *hsu_port_gpio_mux;
 static struct hsu_port_cfg *platform_hsu_info;
 
@@ -981,6 +982,12 @@ int intel_mid_hsu_plat_init(int port, ulong plat, struct device *dev)
 	}
 #endif
 	return 0;
+}
+
+/* must be called from the device_handler provided in board.c */
+void intel_mid_hsu_force_cfg(enum hsu_cfg config)
+{
+	hsu_device_cfg = config;
 }
 
 static __init int hsu_dev_platform_data(void)
