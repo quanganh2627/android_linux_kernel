@@ -16,6 +16,7 @@ static int ce4100_spi_probe(struct pci_dev *dev,
 	struct platform_device *pdev;
 	struct pxa2xx_spi_master spi_pdata;
 	struct ssp_device *ssp;
+	void __iomem **tbl;
 
 	ret = pcim_enable_device(dev);
 	if (ret)
@@ -30,11 +31,12 @@ static int ce4100_spi_probe(struct pci_dev *dev,
 
 	ssp = &spi_pdata.ssp;
 	ssp->phys_base = pci_resource_start(dev, 0);
-	ssp->mmio_base = pcim_iomap_table(dev)[0];
-	if (!ssp->mmio_base) {
+	tbl = (void __iomem **) pcim_iomap_table(dev);
+	if (!tbl) {
 		dev_err(&dev->dev, "failed to ioremap() registers\n");
 		return -EIO;
 	}
+	ssp->mmio_base = tbl[0];
 	ssp->irq = dev->irq;
 	ssp->port_id = dev->devfn;
 	ssp->type = PXA25x_SSP;
