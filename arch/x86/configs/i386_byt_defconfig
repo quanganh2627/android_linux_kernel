@@ -3766,7 +3766,7 @@ CONFIG_BCM_BT_LPM=m
 # Fork of Texas Instruments shared transport line discipline
 #
 # CONFIG_TI_ST_FORK is not set
-CONFIG_INTEL_IQVANDROID=m
+# CONFIG_INTEL_IQVANDROID is not set
 # CONFIG_RAWIO is not set
 CONFIG_TRACEPOINT_TO_EVENT=y
 CONFIG_I2C_DESIGNWARE_CORE_FORK=y
