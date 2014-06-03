@@ -161,6 +161,7 @@ struct devs_id __initconst device_ids[] = {
 	{"bcm4752", SFI_DEV_TYPE_UART, 0, &intel_mid_gps_device_init, NULL},
 	{"bcm47521", SFI_DEV_TYPE_UART, 0, &intel_mid_gps_device_init, NULL},
 	{"bcm47531", SFI_DEV_TYPE_UART, 0, &intel_mid_gps_device_init, NULL},
+	{"cg2000", SFI_DEV_TYPE_UART, 0, &intel_mid_gps_device_init, NULL},
 	{"csrg05t", SFI_DEV_TYPE_UART, 0, &intel_mid_gps_device_init, NULL},
 
 	/* SD devices */
