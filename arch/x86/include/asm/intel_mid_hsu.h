@@ -14,6 +14,7 @@ enum hsu_core {
 	hsu_pnw,
 	hsu_clv,
 	hsu_tng,
+	hsu_ann_lnp,
 	hsu_vlv2,
 	hsu_chv,
 };

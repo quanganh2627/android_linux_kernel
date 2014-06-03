@@ -262,6 +262,44 @@ hsu_port_pin_cfg hsu_port_pin_cfgs[][hsu_pid_max][hsu_port_max] = {
 			},
 		},
 	},
+	[hsu_ann_lnp] = {
+		[hsu_pid_def] = {
+			[hsu_port0] = {
+				.id = 0,
+				.name = HSU_BT_PORT,
+				.rx_gpio = 126,
+				.rx_alt = 1,
+				.tx_gpio = 127,
+				.tx_alt = 1,
+				.cts_gpio = 124,
+				.cts_alt = 1,
+				.rts_gpio = 125,
+				.rts_alt = 1,
+			},
+			[hsu_port1] = {
+				.id = 1,
+				.name = HSU_GPS_PORT,
+				.wake_gpio = 128,
+				.rx_gpio = 130,
+				.rx_alt = 1,
+				.cts_gpio = 128,
+				.cts_alt = 1,
+				.rts_gpio = 129,
+				.rts_alt = 1,
+			},
+			[hsu_port2] = {
+				.id = 2,
+				.name = HSU_DEBUG_PORT,
+				.wake_gpio = 134,
+				.rx_gpio = 134,
+				.rx_alt = 1,
+				.cts_gpio = 132,
+				.cts_alt = 1,
+				.rts_gpio = 133,
+				.rts_alt = 1,
+			},
+		},
+	},
 	[hsu_vlv2] = {
 		[hsu_pid_def] = {
 			[hsu_port0] = {
@@ -455,6 +493,51 @@ static struct hsu_port_cfg hsu_port_cfgs[][hsu_port_max] = {
 			.hw_set_rts = intel_mid_hsu_rts,
 			.hw_suspend = intel_mid_hsu_suspend,
 			.hw_suspend_post = intel_mid_hsu_suspend_post,
+			.hw_resume = intel_mid_hsu_resume,
+			.hw_get_clk = intel_mid_hsu_get_clk,
+			.hw_context_save = 1,
+		},
+		[hsu_port2] = {
+			.type = debug_port,
+			.hw_ip = hsu_intel,
+			.index = 2,
+			.name = HSU_DEBUG_PORT,
+			.idle = 2000,
+			.hw_init = intel_mid_hsu_init,
+			.hw_set_alt = intel_mid_hsu_switch,
+			.hw_suspend = intel_mid_hsu_suspend,
+			.hw_resume = intel_mid_hsu_resume,
+			.hw_get_clk = intel_mid_hsu_get_clk,
+			.hw_context_save = 1,
+		},
+	},
+	[hsu_ann_lnp] = {
+		[hsu_port0] = {
+			.type = bt_port,
+			.hw_ip = hsu_intel,
+			.index = 0,
+			.name = HSU_BT_PORT,
+			.idle = 20,
+			.hw_ctrl_cts = 1,
+			.hw_init = intel_mid_hsu_init,
+			.hw_set_alt = intel_mid_hsu_switch,
+			.hw_set_rts = intel_mid_hsu_rts,
+			.hw_suspend = intel_mid_hsu_suspend,
+			.hw_resume = intel_mid_hsu_resume,
+			.hw_get_clk = intel_mid_hsu_get_clk,
+			.hw_context_save = 1,
+		},
+		[hsu_port1] = {
+			.type = gps_port,
+			.hw_ip = hsu_intel,
+			.index = 1,
+			.name = HSU_GPS_PORT,
+			.idle = 30,
+			.hw_ctrl_cts = 1,
+			.hw_init = intel_mid_hsu_init,
+			.hw_set_alt = intel_mid_hsu_switch,
+			.hw_set_rts = intel_mid_hsu_rts,
+			.hw_suspend = intel_mid_hsu_suspend,
 			.hw_resume = intel_mid_hsu_resume,
 			.hw_get_clk = intel_mid_hsu_get_clk,
 			.hw_context_save = 1,
@@ -1026,8 +1109,16 @@ static __init int hsu_dev_platform_data(void)
 	/* anniedale */
 	case 0x5A:
 		/* anniedale same config as tangier */
-		platform_hsu_info = &hsu_port_cfgs[hsu_tng][0];
-		hsu_port_gpio_mux = &hsu_port_pin_cfgs[hsu_tng][hsu_pid_def][0];
+
+		/* if LnP device, need alternative hsu configuration for GNSS.*/
+		if (hsu_device_cfg == config_alternative) {
+			pr_info("HSU: alternative config set for anniedale\n");
+			platform_hsu_info = &hsu_port_cfgs[hsu_ann_lnp][0];
+			hsu_port_gpio_mux = &hsu_port_pin_cfgs[hsu_ann_lnp][hsu_pid_def][0];
+		} else {
+			platform_hsu_info = &hsu_port_cfgs[hsu_tng][0];
+			hsu_port_gpio_mux = &hsu_port_pin_cfgs[hsu_tng][hsu_pid_def][0];
+		}
 		break;
 	/* cherryview */
 	case 0x4C:
