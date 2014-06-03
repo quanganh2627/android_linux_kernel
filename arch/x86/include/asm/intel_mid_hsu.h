@@ -1,6 +1,8 @@
 #ifndef __INTEL_MID_HSU_H__
 #define __INTEL_MID_HSU_H__
 
+#include <linux/interrupt.h>
+
 #define hsu_port_func_max 4
 
 enum hsu_core {
