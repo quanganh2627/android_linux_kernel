@@ -88,7 +88,7 @@ static int imx132_power_ctrl(struct v4l2_subdev *sd, int flag)
 		if (ret)
 			pr_err("imx132 voltage setting failed\n");
 		if (flag)
-			usleep_range(1000, 1200);
+			usleep_range(10000, 12000);
 		return ret;
 	}
 
@@ -96,7 +96,7 @@ static int imx132_power_ctrl(struct v4l2_subdev *sd, int flag)
 		if (!camera_vprog1_on) {
 			ret = regulator_enable(vprog1_reg);
 			if (!ret) {
-				usleep_range(1000, 1200);
+				usleep_range(10000, 12000);
 				camera_vprog1_on = 1;
 			}
 			return ret;
