@@ -334,6 +334,8 @@ struct mmc_host {
 #define MMC_CAP2_HS400		(MMC_CAP2_HS400_1_8V_DDR | \
 				MMC_CAP2_HS400_1_2V_DDR)
 
+	int			tpru;		/* Supply power up time (ms) */
+	int			tramp;		/* Supply ramp up time (ms) */
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 #ifdef CONFIG_MMC_CLKGATE

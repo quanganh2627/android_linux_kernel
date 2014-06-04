@@ -1567,8 +1567,14 @@ static void mmc_power_up(struct mmc_host *host)
 	/*
 	 * This delay should be sufficient to allow the power supply
 	 * to reach the minimum voltage.
+	 * Different device may have different supply power up time.
+	 * The max value should be 35ms per spec. If there is tPRU,
+	 * use it to wait for supply power up stable.
 	 */
-	usleep_range(10000, 11000);
+	if (host->tpru)
+		usleep_range(host->tpru * 1000, host->tpru * 1000 + 100);
+	else
+		usleep_range(10000, 11000);
 
 	host->ios.clock = host->f_init;
 
@@ -1578,8 +1584,13 @@ static void mmc_power_up(struct mmc_host *host)
 	/*
 	 * This delay must be at least 74 clock sizes, or 1 ms, or the
 	 * time required to reach a stable voltage.
+	 * Different device may have different supply ramp up time.
+	 * If there is tRAMP, use it to wait for supply ramp up stable.
 	 */
-	usleep_range(5000, 6000);
+	if (host->tramp)
+		usleep_range(host->tramp * 1000, host->tramp * 1000 + 100);
+	else
+		usleep_range(5000, 6000);
 
 	mmc_host_clk_release(host);
 }
