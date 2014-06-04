@@ -99,7 +99,7 @@ static int find_key(int key, struct temp_lookup *adc_temp_tbl,
 static int scale_adc_temp_conv(struct iio_dev *indio_dev, int thrms, int chan,
 		int in_val, int *out_val, int conv)
 {
-	int tbl_row_cnt = 34;
+	int tbl_row_cnt = TEMP_LOOKUP_TBL_SIZE;
 	struct gpadc_info *info = iio_priv(indio_dev);
 	int x0, x1, y0, y1;
 	int nr, dr;

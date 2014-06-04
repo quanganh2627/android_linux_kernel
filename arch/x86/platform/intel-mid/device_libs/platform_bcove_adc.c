@@ -120,14 +120,6 @@ struct iio_map shadycove_iio_maps[] = {
 	MSIC_ADC_MAP("CH9", "PEAK", "PEAK"),
 	MSIC_ADC_MAP("CH10", "GPMEAS", "AGND"),
 	MSIC_ADC_MAP("CH11", "GPMEAS", "VREF"),
-	MSIC_ADC_MAP("CH5", "scove_thrm", "SYSTEMP0"),
-	MSIC_ADC_MAP("CH6", "scove_thrm", "SYSTEMP1"),
-	MSIC_ADC_MAP("CH7", "scove_thrm", "SYSTEMP2"),
-	MSIC_ADC_MAP("CH2", "scove_thrm", "PMICTEMP"),
-	MSIC_ADC_MAP("CH5", "THERMAL", "SYSTEMP0"),
-	MSIC_ADC_MAP("CH6", "THERMAL", "SYSTEMP1"),
-	MSIC_ADC_MAP("CH7", "THERMAL", "SYSTEMP2"),
-	MSIC_ADC_MAP("CH2", "THERMAL", "PMICTEMP"),
 	{ },
 };
 
