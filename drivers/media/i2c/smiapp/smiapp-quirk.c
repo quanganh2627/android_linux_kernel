@@ -712,21 +712,6 @@ static int imx135_reg_access(struct smiapp_sensor *sensor, bool write, u32 *reg,
 	case SMIAPP_REG_U8_BINNING_TYPE:
 		*reg = SMIAPP_IMX135_REG_U8_BINNING_TYPE;
 		break;
-	case SMIAPP_REG_U16_TEST_PATTERN_MODE:
-		*reg = SMIAPP_IMX135_REG_U16_TEST_PATTERN_MODE;
-		break;
-	case SMIAPP_REG_U16_TEST_DATA_RED:
-		*reg = SMIAPP_IMX135_REG_U16_TEST_DATA_RED;
-		break;
-	case SMIAPP_REG_U16_TEST_DATA_GREENR:
-		*reg = SMIAPP_IMX135_REG_U16_TEST_DATA_GREENR;
-		break;
-	case SMIAPP_REG_U16_TEST_DATA_BLUE:
-		*reg = SMIAPP_IMX135_REG_U16_TEST_DATA_BLUE;
-		break;
-	case SMIAPP_REG_U16_TEST_DATA_GREENB:
-		*reg = SMIAPP_IMX135_REG_U16_TEST_DATA_GREENB;
-		break;
 	case SMIAPP_REG_U32_REQUESTED_LINK_BIT_RATE_MBPS:
 		/* No such register in this sensor */
 		return -ENOIOCTLCMD;
