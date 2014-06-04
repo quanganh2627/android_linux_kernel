@@ -1254,6 +1254,15 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		disable_primary = drm_rect_equals(&dst, &clip);
 		WARN_ON(disable_primary && !visible);
 	}
+	/*
+	 * Ideally when one unpin work is in progress another request will not
+	 * come from the HWC. But if in worst case faulty situations we get then
+	 * the system will enter into an unrecoverable state, which needs hard
+	 * shutdown. So as a precaution if the sprite_unpin_work is not null
+	 * then unpin immediately. This is done by passing NULL event.
+	 */
+	if (intel_crtc->sprite_unpin_work)
+		event = NULL;
 	if (event) {
 		work = kzalloc(sizeof(*work), GFP_KERNEL);
 		if (work == NULL)
