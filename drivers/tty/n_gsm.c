@@ -2496,6 +2496,11 @@ static void gsmld_close(struct tty_struct *tty)
 		gsmld_flush_buffer(tty);
 	}
 
+	/* Wake-up all pending operations (they will be aborted as 'gsm->dead'
+	 * is set to 1 in 'gsmld_detach_gsm').
+	 */
+	wake_up(&gsm->event);
+
 	/* Do other clean up here */
 	mux_put(gsm);
 }
