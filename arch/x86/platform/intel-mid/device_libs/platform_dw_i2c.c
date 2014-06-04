@@ -165,7 +165,7 @@ int intel_mid_dw_i2c_acquire_ownership(void)
 	u32 cmdext;
 	int timeout = 100;
 
-	pm_qos_update_request(&pm_qos, CSTATE_EXIT_LATENCY_C1 - 1);
+	pm_qos_update_request(&pm_qos, CSTATE_EXIT_LATENCY_C6 - 1);
 
 	/* host driver writes 0x2 to side band register 0x7 */
 	intel_mid_msgbus_write32(PUNIT_PORT, PUNIT_SEMAPHORE, 0x2);
