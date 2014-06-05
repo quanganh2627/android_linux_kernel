@@ -376,7 +376,7 @@ static ssize_t ssic_enable_store(struct device *dev,
 			if (retval) {
 				dev_err(dev, "disable IPC failed, retval = %d\n",
 						retval);
-				goto out;
+				goto pm_out;
 			}
 
 			/* re-enable IPC again */
@@ -384,7 +384,7 @@ static ssize_t ssic_enable_store(struct device *dev,
 			if (retval) {
 				dev_err(dev, "enable IPC failed, retval = %d\n",
 						retval);
-				goto out;
+				goto pm_out;
 			}
 		} else {
 		/* request IPC on while current IPC is off */
@@ -394,7 +394,7 @@ static ssize_t ssic_enable_store(struct device *dev,
 			if (retval) {
 				dev_err(dev, "enable IPC failed, retval = %d\n",
 						retval);
-				goto out;
+				goto pm_out;
 			}
 		}
 		/* hold wakelock */
@@ -410,13 +410,13 @@ static ssize_t ssic_enable_store(struct device *dev,
 			if (retval) {
 				dev_err(dev, "disable IPC failed, retval = %d\n",
 						retval);
-				goto out;
+				goto pm_out;
 			}
 			/* hold wakelock */
 			ssic_wake_unlock();
 		}
 	}
-
+pm_out:
 	/* need to resume if Controller already in D0i3 */
 	if (ssic_hcd.modem_dev)
 		pm_runtime_put(&ssic_hcd.modem_dev->dev);
@@ -424,7 +424,6 @@ static ssize_t ssic_enable_store(struct device *dev,
 		pm_runtime_put(&ssic_hcd.rh_dev->dev);
 out:
 	mutex_unlock(&ssic_hcd.ssic_mutex);
-	pm_runtime_put(dev);
 	return size;
 }
 
@@ -458,6 +457,7 @@ static ssize_t ssic_show_registers(struct device *dev,
 	hcd = dev_get_drvdata(dev);
 	if (!hcd) {
 		dev_err(&ssic_pci_dev->dev, "hcd is NULL\n");
+		pm_runtime_put_sync(dev);
 		return -ENODEV;
 	}
 
@@ -465,6 +465,7 @@ static ssize_t ssic_show_registers(struct device *dev,
 		xhci = hcd_to_xhci(hcd);
 		if (!xhci) {
 			dev_err(&ssic_pci_dev->dev, "xhci is NULL\n");
+			pm_runtime_put_sync(dev);
 			return -ENODEV;
 		}
 
