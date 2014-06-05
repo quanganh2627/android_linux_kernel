@@ -18,9 +18,17 @@
 #include <asm/pmic_pdata.h>
 #include <asm/intel_mid_remoteproc.h>
 #include <linux/power/bq24261_charger.h>
+#include <asm/intel_scu_pmic.h>
 
 #include "platform_ipc.h"
 #include "platform_mrfl_pmic.h"
+
+#define MCHGRIRQ0_ADDR			0x12
+#define MCHGRIRQ1_ADDR			0x13
+
+#define PMIC_ID_ADDR    0x00
+#define SHADYCOVE_A0	0x00
+#define SHADYCOVE_A1	0x01
 
 static struct temp_lookup basincove_adc_tbl[] = {
 	{0x24, 125, 0}, {0x28, 120, 0},
@@ -104,3 +112,31 @@ out:
 	return &pmic_pdata;
 }
 
+/* WA for ShadyCove PMIC issue to reset MCHGRIRQ0/1 to default values
+ * as soon as the IPC driver is loaded.
+ * Issue is supposed to be fixed with A2-PMIC
+ */
+void __init pmic_reset_value_wa(void)
+{
+	u8 id_val;
+	int ret;
+
+	if (INTEL_MID_BOARD(1, PHONE, MOFD) ||
+			INTEL_MID_BOARD(1, TABLET, MOFD)) {
+		ret = intel_scu_ipc_ioread8(PMIC_ID_ADDR, &id_val);
+		if (ret) {
+			pr_err("%s:%d Error(%d) reading PMIC ID register\n",
+					__func__, __LINE__, ret);
+			return;
+		}
+
+		pr_info("%s:%d ShadyCove ID_REG-val:%x\n",
+				__func__, __LINE__, id_val);
+		if ((id_val == SHADYCOVE_A0) || (id_val == SHADYCOVE_A1)) {
+			pr_info("%s:%d Reset MCHGRIRQs\n", __func__, __LINE__);
+			intel_scu_ipc_iowrite8(MCHGRIRQ0_ADDR, 0xFF);
+			intel_scu_ipc_iowrite8(MCHGRIRQ1_ADDR, 0x1F);
+		}
+	}
+}
+rootfs_initcall(pmic_reset_value_wa);
