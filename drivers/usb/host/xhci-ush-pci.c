@@ -1835,7 +1835,7 @@ static const struct dev_pm_ops xhci_ush_pm_ops = {
 };
 
 static struct pci_driver xhci_ush_driver = {
-	.name = "USH HSIC/SSIC",
+	.name = "USH Host Controller",
 	.id_table =     xhci_ush_pci_ids,
 
 	.probe =        xhci_ush_pci_probe,
