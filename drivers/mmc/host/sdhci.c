@@ -2430,7 +2430,6 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		}
 	}
 
-out:
 	/*
 	 * If this is the very first time we are here, we start the retuning
 	 * timer. Since only during the first time, SDHCI_NEEDS_RETUNING
