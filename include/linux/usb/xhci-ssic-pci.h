@@ -225,6 +225,9 @@ struct ssic_xhci_hcd {
 	unsigned		ssic_enable;
 	int			ssic_port;
 
+	unsigned		u1_enable;
+	unsigned		u2_enable;
+
 	/* Modem device add/remove notifier */
 	struct notifier_block	ssicdev_nb;
 	struct notifier_block	ssic_pm_nb;

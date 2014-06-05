@@ -567,6 +567,152 @@ static DEVICE_ATTR(port_inactivity_duration,
 		ssic_port_inactivity_duration_show,
 		ssic_port_inactivity_duration_store);
 
+static int ssic_set_device_initiated_lpm(struct usb_device *udev,
+		enum usb3_link_state state, bool enable)
+{
+	int ret;
+	int feature;
+
+	switch (state) {
+	case USB3_LPM_U1:
+		feature = USB_DEVICE_U1_ENABLE;
+		break;
+	case USB3_LPM_U2:
+		feature = USB_DEVICE_U2_ENABLE;
+		break;
+	default:
+		dev_warn(&udev->dev, "%s: Can't %s non-U1 or U2 state.\n",
+				__func__, enable ? "enable" : "disable");
+		return -EINVAL;
+	}
+
+	if (udev->state != USB_STATE_CONFIGURED) {
+		dev_dbg(&udev->dev, "%s: Can't %s %s state "
+				"for unconfigured device.\n",
+				__func__, enable ? "enable" : "disable",
+				state == USB_DEVICE_U1_ENABLE ? "U1" : "U2");
+		return 0;
+	}
+
+	if (enable) {
+		/*
+		 * Now send the control transfer to enable device-initiated LPM
+		 * for either U1 or U2.
+		 */
+		ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+				USB_REQ_SET_FEATURE,
+				USB_RECIP_DEVICE,
+				feature,
+				0, NULL, 0,
+				USB_CTRL_SET_TIMEOUT);
+	} else {
+		ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+				USB_REQ_CLEAR_FEATURE,
+				USB_RECIP_DEVICE,
+				feature,
+				0, NULL, 0,
+				USB_CTRL_SET_TIMEOUT);
+	}
+	if (ret < 0) {
+		dev_warn(&udev->dev, "%s of device-initiated %s failed.\n",
+				enable ? "Enable" : "Disable",
+				state == USB_DEVICE_U1_ENABLE ? "U1" : "U2");
+		return -EBUSY;
+	}
+	return 0;
+}
+
+
+/* Interfaces for u1_enable */
+static ssize_t ssic_u1_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", ssic_hcd.u1_enable);
+}
+
+static ssize_t ssic_u1_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int		request;
+
+	if (sscanf(buf, "%d", &request) != 1) {
+		dev_dbg(dev, "Invalid, value\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ssic_hcd.ssic_mutex);
+
+	if (!ssic_hcd.modem_dev) {
+		dev_err(dev, "Modem is not connected, ignore any request\n");
+		mutex_unlock(&ssic_hcd.ssic_mutex);
+		return -ENODEV;
+	}
+
+	if (ssic_hcd.modem_dev) {
+		if (request) {
+			/* Need to enable device U1 */
+			dev_err(dev, "Modem is alive, now enable Modem initiated U1\n");
+			 ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U1, true);
+		} else {
+			dev_err(dev, "Modem is alive, now need to disable Modem initiated U1\n");
+			ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U1, false);
+		}
+	}
+
+	ssic_hcd.u1_enable = request;
+
+	mutex_unlock(&ssic_hcd.ssic_mutex);
+	return size;
+}
+static DEVICE_ATTR(u1_enable, S_IRUGO | S_IWUSR | S_IROTH | S_IWOTH,
+		ssic_u1_enable_show,
+		ssic_u1_enable_store);
+
+static ssize_t ssic_u2_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int		request;
+
+	if (sscanf(buf, "%d", &request) != 1) {
+		dev_dbg(dev, "Invalid, value\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ssic_hcd.ssic_mutex);
+
+	if (!ssic_hcd.modem_dev) {
+		mutex_unlock(&ssic_hcd.ssic_mutex);
+		return -ENODEV;
+	}
+
+	if (ssic_hcd.modem_dev) {
+		if (request) {
+			/* Need to enable device U1 */
+			dev_err(dev, "Modem is alive, now enable Modem initiated U2\n");
+			ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U2, true);
+		} else {
+			dev_err(dev, "Modem is alive, now need to disable Modem initiated U2\n");
+			ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U2, false);
+		}
+	}
+
+	ssic_hcd.u2_enable = request;
+
+	mutex_unlock(&ssic_hcd.ssic_mutex);
+	return size;
+}
+
+/* Interfaces for u2_enable */
+static ssize_t ssic_u2_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", ssic_hcd.u2_enable);
+}
+
+static DEVICE_ATTR(u2_enable, S_IRUGO | S_IWUSR | S_IROTH | S_IWOTH,
+		ssic_u2_enable_show,
+		ssic_u2_enable_store);
+
 /* Interfaces for L2 suspend */
 static ssize_t ssic_autosuspend_enable_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -662,8 +808,63 @@ static struct attribute *ssic_attrs[] = {
 	&dev_attr_port_inactivity_duration.attr,
 	&dev_attr_bus_inactivity_duration.attr,
 	&dev_attr_ssic_enable.attr,
+	&dev_attr_u1_enable.attr,
+	&dev_attr_u2_enable.attr,
 	NULL,
 };
+
+/* SSIC PM interface:
+ * Bit0 - U3 enable/disable
+ * Bit1 - U2 enable/disable
+ * Bit2 - U1 enale/disable
+ */
+static ssize_t ssic_pm_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", ssic_hcd.autosuspend_enable | ssic_hcd.u2_enable << 1
+			| ssic_hcd.u1_enable << 2);
+}
+
+static ssize_t ssic_pm_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int rc1, rc2, rc3;
+	u8 pm_enable;
+
+	if (size > HSIC_ENABLE_SIZE)
+		return -EINVAL;
+
+	if (sscanf(buf, "%d", &pm_enable) != 1) {
+		dev_dbg(dev, "Invalid, value\n");
+		return -EINVAL;
+	}
+
+	if (pm_enable & 1)
+		 rc1 = ssic_autosuspend_enable_store(dev, attr, "1", size);
+	else
+		 rc1 = ssic_autosuspend_enable_store(dev, attr, "0", size);
+
+
+	if (pm_enable & 2)
+		rc2 = ssic_u2_enable_store(dev, attr, "1", size);
+	else
+		rc2 = ssic_u2_enable_store(dev, attr, "0", size);
+
+	if (pm_enable & 4)
+		rc3 = ssic_u1_enable_store(dev, attr, "1", size);
+	else
+		rc3 = ssic_u1_enable_store(dev, attr, "0", size);
+
+	if (rc1 == size && rc2 == size && rc3 == size)
+		return size;
+	else
+		return -EINVAL;
+}
+
+static DEVICE_ATTR(pm_enable, S_IRUGO | S_IWUSR | S_IROTH,
+		ssic_pm_enable_show,
+		 ssic_pm_enable_store);
+
 
 static struct attribute_group ssic_attr_group = {
 	.name   = ssic_group_name,
@@ -1650,49 +1851,65 @@ static int create_ssic_class_device_files(struct pci_dev *pdev)
 	retval = device_create_file(ssic_class_dev, &dev_attr_ssic_registers);
 	if (retval < 0) {
 		dev_dbg(&pdev->dev, "error create ssic_register\n");
-		goto ssic_register_fail;
+		goto ssic_class_dev_fail;
 	}
 
 	retval = device_create_file(ssic_class_dev, &dev_attr_ssic_enable);
 	if (retval < 0) {
 		dev_dbg(&pdev->dev, "error create ssic_enable\n");
-		goto ssic_class_fail;
+		goto ssic_class_dev_fail;
 	}
 
 	retval = device_create_file(ssic_class_dev,
 				&dev_attr_autosuspend_enable);
 	if (retval < 0) {
 		dev_dbg(&pdev->dev, "Error create autosuspend_enable\n");
-		goto autosuspend;
+		goto ssic_class_dev_fail;
 	}
 
 	retval = device_create_file(ssic_class_dev,
 				&dev_attr_port_inactivity_duration);
 	if (retval < 0) {
 		dev_dbg(&pdev->dev, "Error create port_inactiveDuration\n");
-		goto port_duration;
+		goto ssic_class_dev_fail;
 	}
 
 	retval = device_create_file(ssic_class_dev,
 				&dev_attr_bus_inactivity_duration);
 	if (retval < 0) {
 		dev_dbg(&pdev->dev, "Error create bus_inactiveDuration\n");
-		goto bus_duration;
+		goto ssic_class_dev_fail;
 	}
+
+	retval = device_create_file(ssic_class_dev,
+				&dev_attr_u1_enable);
+	if (retval < 0) {
+		dev_dbg(&pdev->dev, "Error create u1_enable\n");
+		goto ssic_class_dev_fail;
+	}
+
+	retval = device_create_file(ssic_class_dev,
+				&dev_attr_u2_enable);
+	if (retval < 0) {
+		dev_dbg(&pdev->dev, "Error create u2_enable\n");
+		goto ssic_class_dev_fail;
+	}
+
+	retval = device_create_file(ssic_class_dev,
+				&dev_attr_pm_enable);
+	if (retval < 0) {
+		dev_dbg(&pdev->dev, "Error create pm_enable\n");
+		goto ssic_class_dev_fail;
+	}
+
 
 	if (retval == 0)
 		return retval;
 
-bus_duration:
-	device_remove_file(ssic_class_dev, &dev_attr_port_inactivity_duration);
-port_duration:
-	device_remove_file(ssic_class_dev, &dev_attr_autosuspend_enable);
-autosuspend:
-	device_remove_file(ssic_class_dev, &dev_attr_ssic_enable);
+ssic_class_dev_fail:
+	device_destroy(ssic_class, ssic_class_dev->devt);
 ssic_class_fail:
-	device_remove_file(ssic_class_dev, &dev_attr_ssic_registers);
-ssic_register_fail:
-
+	class_destroy(ssic_class);
 	return retval;
 }
 
