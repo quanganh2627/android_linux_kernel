@@ -18,10 +18,13 @@
 #include <linux/iio/consumer.h>
 #include <asm/intel_scu_pmic.h>
 #include "otg.h"
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 
 #define VERSION "2.10a"
 
 static int otg_id = -1;
+static struct dentry *dwc3_debugfs_root;
 static int enable_usb_phy(struct dwc_otg2 *otg, bool on_off);
 static int dwc3_intel_notify_charger_type(struct dwc_otg2 *otg,
 		enum power_supply_charger_event event);
@@ -220,14 +223,30 @@ static enum power_supply_charger_cable_type
 		return shady_cove_aca_check(otg);
 }
 
-static ssize_t store_otg_id(struct device *_dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static int otg_id_show(struct seq_file *s, void *unused)
 {
-	unsigned long flags;
-	struct dwc_otg2 *otg = dwc3_get_otg();
+	seq_printf(s, "USB OTG ID: %s\n",
+		(otg_id ? "B" : "A"));
+	return 0;
+}
 
+static int otg_id_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, otg_id_show, inode->i_private);
+}
+
+static ssize_t otg_id_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	char			buf[32];
+	unsigned long	flags;
+	struct dwc_otg2 *otg = dwc3_get_otg();
 	if (!otg)
 		return 0;
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+			return -EFAULT;
+
 	if (count != 2) {
 		otg_err(otg, "return EINVAL\n");
 		return -EINVAL;
@@ -263,27 +282,52 @@ static ssize_t store_otg_id(struct device *_dev,
 	return count;
 }
 
-static ssize_t
-show_otg_id(struct device *_dev, struct device_attribute *attr, char *buf)
+static const struct file_operations otg_debugfs_id_fops = {
+	.open                   = otg_id_open,
+	.write                  = otg_id_write,
+	.read                   = seq_read,
+	.llseek                 = seq_lseek,
+	.release                = single_release,
+};
+
+static int dwc3_debugfs_init(struct dwc_otg2 *otg)
 {
-	char				*next;
-	unsigned			size, t;
+	int retval = 0;
+	struct dentry *file;
 
-	next = buf;
-	size = PAGE_SIZE;
+	if (!dwc3_debugfs_root) {
+		dwc3_debugfs_root = debugfs_create_dir("dwc3_debugfs_root", usb_debug_root);
+		if (!dwc3_debugfs_root) {
+			retval = -ENOMEM;
+			otg_dbg(otg, "	Error create debugfs root failed !");
+			return retval;
+		}
 
-	t = scnprintf(next, size,
-		"USB OTG ID: %s\n",
-		(otg_id ? "B" : "A")
-		);
-	size -= t;
-	next += t;
+		file = debugfs_create_file("otg_id", S_IRUGO, dwc3_debugfs_root,
+							NULL, &otg_debugfs_id_fops);
+		if (!file) {
+			retval = -ENOMEM;
+			otg_dbg(otg, "	Error create debugfs file otg_id failed !");
+			goto remove_debugfs;
+		}
+	}
 
-	return PAGE_SIZE - size;
+	if (retval != 0)
+		goto remove_debugfs;
+
+	return retval;
+remove_debugfs:
+	debugfs_remove_recursive(dwc3_debugfs_root);
+	dwc3_debugfs_root = NULL;
+	return retval;
 }
 
-static DEVICE_ATTR(otg_id, S_IRUGO|S_IWUSR|S_IWGRP,
-			show_otg_id, store_otg_id);
+static void dwc3_debugfs_exit(struct dwc_otg2 *otg)
+{
+	debugfs_remove_recursive(dwc3_debugfs_root);
+	dwc3_debugfs_root = NULL;
+	otg_dbg(otg, "	Remove debugfs root !");
+}
 
 static void dwc_a_bus_drop(struct usb_phy *x)
 {
@@ -417,12 +461,9 @@ int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 	 */
 	set_sus_phy(otg, 0);
 
-	retval = device_create_file(otg->dev, &dev_attr_otg_id);
-	if (retval < 0) {
-		otg_dbg(otg,
-			"Can't register sysfs attribute: %d\n", retval);
-		return -ENOMEM;
-	}
+	retval = dwc3_debugfs_init(otg);
+	if (retval)
+		otg_err(otg, "Fail to init the debugfs\n");
 
 	otg_dbg(otg, "\n");
 	otg_write(otg, OEVTEN, 0);
@@ -430,6 +471,11 @@ int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 
 	dwc3_switch_mode(otg, GCTL_PRT_CAP_DIR_OTG);
 
+	return 0;
+}
+int dwc3_intel_platform_exit(struct dwc_otg2 *otg)
+{
+	dwc3_debugfs_exit(otg);
 	return 0;
 }
 
@@ -1221,6 +1267,7 @@ struct dwc3_otg_hw_ops dwc3_intel_otg_pdata = {
 	.set_power = dwc3_intel_set_power,
 	.enable_vbus = dwc3_intel_enable_vbus,
 	.platform_init = dwc3_intel_platform_init,
+	.platform_exit = dwc3_intel_platform_exit,
 	.get_charger_type = dwc3_intel_get_charger_type,
 	.otg_notifier_handler = dwc3_intel_handle_notification,
 	.prepare_start_peripheral = dwc3_intel_prepare_start_peripheral,
