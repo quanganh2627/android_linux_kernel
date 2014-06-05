@@ -24,6 +24,12 @@ static const char ssic_group_name[] = "ssic";
 
 static struct pci_dev		*ssic_pci_dev;
 static struct ssic_xhci_hcd	ssic_hcd;
+
+static struct class *ssic_class;
+static struct device *ssic_class_dev;
+
+static int create_ssic_class_device_files(struct pci_dev *pdev);
+static void remove_ssic_class_device_files(void);
 static int xhci_ssic_private_reset(struct usb_hcd *hcd);
 
 static int is_ssic_host(struct usb_device *udev)
@@ -1623,6 +1629,77 @@ static int xhci_ipc_hub_control(struct usb_hcd *hcd,
 error:
 	spin_unlock_irqrestore(&xhci->lock, flags);
 	return retval;
+}
+
+static int create_ssic_class_device_files(struct pci_dev *pdev)
+{
+	int retval;
+	ssic_class = class_create(NULL, "ssic");
+
+	if (IS_ERR(ssic_class))
+		return -EFAULT;
+
+	ssic_class_dev = device_create(ssic_class, &pdev->dev,
+			MKDEV(0, 0), NULL, "ssic0");
+
+	if (IS_ERR(ssic_class_dev)) {
+		retval = -EFAULT;
+		goto ssic_class_fail;
+	}
+
+	retval = device_create_file(ssic_class_dev, &dev_attr_ssic_registers);
+	if (retval < 0) {
+		dev_dbg(&pdev->dev, "error create ssic_register\n");
+		goto ssic_register_fail;
+	}
+
+	retval = device_create_file(ssic_class_dev, &dev_attr_ssic_enable);
+	if (retval < 0) {
+		dev_dbg(&pdev->dev, "error create ssic_enable\n");
+		goto ssic_class_fail;
+	}
+
+	retval = device_create_file(ssic_class_dev,
+				&dev_attr_autosuspend_enable);
+	if (retval < 0) {
+		dev_dbg(&pdev->dev, "Error create autosuspend_enable\n");
+		goto autosuspend;
+	}
+
+	retval = device_create_file(ssic_class_dev,
+				&dev_attr_port_inactivity_duration);
+	if (retval < 0) {
+		dev_dbg(&pdev->dev, "Error create port_inactiveDuration\n");
+		goto port_duration;
+	}
+
+	retval = device_create_file(ssic_class_dev,
+				&dev_attr_bus_inactivity_duration);
+	if (retval < 0) {
+		dev_dbg(&pdev->dev, "Error create bus_inactiveDuration\n");
+		goto bus_duration;
+	}
+
+	if (retval == 0)
+		return retval;
+
+bus_duration:
+	device_remove_file(ssic_class_dev, &dev_attr_port_inactivity_duration);
+port_duration:
+	device_remove_file(ssic_class_dev, &dev_attr_autosuspend_enable);
+autosuspend:
+	device_remove_file(ssic_class_dev, &dev_attr_ssic_enable);
+ssic_class_fail:
+	device_remove_file(ssic_class_dev, &dev_attr_ssic_registers);
+ssic_register_fail:
+
+	return retval;
+}
+
+static void remove_ssic_class_device_files(void)
+{
+	device_destroy(ssic_class, ssic_class_dev->devt);
+	class_destroy(ssic_class);
 }
 static int xhci_ssic_private_reset(struct usb_hcd *hcd)
 {

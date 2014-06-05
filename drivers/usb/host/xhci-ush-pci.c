@@ -1397,7 +1397,15 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 
 	if (hsic_pdata->has_ssic) {
 		ssic_pci_dev = dev;
+
+		/* Fix me: remove the following 5 lines once application change the path */
 		retval = sysfs_create_group(&dev->dev.kobj, &ssic_attr_group);
+		if (retval < 0) {
+			dev_err(&dev->dev, "error create SSIC device files\n");
+			goto put_usb3_hcd;
+		}
+
+		retval = create_ssic_class_device_files(dev);
 		if (retval < 0) {
 			dev_err(&dev->dev, "error create SSIC device files\n");
 			goto put_usb3_hcd;
