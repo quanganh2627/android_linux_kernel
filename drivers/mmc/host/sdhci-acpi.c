@@ -302,8 +302,10 @@ static int sdhci_acpi_emmc_probe_slot(struct platform_device *pdev)
 static int sdhci_acpi_sdio_probe_slot(struct platform_device *pdev)
 {
 	struct sdhci_acpi_host *c = platform_get_drvdata(pdev);
+	struct sdhci_host *host;
+	unsigned int cpu;
 
-	if (!c)
+	if (!c || !c->host)
 		return 0;
 
 	if (INTEL_MID_BOARDV1(PHONE, BYT) ||
@@ -311,6 +313,11 @@ static int sdhci_acpi_sdio_probe_slot(struct platform_device *pdev)
 		/* increase the auto suspend delay for SDIO to be 500ms */
 		c->autosuspend_delay = 500;
 	}
+
+	host = c->host;
+
+	if (sdhci_intel_host(&cpu) && (cpu == INTEL_CHV_CPU))
+		host->quirks2 |= SDHCI_QUIRK2_SDR104_BROKEN;
 
 	return 0;
 }
