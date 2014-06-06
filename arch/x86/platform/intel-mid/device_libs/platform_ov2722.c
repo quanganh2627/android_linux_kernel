@@ -37,6 +37,8 @@
 #ifdef CONFIG_INTEL_SOC_PMC
 #define OSC_CAM1_CLK 0x1
 #define CLK_19P2MHz 0x1
+/* workaround - use xtal for cht */
+#define CLK_19P2MHz_XTAL 0x0
 #define CLK_ON	0x1
 #define CLK_OFF	0x2
 #endif
@@ -334,7 +336,8 @@ static int ov2722_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 #ifdef CONFIG_INTEL_SOC_PMC
 	int ret = 0;
 	if (flag) {
-		ret = pmc_pc_set_freq(OSC_CAM1_CLK, CLK_19P2MHz);
+		ret = pmc_pc_set_freq(OSC_CAM1_CLK, (IS_CHT) ?
+			CLK_19P2MHz_XTAL : CLK_19P2MHz);
 		if (ret)
 			return ret;
 		return pmc_pc_configure(OSC_CAM1_CLK, CLK_ON);

@@ -31,6 +31,8 @@
 #ifdef CONFIG_INTEL_SOC_PMC
 #define OSC_CAM0_CLK 0x0
 #define CLK_19P2MHz 0x1
+/* workaround - use xtal for cht */
+#define CLK_19P2MHz_XTAL 0x0
 #define CLK_ON	0x1
 #define CLK_OFF	0x2
 #endif
@@ -90,7 +92,8 @@ static int ov5693_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 #ifdef CONFIG_INTEL_SOC_PMC
 	int ret = 0;
 	if (flag) {
-		ret = pmc_pc_set_freq(OSC_CAM0_CLK, CLK_19P2MHz);
+		ret = pmc_pc_set_freq(OSC_CAM0_CLK, (IS_CHT) ?
+				CLK_19P2MHz_XTAL : CLK_19P2MHz);
 		if (ret)
 			pr_err("ov5693 clock set failed.\n");
 	}

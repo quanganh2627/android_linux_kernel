@@ -36,6 +36,9 @@
 
 #define OSC_CAM_CLK 0x0
 #define CLK_19P2MHz 0x0
+#define CLK_19P2MHz 0x1
+/* workaround - use xtal for cht */
+#define CLK_19P2MHz_XTAL 0x0
 
 #ifdef CONFIG_CRYSTAL_COVE
 #define VPROG_2P8V 0x5d
@@ -128,7 +131,8 @@ static int m10mo_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 #ifdef CONFIG_INTEL_SOC_PMC
 	int ret;
 	if (flag) {
-		ret = pmc_pc_set_freq(OSC_CAM_CLK, CLK_19P2MHz);
+		ret = pmc_pc_set_freq(OSC_CAM_CLK, (IS_CHT) ?
+			CLK_19P2MHz_XTAL : CLK_19P2MHz);
 		if (ret)
 			return ret;
 		ret = pmc_pc_configure(OSC_CAM_CLK, 1);
