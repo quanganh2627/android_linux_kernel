@@ -203,6 +203,8 @@ enum {
 	INTEL_MOFD_PHONE_GARNET_ENG = 0x8004,
 	INTEL_MOFD_PHONE_LNP_PRO = 0x0005,
 	INTEL_MOFD_PHONE_LNP_ENG = 0x8005,
+	INTEL_MOFD_PHONE_DSDA_PRO = 0x0006,
+	INTEL_MOFD_PHONE_DSDA_ENG = 0x8006,
 	INTEL_MOFD_PHONE_UNKNOWN = 0xFFFF
 };
 
@@ -496,8 +498,8 @@ enum {
 
 /* Hardware_ID table for Product_Line_ID == INTEL_MOFD_PHONE_V0 */
 enum {
-	MOFD_PHONE_V0_PR0, /* FAB A */
-	MOFD_PHONE_V0_PR1, /* FAB B */
+	MOFD_PHONE_V0_PR0, /* Moorefield PRh-A0 */
+	MOFD_PHONE_V0_PR1, /* Moorefield PRh-B0 */
 	MOFD_PHONE_V0_PR2, /* FAB C */
 	MOFD_PHONE_V0_PR3, /* FAB D */
 	MOFD_PHONE_V0_RSVD,
@@ -505,17 +507,17 @@ enum {
 };
 /* Hardware_ID table for Product_Line_ID == INTEL_MOFD_PHONE_V1 */
 enum {
-	MOFD_PHONE_V1_PR0, /* FAB A */
-	MOFD_PHONE_V1_PR1, /* FAB B */
-	MOFD_PHONE_V1_PR2, /* FAB C */
-	MOFD_PHONE_V1_PR3, /* FAB D */
+	MOFD_PHONE_V1_PR0, /* Moorefield PR1 */
+	MOFD_PHONE_V1_PR1, /* Moorefield PR2 */
+	MOFD_PHONE_V1_PR2, /* Moorefield PR2 PRQ */
+	MOFD_PHONE_V1_PR3, /* Moorefield PR2.1 */
 	MOFD_PHONE_V1_RSVD,
 	MOFD_PHONE_V1_UNKNOWN = 0xFFFF
 };
 
 /* Hardware_ID table for Product_Line_ID == INTEL_MOFD_PHONE_V2 */
 enum {
-	MOFD_PHONE_V2_PR0, /* FAB A */
+	MOFD_PHONE_V2_PR0, /* Moorefield K0 PR1 */
 	MOFD_PHONE_V2_PR1, /* FAB B */
 	MOFD_PHONE_V2_PR2, /* FAB C */
 	MOFD_PHONE_V2_PR3, /* FAB D */
@@ -535,24 +537,31 @@ enum {
 
 /* Hardware_ID table for Product_Line_ID == INTEL_MOFD_PHONE_LNP */
 enum {
-	MOFD_PHONE_LNP_PR0, /* FAB A */
-	MOFD_PHONE_LNP_PR1, /* FAB B */
+	MOFD_PHONE_LNP_PR0, /* Moorefield lnp FAB A" */
+	MOFD_PHONE_LNP_PR1, /* Moorefield lnp FAB BMoorefield lnp FAB B */
 	MOFD_PHONE_LNP_PR2, /* FAB C */
 	MOFD_PHONE_LNP_PR3, /* FAB D */
 	MOFD_PHONE_LNP_RSVD,
 	MOFD_PHONE_LNP_UNKNOWN = 0xFFFF
 };
 
+/* Hardware_ID table for Product_Line_ID == INTEL_MOFD_PHONE_DSDA */
+enum {
+	MOFD_PHONE_DSDA_PR0, /* Moorefield DSDA FAB A" */
+	MOFD_PHONE_DSDA_RSVD,
+	MOFD_PHONE_DSDA_UNKNOWN = 0xFFFF
+};
+
 /* Hardware_ID table for Product_Line_ID == INTEL_MOFD_TABLET_BB */
 enum {
-	MOFD_TABLET_BB_FAB_A,
+	MOFD_TABLET_BB_FAB_A, /* Moorefield BB Fab A */
 	MOFD_TABLET_BB_RSVD,
 	MOFD_TABLET_BB_UNKNOWN = 0xFFFF
 };
 
 /* Hardware_ID table for Product_Line_ID == INTEL_MOFD_TABLET_EP */
 enum {
-	MOFD_TABLET_EP_FAB_A,
+	MOFD_TABLET_EP_FAB_A, /* Moorefield EP Fab A */
 	MOFD_TABLET_EP_RSVD,
 	MOFD_TABLET_EP_UNKNOWN = 0xFFFF
 };
