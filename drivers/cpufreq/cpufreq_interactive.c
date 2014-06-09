@@ -1052,11 +1052,18 @@ static ssize_t store_touchboostpulse(struct cpufreq_interactive_tunables
 {
 	int ret;
 	unsigned long val;
+	unsigned int i;
+	struct cpufreq_interactive_cpuinfo *pcpu;
 
 	ret = kstrtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
 
+	for_each_online_cpu(i) {
+		pcpu = &per_cpu(cpuinfo, i);
+		if (!pcpu->governor_enabled)
+			return -EINVAL;
+	}
 	tunables->touchboostpulse_endtime = ktime_to_us(ktime_get())
 				+ tunables->touchboostpulse_duration_val;
 	trace_cpufreq_interactive_boost("pulse");
