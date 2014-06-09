@@ -44,7 +44,7 @@ void sfi_handle_usb(struct sfi_device_table_entry *pentry, struct devs_id *dev)
 		pr_info("USB SFI entry is NULL!\n");
 		return;
 	}
-	for (i = 0; i < sizeof(usb2_el_cal); i++) {
+	for (i = 0; i < ARRAY_SIZE(usb2_el_cal); i++) {
 		if (!strncmp(dev->name, usb2_el_cal[i].name, strlen(dev->name))) {
 			if (!strncmp(dev->name, USB_ULPI_SFI_PREFIX, strlen(USB_ULPI_SFI_PREFIX)))
 				dwc_otg_pdata.ulpi_eye_calibration = usb2_el_cal[i].val;
