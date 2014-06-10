@@ -109,7 +109,7 @@
 		SVEN_VERSION_PATCH)
 
 #ifndef SVEN_COMPILER_INCLUDED
-#include "compiler.h"
+#include "sventx/compiler.h"
 #endif
 
 #if defined(__cplusplus)
@@ -232,7 +232,7 @@ typedef struct s_sven_guid {
  * @param p user defined value or pointer to data
  * @see sven_hdr sven_header_t
  */
-typedef void (SVEN_CALLCONV *sven_inithook_t)(struct s_sven_header *svenh,
+typedef void (SVEN_CALLCONV * sven_inithook_t)(struct s_sven_header *svenh,
 		const void *p);
 
 /**
@@ -245,7 +245,7 @@ typedef void (SVEN_CALLCONV *sven_inithook_t)(struct s_sven_header *svenh,
  *
  * @param svenh Pointer to SVEN global state structure
  */
-typedef void (SVEN_CALLCONV *sven_destroyhook_t)(struct s_sven_header *svenh);
+typedef void (SVEN_CALLCONV * sven_destroyhook_t)(struct s_sven_header *svenh);
 
 /**
  * SVEN handle state initialization hook definition
@@ -480,7 +480,7 @@ typedef struct s_sven_handle {
 } /* extern C */
 #endif
 #ifndef SVEN_API_INCLUDED
-#include "api.h"
+#include "sventx/api.h"
 #endif
 
 extern sven_handle_t sventx_null_handle;

@@ -60,8 +60,8 @@
 
 */
 
-#include <linux/sventx/sventx.h>
-#include "event.h"
+#include "sventx.h"
+#include "sventx/event.h"
 
 /**
  * SVEN global state

@@ -62,7 +62,7 @@
 
 /* Compiler dependent code */
 
-#include <linux/sventx/sventx.h>
+#include "sventx.h"
 
 #if defined(_WIN32)		/* MSVC Compiler section */
 

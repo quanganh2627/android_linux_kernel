@@ -30,7 +30,7 @@
 #include <linux/kernel.h>
 #include <linux/cpu.h>
 
-#include <linux/sventx/sventx.h>
+#include "sventx.h"
 
 /*
  * Module attributes

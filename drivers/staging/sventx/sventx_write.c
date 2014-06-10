@@ -60,9 +60,9 @@
 
 */
 
-#include <linux/sventx/sventx.h>
-#include "event.h"
-#include "crc32.h"
+#include "sventx.h"
+#include "sventx/event.h"
+#include "sventx/crc32.h"
 
 #if defined(SVEN_PCFG_ENABLE_DEFAULT_SCATTER_WRITE)
 

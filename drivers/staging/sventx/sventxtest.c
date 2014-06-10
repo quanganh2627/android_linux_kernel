@@ -70,7 +70,7 @@
 
 MODULE_LICENSE("GPL");
 
-#include <linux/sventx/sventx.h>
+#include "sventx.h"
 
 static psven_handle_t svenHandle;
 static struct timer_list tml;

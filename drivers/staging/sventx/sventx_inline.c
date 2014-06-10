@@ -60,7 +60,7 @@
 
 */
 
-#include <linux/sventx/sventx.h>
+#include "sventx.h"
 
 /* Include inline function in this cpp file if functions inline
  * support is disabled by the platform define
@@ -68,5 +68,5 @@
  * Implementation will then use true functions to save code space.
  */
 #if !defined(SVEN_PCFG_ENABLE_INLINE)
-#include <linux/sventx/inline.h>
+#include "sventx/inline.h"
 #endif

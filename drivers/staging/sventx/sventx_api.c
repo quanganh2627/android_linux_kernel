@@ -60,8 +60,8 @@
 
 */
 
-#include <linux/sventx/sventx.h>
-#include "event.h"
+#include "sventx.h"
+#include "sventx/event.h"
 
 #if defined(SVEN_UNIT_TEST)
 #define ASSERT_CHECK(x) ASSERT_EQ(x, true)

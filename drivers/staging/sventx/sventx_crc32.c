@@ -104,7 +104,7 @@
   (zlib format), rfc1951 (deflate format) and rfc1952 (gzip format).
 */
 
-#include <linux/sventx/sventx.h>
+#include "sventx.h"
 
 #if defined(SVEN_PCFG_ENABLE_CHECKSUM)
 
@@ -190,7 +190,7 @@ const sven_u32_t crc_table[256] = {
 
 #if !defined(SVEN_PCFG_ENABLE_INLINE)
 #define SVEN_PCFG_ENABLE_INLINE
-#include "crc32.h"
+#include "sventx/crc32.h"
 #endif
 
 #endif				/* defined(SVEN_PCFG_ENABLE_CHECKSUM) */
