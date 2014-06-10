@@ -97,11 +97,15 @@ int pxa2xx_spi_map_dma_buffers(struct driver_data *drv_data)
 	if (drv_data->len < chip->dma_burst_size)
 		return 0;
 
-	if (!drv_data->tx)
+	if (!drv_data->tx) {
 		drv_data->tx = drv_data->dummy;
+		drv_data->tx_end = drv_data->tx + drv_data->len;
+	}
 
-	if (!drv_data->rx)
+	if (!drv_data->rx) {
 		drv_data->rx = drv_data->dummy;
+		drv_data->rx_end = drv_data->rx + drv_data->len;
+	}
 
 	return 1;
 }
@@ -143,7 +147,7 @@ irqreturn_t pxa2xx_spi_dma_transfer(struct driver_data *drv_data)
 		return IRQ_HANDLED;
 	}
 
-	return IRQ_NONE;
+	return IRQ_HANDLED;
 }
 
 int pxa2xx_spi_dma_prepare(struct driver_data *drv_data, u32 dma_burst)
