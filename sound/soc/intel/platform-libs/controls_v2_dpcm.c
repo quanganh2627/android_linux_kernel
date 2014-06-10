@@ -439,7 +439,7 @@ static void sst_find_and_send_pipe_algo(struct sst_data *sst,
 {
 	struct soc_bytes_ext *sb;
 	struct sst_algo_data *bc;
-	struct module *algo = NULL;
+	struct sst_module *algo = NULL;
 
 	pr_debug("Enter: %s, widget=%s\n", __func__, pipe);
 
@@ -708,7 +708,7 @@ static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst, int mut
 	struct soc_mixer_control *sm;
 	struct sst_gain_data *mc;
 	struct sst_gain_value *gv;
-	struct module *gain = NULL;
+	struct sst_module *gain = NULL;
 
 	list_for_each_entry(gain, &ids->gain_list, node) {
 		struct snd_kcontrol *kctl = gain->kctl;
@@ -1254,12 +1254,12 @@ static int sst_tone_generator_event(struct snd_soc_dapm_widget *w,
 	/* in case of tone generator, the params are combined with the ON cmd */
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		int len;
-		struct module *algo;
+		struct sst_module *algo;
 		struct soc_bytes_ext *sb;
 		struct sst_algo_data *bc;
 		struct sst_cmd_set_params *cmd;
 
-		algo = list_first_entry(&ids->algo_list, struct module, node);
+		algo = list_first_entry(&ids->algo_list, struct sst_module, node);
 		if (algo == NULL)
 			return -EINVAL;
 		sb = (void *)algo->kctl->private_value;
@@ -2055,7 +2055,7 @@ int sst_send_pipe_gains(struct snd_soc_dai *dai, int stream, int mute)
 static int sst_fill_module_list(struct snd_kcontrol *kctl,
 	 struct snd_soc_dapm_widget *w, int type)
 {
-	struct module *module = NULL;
+	struct sst_module *module = NULL;
 	struct sst_ids *ids = w->priv;
 
 	module = devm_kzalloc(w->platform->dev, sizeof(*module), GFP_KERNEL);

@@ -46,7 +46,7 @@ enum {
 #define SST_MAX_SSP_MUX		2			/* single SSP muxed between pipes */
 #define SST_MAX_SSP_DOMAINS	2			/* domains present in each pipe */
 
-struct module {
+struct sst_module {
 	struct snd_kcontrol *kctl;
 	struct list_head node;
 };
