@@ -26,6 +26,7 @@
 
 #ifndef __SST_PLATFORM_PVT_H__
 #define __SST_PLATFORM_PVT_H__
+#include "platform-libs/controls_v2.h"
 
 /* TODO rmv this global */
 extern struct sst_device *sst_dsp;
@@ -73,8 +74,10 @@ enum ssp_port {
 	SST_SSP_PORT0 = 0,
 	SST_SSP_PORT1,
 	SST_SSP_PORT2,
-	SST_SSP_PORT3,
+	SST_SSP_LAST = SST_SSP_PORT2,
 };
+
+#define SST_NUM_SSPS		(SST_SSP_LAST + 1)	/* physical SSPs */
 
 #define SST_PIPE_CONTROL	0x0
 #define SST_COMPRESS_VOL	0x01
@@ -84,9 +87,12 @@ int sst_dsp_init(struct snd_soc_platform *platform);
 int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform);
 int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform);
 int sst_send_pipe_gains(struct snd_soc_dai *dai, int stream, int mute);
-void send_ssp_cmd(struct snd_soc_platform *platform, const char *id, bool enable);
+void send_ssp_cmd(struct snd_soc_platform *platform, unsigned int rate, unsigned int id, bool enable);
 void sst_handle_vb_timer(struct snd_soc_platform *platform, bool enable);
 
+int sst_fill_ssp_slot(struct sst_data *sst, unsigned int tx_mask, unsigned int rx_mask,
+									int id, int slots, int slot_width);
+int sst_fill_ssp_config(struct sst_data *sst, unsigned int id, unsigned int fmt, bool enable);
 unsigned int sst_soc_read(struct snd_soc_platform *platform, unsigned int reg);
 int sst_soc_write(struct snd_soc_platform *platform, unsigned int reg, unsigned int val);
 unsigned int sst_reg_read(struct sst_data *sst, unsigned int reg,
@@ -129,10 +135,10 @@ struct sst_pcm_format {
 	unsigned int channels_max;
 };
 
-
 struct sst_data {
 	struct platform_device *pdev;
 	struct sst_platform_data *pdata;
+	struct sst_cmd_sba_hw_set_ssp ssp_cmd[SST_NUM_SSPS];
 	unsigned int lpe_mixer_input_ihf;
 	unsigned int lpe_mixer_input_hs;
 	u32 *widget;

@@ -34,18 +34,6 @@
 #define SST_FMT_MONO 0
 #define SST_FMT_STEREO 3
 
-/* physical SSP numbers */
-enum {
-	SST_SSP0 = 0,
-	SST_SSP1,
-	SST_SSP2,
-	SST_SSP_LAST = SST_SSP2,
-};
-
-#define SST_NUM_SSPS		(SST_SSP_LAST + 1)	/* physical SSPs */
-#define SST_MAX_SSP_MUX		2			/* single SSP muxed between pipes */
-#define SST_MAX_SSP_DOMAINS	2			/* domains present in each pipe */
-
 struct sst_module {
 	struct snd_kcontrol *kctl;
 	struct list_head node;
@@ -63,13 +51,6 @@ struct sst_ssp_config {
 	u8 active_slot_map;
 	u8 start_delay;
 	u16 fs_width;
-};
-
-struct sst_ssp_cfg {
-	const u8 ssp_number;
-	const int *mux_shift;
-	const int (*domain_shift)[SST_MAX_SSP_MUX];
-	const struct sst_ssp_config (*ssp_config)[SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS];
 };
 
 struct sst_ids {

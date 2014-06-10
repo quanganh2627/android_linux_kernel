@@ -901,185 +901,213 @@ void sst_handle_vb_timer(struct snd_soc_platform *p, bool enable)
 		sst_dsp->ops->power(false);
 }
 
-#define SST_SSP_CODEC_MUX		0
-#define SST_SSP_CODEC_DOMAIN		0
-#define SST_SSP_MODEM_MUX		0
-#define SST_SSP_MODEM_DOMAIN		0
-#define SST_SSP_FM_MUX			0
-#define SST_SSP_FM_DOMAIN		0
-#define SST_SSP_BT_MUX			1
-#define SST_SSP_BT_NB_DOMAIN		0
-#define SST_SSP_BT_WB_DOMAIN		1
+static int sst_get_nb_per_slot(int slot_width)
+{
 
-static const int sst_ssp_mux_shift[SST_NUM_SSPS] = {
-	[SST_SSP0] = -1,			/* no register shift, i.e. single mux value */
-	[SST_SSP1] = SST_BT_FM_MUX_SHIFT,
-	[SST_SSP2] = -1,
-};
+	switch (slot_width) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		slot_width = 16;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		slot_width = 24;
+		break;
+	default:
+		pr_err("invalid slot_width\n");
+		return -EINVAL;
+	}
+	return slot_width;
+}
 
-static const int sst_ssp_domain_shift[SST_NUM_SSPS][SST_MAX_SSP_MUX] = {
-	[SST_SSP0][0] = -1,			/* no domain shift, i.e. single domain */
-	[SST_SSP1] = {
-		[SST_SSP_FM_MUX] = -1,
-		[SST_SSP_BT_MUX] = SST_BT_MODE_SHIFT,
-	},
-	[SST_SSP2][0] = -1,
-};
+static int sst_get_ssp_id(struct sst_data  *sst, unsigned int id)
+{
+	bool is_bt;
 
-/**
- * sst_ssp_config - contains SSP configuration for different UCs
- *
- * The 3-D array contains SSP configuration for different SSPs for different
- * domains (e.g. NB, WB), as well as muxed SSPs.
- *
- * The first dimension has SSP number
- * The second dimension has SSP Muxing (e.g. BT/FM muxed on same SSP)
- * The third dimension has SSP domains (e.g. NB/WB for BT)
- */
-static const struct sst_ssp_config
-sst_ssp_configs[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
-	[SST_SSP0] = {
-		[SST_SSP_MODEM_MUX] = {
-			[SST_SSP_MODEM_DOMAIN] = {
-				.ssp_id = SSP_MODEM,
-				.bits_per_slot = 16,
-				.slots = 1,
-				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NETWORK,
-				.duplex = SSP_DUPLEX,
-				.ssp_protocol = SSP_MODE_PCM,
-				.fs_width = 1,
-				.fs_frequency = SSP_FS_48_KHZ,
-				.active_slot_map = 0x1,
-				.start_delay = 1,
-			},
-		},
-	},
-	[SST_SSP1] = {
-		[SST_SSP_FM_MUX] = {
-			[SST_SSP_FM_DOMAIN] = {
-				.ssp_id = SSP_FM,
-				.bits_per_slot = 16,
-				.slots = 2,
-				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NORMAL,
-				.duplex = SSP_DUPLEX,
-				.ssp_protocol = SSP_MODE_I2S,
-				.fs_width = 32,
-				.fs_frequency = SSP_FS_48_KHZ,
-				.active_slot_map = 0x3,
-				.start_delay = 0,
-			},
-		},
-		[SST_SSP_BT_MUX] = {
-			[SST_SSP_BT_NB_DOMAIN] = {
-				.ssp_id = SSP_BT,
-				.bits_per_slot = 16,
-				.slots = 1,
-				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NORMAL,
-				.duplex = SSP_DUPLEX,
-				.ssp_protocol = SSP_MODE_PCM,
-				.fs_width = 1,
-				.fs_frequency = SSP_FS_8_KHZ,
-				.active_slot_map = 0x1,
-				.start_delay = 1,
-			},
-			[SST_SSP_BT_WB_DOMAIN] = {
-				.ssp_id = SSP_BT,
-				.bits_per_slot = 16,
-				.slots = 1,
-				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NORMAL,
-				.duplex = SSP_DUPLEX,
-				.ssp_protocol = SSP_MODE_PCM,
-				.fs_width = 1,
-				.fs_frequency = SSP_FS_16_KHZ,
-				.active_slot_map = 0x1,
-				.start_delay = 1,
-			},
-		},
-	},
-	[SST_SSP2] = {
-		[SST_SSP_CODEC_MUX] = {
-			[SST_SSP_CODEC_DOMAIN] = {
-				.ssp_id = SSP_CODEC,
-				.bits_per_slot = 24,
-				.slots = 4,
-				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NETWORK,
-				.duplex = SSP_DUPLEX,
-				.ssp_protocol = SSP_MODE_PCM,
-				.fs_width = 1,
-				.fs_frequency = SSP_FS_48_KHZ,
-				.active_slot_map = 0xF,
-				.start_delay = 0,
-			},
-		},
-	},
-};
+	is_bt = sst_reg_read(sst, SST_MUX_REG, SST_BT_FM_MUX_SHIFT, 1);
 
-#define SST_SSP_CFG(wssp_no)                                                            \
-	(const struct sst_ssp_cfg){ .ssp_config = &sst_ssp_configs[wssp_no],            \
-				.ssp_number = wssp_no,                              \
-				.mux_shift = &sst_ssp_mux_shift[wssp_no],           \
-				.domain_shift = &sst_ssp_domain_shift[wssp_no], }
+	switch (id) {
+	case SST_SSP_PORT0:
+		return SSP_MODEM;
+	case SST_SSP_PORT1:
+		if (!is_bt)
+			return SSP_FM;
+		else
+			return SSP_BT;
+	case SST_SSP_PORT2:
+		return SSP_CODEC;
+	default:
+		pr_err("Invalid SSP id\n");
+		return -EINVAL;
+	}
+}
 
-void send_ssp_cmd(struct snd_soc_platform *platform, const char *id, bool enable)
+int sst_fill_ssp_slot(struct sst_data *sst, unsigned int tx_mask,
+				unsigned int rx_mask, int id, int slots, int slot_width)
+{
+	int nb_slot;
+	struct sst_cmd_sba_hw_set_ssp *cmd = &sst->ssp_cmd[id];
+
+	pr_debug("Enter:%s, slot=%d, slot_width=%d\n", __func__, slots, slot_width);
+
+	nb_slot = sst_get_nb_per_slot(slot_width);
+	if (nb_slot < 0)
+		return nb_slot;
+	cmd->nb_bits_per_slots = nb_slot;
+	cmd->nb_slots = slots;
+	cmd->active_tx_slot_map = tx_mask;
+	cmd->active_rx_slot_map = rx_mask;
+	if (rx_mask && tx_mask) {
+		cmd->duplex = SSP_DUPLEX;
+	} else if (rx_mask) {
+		cmd->duplex = SSP_RX;
+	} else if (tx_mask) {
+		cmd->duplex = SSP_TX;
+	} else {
+		pr_err("Invalid rx & tx val\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int sst_get_frame_sync_freq(unsigned int rate)
+{
+
+	pr_debug("Enter:%s, rate=%x\n", __func__, rate);
+	switch (rate) {
+	case SNDRV_PCM_RATE_8000:
+		return SSP_FS_8_KHZ;
+	case SNDRV_PCM_RATE_16000:
+		return SSP_FS_16_KHZ;
+	case SNDRV_PCM_RATE_44100:
+		return SSP_FS_44_1_KHZ;
+	case SNDRV_PCM_RATE_48000:
+		return SSP_FS_48_KHZ;
+	default:
+		pr_err("Invalid frame sync freq\n");
+	}
+	return -EINVAL;
+}
+static int sst_get_frame_sync_polarity(unsigned int fmt)
+{
+	int format;
+
+	format = fmt & SND_SOC_DAIFMT_INV_MASK;
+	pr_debug("Enter:%s, format=%x\n", __func__, format);
+
+	switch (format) {
+	case SND_SOC_DAIFMT_NB_NF:
+		return SSP_FS_ACTIVE_LOW;
+	case SND_SOC_DAIFMT_NB_IF:
+		return SSP_FS_ACTIVE_HIGH;
+	case SND_SOC_DAIFMT_IB_IF:
+		return SSP_FS_ACTIVE_LOW;
+	case SND_SOC_DAIFMT_IB_NF:
+		return SSP_FS_ACTIVE_HIGH;
+	default:
+		pr_err("Invalid frame sync polarity\n");
+	}
+	return -EINVAL;
+}
+
+static int sst_get_ssp_mode(unsigned int fmt)
+{
+	int format;
+
+	format = (fmt & SND_SOC_DAIFMT_MASTER_MASK);
+	pr_debug("Enter:%s, format=%x\n", __func__, format);
+	switch (format) {
+	case SND_SOC_DAIFMT_CBS_CFS:
+		return SSP_MODE_MASTER;
+	case SND_SOC_DAIFMT_CBM_CFM:
+		return SSP_MODE_SLAVE;
+	default:
+		pr_err("Invalid ssp protocol\n");
+	}
+	return -EINVAL;
+}
+
+static int sst_get_ssp_protocol(unsigned int fmt, struct sst_cmd_sba_hw_set_ssp *cmd)
+{
+	unsigned int mode;
+
+	mode = fmt & SND_SOC_DAIFMT_FORMAT_MASK;
+	pr_debug("Enter:%s, mode=%x\n", __func__, mode);
+
+	switch (mode) {
+	case SND_SOC_DAIFMT_DSP_B:
+		cmd->ssp_protocol = SSP_MODE_PCM;
+		cmd->mode = sst_get_ssp_mode(fmt) | (SSP_PCM_MODE_NETWORK << 1);
+		cmd->start_delay = 0;
+		cmd->data_polarity = 1;
+		cmd->frame_sync_width = 1;
+		break;
+	case SND_SOC_DAIFMT_DSP_A:
+		cmd->ssp_protocol = SSP_MODE_PCM;
+		cmd->mode = sst_get_ssp_mode(fmt) | (SSP_PCM_MODE_NETWORK << 1);
+		cmd->start_delay = 1;
+		cmd->data_polarity = 1;
+		cmd->frame_sync_width = 1;
+		break;
+	case SND_SOC_DAIFMT_I2S:
+		cmd->ssp_protocol = SSP_MODE_I2S;
+		cmd->mode = sst_get_ssp_mode(fmt) | (SSP_PCM_MODE_NORMAL << 1);
+		cmd->start_delay = 1;
+		cmd->data_polarity = 0;
+		cmd->frame_sync_width = cmd->nb_bits_per_slots;
+		break;
+	case SND_SOC_DAIFMT_LEFT_J:
+		cmd->ssp_protocol = SSP_MODE_I2S;
+		cmd->mode = sst_get_ssp_mode(fmt) | (SSP_PCM_MODE_NORMAL << 1);
+		cmd->start_delay = 0;
+		cmd->data_polarity = 1;
+		cmd->frame_sync_width = cmd->nb_bits_per_slots;
+		break;
+	default:
+		pr_err("Invalid mode");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+int sst_fill_ssp_config(struct sst_data *sst, unsigned int id, unsigned int fmt, bool enable)
+{
+	int ssp_id, ret, fs_polarity;
+	struct sst_cmd_sba_hw_set_ssp *cmd = &sst->ssp_cmd[id];
+
+	pr_debug("Enter:%s\n", __func__);
+
+	ssp_id = sst_get_ssp_id(sst, id);
+	if (ssp_id < 0)
+		return ssp_id;
+	cmd->selection = ssp_id;
+	ret = sst_get_ssp_protocol(fmt, cmd);
+	if (ret < 0)
+		return ret;
+	fs_polarity = sst_get_frame_sync_polarity(fmt);
+	if (fs_polarity < 0)
+		return fs_polarity;
+	cmd->frame_sync_polarity = fs_polarity;
+	cmd->reserved1 = cmd->reserved2 = 0xFF;
+
+	return 0;
+}
+
+void send_ssp_cmd(struct snd_soc_platform *platform, unsigned int rate, unsigned int id, bool enable)
 {
 	struct sst_cmd_sba_hw_set_ssp cmd;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
-	unsigned int domain, mux;
-	int domain_shift, mux_shift, ssp_no;
-	const struct sst_ssp_config *config;
-	const struct sst_ssp_cfg *ssp;
 
-
-	pr_err("Enter:%s, enable=%d port_name=%s\n", __func__, enable, id);
-
-	if (strcmp(id, "ssp0-port") == 0)
-		ssp_no = SST_SSP0;
-	else if (strcmp(id, "ssp1-port") == 0)
-		ssp_no = SST_SSP1;
-	else if (strcmp(id, "ssp2-port") == 0)
-		ssp_no = SST_SSP2;
-	else
-		return;
-
-	ssp = &SST_SSP_CFG(ssp_no);
-
+	pr_debug("Enter:%s, enable=%d\n", __func__, enable);
+	if (enable)
+		sst->ssp_cmd[id].frame_sync_frequency = sst_get_frame_sync_freq(rate);
+	memcpy(&cmd, &sst->ssp_cmd[id], sizeof(struct sst_cmd_sba_hw_set_ssp));
 	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
 	cmd.header.command_id = SBA_HW_SET_SSP;
 	cmd.header.length = sizeof(struct sst_cmd_sba_hw_set_ssp)
 				- sizeof(struct sst_dsp_header);
-	mux_shift = *ssp->mux_shift;
-	mux = (mux_shift == -1) ? 0 : get_mux_state(sst, SST_MUX_REG, mux_shift);
-	domain_shift = (*ssp->domain_shift)[mux];
-	domain = (domain_shift == -1) ? 0 : get_mux_state(sst, SST_MUX_REG, domain_shift);
-
-	config = &(*ssp->ssp_config)[mux][domain];
-	pr_debug("%s: ssp_id: %u, mux: %d, domain: %d\n", __func__,
-		 config->ssp_id, mux, domain);
-
 	if (enable)
 		cmd.switch_state = SST_SWITCH_ON;
 	else
 		cmd.switch_state = SST_SWITCH_OFF;
-
-	cmd.selection = config->ssp_id;
-	cmd.nb_bits_per_slots = config->bits_per_slot;
-	cmd.nb_slots = config->slots;
-	cmd.mode = config->ssp_mode | (config->pcm_mode << 1);
-	cmd.duplex = config->duplex;
-	cmd.active_tx_slot_map = config->active_slot_map;
-	cmd.active_rx_slot_map = config->active_slot_map;
-	cmd.frame_sync_frequency = config->fs_frequency;
-	cmd.frame_sync_polarity = SSP_FS_ACTIVE_HIGH;
-	cmd.data_polarity = 1;
-	cmd.frame_sync_width = config->fs_width;
-	cmd.ssp_protocol = config->ssp_protocol;
-	cmd.start_delay = config->start_delay;
-	cmd.reserved1 = cmd.reserved2 = 0xFF;
 
 	sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 				SST_TASK_SBA, 0, &cmd,

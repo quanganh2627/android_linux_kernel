@@ -587,20 +587,47 @@ static int sst_media_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int sst_get_ssp_num(const char *id)
+{
+	if (!strncmp(id, "ssp0-port", 9))
+		return SST_SSP_PORT0;
+	else if (!strncmp(id, "ssp1-port", 9))
+		return SST_SSP_PORT1;
+	else if (!strncmp(id, "ssp2-port", 9))
+		return SST_SSP_PORT2;
+	else
+		return -EINVAL;
+}
+
+static int sst_be_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params,
+				struct snd_soc_dai *dai)
+{
+	int ssp_num;
+	struct snd_interval *rate =  hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
+
+	ssp_num = sst_get_ssp_num(dai->name);
+	if (ssp_num < 0)
+		return ssp_num;
+	if (dai->active == 1)
+		send_ssp_cmd(dai->platform, rate->max, ssp_num, true);
+	return 0;
+
+}
+
 static int sst_media_hw_free(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
 	return snd_pcm_lib_free_pages(substream);
 }
 
-static int sst_enable_ssp(struct snd_pcm_substream *substream,
+static int sst_send_timer_cmd(struct snd_pcm_substream *substream,
 			struct snd_soc_dai *dai)
 {
 	pr_debug("In %s :dai=%s pb=%d cp= %d dai_active=%d id=%d\n", __func__,
 		dai->name, dai->playback_active, dai->capture_active, dai->active,  dai->id);
 	if (!dai->active) {
 		sst_handle_vb_timer(dai->platform, true);
-		send_ssp_cmd(dai->platform, dai->name, 1);
 	}
 	return 0;
 }
@@ -608,12 +635,57 @@ static int sst_enable_ssp(struct snd_pcm_substream *substream,
 static void sst_disable_ssp(struct snd_pcm_substream *substream,
 			struct snd_soc_dai *dai)
 {
+	int ssp_num;
+
 	pr_debug("In %s :dai=%s pb=%d cp= %d dai_active=%d id=%d\n", __func__,
 		dai->name, dai->playback_active, dai->capture_active, dai->active, dai->id);
 	if (!dai->active) {
-		send_ssp_cmd(dai->platform, dai->name, 0);
+		ssp_num = sst_get_ssp_num(dai->name);
+		if (ssp_num < 0)
+			return;
+		else
+			send_ssp_cmd(dai->platform, 0, ssp_num, false);
 		sst_handle_vb_timer(dai->platform, false);
 	}
+}
+
+static int sst_platform_set_ssp_slot(struct snd_soc_dai *dai,
+			unsigned int tx_mask, unsigned int rx_mask,
+			int slots, int slot_width) {
+	int ssp_num, ret;
+	struct sst_data *ctx = snd_soc_platform_get_drvdata(dai->platform);
+
+	if (!dai->active)
+		return 0;
+
+	ssp_num = sst_get_ssp_num(dai->name);
+	if (ssp_num < 0)
+		return ssp_num;
+	ret = sst_fill_ssp_slot(ctx, tx_mask, rx_mask, ssp_num, slots, slot_width);
+	if (ret < 0) {
+		pr_err("sst_fill_ssp_slot failed..\n");
+		return ret;
+	}
+	return 0;
+}
+
+static int sst_set_format(struct snd_soc_dai *dai, unsigned int fmt)
+{
+	int ssp_num, ret;
+	struct sst_data *ctx = snd_soc_platform_get_drvdata(dai->platform);
+
+	if (!dai->active)
+		return 0;
+	ssp_num = sst_get_ssp_num(dai->name);
+	if (ssp_num < 0)
+		return ssp_num;
+
+	ret = sst_fill_ssp_config(ctx, ssp_num, fmt, true);
+	if (ret < 0) {
+		pr_err("sst_set_format failed..\n");
+		return ret;
+	}
+	return 0;
 }
 
 static struct snd_soc_dai_ops sst_media_dai_ops = {
@@ -645,7 +717,10 @@ static struct snd_soc_dai_ops sst_compr_dai_ops = {
 };
 
 static struct snd_soc_dai_ops sst_be_dai_ops = {
-	.startup = sst_enable_ssp,
+	.startup = sst_send_timer_cmd,
+	.hw_params = sst_be_hw_params,
+	.set_fmt = sst_set_format,
+	.set_tdm_slot = sst_platform_set_ssp_slot,
 	.shutdown = sst_disable_ssp,
 };
 
