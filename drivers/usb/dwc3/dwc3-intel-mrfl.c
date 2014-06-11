@@ -1074,6 +1074,7 @@ int dwc3_intel_prepare_start_peripheral(struct dwc_otg2 *otg)
 int dwc3_intel_suspend(struct dwc_otg2 *otg)
 {
 	int ret;
+	struct usb_phy *phy;
 	struct pci_dev *pci_dev;
 	struct usb_hcd *hcd = NULL;
 	pci_power_t state = PCI_D3cold;
@@ -1086,8 +1087,30 @@ int dwc3_intel_suspend(struct dwc_otg2 *otg)
 	pci_dev = to_pci_dev(otg->dev);
 
 	if (otg->state == DWC_STATE_A_HOST &&
-			otg->suspend_host)
-		otg->suspend_host(hcd);
+			otg->suspend_host) {
+		/* Check if USB2 ULPI PHY is hang via access its internal
+		 * registers. If hang, then do hard reset before enter
+		 * hibernation mode. Otherwise, the USB2 PHY can't enter
+		 * suspended state which will blocking U2PMU can't get ready
+		 * then can't enter D0i3hot forever in SCU FW.
+		 */
+		if (!is_utmi_phy(otg)) {
+			phy = usb_get_phy(USB_PHY_TYPE_USB2);
+			if (!phy)
+				return -ENODEV;
+			if (usb_phy_io_read(phy, ULPI_VENDOR_ID_LOW) < 0) {
+				enable_usb_phy(otg, 0);
+				enable_usb_phy(otg, 1);
+			}
+			usb_put_phy(phy);
+		}
+
+		ret = otg->suspend_host(hcd);
+		if (ret) {
+			otg_err(otg, "dwc3-host enter suspend faield: %d\n", ret);
+			return ret;
+		}
+	}
 
 	if (otg->state == DWC_STATE_B_PERIPHERAL ||
 			otg->state == DWC_STATE_A_HOST)
