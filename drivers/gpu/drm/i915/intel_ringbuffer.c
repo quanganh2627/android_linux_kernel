@@ -1842,6 +1842,21 @@ vlv_launch_cb2(struct intel_ring_buffer *ring)
 	/* Get HW Status Page address & point to its center */
 	hws_pga = 0x800 + (I915_READ(HWS_PGA) & 0xFFFFF000);
 
+	ret = intel_ring_begin(ring, 8);
+	if (ret)
+		return ret;
+
+	/* Pipe Control */
+	intel_ring_emit(ring, 0x7a000003);	/* PipeControl DW0 */
+	intel_ring_emit(ring, 0x01510bc);	/* DW1 */
+	intel_ring_emit(ring, 0);		/* DW2 */
+	intel_ring_emit(ring, 0);		/* DW3 */
+	intel_ring_emit(ring, 0);		/* DW4 */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_emit(ring, 0);		/* NOOP */
+	intel_ring_advance(ring);
+
 	/* Insert 20 Store Data Immediate commands */
 	for (i = 0; i < 20; i++) {
 		ret = intel_ring_begin(ring, 4);
@@ -1849,25 +1864,15 @@ vlv_launch_cb2(struct intel_ring_buffer *ring)
 			return ret;
 
 		intel_ring_emit(ring, 0x10400002); /* SDI - DW0 */
-		intel_ring_emit(ring, 0);	/* SDI - DW1 */
-		intel_ring_emit(ring, hws_pga);	/* SDI - Address */
-		intel_ring_emit(ring, 0);	/* SDI - Data */
+		intel_ring_emit(ring, 0);       /* SDI - DW1 */
+		intel_ring_emit(ring, hws_pga); /* SDI - Address */
+		intel_ring_emit(ring, 0);       /* SDI - Data */
 		intel_ring_advance(ring);
 	}
 
-	ret = intel_ring_begin(ring, 20);
+	ret = intel_ring_begin(ring, 12);
 	if (ret)
 		return ret;
-
-	/* Pipe Control */
-	intel_ring_emit(ring, 0x7a000003);	/* PipeControl DW0 */
-	intel_ring_emit(ring, 0x01010a0);	/* DW1 */
-	intel_ring_emit(ring, 0);		/* DW2 */
-	intel_ring_emit(ring, 0);		/* DW3 */
-	intel_ring_emit(ring, 0);		/* DW4 */
-	intel_ring_emit(ring, 0);		/* NOOP */
-	intel_ring_emit(ring, 0);		/* NOOP */
-	intel_ring_emit(ring, 0);		/* NOOP */
 
 	/* Start CB2 */
 	intel_ring_emit(ring, 0x18800800);	/* BB Start - CB2 */
@@ -1877,7 +1882,7 @@ vlv_launch_cb2(struct intel_ring_buffer *ring)
 
 	/* Pipe Control */
 	intel_ring_emit(ring, 0x7a000003);	/* PipeControl DW0 */
-	intel_ring_emit(ring, 0x01010a0);	/* DW1 */
+	intel_ring_emit(ring, 0x01510bc);	/* DW1 */
 	intel_ring_emit(ring, 0);		/* DW2 */
 	intel_ring_emit(ring, 0);		/* DW3 */
 	intel_ring_emit(ring, 0);		/* DW4 */
