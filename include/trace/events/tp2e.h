@@ -42,12 +42,13 @@ DECLARE_EVENT_CLASS(tp2e_generic_class,
 		    char *data3,
 		    char *data4,
 		    char *data5,
-		    char *filelist
+		    char *filelist,
+		    unsigned int add_steps
 		    ),
 
 	    TP_ARGS(
 		    ev_type, submitter_name, ev_name,
-		    data0, data1, data2, data3, data4, data5, filelist
+		    data0, data1, data2, data3, data4, data5, filelist, add_steps
 		    ),
 
 	    TP_STRUCT__entry(
@@ -61,6 +62,7 @@ DECLARE_EVENT_CLASS(tp2e_generic_class,
 		    __array(char, data4, DATA_MAX_LEN)
 		    __array(char, data5, DATA_MAX_LEN)
 		    __array(char, filelist, FILELIST_MAX_LEN)
+		    __field(unsigned int, add_steps)
 		    ),
 
 	    TP_fast_assign(
@@ -74,13 +76,15 @@ DECLARE_EVENT_CLASS(tp2e_generic_class,
 		    strncpy(__entry->data4, data4, DATA_MAX_LEN);
 		    strncpy(__entry->data5, data5, DATA_MAX_LEN);
 		    strncpy(__entry->filelist, filelist, FILELIST_MAX_LEN);
+		    __entry->add_steps = add_steps;
 		    ),
 
-	    TP_printk("type=%s submitter_name=%s name=%s data0=%s data1=%s data2=%s data3=%s data4=%s data5=%s",
+	    TP_printk("type=%s submitter_name=%s name=%s data0=%s data1=%s data2=%s data3=%s data4=%s data5=%s add_steps=%d",
 		      show_tp2e_ev_type(__entry->ev_type),
 		      __entry->submitter_name, __entry->ev_name,
 		      __entry->data0, __entry->data1, __entry->data2,
-		      __entry->data3, __entry->data4, __entry->data5
+		      __entry->data3, __entry->data4, __entry->data5,
+		      __entry->add_steps
 		    )
 	);
 
@@ -95,12 +99,13 @@ DEFINE_EVENT(tp2e_generic_class, tp2e_generic_event,
 		char *data3,
 		char *data4,
 		char *data5,
-		char *filelist
+		char *filelist,
+		unsigned int add_steps
 		),
 
 	TP_ARGS(
 		ev_type, submitter_name, ev_name,
-		data0, data1, data2, data3, data4, data5, filelist
+		data0, data1, data2, data3, data4, data5, filelist, add_steps
 		)
 	);
 
@@ -115,12 +120,13 @@ DEFINE_EVENT(tp2e_generic_class, tp2e_scu_recov_event,
 		char *data3,
 		char *data4,
 		char *data5,
-		char *filelist
+		char *filelist,
+		uint32_t add_steps
 		),
 
 	TP_ARGS(
 		ev_type, submitter_name, ev_name,
-		data0, data1, data2, data3, data4, data5, filelist
+		data0, data1, data2, data3, data4, data5, filelist, add_steps
 		)
 	);
 
@@ -135,12 +141,13 @@ DEFINE_EVENT(tp2e_generic_class, tp2e_iwlwifi_driver_event,
 		char *data3,
 		char *data4,
 		char *data5,
-		char *filelist
+		char *filelist,
+		unsigned int add_steps
 		),
 
 	TP_ARGS(
 		ev_type, submitter_name, ev_name,
-		data0, data1, data2, data3, data4, data5, filelist
+		data0, data1, data2, data3, data4, data5, filelist, add_steps
 		)
 	);
 
