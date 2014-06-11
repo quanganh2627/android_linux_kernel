@@ -38,6 +38,14 @@ struct m10mo_atomisp_spi_platform_data {
 #define M10MO_FW_TYPE_2 2
 #define M10MO_MAX_FW_ID_STRING 12
 
+#define M10MO_AF_MODE_0			0
+#define M10MO_AF_MODE_1			1
+
+#define M10MO_RESOLUTION_MODE_0	0
+#define M10MO_RESOLUTION_MODE_1	1
+
+#define M10MO_MASK	0x0000FFFF
+
 struct m10mo_fw_id {
 	char *id_string;
 	int fw_type;

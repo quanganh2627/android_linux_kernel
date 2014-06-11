@@ -189,9 +189,10 @@ static int m10mo_csi_configure(struct v4l2_subdev *sd, int flag)
 }
 
 static struct m10mo_fw_id fw_ids[] = {
-	{ "TEST", M10MO_FW_TYPE_1 },
-	{ "S13F0SAHE01", M10MO_FW_TYPE_1 },
-	{ "O13F0SAHE01", M10MO_FW_TYPE_1 },
+	{ "TEST", ((M10MO_RESOLUTION_MODE_1 & M10MO_MASK) | (M10MO_AF_MODE_0 << 16)) },
+	{ "S13F0SAHE01", ((M10MO_RESOLUTION_MODE_1 & M10MO_MASK) | (M10MO_AF_MODE_0 << 16)) },
+	{ "O13F0SAHE01", ((M10MO_RESOLUTION_MODE_1 & M10MO_MASK) | (M10MO_AF_MODE_0 << 16)) },
+	{ "T13F0SAHE01", ((M10MO_RESOLUTION_MODE_1 & M10MO_MASK) | (M10MO_AF_MODE_1 << 16)) },
 	{ NULL, 0},
 };
 
