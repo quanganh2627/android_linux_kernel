@@ -948,6 +948,10 @@ static int intel_moor_sdio_probe_slot(struct sdhci_pci_slot *slot)
 
 	slot->host->mmc->caps |= MMC_CAP_NONREMOVABLE;
 
+	/* SDR104 tuning (which is an expensive operation) is done when resuming,
+	   so increase the auto suspend delay to 200ms */
+	slot->chip->autosuspend_delay = 200;
+
 	if (slot->data)
 		if (slot->data->platform_quirks & PLFM_QUIRK_NO_HOST_CTRL_HW)
 			ret = -ENODEV;
