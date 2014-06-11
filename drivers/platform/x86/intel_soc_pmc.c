@@ -950,7 +950,6 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 	int error = 0, state;
 	struct dentry *d1, *d2, *d3, *d4;
 	struct pmc_dev *pmc_cxt;
-	u32 funcdis_reg, funcdis2_reg;
 	int i;
 
 	pmc_cxt = devm_kzalloc(&pdev->dev,
@@ -1062,37 +1061,26 @@ static int pmc_pci_probe(struct pci_dev *pdev,
 		d3 = debugfs_create_file("s0i3_enable", S_IFREG | S_IRUGO,
 							NULL, NULL, &s0i3_enable_operations);
 
-	if (!d3) {
-		dev_err(&pdev->dev, "Can not create a debug file\n");
-		error = -ENOMEM;
-		debugfs_remove(d1);
-		debugfs_remove(d2);
-		goto err_release_region;
-	}
+		if (!d3) {
+			dev_err(&pdev->dev, "Can not create a debug file\n");
+			error = -ENOMEM;
+			debugfs_remove(d1);
+			debugfs_remove(d2);
+			goto err_release_region;
+		}
 
-	d4 = debugfs_create_file("func_dis", S_IFREG | S_IRUGO,
+		d4 = debugfs_create_file("func_dis", S_IFREG | S_IRUGO,
 								NULL, NULL, &func_dis_operations);
 
-	if (!d4) {
-		dev_err(&pdev->dev, "Can not create a debug file\n");
-		error = -ENOMEM;
-		debugfs_remove(d1);
-		debugfs_remove(d2);
-		goto err_release_region;
-	}
+		if (!d4) {
+			dev_err(&pdev->dev, "Can not create a debug file\n");
+			error = -ENOMEM;
+			debugfs_remove(d1);
+			debugfs_remove(d2);
+			goto err_release_region;
+		}
 
 
-		funcdis_reg = readl(pmc_cxt->func_dis);
-		funcdis2_reg = readl(pmc_cxt->func_dis2);
-		funcdis_reg  |= /*PWM0,PWM1,SPI2,SPI3,MIPI*/
-					((BIT(1))|(BIT(2))|(BIT(6))|(BIT(7))|(BIT(11))
-					/*HDA,UFS,GBE,SATA*/
-					|(BIT(12))|(BIT(15))|(BIT(16))|(BIT(17))
-					/*SEC,PCIE1,2,3,4*/
-					|(BIT(20))|(BIT(21))|(BIT(22))|(BIT(23)));
-		funcdis2_reg |= ((BIT(0))|(BIT(3))|(BIT(4))); /*SMB,GMM,ISH*/
-		writel(funcdis_reg, pmc_cxt->func_dis);
-		writel(funcdis2_reg, pmc_cxt->func_dis2);
 		pr_info("Forcing all platform clocks to OFF\n");
 		for (i = 0; i < PLT_CLK_MAXCOUNT; i++)
 			pmc_pc_configure(i, CLK_CONFG_FORCE_OFF);
