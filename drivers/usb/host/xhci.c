@@ -3636,14 +3636,22 @@ int xhci_alloc_dev(struct usb_hcd *hcd, struct usb_device *udev)
 #endif
 	unsigned long flags;
 	int timeleft;
-	int ret;
+	int ret, count = 0;
 	union xhci_trb *cmd_trb;
+
+	if (xhci->xhc_state & XHCI_STATE_HALTED)
+		return -EFAULT;
 
 	/* Need to wait xhci->cmd_ring_state to be RUNNING before
 	 * issue ENABLE_SLOT command.
 	 */
-	while (!(xhci->cmd_ring_state & CMD_RING_STATE_RUNNING))
+	while (!(xhci->cmd_ring_state & CMD_RING_STATE_RUNNING)) {
+		if (count++ > XHCI_WAIT_CMD_RING_READY_TIMEOUT) {
+			xhci_err(xhci, "%s: cmd ring can't get ready.\n", __func__);
+			return -EFAULT;
+		}
 		msleep(200);
+	}
 
 	spin_lock_irqsave(&xhci->lock, flags);
 	cmd_trb = xhci_find_next_enqueue(xhci->cmd_ring);

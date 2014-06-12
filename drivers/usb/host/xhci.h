@@ -1288,6 +1288,7 @@ struct xhci_td {
 
 /* xHCI command default timeout value */
 #define XHCI_CMD_DEFAULT_TIMEOUT	(5 * HZ)
+#define XHCI_WAIT_CMD_RING_READY_TIMEOUT 10 /* 2s*/
 
 /* command descriptor */
 struct xhci_cd {
