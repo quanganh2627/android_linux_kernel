@@ -676,6 +676,18 @@ static int acpi_cpufreq_blacklist(struct cpuinfo_x86 *c)
 }
 #endif
 
+#ifdef CONFIG_MODULE_CPU_FREQ
+static void get_cpu_sibling_mask(int cpu, struct cpumask *sibling_mask)
+{
+	unsigned int base = (cpu/CONFIG_NR_CPUS_PER_MODULE) * CONFIG_NR_CPUS_PER_MODULE;
+	unsigned int i;
+
+	cpumask_clear(sibling_mask);
+	for (i = base; i < (base + CONFIG_NR_CPUS_PER_MODULE); i++)
+		cpumask_set_cpu(i, sibling_mask);
+}
+#endif
+
 static int acpi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 {
 	unsigned int i;
@@ -687,6 +699,8 @@ static int acpi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	unsigned int result = 0;
 	struct cpuinfo_x86 *c = &cpu_data(policy->cpu);
 	struct acpi_processor_performance *perf;
+	struct cpumask sibling_mask;
+
 #ifdef CONFIG_SMP
 	static int blacklisted;
 #endif
@@ -726,6 +740,18 @@ static int acpi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	    policy->shared_type == CPUFREQ_SHARED_TYPE_ANY) {
 		cpumask_copy(policy->cpus, perf->shared_cpu_map);
 	}
+
+#ifdef CONFIG_MODULE_CPU_FREQ
+	/* currently only Intel Cherrytrail platform supports module level dvfs
+	 * with acpi-cpufreq */
+	if (c->x86_vendor == X86_VENDOR_INTEL) {
+		if ((c->x86_model == 0x4c)) {
+			policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
+			get_cpu_sibling_mask(cpu, &sibling_mask);
+			cpumask_copy(policy->cpus, &sibling_mask);
+		}
+	}
+#endif
 
 #ifdef CONFIG_SMP
 	dmi_check_system(sw_any_bug_dmi_table);
