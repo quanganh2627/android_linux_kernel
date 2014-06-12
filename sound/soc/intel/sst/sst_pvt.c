@@ -195,6 +195,21 @@ void reset_sst_shim(struct intel_sst_drv *sst)
 	sst_shim_write64(sst_drv_ctx->shim, SST_CSR, csr.full);
 }
 
+static void dump_lpe_stack(struct intel_sst_drv *sst)
+{
+	u32 dump_word;
+	u32 i;
+	void __iomem *addr;
+
+	addr = sst->dram + SST_LPE_STACK_OFFSET;
+	pr_err("Dump LPE stack area begin@ %p\n:", (u32 *)addr);
+	for (i = 0; i < (SST_LPE_STACK_SIZE/(sizeof(u32))); i++) {
+		dump_word = readl(addr + i * (sizeof(u32)));
+		pr_err("Data[%d]=%#x\n", i, dump_word);
+	}
+	pr_err("Firmware exception dump ends\n");
+}
+
 static void dump_sst_crash_area(void)
 {
 	void __iomem *fw_dump_area;
@@ -397,6 +412,7 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 
 	dump_stack();
 	dump_sst_shim(sst);
+	dump_lpe_stack(sst);
 
 	mutex_lock(&sst->sst_lock);
 	sst_stall_lpe_n_wait(sst);
@@ -467,6 +483,7 @@ void sst_do_recovery(struct intel_sst_drv *sst)
 		dump_sst_crash_area();
 
 	sst_dump_ipc_dispatch_lists(sst_drv_ctx);
+	dump_lpe_stack(sst);
 
 }
 

@@ -100,6 +100,10 @@ enum sst_algo_ops {
 
 #define FW_SIGNATURE_SIZE	4
 
+/* Its same for mofd, merr and CHT as of now */
+#define SST_LPE_STACK_OFFSET	0x27000
+#define SST_LPE_STACK_SIZE	4096
+
 /* stream states */
 enum sst_stream_states {
 	STREAM_UN_INIT	= 0,	/* Freed/Not used stream */
