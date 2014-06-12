@@ -1341,7 +1341,7 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 		}
 	}
 
-	if (host->pwr == pwr)
+	if ((host->pwr == pwr) && (pwr != 0))
 		return -1;
 
 	host->pwr = pwr;
@@ -1775,13 +1775,11 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		mmc_regulator_set_ocr(host->mmc, host->vmmc, vdd_bit);
 		if (host->vqmmc) {
 			int ret;
-			if (!host->mmc->regulator_enabled &&
-					host->vqmmc_enabled) {
+			if (!vdd_bit && host->vqmmc_enabled) {
 				ret = regulator_disable(host->vqmmc);
 				if (!ret)
 					host->vqmmc_enabled = false;
-			} else if (host->mmc->regulator_enabled &&
-					!host->vqmmc_enabled) {
+			} else if (vdd_bit && !host->vqmmc_enabled) {
 				ret = regulator_enable(host->vqmmc);
 				if (!ret)
 					host->vqmmc_enabled = true;
