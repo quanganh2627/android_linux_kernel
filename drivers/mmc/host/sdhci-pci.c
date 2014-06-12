@@ -870,6 +870,20 @@ static void intel_mrfl_mmc_remove_slot(struct sdhci_pci_slot *slot, int dead)
 			iounmap(slot->host->rte_addr);
 }
 
+static int intel_mrfl_mmc_suspend(struct sdhci_pci_chip *chip)
+{
+	int i;
+
+	if (PCI_FUNC(chip->pdev->devfn) != INTEL_MRFL_SD)
+		return 0;
+
+	/* Clear SDHCI host POWER CONTROL bit 0 to disable sd_lvl_enb */
+	for (i = 0; i < chip->num_slots; i++)
+		sdhci_writeb(chip->slots[i]->host, 0, SDHCI_POWER_CONTROL);
+
+	return 0;
+}
+
 static const struct sdhci_pci_fixes sdhci_intel_mrfl_mmc = {
 	.quirks		= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
 	.quirks2	= SDHCI_QUIRK2_HIGH_SPEED_SET_LATE |
@@ -877,6 +891,7 @@ static const struct sdhci_pci_fixes sdhci_intel_mrfl_mmc = {
 	.allow_runtime_pm = true,
 	.probe_slot	= intel_mrfl_mmc_probe_slot,
 	.remove_slot	= intel_mrfl_mmc_remove_slot,
+	.suspend	= intel_mrfl_mmc_suspend,
 };
 
 static int intel_moor_emmc_probe_slot(struct sdhci_pci_slot *slot)
