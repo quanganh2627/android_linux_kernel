@@ -98,6 +98,7 @@ enum sgp_type {
 	SGP_DIRTY,	/* like SGP_CACHE, but set new page dirty */
 	SGP_WRITE,	/* may exceed i_size, may allocate !Uptodate page */
 	SGP_FALLOC,	/* like SGP_WRITE, but make existing page Uptodate */
+	SGP_CACHE_NOCLEAR,	/* like SGP_CACHE, but don't clear pages */
 };
 
 #ifdef CONFIG_TMPFS
@@ -1236,7 +1237,8 @@ clear:
 		 * it now, lest undo on failure cancel our earlier guarantee.
 		 */
 		if (sgp != SGP_WRITE) {
-			clear_highpage(page);
+			if (sgp != SGP_CACHE_NOCLEAR)
+				clear_highpage(page);
 			flush_dcache_page(page);
 			SetPageUptodate(page);
 		}
@@ -3007,3 +3009,42 @@ struct page *shmem_read_mapping_page_gfp(struct address_space *mapping,
 #endif
 }
 EXPORT_SYMBOL_GPL(shmem_read_mapping_page_gfp);
+
+/**
+ * shmem_read_mapping_page_gfp_noclear - read into page cache, using specified
+ * page allocation flags. Do not clear the pages, in case of newly allocated page.
+ * It is the responsibility of caller to clear the pages returned by this function.
+ * @mapping:	the page's address_space
+ * @index:	the page index
+ * @gfp:	the page allocator flags to use if allocating
+ *
+ * This behaves as a tmpfs "read_cache_page_gfp(mapping, index, gfp)",
+ * with any new page allocations done using the specified allocation flags.
+ * But read_cache_page_gfp() uses the ->readpage() method: which does not
+ * suit tmpfs, since it may have pages in swapcache, and needs to find those
+ * for itself; although drivers/gpu/drm i915 and ttm rely upon this support.
+ *
+ */
+struct page *shmem_read_mapping_page_gfp_noclear(struct address_space *mapping,
+					 pgoff_t index, gfp_t gfp)
+{
+#ifdef CONFIG_SHMEM
+	struct inode *inode = mapping->host;
+	struct page *page;
+	int error;
+
+	BUG_ON(mapping->a_ops != &shmem_aops);
+	error = shmem_getpage_gfp(inode, index, &page, SGP_CACHE_NOCLEAR, gfp, NULL);
+	if (error)
+		page = ERR_PTR(error);
+	else
+		unlock_page(page);
+	return page;
+#else
+	/*
+	 * The tiny !SHMEM case uses ramfs without swap
+	 */
+	return read_cache_page_gfp(mapping, index, gfp);
+#endif
+}
+EXPORT_SYMBOL_GPL(shmem_read_mapping_page_gfp_noclear);
