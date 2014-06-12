@@ -63,54 +63,26 @@ static ssize_t sst_debug_shim_read(struct file *file, char __user *user_buf,
 				   size_t count, loff_t *ppos)
 {
 	struct intel_sst_drv *drv = file->private_data;
-	unsigned long long val = 0;
-	unsigned int addr;
-	char buf[512];
-	char name[8];
-	int pos = 0, ret = 0;
-
-	buf[0] = 0;
+	char *buf;
+	int  ret = 0;
 
 	ret = is_fw_running(drv);
 	if (ret) {
 		pr_err("FW not running, cannot read SHIM registers\n");
 		return ret;
 	}
-
-	for (addr = SST_SHIM_BEGIN; addr <= SST_SHIM_END; addr += 8) {
-		switch (drv->pci_id) {
-		case SST_CLV_PCI_ID:
-			val = sst_shim_read(drv->shim, addr);
-			break;
-		case SST_MRFLD_PCI_ID:
-		case PCI_DEVICE_ID_INTEL_SST_MOOR:
-		case SST_BYT_PCI_ID:
-		case SST_CHT_PCI_ID:
-			val = sst_shim_read64(drv->shim, addr);
-			break;
-		}
-
-		name[0] = 0;
-		switch (addr) {
-		case SST_ISRX:
-			strcpy(name, "ISRX"); break;
-		case SST_ISRD:
-			strcpy(name, "ISRD"); break;
-		case SST_IPCX:
-			strcpy(name, "IPCX"); break;
-		case SST_IPCD:
-			strcpy(name, "IPCD"); break;
-		case SST_IMRX:
-			strcpy(name, "IMRX"); break;
-		case SST_IMRD:
-			strcpy(name, "IMRD"); break;
-		}
-		pos += sprintf(buf + pos, "0x%.2x: %.8llx  %s\n", addr, val, name);
-	}
+	buf = sst_get_shim_buf(drv);
 
 	sst_pm_runtime_put(drv);
-	return simple_read_from_buffer(user_buf, count, ppos,
+
+	if (!buf) {
+		pr_err("Unable to allocate shim buffer\n");
+		return -ENOMEM;
+	}
+	ret = simple_read_from_buffer(user_buf, count, ppos,
 			buf, strlen(buf));
+	kfree(buf);
+	return ret;
 }
 
 static ssize_t sst_debug_shim_write(struct file *file,
