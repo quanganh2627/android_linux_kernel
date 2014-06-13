@@ -934,7 +934,12 @@ static int select_chrgr_cable(struct device *dev, void *data)
 
 		update_charger_online(psy);
 
-		set_inlmt(psy, max_ma_cable->cable_props.ma);
+		if (CURRENT_THROTTLE_ACTION(psy) == PSY_THROTTLE_INPUT_LIMIT)
+			set_inlmt(psy, min(max_ma_cable->cable_props.ma,
+					THROTTLE_VALUE(psy, CURRENT_THROTTLE_STATE(psy))));
+		else
+			set_inlmt(psy, max_ma_cable->cable_props.ma);
+
 		if (!get_battery_thresholds(psy, &bat_thresh)) {
 			if (!ITERM(psy))
 				SET_ITERM(psy, bat_thresh.iterm);
@@ -1020,10 +1025,13 @@ int psy_charger_throttle_charger(struct power_supply *psy,
 			disable_charging(psy);
 			break;
 		case PSY_THROTTLE_CC_LIMIT:
-			SET_MAX_CC(psy, THROTTLE_CC_VALUE(psy, state));
+			SET_MAX_CC(psy, THROTTLE_VALUE(psy, state));
 			break;
 		case PSY_THROTTLE_INPUT_LIMIT:
-			set_inlmt(psy, THROTTLE_CC_VALUE(psy, state));
+			/*
+			 * input limit throtling is handling in
+			 * configure_chrgr_source().
+			 */
 			break;
 		default:
 			pr_err("%s:Invalid throttle action for %s\n",

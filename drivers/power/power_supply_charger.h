@@ -215,7 +215,7 @@ static inline int get_ps_int_property(struct power_supply *psy,
 #define CURRENT_THROTTLE_ACTION(psy)\
 		THROTTLE_ACTION(psy, CURRENT_THROTTLE_STATE(psy))
 
-#define THROTTLE_CC_VALUE(psy, state)\
+#define THROTTLE_VALUE(psy, state)\
 		(((psy->throttle_states)+state)->throttle_val)
 
 #define IS_CHARGER_CAN_BE_ENABLED(psy) \
