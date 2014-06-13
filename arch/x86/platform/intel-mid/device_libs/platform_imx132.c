@@ -144,6 +144,9 @@ static int imx132_platform_deinit(void)
 	if (!is_moorefield())
 		regulator_put(vprog1_reg);
 
+	camera_sensor_gpio_free(camera_reset);
+	camera_reset = -1;
+
 	return 0;
 }
 
