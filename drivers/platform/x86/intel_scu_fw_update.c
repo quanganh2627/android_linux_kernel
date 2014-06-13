@@ -1082,8 +1082,8 @@ static int fw_version_info(void)
 			cur_err("Error getting PMIC NVM version");
 			return -EINVAL;
 		}
+		pr_info("PMIC NVM Version: %.2X\n", pmic_nvm_version);
 	}
-
 	return 0;
 }
 
