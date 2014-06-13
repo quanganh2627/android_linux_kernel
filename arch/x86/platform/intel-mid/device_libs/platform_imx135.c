@@ -21,12 +21,12 @@
 #include "platform_imx135.h"
 
 
-static int camera_reset;
-static int camera_power;
+static int camera_reset = -1;
+static int camera_power = -1;
 
-static int camera_vemmc1_on;  
-static struct regulator *vemmc1_reg;  
-#define VEMMC1_VAL 2850000  
+static int camera_vemmc1_on;
+static struct regulator *vemmc1_reg;
+#define VEMMC1_VAL 2850000
 
 static int camera_vprog1_on;
 static struct regulator *vprog1_reg;
@@ -46,7 +46,7 @@ static int is_victoriabay(void)
 	       || INTEL_MID_BOARD(3, PHONE, CLVTP, RHB, ENG, VVLITE)
 	       || ((INTEL_MID_BOARD(2, PHONE, CLVTP, RHB, PRO)
 		    || INTEL_MID_BOARD(2, PHONE, CLVTP, RHB, ENG))
-		   && (SPID_HARDWARE_ID(CLVTP, PHONE, VB, PR1A)   
+		   && (SPID_HARDWARE_ID(CLVTP, PHONE, VB, PR1A)
 		       || SPID_HARDWARE_ID(CLVTP, PHONE, VB, PR1B)
 		       || SPID_HARDWARE_ID(CLVTP, PHONE, VB, PR20)));
 }
@@ -244,6 +244,12 @@ static int imx135_platform_deinit(void)
 	if (is_ctp())
 		regulator_put(vemmc1_reg);
 
+	camera_sensor_gpio_free(camera_power);
+	camera_sensor_gpio_free(camera_reset);
+
+	camera_reset = -1;
+	camera_power = -1;
+
 	return 0;
 }
 
@@ -272,9 +278,6 @@ static struct camera_sensor_platform_data imx135_sensor_platform_data = {
 
 void *imx135_platform_data(void *info)
 {
-	camera_reset = -1;
-	camera_power = -1;
-
 	return &imx135_sensor_platform_data;
 }
 
