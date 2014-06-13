@@ -48,7 +48,6 @@
 #endif
 
 static int camera_reset = -1;
-static int camera_power_down = -1;
 static void setup_m10mo_spi(struct m10mo_atomisp_spi_platform_data *spi_pdata,
 			    void *data);
 int m10mo_platform_identify_fw(void);
@@ -299,6 +298,9 @@ static int m10mo_platform_deinit(void)
 		gpio_free(cs_chip_select);
 	intr_gpio = -1;
 	cs_chip_select = -1;
+
+	camera_sensor_gpio_free(camera_reset);
+	camera_reset = -1;
 
 	return 0;
 }
