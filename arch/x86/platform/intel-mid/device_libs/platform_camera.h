@@ -40,6 +40,7 @@ extern const struct intel_v4l2_subdev_id v4l2_ids[] __attribute__((weak));
 #define GP_CAMERA_ISP1_POWERDOWN	"isp1_powerdown"
 
 extern int camera_sensor_gpio(int gpio, char *name, int dir, int value);
+extern void camera_sensor_gpio_free(int pin);
 extern int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
 			u32 lanes, u32 format, u32 bayer_order, int flag);
 extern void intel_register_i2c_camera_device(

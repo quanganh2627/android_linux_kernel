@@ -236,6 +236,12 @@ int camera_sensor_gpio(int gpio, char *name, int dir, int value)
 	return ret ? ret : pin;
 }
 
+void camera_sensor_gpio_free(int pin)
+{
+	if (pin != -1)
+		gpio_free(pin);
+}
+
 /*
  * Configure MIPI CSI physical parameters.
  * @port: ATOMISP_CAMERA_PORT_PRIMARY or ATOMISP_CAMERA_PORT_SECONDARY
