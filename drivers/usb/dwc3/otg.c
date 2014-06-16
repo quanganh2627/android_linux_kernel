@@ -1374,15 +1374,18 @@ static void dwc_otg_remove(struct pci_dev *pdev)
 	struct dwc_otg2 *otg = the_transceiver;
 	int resource, len;
 
+	pm_runtime_forbid(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
+
+	if (dwc3_otg_pdata->platform_exit)
+		dwc3_otg_pdata->platform_exit(otg);
+
+	wake_lock_destroy(&wakelock);
+
 	if (otg->gadget)
 		platform_device_unregister(otg->gadget);
 	if (otg->host)
 		platform_device_unregister(otg->host);
-
-	wake_lock_destroy(&wakelock);
-
-	pm_runtime_forbid(&pdev->dev);
-	pm_runtime_set_suspended(&pdev->dev);
 
 	kfree(platform_par);
 	iounmap(otg->usb2_phy.io_priv);
