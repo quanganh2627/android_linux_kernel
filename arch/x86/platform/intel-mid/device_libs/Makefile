@@ -4,6 +4,7 @@ obj-y += platform_clv_regulator.o
 obj-y += platform_mrfl_regulator.o
 obj-y += platform_byt_regulator.o
 obj-$(CONFIG_REGULATOR_CRYSTAL_COVE_PLUS) += platform_cht_ccovep_regulator.o
+obj-$(CONFIG_REGULATOR_WHISKEY_COVE) += platform_cht_wcove_regulator.o
 obj-y += platform_soc_thermal.o
 obj-$(subst m,y,$(CONFIG_SND_BYT_MACHINE)) += platform_byt_audio.o
 obj-$(subst m,y,$(CONFIG_SND_CHT_MACHINE)) += platform_byt_audio.o
