@@ -524,4 +524,9 @@ config REGULATOR_CRYSTAL_COVE_PLUS
         help
           This driver controls intel Crystal Cove Plus pmic voltage output regulator
 
+config REGULATOR_WHISKEY_COVE
+        tristate "PMIC Whiskey Cove voltage regulator"
+        help
+          This driver controls Intel Whiskey Cove pmic voltage output regulator
+
 endif
