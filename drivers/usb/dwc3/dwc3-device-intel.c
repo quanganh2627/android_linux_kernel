@@ -628,7 +628,7 @@ static int dwc3_device_intel_probe(struct platform_device *pdev)
 	else
 		dwc->maximum_speed = DWC3_DCFG_SUPERSPEED;
 
-	dwc->needs_fifo_resize = of_property_read_bool(node, "tx-fifo-resize");
+	dwc->needs_fifo_resize = !!otg_data->tx_fifo_resize;
 
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(dev);
