@@ -46,6 +46,51 @@
 #define SST_EXCE_DUMP_LEN	32
 #define SST_EXCE_DUMP_SIZE	((SST_EXCE_DUMP_LEN)*(SST_EXCE_DUMP_WORD))
 #define SST_EXCE_DUMP_OFFSET	0xA00
+
+#define SHIM_DUMP_BUF_SIZE	1024
+
+/* Table for shim register offset and name */
+static struct sst_shim_reg_table shim_reg_table[] = {
+	{.offset = SST_CSR,		.name = "CSR"},
+	{.offset = SST_PISR,		.name = "PISR"},
+	{.offset = SST_PIMR,		.name = "PIMR"},
+	{.offset = SST_ISRX,		.name = "ISRX"},
+	{.offset = SST_ISRD,		.name = "ISRD"},
+	{.offset = SST_IMRX,		.name = "IMRX"},
+	{.offset = SST_IMRD,		.name = "IMRD"},
+	{.offset = SST_IPCX,		.name = "IPCX"},
+	{.offset = SST_IPCD,		.name = "IPCD"},
+	{.offset = SST_ISRSC,		.name = "ISRSC"},
+	{.offset = SST_ISRLPESC,	.name = "ISRLPESC"},
+	{.offset = SST_IMRSC,		.name = "IMRSC"},
+	{.offset = SST_IMRLPESC,	.name = "IMRLPESC"},
+	{.offset = SST_IPCSC,		.name = "IPCSC"},
+	{.offset = SST_IPCLPESC,	.name = "IPCLPESC"},
+	{.offset = SST_CLKCTL,		.name = "CLKCTL"},
+	{.offset = SST_CSR2,		.name = "CSR2"},
+	{.offset = SST_TMRCTL,		.name = "SST_TMRCTL"},
+	{.offset = SST_TMRSTAT,		.name = "SST_TMRSTAT"},
+};
+
+char *sst_get_shim_buf(struct intel_sst_drv *sst_drv_ctx)
+{
+	char *buf;
+	int i;
+	int pos = 0;
+	unsigned long long val = 0;
+
+	/* This is to hold shim register values, offset and name */
+	buf = kzalloc(SHIM_DUMP_BUF_SIZE, GFP_ATOMIC);
+	if (!buf)
+		return buf;
+	for (i = 0; i < ARRAY_SIZE(shim_reg_table); i++) {
+		val = sst_shim_read64(sst_drv_ctx->shim, shim_reg_table[i].offset);
+		pos += sprintf(buf + pos, "0x%.2x: %.8llx\t\t\t  %s\n",
+			 shim_reg_table[i].offset, val, shim_reg_table[i].name);
+	}
+	return buf;
+}
+
 /*
  * sst_wait_interruptible - wait on event
  *
@@ -114,43 +159,16 @@ void write_shim_data(struct intel_sst_drv *sst, int addr,
 void dump_sst_shim(struct intel_sst_drv *sst)
 {
 	unsigned long irq_flags;
+	char *buf;
 
 	spin_lock_irqsave(&sst->ipc_spin_lock, irq_flags);
-	pr_err("audio shim registers:\n"
-		"CSR: %.8llx\n"
-		"PISR: %.8llx\n"
-		"PIMR: %.8llx\n"
-		"ISRX: %.8llx\n"
-		"ISRD: %.8llx\n"
-		"IMRX: %.8llx\n"
-		"IMRD: %.8llx\n"
-		"IPCX: %.8llx\n"
-		"IPCD: %.8llx\n"
-		"ISRSC: %.8llx\n"
-		"ISRLPESC: %.8llx\n"
-		"IMRSC: %.8llx\n"
-		"IMRLPESC: %.8llx\n"
-		"IPCSC: %.8llx\n"
-		"IPCLPESC: %.8llx\n"
-		"CLKCTL: %.8llx\n"
-		"CSR2: %.8llx\n",
-		read_shim_data(sst, SST_CSR),
-		read_shim_data(sst, SST_PISR),
-		read_shim_data(sst, SST_PIMR),
-		read_shim_data(sst, SST_ISRX),
-		read_shim_data(sst, SST_ISRD),
-		read_shim_data(sst, SST_IMRX),
-		read_shim_data(sst, SST_IMRD),
-		read_shim_data(sst, sst->ipc_reg.ipcx),
-		read_shim_data(sst, sst->ipc_reg.ipcd),
-		read_shim_data(sst, SST_ISRSC),
-		read_shim_data(sst, SST_ISRLPESC),
-		read_shim_data(sst, SST_IMRSC),
-		read_shim_data(sst, SST_IMRLPESC),
-		read_shim_data(sst, SST_IPCSC),
-		read_shim_data(sst, SST_IPCLPESC),
-		read_shim_data(sst, SST_CLKCTL),
-		read_shim_data(sst, SST_CSR2));
+	buf = sst_get_shim_buf(sst);
+	if (!buf) {
+		pr_err("Unable to allocate shim buffer\n");
+		return;
+	}
+	pr_err("%s\n", buf);
+	kfree(buf);
 	spin_unlock_irqrestore(&sst->ipc_spin_lock, irq_flags);
 }
 

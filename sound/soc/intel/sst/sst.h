@@ -91,10 +91,12 @@ enum sst_algo_ops {
 #define SST_IPCLPESC		0x70
 #define SST_CLKCTL		0x78
 #define SST_CSR2		0x80
+#define SST_TMRCTL		0xC0
+#define SST_TMRSTAT		0xC8
 
 #define SST_SHIM_BEGIN		SST_CSR
-#define SST_SHIM_END		SST_CSR2
-#define SST_SHIM_SIZE		0x88
+#define SST_SHIM_END		SST_TMRSTAT
+#define SST_SHIM_SIZE		0xD0
 
 #define FW_SIGNATURE_SIZE	4
 
@@ -436,6 +438,11 @@ struct sst_vtsv_cache {
 	u32 size2;
 };
 
+struct sst_shim_reg_table {
+	u32 offset;
+	char name[25];
+};
+
 /***
  *
  * struct intel_sst_drv - driver ops
@@ -692,6 +699,7 @@ long intel_sst_ioctl_dsp(unsigned int cmd,
 		struct snd_ppp_params *algo_params, unsigned long arg);
 
 void sst_dump_to_buffer(const void *from, size_t from_len, char *buf);
+char *sst_get_shim_buf(struct intel_sst_drv *sst_drv_ctx);
 
 extern int intel_scu_ipc_simple_command(int, int);
 
