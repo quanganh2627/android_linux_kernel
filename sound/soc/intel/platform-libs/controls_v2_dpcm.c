@@ -1773,7 +1773,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 };
 
 static const char * const sst_nb_wb_texts[] = {
-	"narrowband", "wideband",
+	"narrowband", "wideband", "a2dp"
 };
 
 static const struct snd_kcontrol_new sst_mux_controls[] = {

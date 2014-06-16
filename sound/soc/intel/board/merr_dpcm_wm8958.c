@@ -99,6 +99,14 @@ static const struct snd_soc_pcm_stream mrfld_wm8958_ssp1_bt_wb = {
 	.channels_max = 2,
 };
 
+static const struct snd_soc_pcm_stream mrfld_wm8958_ssp1_bt_a2dp = {
+	.formats = SNDRV_PCM_FMTBIT_S24_LE,
+	.rate_min = SNDRV_PCM_RATE_48000,
+	.rate_max = SNDRV_PCM_RATE_48000,
+	.channels_min = 2,
+	.channels_max = 2,
+};
+
 /* set_osc_clk0-	enable/disables the osc clock0
  * addr:		address of the register to write to
  * enable:		bool to enable or disable the clock
@@ -329,31 +337,48 @@ static int merr_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+#define BT_DOMAIN_NB	0
+#define BT_DOMAIN_WB	1
+#define BT_DOMAIN_A2DP	2
+
 static int mrfld_bt_fm_fixup(struct snd_soc_dai_link *dai_link, struct snd_soc_dai *dai)
 {
 	unsigned int fmt;
-	bool is_bt, is_bt_wb;
+	bool is_bt;
+	u16 is_bt_wb;
 	unsigned int mask, reg_val;
 	int ret;
 	struct mrfld_slot_info *info;
 
-	mask = (1 << fls(1)) - 1;
 	reg_val = snd_soc_platform_read(dai->platform, SST_MUX_REG);
+	mask = (1 << fls(1)) - 1;
 	is_bt = (reg_val >> SST_BT_FM_MUX_SHIFT) & mask;
+	mask = (1 << fls(2)) - 1;
 	is_bt_wb = (reg_val >> SST_BT_MODE_SHIFT) & mask;
 
 	if (is_bt) {
-		if (is_bt_wb)
+		switch (is_bt_wb) {
+		case BT_DOMAIN_WB:
 			dai_link->params = &mrfld_wm8958_ssp1_bt_wb;
-		else
+			info = &MRFLD_CONFIG_SLOT(0x01, 0x01, 1, SNDRV_PCM_FORMAT_S16_LE);
+			break;
+		case BT_DOMAIN_NB:
 			dai_link->params = &mrfld_wm8958_ssp1_bt_nb;
+			info = &MRFLD_CONFIG_SLOT(0x01, 0x01, 1, SNDRV_PCM_FORMAT_S16_LE);
+			break;
+		case BT_DOMAIN_A2DP:
+			dai_link->params = &mrfld_wm8958_ssp1_bt_a2dp;
+			info = &MRFLD_CONFIG_SLOT(0x03, 0x00, 2, SNDRV_PCM_FORMAT_S16_LE);
+			break;
+		default:
+			return -EINVAL;
+		}
 
 		fmt = SND_SOC_DAIFMT_IB_NF | SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_CBS_CFS;
-		info = &MRFLD_CONFIG_SLOT(0x01, 0x01, 1, SNDRV_PCM_FORMAT_S16_LE);
 	} else {
-		fmt = SND_SOC_DAIFMT_IB_NF | SND_SOC_DAIFMT_LEFT_J | SND_SOC_DAIFMT_CBS_CFS;
+		fmt = SND_SOC_DAIFMT_IB_NF | SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_CBS_CFS;
 		dai_link->params = &mrfld_wm8958_dai_params_ssp1_fm;
-		info = &MRFLD_CONFIG_SLOT(0x03, 0x03, 2, SNDRV_PCM_FORMAT_S16_LE);
+		info = &MRFLD_CONFIG_SLOT(0x00, 0x03, 2, SNDRV_PCM_FORMAT_S16_LE);
 	}
 	ret = merr_set_slot_and_format(dai, info, fmt);
 
