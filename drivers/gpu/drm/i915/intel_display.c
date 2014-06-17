@@ -2350,12 +2350,6 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 			dspcntr &= ~DISPPLANE_TILED;
 			dev_priv->is_tiled = false;
 			/*
-			 * TODO: This is a hack to fix pdf flicker issue, need
-			 * to re work and provide a proper fix.
-			 */
-			if (IS_VALLEYVIEW(dev))
-				I915_WRITE(VLV_DDL1, 0x00000000);
-			/*
 			 * TODO:In linear mode disable maxfifo, hack to the
 			 * FADiag app flicker issue.
 			 */
