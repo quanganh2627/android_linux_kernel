@@ -511,16 +511,32 @@ static int hsic_s3_entry_notify(struct notifier_block *self,
 
 static int clear_port_feature(struct usb_device *hdev, int port1, int feature)
 {
-	return usb_control_msg(hdev, usb_sndctrlpipe(hdev, 0),
+	int ret;
+
+	pm_runtime_get_sync(&hdev->dev);
+	ret = usb_control_msg(hdev, usb_sndctrlpipe(hdev, 0),
 		USB_REQ_CLEAR_FEATURE, USB_RT_PORT, feature,
 		port1, NULL, 0, 1000);
+	if (ret)
+		dev_err(&hdev->dev, "clear port feature fail, ret = %d\n", ret);
+	pm_runtime_put(&hdev->dev);
+
+	return ret;
 }
 
 static int set_port_feature(struct usb_device *hdev, int port1, int feature)
 {
-	return usb_control_msg(hdev, usb_sndctrlpipe(hdev, 0),
+	int ret;
+
+	pm_runtime_get_sync(&hdev->dev);
+	ret = usb_control_msg(hdev, usb_sndctrlpipe(hdev, 0),
 		USB_REQ_SET_FEATURE, USB_RT_PORT, feature,
 		port1, NULL, 0, 1000);
+	if (ret)
+		dev_err(&hdev->dev, "set port feature fail, ret = %d\n", ret);
+	pm_runtime_put(&hdev->dev);
+
+	return ret;
 }
 
 static void ush_hsic_port_disable(void)
