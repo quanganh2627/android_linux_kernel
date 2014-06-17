@@ -22,10 +22,17 @@
 
 #include "otg.h"
 
+#define ULPI_PHY_GP_NUM 13
+
 enum intel_mid_pmic_type {
 	NO_PMIC,
 	SHADY_COVE,
 	BASIN_COVE
+};
+
+struct usb_phy_gp {
+	unsigned num;
+	char *label;
 };
 
 struct intel_dwc_otg_pdata {

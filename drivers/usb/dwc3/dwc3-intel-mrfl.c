@@ -1,6 +1,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/pci.h>
+#include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/usb/otg.h>
@@ -417,10 +418,36 @@ static int enable_usb_phy(struct dwc_otg2 *otg, bool on_off)
 	return ret;
 }
 
+static int ulpi_phy_gpio_init(unsigned pin, char *label)
+{
+	int		retval = 0;
+	struct dwc_otg2 *otg = dwc3_get_otg();
+
+	otg_dbg(otg, "%s----> %d\n", __func__, pin);
+	if (gpio_is_valid(pin)) {
+		retval = gpio_request(pin, label);
+		if (retval < 0) {
+			otg_err(otg,
+				"Request GPIO %d with error %d\n",
+				pin, retval);
+			retval = -ENODEV;
+			goto err;
+		}
+	} else {
+		retval = -ENODEV;
+		goto err;
+	}
+
+	gpio_direction_input(pin);
+	otg_dbg(otg, "%s<----\n", __func__);
+err:
+	return retval;
+}
 
 int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 {
 	int retval;
+	int i;
 	struct intel_dwc_otg_pdata *data;
 
 	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
@@ -447,6 +474,22 @@ int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 		if (retval)
 			otg_err(otg, "Fail to de-assert USBRST#\n");
 	} else {
+		struct usb_phy_gp ulpi_phy_gp[ULPI_PHY_GP_NUM] = {
+			{101, "gp_ulpi_0_clk"},
+			{136, "gp_ulpi_0_data_0"},
+			{143, "gp_ulpi_0_data_1"},
+			{144, "gp_ulpi_0_data_2"},
+			{145, "gp_ulpi_0_data_3"},
+			{146, "gp_ulpi_0_data_4"},
+			{147, "gp_ulpi_0_data_5"},
+			{148, "gp_ulpi_0_data_6"},
+			{149, "gp_ulpi_0_data_7"},
+			{150, "gp_ulpi_0_dir"},
+			{151, "gp_ulpi_0_nxt"},
+			{152, "gp_ulpi_0_refclk"},
+			{153, "gp_ulpi_0_stp"},
+		};
+
 		/* If we are using utmi phy, and through VUSBPHY to do power
 		 * control. Then we need to assert USBRST# for external ULPI phy
 		 * to ask it under inactive state saving power.
@@ -454,6 +497,16 @@ int dwc3_intel_platform_init(struct dwc_otg2 *otg)
 		retval = control_usb_phy_power(PMIC_USBPHYCTRL, false);
 		if (retval)
 			otg_err(otg, "Fail to de-assert USBRST#\n");
+
+		/* Optimize unused GPIO power consumption */
+		for (i = 0; i < ULPI_PHY_GP_NUM; i++) {
+			retval = ulpi_phy_gpio_init(ulpi_phy_gp[i].num, ulpi_phy_gp[i].label);
+			if (retval < 0) {
+				otg_err(otg, "ULPI PHY GPIO init fail\n");
+				retval = -ENODEV;
+				break;
+			}
+		}
 	}
 
 	/* Don't let phy go to suspend mode, which
