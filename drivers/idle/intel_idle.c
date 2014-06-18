@@ -62,6 +62,7 @@
 #include <linux/cpu.h>
 #include <linux/module.h>
 #include <linux/intel_mid_pm.h>
+#include <linux/pm_qos.h>
 #include <asm/cpu_device_id.h>
 #include <asm/mwait.h>
 #include <asm/msr.h>
@@ -77,6 +78,15 @@
 #define CLPU_MD_C6_POLICY_CONFIG	0x669
 #define DISABLE_CORE_C6_DEMOTION	0x0
 #define DISABLE_MODULE_C6_DEMOTION	0x0
+
+#ifdef CONFIG_MOOREFIELD
+#define S0I1_DISPLAY_MODE		(1 << 8)
+#define PUNIT_PORT			0x04
+#define DSP_SS_PM			0x36
+#define S0i1_LATENCY			1200
+#define LOW_LATENCY_S0I1		1000
+#define S0I1_STATE			0x60
+#endif
 
 static struct cpuidle_driver intel_idle_driver = {
 	.name = "intel_idle",
@@ -771,6 +781,20 @@ static unsigned int get_target_residency(unsigned int cstate)
 }
 #endif
 
+#ifdef CONFIG_MOOREFIELD
+/* MOFD: Optimize special variants of S0i1 where low residency is sufficient */
+int low_latency_s0ix_state(int eax)
+{
+	u32 dsp_ss_pm_val;
+
+	dsp_ss_pm_val = intel_mid_msgbus_read32(PUNIT_PORT, DSP_SS_PM);
+	if (dsp_ss_pm_val & S0I1_DISPLAY_MODE)
+		eax = S0I1_STATE;
+
+	return eax;
+}
+#endif
+
 /**
  * intel_idle
  * @dev: cpuidle_device
@@ -787,6 +811,9 @@ static int intel_idle(struct cpuidle_device *dev,
 	unsigned long eax = flg2MWAIT(state->flags);
 	unsigned int cstate;
 	int cpu = smp_processor_id();
+#ifdef CONFIG_MOOREFIELD
+	int latency_req = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+#endif
 
 #if (defined(CONFIG_REMOVEME_INTEL_ATOM_MRFLD_POWER) && \
 	defined(CONFIG_PM_DEBUG))
@@ -817,6 +844,12 @@ static int intel_idle(struct cpuidle_device *dev,
 					(void *)&current_thread_info()->flags,
 					0);
 #else
+
+#ifdef CONFIG_MOOREFIELD
+		if (eax >= C6_HINT && latency_req > S0i1_LATENCY
+			&& per_cpu(predicted_time, cpu) > LOW_LATENCY_S0I1)
+			eax = low_latency_s0ix_state(eax);
+#endif
 		__monitor((void *)&current_thread_info()->flags, 0, 0);
 		smp_mb();
 		if (!need_resched())
