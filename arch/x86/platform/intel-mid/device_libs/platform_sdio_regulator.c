@@ -323,12 +323,12 @@ static void intel_setup_ccove_sd_regulators(void)
 		lnw_gpio_set_alt(ccove_vsdio_gpios.gpio, 0);
 
 	intel_mid_pmic_set_pdata("gpio-regulator", &ccove_vsdio,
-			sizeof(struct gpio_regulator_config));
+			sizeof(struct gpio_regulator_config), 0);
 
 	if (ccove_vsdcard.gpio > 0) {
 		lnw_gpio_set_alt(ccove_vsdcard.gpio, 0);
 		intel_mid_pmic_set_pdata("reg-fixed-voltage", &ccove_vsdcard,
-				sizeof(struct fixed_voltage_config));
+				sizeof(struct fixed_voltage_config), 0);
 	}
 }
 

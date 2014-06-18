@@ -106,7 +106,7 @@ static int set_byt_platform_thermal_data(void)
 {
 	return intel_mid_pmic_set_pdata(BYT_THERM_DEV_NAME,
 				&pdata[byt_thermal],
-				sizeof(pdata[byt_thermal]));
+				sizeof(pdata[byt_thermal]), 0);
 }
 
 static int set_byt_ec_platform_thermal_data(void)
