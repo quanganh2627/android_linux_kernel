@@ -735,12 +735,20 @@ static void cpufreq_interactive_boost(void)
 	struct cpufreq_interactive_cpuinfo *pcpu;
 	struct cpufreq_interactive_tunables *tunables;
 
-	spin_lock_irqsave(&speedchange_cpumask_lock, flags);
-
 	for_each_online_cpu(i) {
 		pcpu = &per_cpu(cpuinfo, i);
+
+		if (!down_read_trylock(&pcpu->enable_sem))
+			continue;
+		if (pcpu->governor_enabled == 0) {
+			/* CPU might have been down. Skip it */
+			up_read(&pcpu->enable_sem);
+			continue;
+		}
+
 		tunables = pcpu->policy->governor_data;
 
+		spin_lock_irqsave(&speedchange_cpumask_lock, flags);
 		if (pcpu->target_freq < tunables->hispeed_freq) {
 			pcpu->target_freq = tunables->hispeed_freq;
 			cpumask_set_cpu(i, &speedchange_cpumask);
@@ -748,6 +756,7 @@ static void cpufreq_interactive_boost(void)
 				ktime_to_us(ktime_get());
 			anyboost = 1;
 		}
+		spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
 
 		/*
 		 * Set floor freq and (re)start timer for when last
@@ -756,9 +765,9 @@ static void cpufreq_interactive_boost(void)
 
 		pcpu->floor_freq = tunables->hispeed_freq;
 		pcpu->floor_validate_time = ktime_to_us(ktime_get());
+		up_read(&pcpu->enable_sem);
 	}
 
-	spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
 
 	if (anyboost)
 		wake_up_process(speedchange_task);
@@ -772,11 +781,19 @@ static void cpufreq_interactive_touchboost(void)
 	struct cpufreq_interactive_cpuinfo *pcpu;
 	struct cpufreq_interactive_tunables *tunables;
 
-	spin_lock_irqsave(&speedchange_cpumask_lock, flags);
 	for_each_online_cpu(i) {
 		pcpu = &per_cpu(cpuinfo, i);
+
+		if (!down_read_trylock(&pcpu->enable_sem))
+			continue;
+		if (pcpu->governor_enabled == 0) {
+			/* CPU might have been down. Skip it */
+			up_read(&pcpu->enable_sem);
+			continue;
+		}
 		tunables = pcpu->policy->governor_data;
 
+		spin_lock_irqsave(&speedchange_cpumask_lock, flags);
 	if (pcpu->target_freq < tunables->touchboost_freq) {
 			pcpu->target_freq = tunables->touchboost_freq;
 			cpumask_set_cpu(i, &speedchange_cpumask);
@@ -784,13 +801,14 @@ static void cpufreq_interactive_touchboost(void)
 					ktime_to_us(ktime_get());
 			anyboost = 1;
 		}
+		spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
+		up_read(&pcpu->enable_sem);
 	/* no need to set floor freq to touchboost freq as floor
 	freq is set only if the new_freq is more than
 	hispeed_freq which is not the case here*/
 
 	}
 
-	spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
 	if (anyboost)
 		wake_up_process(speedchange_task);
 }
