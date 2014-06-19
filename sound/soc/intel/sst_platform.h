@@ -90,7 +90,6 @@ enum sst_controls {
 	SST_GET_PROBE_BYTE_STREAM =	0x100E,
 	SST_SET_VTSV_INFO =		0x100F,
 	SST_SET_VTSV_LIBS =		0x1010,
-	SST_SET_MONITOR_LPE =		0x1011,
 };
 
 struct pcm_stream_info {

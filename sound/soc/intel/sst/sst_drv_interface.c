@@ -1063,10 +1063,6 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 		ret_val = sst_cache_vtsv_libs(sst_drv_ctx);
 		break;
 	}
-	case SST_SET_MONITOR_LPE: {
-		ret_val = sst_set_timer(&sst_drv_ctx->monitor_lpe, *(bool *)arg);
-		break;
-	}
 	default:
 		pr_err("Invalid cmd request:%d\n", cmd);
 		ret_val = -EINVAL;
