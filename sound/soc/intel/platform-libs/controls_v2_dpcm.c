@@ -280,6 +280,10 @@ int sst_vtsv_event_get(struct snd_kcontrol *kcontrol,
 	pr_debug("in %s\n", __func__);
 	/* First element contains size */
 	memcpy(ucontrol->value.bytes.data, sst->vtsv_result.data, sst->vtsv_result.data[0]);
+	/* Reset the control values to 0 once its read */
+	mutex_lock(&sst->lock);
+	memset(sst->vtsv_result.data, 0x0, VTSV_MAX_TOTAL_RESULT_ARRAY_SIZE);
+	mutex_unlock(&sst->lock);
 	return 0;
 }
 
