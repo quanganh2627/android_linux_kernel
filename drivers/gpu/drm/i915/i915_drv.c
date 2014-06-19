@@ -889,6 +889,10 @@ int i915_reset(struct drm_device *dev)
 		 * after the reset and the re-install of drm irq. */
 		if (INTEL_INFO(dev)->gen > 5) {
 			mutex_lock(&dev->struct_mutex);
+			/* Cancel delayed work for media promotion timer */
+			if (IS_VALLEYVIEW(dev) && dev_priv->rc6.enabled)
+				cancel_delayed_work_sync(
+					&dev_priv->rps.vlv_media_timeout_work);
 			intel_enable_gt_powersave(dev);
 			mutex_unlock(&dev->struct_mutex);
 		}
