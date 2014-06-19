@@ -804,21 +804,15 @@ int sst_format_vtsv_message(struct intel_sst_drv *ctx,
 int sst_cache_vtsv_libs(struct intel_sst_drv *ctx)
 {
 	int retval;
-	char buff[SST_MAX_VTSV_PATH_BUF_LEN];
-
-	snprintf(buff, sizeof(buff), "%s/%s", ctx->vtsv_path.bytes, "vtsv_net.bin");
-
 	/* Download both the data files */
-	retval = sst_request_vtsv_file(buff, ctx,
+	retval = sst_request_vtsv_file("vtsv_net.bin", ctx,
 			&ctx->vcache.file1_in_mem, &ctx->vcache.size1);
 	if (retval) {
 		pr_err("vtsv data file1 request failed %d\n", retval);
 		return retval;
 	}
 
-	snprintf(buff, sizeof(buff), "%s/%s", ctx->vtsv_path.bytes, "vtsv_grammar.bin");
-
-	retval = sst_request_vtsv_file(buff, ctx,
+	retval = sst_request_vtsv_file("vtsv_grammar.bin", ctx,
 			&ctx->vcache.file2_in_mem, &ctx->vcache.size2);
 	if (retval) {
 		pr_err("vtsv data file2 request failed %d\n", retval);

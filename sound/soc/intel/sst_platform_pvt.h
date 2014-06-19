@@ -141,7 +141,6 @@ struct sst_data {
 	/* Pipe_id for probe_stream to be saved in stream map */
 	u8 pipe_id;
 	bool vtsv_enroll;
-	char *vtsv_path;
 	struct sst_lowlatency_deepbuff ll_db;
 };
 #endif
