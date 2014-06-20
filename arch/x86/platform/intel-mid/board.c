@@ -263,6 +263,8 @@ struct devs_id __initconst device_ids[] = {
 		&panel_handler},
 	{"PNC_SHARP_10x19", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
+	{"PNV_SHARP_10x19", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
+		&panel_handler},
 	{"PNCD_SHARP_10x19", SFI_DEV_TYPE_MDM, 0, &no_platform_data,
 		&panel_handler},
 	{"PNV_SHARP_25x16", SFI_DEV_TYPE_MDM, 0, &no_platform_data,

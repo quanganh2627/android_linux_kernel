@@ -71,6 +71,7 @@ static struct support_panel_list_t
 		{JDI_7x12_VID, "PNV_JDI_7x12"},
 		{JDI_7x12_CMD, "PNC_JDI_7x12"},
 		{SHARP_10x19_CMD, "PNC_SHARP_10x19"},
+		{SHARP_10x19_VID, "PNV_SHARP_10x19"},
 		{SHARP_10x19_DUAL_CMD, "PNCD_SHARP_10x19"},
 		{SHARP_25x16_VID, "PNV_SHARP_25x16"},
 		{SHARP_25x16_CMD, "PNC_SHARP_25x16"},
