@@ -265,6 +265,7 @@ enum {
 enum {
 	UTP_CMD_TYPE_SCSI		= 0x0,
 	UTP_CMD_TYPE_UFS		= 0x1,
+	UTP_CMD_UFS_STORAGE		= 0x1,
 	UTP_CMD_TYPE_DEV_MANAGE		= 0x2,
 };
 
