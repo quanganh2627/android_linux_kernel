@@ -383,8 +383,8 @@ static int store_trip_temp(struct thermal_zone_device *tzd,
 	/* Convert from mC to C */
 	trip_temp /= 1000;
 
-	/* The trip temp is 8 bits wide (unsigned) */
-	if (trip_temp > 255)
+	/* Do not program aux thresholds above TjMax */
+	if (trip_temp > tjmax_temp)
 		return -EINVAL;
 
 	/* Assign last byte to unsigned 32 */
