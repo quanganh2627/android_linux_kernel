@@ -550,6 +550,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	u16 timeout = 0;
 	u32 __iomem *status_reg = NULL;
 	u32 i, command, num_ports, selector;
+	int time_left;
 
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
@@ -640,17 +641,31 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 					wIndex + 1);
 				bus_state->resume_done[wIndex] = 0;
 				clear_bit(wIndex, &bus_state->resuming_ports);
+				set_bit(wIndex, &bus_state->rexit_ports);
 				xhci_set_link_state(xhci, port_array, wIndex,
-							XDEV_U0);
-				xhci_dbg(xhci, "set port %d resume\n",
-					wIndex + 1);
-				slot_id = xhci_find_slot_id_by_port(hcd, xhci,
-								 wIndex + 1);
-				if (!slot_id) {
-					xhci_dbg(xhci, "slot_id is zero\n");
-					goto error;
+								XDEV_U0);
+				spin_unlock_irqrestore(&xhci->lock, flags);
+				time_left = wait_for_completion_timeout(
+						&(bus_state->rexit_done[wIndex]),
+						msecs_to_jiffies(XHCI_MAX_REXIT_TIMEOUT));
+				spin_lock_irqsave(&xhci->lock, flags);
+
+				if (time_left) {
+					slot_id = xhci_find_slot_id_by_port(hcd, xhci, wIndex + 1);
+					if (!slot_id) {
+						xhci_dbg(xhci, "slot_id is zero\n");
+						return 0xffffffff;
+					}
+					xhci_dbg(xhci, "set port %d resume\n",
+						wIndex + 1);
+					xhci_ring_device(xhci, slot_id);
+				} else {
+					xhci_warn(xhci, "Port resume took longer than %i msec, port status = 0x%x\n",
+							XHCI_MAX_REXIT_TIMEOUT,
+							temp);
+					status |= USB_PORT_STAT_SUSPEND;
+					clear_bit(wIndex, &bus_state->rexit_ports);
 				}
-				xhci_ring_device(xhci, slot_id);
 				bus_state->port_c_suspend |= 1 << wIndex;
 				bus_state->suspended_ports &= ~(1 << wIndex);
 			} else {
