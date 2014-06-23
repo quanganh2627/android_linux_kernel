@@ -294,6 +294,7 @@ i915_dpst_init(struct drm_device *dev,
 	ioctl_data->init_data.image_res = panel_res;
 
 	dev_priv->dpst.default_res = panel_res;
+	dev_priv->dpst.blc_adjustment = DPST_MAX_FACTOR;
 
 	/* Store info needed to talk to user mode */
 	dev_priv->dpst.task = current;
