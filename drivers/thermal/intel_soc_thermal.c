@@ -80,6 +80,7 @@
 #define TE_AUX0			0xB5
 #define ENABLE_AUX_INTRPT	0x0F
 #define ENABLE_CPU0		(1 << 16)
+#define ENABLE_CPU1		(1 << 17)
 #define RTE_ENABLE		(1 << 9)
 
 static int tjmax_temp;
@@ -270,7 +271,7 @@ static void enable_soc_dts(void)
 	write_soc_reg(DTS_ENABLE_REG, DTS_ENABLE);
 
 	val = read_soc_reg(SOC_DTS_CONTROL);
-	write_soc_reg(SOC_DTS_CONTROL, val | ENABLE_AUX_INTRPT | ENABLE_CPU0);
+	write_soc_reg(SOC_DTS_CONTROL, val | ENABLE_AUX_INTRPT | ENABLE_CPU0 | ENABLE_CPU1);
 
 	/* Enable Interrupts for all the AUX trips for the DTS */
 	for (i = 0; i < SOC_THERMAL_TRIPS; i++) {
