@@ -434,7 +434,6 @@ static void platform_init_chrg_params(
 		pdata->chg_profile = (struct ps_batt_chg_prof *)
 			platform_get_batt_charge_profile(pdata);
 	else if (INTEL_MID_BOARD(1, TABLET, CHT)) {
-#if 0 /* WA to use BYT charge profile till OEM0 data is populated by BIOS */
 		if (!em_config_get_charge_profile(&batt_chg_profile))
 			ps_batt_chrg_prof.chrg_prof_type = CHRG_PROF_NONE;
 		else
@@ -445,10 +444,6 @@ static void platform_init_chrg_params(
 					&ps_batt_chrg_prof);
 		pdata->chg_profile = (struct ps_batt_chg_prof *)
 					&ps_batt_chrg_prof;
-#else
-		pdata->chg_profile = (struct ps_batt_chg_prof *)
-			platform_get_batt_charge_profile(pdata);
-#endif
 	}
 }
 #else
