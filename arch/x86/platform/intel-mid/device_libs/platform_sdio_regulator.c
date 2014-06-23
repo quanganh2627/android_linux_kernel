@@ -24,6 +24,7 @@
 #include <linux/acpi_gpio.h>
 #include <linux/mfd/intel_mid_pmic.h>
 #include <asm/cpu_device_id.h>
+#include <linux/regulator/intel_whiskey_cove_pmic.h>
 
 #define DELAY_ONOFF 250
 
@@ -332,6 +333,52 @@ static void intel_setup_ccove_sd_regulators(void)
 	}
 }
 
+/*************************************************************
+*
+* WCOVE SD card related regulator
+*
+*************************************************************/
+
+static struct regulator_consumer_supply vmmc_consumer[] = {
+	REGULATOR_SUPPLY("vmmc", "INT33BB:01"),
+};
+
+static struct regulator_init_data vmmc_data = {
+	.constraints = {
+		.min_uV = 3000000,
+		.max_uV = 3400000,
+		.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE |
+			REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask = REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies = ARRAY_SIZE(vmmc_consumer),
+	.consumer_supplies	= vmmc_consumer,
+};
+
+static struct wcove_regulator_info wcove_vmmc_info = {
+	.init_data = &vmmc_data,
+};
+
+static struct regulator_consumer_supply vqmmc_consumer[] = {
+	REGULATOR_SUPPLY("vqmmc", "INT33BB:01"),
+};
+
+static struct regulator_init_data vqmmc_data = {
+	.constraints = {
+		.min_uV = 1700000,
+		.max_uV = 3400000,
+		.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE |
+			REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask = REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies = ARRAY_SIZE(vqmmc_consumer),
+	.consumer_supplies	= vqmmc_consumer,
+};
+
+static struct wcove_regulator_info wcove_vqmmc_info = {
+	.init_data = &vqmmc_data,
+};
+
 static int __init sdio_regulator_init(void)
 {
 	int ret;
@@ -341,6 +388,12 @@ static int __init sdio_regulator_init(void)
 		pr_err("%s: No SDIO device regulator registered\n", __func__);
 
 	intel_setup_ccove_sd_regulators();
+
+	/* register SD card regulator for whiskey cove PMIC */
+	intel_mid_pmic_set_pdata("wcove_regulator", &wcove_vmmc_info,
+			sizeof(struct regulator_init_data), WCOVE_ID_V3P3SD + 1);
+	intel_mid_pmic_set_pdata("wcove_regulator", &wcove_vqmmc_info,
+			sizeof(struct regulator_init_data), WCOVE_ID_VSDIO + 1);
 
 	return 0;
 }
