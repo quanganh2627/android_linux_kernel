@@ -360,6 +360,11 @@ struct snd_sst_probe_bytes {
 	char bytes[0];
 };
 
+struct snd_sst_vtsv_path {
+	u16 len;
+	char bytes[SST_MAX_VTSV_PATH_LEN];
+};
+
 #define PCI_DMAC_CLV_ID 0x08F0
 #define PCI_DMAC_MRFLD_ID 0x119B
 
@@ -536,6 +541,7 @@ struct intel_sst_drv {
 	struct sst_dump_buf	dump_buf;
 	/* byte control to set the probe stream */
 	struct snd_sst_probe_bytes *probe_bytes;
+	struct snd_sst_vtsv_path vtsv_path;
 	/* contains the ipc registers */
 	struct sst_ipc_reg	ipc_reg;
 	/* IMR region Library space memory manager */

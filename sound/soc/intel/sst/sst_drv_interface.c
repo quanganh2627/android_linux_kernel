@@ -1059,6 +1059,8 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 		break;
 	}
 	case SST_SET_VTSV_LIBS: {
+		struct snd_sst_vtsv_path *vtsv_path = (struct snd_sst_vtsv_path *)arg;
+		memcpy(sst_drv_ctx->vtsv_path.bytes, vtsv_path->bytes, vtsv_path->len);
 		ret_val = sst_cache_vtsv_libs(sst_drv_ctx);
 		break;
 	}
