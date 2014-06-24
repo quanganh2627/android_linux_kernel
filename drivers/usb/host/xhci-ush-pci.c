@@ -1506,6 +1506,7 @@ static void xhci_ush_pci_remove(struct pci_dev *dev)
 		hsic_enable = 0;
 		wake_lock_destroy(&(hsic.resume_wake_lock));
 		wake_lock_destroy(&hsic.s3_wake_lock);
+		remove_ssic_class_device_files();
 		usb_unregister_notify(&hsic.hsic_pm_nb);
 		unregister_pm_notifier(&hsic.hsic_s3_entry_nb);
 	}

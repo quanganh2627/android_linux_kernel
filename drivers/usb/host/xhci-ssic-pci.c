@@ -1136,267 +1136,85 @@ static int xhci_ssic_disable_feature(struct xhci_hcd *xhci)
 	return 0;
 }
 
-static int xhci_ssic_config_register_bank(struct xhci_hcd *xhci)
+struct mphy_attr_setting ssic_register_bank[] = {
+	{LOCAL_PHY, ATTRID_TX_HSRATE_SERIES, ATTR_VAL_HSMODE_RATE_SERIES_A}, /* 0x22, 0x01 */
+	{LOCAL_PHY, ATTRID_RX_HSRATE_SERIES, ATTR_VAL_HSMODE_RATE_SERIES_A}, /* 0xA2, 0x01 */
+	{LOCAL_PHY, ATTRID_TX_HS_SYNC_LENGTH, ATTR_VAL_SYNC_LENGTH(5) | ATTR_VAL_SYNC_RANGE(1)}, /* 0x28, 0x45*/
+	{LOCAL_PHY, ATTRID_TX_PWM_BURST_CLOSURE_EXTENDSION, ATTR_VAL_BURST_CLOSURE_SEQ_DURATION(0x14)}, /* 0x2D, 0x14 */
+	/* All modem side registers definition are for reference only.
+	 * Because there have no formal definition document released by modem team so far.
+	 * Below definition are refer to MIPI spec. But maybe intel modify them for other usage.
+	 * for example: 0xD7 ATTR in MIPI spec, only bit 0 is valid. But in here, we set it as 0x39.
+	 */
+	{REMOTE_PHY, ATTRID_MODEM_CB_REG_A38, 0x18}, /* 0xA38, 0x18 */
+	{REMOTE_PHY, ATTRID_MODEM_CB_REG_A39, 0x30}, /* 0xA39, 0x30 */
+	{REMOTE_PHY, ATTRID_MODEM_CB_UPDATE_40A, 0x01}, /* 0x40A, 0x01 */
+	{REMOTE_PHY, ATTRID_MODEM_CUSTOM_REG_CD, 0x88}, /* 0xCD, 0x88 */
+	{REMOTE_PHY, ATTRID_MC_RX_LA_CAPABILITY, 0x39}, /* 0xD7, 0x39 */
+	{REMOTE_PHY, ATTRID_MC_HS_START_TIME_VAR_CAPABILITY, 0x19}, /* 0xD4, 0x19 */
+	{REMOTE_PHY, ATTRID_MODEM_CUSTOM_REG_C5, 0x07}, /* 0xC5, 0x07 */
+	{REMOTE_PHY, ATTRID_RX_TERMINATION_FORCE_ENABLE, ATTR_VAL_ENABLE_RDIF_RX}, /* 0xA9, 0x01 */
+	{REMOTE_PHY, ATTRID_TX_HS_SYNC_LENGTH, ATTR_VAL_SYNC_LENGTH(6) | ATTR_VAL_SYNC_RANGE(1)}, /* 0x28, 0x46 */
+	{REMOTE_PHY, ATTRID_TX_HS_PREPARE_LENGTH, ATTR_VAL_M_TX_LENGTH_MULTIPLIER(6)}, /* 0x29, 0x06 */
+	{REMOTE_PHY, ATTRID_DISABLE_SCRAMBLING, ATTR_VAL_DISABLE_HSMODE_SCRAMBLING}, /* 0x403, 0x01 */
+	{REMOTE_PHY, ATTRID_DISABLE_STALL_IN_U0, ATTR_VAL_DISABLE_USP_STALL_IN_U0}, /* 0x404, 0x01 */
+	{REMOTE_PHY, ATTRID_MODEM_CUSTOM_REG_F3, 0x21}, /* 0xF3, 0x21 */
+};
+
+static int ssic_config_register_bank(struct xhci_hcd *xhci, struct mphy_attr_setting *settings, int size)
 {
-	u32			temp;
+	u32 temp = 0, i;
+	struct mphy_attr_setting index;
 
-	/* Local MPHY: Write TX_HSrate_Series */
-	temp = 0;
-	/* Attribute ID[27:16] = 0x22 */
-	temp |= TX_HSRATE_SERIES << 16;
-	/* Target PHY[14] == 1 means config Local PHY */
-	temp |= TARGET_PHY;
-	/* Attribute Value[7:0] == 1 */
-	temp |= RATE_SERIES_A;
-	/* Write Valid[15] == 1 */
-	temp |= ATTRIBUTE_VALID;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base);
+	if (!xhci || !settings)
+		return -EINVAL;
 
-	xhci_dbg(xhci, "tx_hsrate = 0x%X, bank address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base),
-			&ssic_hcd.profile_regs->attribute_base);
+	temp = xhci_readl(xhci, &ssic_hcd.profile_regs->access_control);
+	xhci_dbg(xhci, "SSIC: access_control = 0x%X, address = %p\n",
+				temp, (&ssic_hcd.profile_regs->access_control));
+	/* set Register Bank is valid to indicate to Controller that register bank
+	 * will be configured with commands that should be automatically issued.
+	 */
+	temp |= REGISTER_BANK_VALID;
+	/* set HS_CONFIG to 1 to indicate Controller should automatically issue
+	 * CONFIGURE_FOR_HS RRAP command when finished issuing the RRAP commands
+	 * in register bank.
+	 */
+	temp |= HS_CONFIG;
 
-	/* Local MPHY: Write RX_HSrate_Series */
-	temp = 0;
-	/* Attribute ID[27:16] = 0xA2 */
-	temp |= RX_HSRATE_SERIES << 16;
-	/* Target PHY[14] == 1 meas config Local PHY */
-	temp |= TARGET_PHY;
-	/* Attribute Value[7:0] == 1 */
-	temp |= RATE_SERIES_A;
-	/* Write Valid[15] == 1 */
-	temp |= ATTRIBUTE_VALID;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 1);
+	/* Upon detecting Command Phase Done in the control register (and executing
+	 * Config for HS if HS Config flag is set), the host controller starts
+	 * executing commands from the register bank if Register Bank Valid is
+	 * set to ‘1’.*/
+	temp |= COMMAND_PHASE_DONE;
 
-	xhci_dbg(xhci, "rx_hsrate = 0x%X, bank address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 1),
-			&ssic_hcd.profile_regs->attribute_base + 1);
+	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->access_control);
+	xhci_dbg(xhci, "access_control after write = 0x%X\n",
+			xhci_readl(xhci, &ssic_hcd.profile_regs->access_control));
 
-	/* Local MPHY: TX_HS_SYNC_LENGTH  value : 0x28C045 */
-	temp = 0;
-	/* Attribute ID = 0x28 */
-	temp |= 0x28 << 16;
-	/* Attribute Value = 0x45 */
-	temp |= 0x45;
-	/* Write Valid[15] = 1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to local MPHY, bit14 = 1 */
-	temp |= TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 2);
-	xhci_dbg(xhci, "TX_HS_SYNC_LENGTH = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 2),
-			&ssic_hcd.profile_regs->attribute_base + 2);
+	for (i = 0; i < size; i++) {
+		index = settings[i];
+		temp = 0;
 
-	/* Local MPHY : TX_PWM_BURST_Closure_Extension, 0x2Dc010 */
-	temp = 0;
-	/* Attribute ID = 0x2D */
-	temp |= 0x2D << 16;
-	/* Attribute Value = 0x14 */
-	temp |= 0x14;
+		/* Attribute ID[27:16] */
+		temp |= ATTRIBUTE_ID(index.attr_id);
 
-	/* Write Valid[15] = 1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to local MPHY, bit14 = 1 */
-	temp |= TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 3);
-	xhci_dbg(xhci, "TX_PWM_BURST_Closure_Extension = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 3),
-			&ssic_hcd.profile_regs->attribute_base + 3);
+		/* Target PHY[14] */
+		if (index.target == LOCAL_PHY)
+			temp |= TARGET_PHY;
 
-	/* Remote MPHY: CB: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0xA38 */
-	temp |= 0xA38 << 16;
-	/* Attribute value = 0x18 */
-	temp |= 0x18;
-	/* write bit15 == 1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 4);
-	xhci_dbg(xhci, "Modem register = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 4),
-			&ssic_hcd.profile_regs->attribute_base + 4);
+		/* Attribute Value[7:0] */
+		temp |= index.val;
 
-	/* CB: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0xA38 */
-	temp |= 0xA39 << 16;
-	/* Attribute value = 0x18 */
-	temp |= 0x30;
-	/* write bit15 == 1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 5);
-	xhci_dbg(xhci, "Modem register = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 5),
-			&ssic_hcd.profile_regs->attribute_base + 5);
+		/* Write Valid[15] to 1*/
+		temp |= ATTRIBUTE_VALID;
 
-	/* CB update: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0xA38 */
-	temp |= 0x40A << 16;
-	/* Attribute value = 0x18 */
-	temp |= 0x01;
-	/* write bit15 ==1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 6);
-	xhci_dbg(xhci, "Modem register = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 6),
-			&ssic_hcd.profile_regs->attribute_base + 6);
 
-	/* TX: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0xA38 */
-	temp |= 0xCD << 16;
-	/* Attribute value = 0x18 */
-	temp |= 0x88;
-	/* write bit15 == 1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 7);
-	xhci_dbg(xhci, "Modem register = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 7),
-			&ssic_hcd.profile_regs->attribute_base + 7);
-
-	/* TX: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0xA38 */
-	temp |= 0xD7 << 16;
-	/* Attribute value = 0x18 */
-	temp |= 0x39;
-	/* write bit15 ==1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 8);
-	xhci_dbg(xhci, "Modem register = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 8),
-			&ssic_hcd.profile_regs->attribute_base + 8);
-
-	/* TX: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0xA38 */
-	temp |= 0xD4 << 16;
-	/* Attribute value = 0x18 */
-	temp |= 0x19;
-	/* write bit15 ==1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 9);
-	xhci_dbg(xhci, "Modem register = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 9),
-			&ssic_hcd.profile_regs->attribute_base + 9);
-
-	/* TX: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0xA38 */
-	temp |= 0xC5 << 16;
-	/* Attribute value = 0x18 */
-	temp |= 0x07;
-	/* write bit15 = 0 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 10);
-	xhci_dbg(xhci, "Modem register = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 10),
-			&ssic_hcd.profile_regs->attribute_base + 10);
-
-	/* TX: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0xA38 */
-	temp |= 0xA9 << 16;
-	/* Attribute value = 0x18 */
-	temp |= 0x01;
-	/* write bit15 = 1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 11);
-	xhci_dbg(xhci, "Modem register = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 11),
-			&ssic_hcd.profile_regs->attribute_base + 11);
-
-	/* TX: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0xA38 */
-	temp |= 0x28 << 16;
-	/* Attribute value = 0x18 */
-	temp |= 0x46;
-	/* write bit15 = 1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 12);
-	xhci_dbg(xhci, "Modem register = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 12),
-			&ssic_hcd.profile_regs->attribute_base + 12);
-
-	/* TX: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0x29 */
-	temp |= 0x29 << 16;
-	/* Attribute value = 0x06 */
-	temp |= 0x06;
-	/* write bit15 = 1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 13);
-	xhci_dbg(xhci, "Modem register = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 13),
-			&ssic_hcd.profile_regs->attribute_base + 13);
-
-	/* TX: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0x29 */
-	temp |= 0x403 << 16;
-	/* Attribute value = 0x06 */
-	temp |= 0x01;
-	/* write bit15 = 1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 14);
-	xhci_dbg(xhci, "Modem register(Disable Modem Scrabling) = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 14),
-			&ssic_hcd.profile_regs->attribute_base + 14);
-
-	/* TX: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0x29 */
-	temp |= 0x404 << 16;
-	/* Attribute value = 0x06 */
-	temp |= 0x01;
-	/* write bit15 = 1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 15);
-	xhci_dbg(xhci, "Modem register(Disable STALL in U0) = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 15),
-			&ssic_hcd.profile_regs->attribute_base + 15);
-
-	/* TX: config Modem MPHY attribute */
-	temp = 0;
-	/* Attribute ID = 0x29 */
-	temp |= 0xF3 << 16;
-	/* Attribute value = 0x06 */
-	temp |= 0x21;
-	/* write bit15 = 1 */
-	temp |= ATTRIBUTE_VALID;
-	/* Write to remote MPHY, bit14 = 0 */
-	temp &= ~TARGET_PHY;
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + 16);
-	xhci_dbg(xhci, "Modem register(CDR2 config) = 0x%X, address = %p\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->attribute_base + 16),
-			&ssic_hcd.profile_regs->attribute_base + 16);
+		xhci_dbg(xhci, "%s: set %s attr 0x%x with value 0x%x\n", __func__,
+				temp & (1 << 14) ? "LOCAL PHY" : "REMOTE PHY", (temp >> 16) & 0xFFF,
+				temp & 0xFF);
+		xhci_writel(xhci, temp, &ssic_hcd.profile_regs->attribute_base + i);
+	}
 
 	return 0;
 }
@@ -1697,24 +1515,9 @@ static int xhci_ssic_init(struct usb_hcd *hcd)
 
 	temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2);
 	xhci_dbg(xhci, "config register2 after write U3 workaround = 0x%X\n", temp);
-	temp = xhci_readl(xhci, &ssic_hcd.profile_regs->access_control);
-	xhci_dbg(xhci, "SSIC: access_control = 0x%X, address = %p\n",
-				temp, (&ssic_hcd.profile_regs->access_control));
-	/* set Register Bank is valid to indicate to Controller that register bank
-	 * will be configured with commands that should be automatically issued.
-	 */
-	temp |= REGISTER_BANK_VALID;
-	/* set HS_CONFIG to 1 to indicate Controller should automatically issue
-	 * CONFIGURE_FOR_HS RRAP command when finished issuing the RRAP commands
-	 * in register bank.
-	 */
-	temp |= HS_CONFIG;
 
-	xhci_writel(xhci, temp, &ssic_hcd.profile_regs->access_control);
-	xhci_dbg(xhci, "access_control after write = 0x%X\n",
-			xhci_readl(xhci, &ssic_hcd.profile_regs->access_control));
-
-	xhci_ssic_config_register_bank(xhci);
+	/* Configure Local/Remote MPHY. */
+	ssic_config_register_bank(xhci, ssic_register_bank, ARRAY_SIZE(ssic_register_bank));
 	xhci_ssic_disable_feature(xhci);
 
 	/* Config SSIC Configuration Register2 */
@@ -1918,6 +1721,7 @@ static void remove_ssic_class_device_files(void)
 	device_destroy(ssic_class, ssic_class_dev->devt);
 	class_destroy(ssic_class);
 }
+
 static int xhci_ssic_private_reset(struct usb_hcd *hcd)
 {
 	struct xhci_hcd		*xhci;
@@ -1946,7 +1750,7 @@ static int xhci_ssic_private_reset(struct usb_hcd *hcd)
 
 	if (pdev->vendor == PCI_VENDOR_ID_INTEL && pdev->device == PCI_DEVICE_ID_INTEL_MOOR_SSIC) {
 		if (!hsic_pdata) {
-			pr_err("%s hsic_pdata is NULL, return\n");
+			pr_err("%s hsic_pdata is NULL, return\n", __func__);
 			return -ENODEV;
 		}
 

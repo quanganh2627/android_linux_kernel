@@ -128,7 +128,7 @@
 #define ATTRIBUTE_VALUE		(1<<0)
 #define TARGET_PHY		(1<<14)
 #define ATTRIBUTE_VALID		(1<<15)
-#define ATTRIBUTE_ID		(1<<16)
+#define ATTRIBUTE_ID(v)		((v & 0xFFF) << 16)
 
 /**
  * struct ssic_policy_registers - Policy and Implementation Specific Registers
@@ -168,15 +168,103 @@ struct ssic_profile_regs {
 	__le32	attribute_base;
 };
 
+typedef enum {
+	LOCAL_PHY,
+	REMOTE_PHY
+} target_phy;
+
+struct mphy_attr_setting {
+	target_phy target;
+	u16 attr_id;
+	u8 val;
+};
+
 /* Just define the Max SSIC port to 1 */
 #define NUM_SSIC_PORTS		1
 /* Attribute Max items now for each port */
 #define ATTRIBUTE_MAX		64
 
 /* Profile Attribute used */
-#define TX_HSRATE_SERIES	0x22
-#define RX_HSRATE_SERIES	0xA2
-#define RATE_SERIES_A		0x1
+#define ATTRID_TX_HSRATE_SERIES 0x22
+#define ATTRID_RX_HSRATE_SERIES	0xA2
+#define ATTRID_TX_HS_SYNC_LENGTH 0x28
+#define ATTRID_TX_HS_PREPARE_LENGTH 0x29
+#define ATTRID_TX_PWM_BURST_CLOSURE_EXTENDSION 0x2D
+#define ATTRID_MC_RX_LA_CAPABILITY 0xD7
+#define ATTRID_MC_HS_START_TIME_VAR_CAPABILITY 0xD4
+#define ATTRID_RX_TERMINATION_FORCE_ENABLE 0xA9
+
+/* MODEM CUSTOM ATTR IDs */
+#define ATTRID_MODEM_CB_REG_A38	0xA38
+#define ATTRID_MODEM_CB_REG_A38	0xA38
+#define ATTRID_MODEM_CB_REG_A39	0xA39
+#define ATTRID_MODEM_CB_UPDATE_40A	0x40A
+#define ATTRID_MODEM_CUSTOM_REG_CD	0xCD
+#define ATTRID_MODEM_CUSTOM_REG_C5	0xC5
+#define ATTRID_MODEM_CUSTOM_REG_F3	0xF3
+
+#define ATTRID_DISABLE_SCRAMBLING	0x403
+#define ATTRID_DISABLE_STALL_IN_U0	0x404
+
+/* DISABLE_STALL_IN_U0
+ * A DSP to disable STALL entry in U0 in an USP.
+ * A DSP or a USP in the MPHY.TEST state shall ignore
+ * writes to this register.
+ *
+ * Write 1 configures the USP to disable STALL entry while
+ * in U0.
+ * Write 0 shall have no effect.
+ */
+#define ATTR_VAL_DISABLE_USP_STALL_IN_U0	1
+
+/* DISABLE_SCRAMBLING
+ * DSP to indicate to an USP that data transmission is
+ * HS-MODE shall have scrambling disabled.
+ * Disable HS-MODE scrambling: 1
+ * Write 0 shall have no effect.
+ */
+#define ATTR_VAL_DISABLE_HSMODE_SCRAMBLING	1
+
+/* TX_HSRATE_SERIES/RX_HSRATE_SERIES
+ * HS mode RATE serious value:
+ * A = 1
+ * B = 2
+ * */
+#define ATTR_VAL_HSMODE_RATE_SERIES_A		0x1
+#define ATTR_VAL_HSMODE_RATE_SERIES_B		0x2
+
+/* TX_HS_SYNC_LENGTH
+ * B[7:6] : SYNC_RANGE
+ * B[5:0] : SYNC_LENGTH
+ */
+#define ATTR_VAL_SYNC_RANGE(v)		((v & 0x3) << 6)
+#define ATTR_VAL_SYNC_LENGTH(v)		(v & 0x3F)
+
+/* TX_PWM_BURST_Closure_Extension
+ * B[7:0] : BURST CLOSURE sequence duration in SI
+ */
+#define ATTR_VAL_BURST_CLOSURE_SEQ_DURATION(v) (v & 0xFF)
+
+/* RX_Termination_Force_Enable
+ * Force connection of differential termination resistance,
+ * RDIF_RX to enabled state, for RX S-Parameter test purposes.
+ * NO = 0
+ * YES = 1
+ */
+#define ATTR_VAL_ENABLE_RDIF_RX	1
+#define ATTR_VAL_DISABLE_RDIF_RX	0
+
+/* MC_RX_LA_CAPABILITY
+ * Specifies whether or not OMC supports Large Amplitude
+ * FALSE = 0
+ * TRUE = 1
+ */
+#define ATTR_VAL_OMC_SUPPORTS_LARGE_AMPLITUDE	1
+
+/* TX_HS_PREPARE_LENGTH
+ * B[3:0] : HS PREPARE length multiplier for M-TX
+ */
+#define ATTR_VAL_M_TX_LENGTH_MULTIPLIER(v)	(v & 0xF)
 
 #define SSIC_PORT_INACTIVITYDURATION		500
 #define SSIC_AUTOSUSPEND			0
