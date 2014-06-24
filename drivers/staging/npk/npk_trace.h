@@ -57,4 +57,7 @@ struct msu_blk_entry {
 	u32 reserved1[4];
 } __packed;
 
+int npk_trace_start(void);
+int npk_trace_stop(void);
+
 #endif /* _NPK_TRACE_H */

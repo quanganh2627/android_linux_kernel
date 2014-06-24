@@ -41,11 +41,52 @@ static DEFINE_MUTEX(lock);
 /* array of SW Masters that are reserved for the kernel */
 static struct npk_sth_master g_sth_master[NR_CPUS];
 
-static struct npk_sth_reg npk_1_0_sth_reg = {0x4000, 0x4004};
+static struct npk_sth_reg npk_1_0_sth_reg = {
+	.sthcap0 = 0x4000,
+	.sthcap1 = 0x4004
+};
 
 static struct npk_msu_reg npk_1_0_msu_reg[MAX_NUM_MSU] = {
-	{0xa0100, 0xa0104, 0xa0108, 0xa010c, 0xa0110, 0xa0114, 0xa0118},
-	{0xa0200, 0xa0204, 0xa0208, 0xa020c, 0xa0210, 0xa0214, 0xa0218},
+	{
+		.mscctrl = 0xa0100,
+		.mscsts = 0xa0104,
+		.mscbar = 0xa0108,
+		.mscdestsz = 0xa010c,
+		.mscmwp = 0xa0110,
+		.msctrp = 0xa0114,
+		.msctwp = 0xa0118,
+		.mscnwsa = 0xa011c
+	},
+	{
+		.mscctrl = 0xa0200,
+		.mscsts = 0xa0204,
+		.mscbar = 0xa0208,
+		.mscdestsz = 0xa020c,
+		.mscmwp = 0xa0210,
+		.msctrp = 0xa0214,
+		.msctwp = 0xa0218,
+		.mscnwsa = 0xa021c
+	},
+};
+
+static struct npk_gth_reg npk_1_0_gth_reg = {
+	.swdest0 = 0x8,
+	.gswtdest = 0x88,
+	.smcr0 = 0x9c,
+	.scr = 0xc8,
+	.gthstat = 0xd4,
+	.scr2 = 0xd8,
+	.scrpd = 0xe0
+};
+
+static struct npk_pti_reg npk_1_0_pti_reg = {
+	.ptictrl = 0x1c00
+};
+
+static struct npk_output npk_1_0_output = {
+	.msc0 = 0,
+	.msc1 = 1,
+	.pti = 2
 };
 
 static bool npk_1_0_check_reg_range(u32 offset)
@@ -80,6 +121,9 @@ static bool npk_1_0_check_pci_range(u32 offset)
 static const struct npk_device_info npk_1_0_info = {
 	.sth_reg = &npk_1_0_sth_reg,
 	.msu_reg = npk_1_0_msu_reg,
+	.gth_reg = &npk_1_0_gth_reg,
+	.pti_reg = &npk_1_0_pti_reg,
+	.output = &npk_1_0_output,
 	.check_reg_range = npk_1_0_check_reg_range,
 	.check_pci_range = npk_1_0_check_pci_range,
 };

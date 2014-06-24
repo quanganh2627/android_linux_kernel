@@ -465,6 +465,199 @@ static int free_buffer(struct npk_pci_device *npk_dev,
 }
 
 /**
+ * Configure the NPK trace sources and destination
+ *
+ * This function assumes the caller has grabbed the mutex
+ * that protects the npk device
+ */
+static int npk_trace_configure(struct npk_pci_device *npk_dev,
+			       unsigned long arg)
+{
+	struct npk_gth_reg *gth_reg = npk_dev->dev_info->gth_reg;
+	struct npk_msu_reg *msc0_reg = &npk_dev->dev_info->msu_reg[0];
+	struct npk_msu_reg *msc1_reg = &npk_dev->dev_info->msu_reg[1];
+	struct npk_pti_reg *pti_reg = npk_dev->dev_info->pti_reg;
+	struct npk_cfg cfg;
+	int n, i;
+	u32 swdest, mscctrl, ptictrl, scrpd;
+	u8 mast_en_dest;
+
+	if (npk_reg_read_no_lock(gth_reg->scrpd, &scrpd))
+		return -EFAULT;
+
+	if (scrpd & DEBUGGER_IN_USE)  {
+		pr_warn("Configuration not applied, debugger in use\n");
+		return -EFAULT;
+	}
+
+	if (copy_from_user(&cfg, (void __user *)arg, sizeof(struct npk_cfg)))
+		return -EFAULT;
+
+	mast_en_dest = 0x8 | (cfg.output_port & 0x7);
+
+	mscctrl = ((cfg.msc_mode & 0x3) << 4) |
+		((cfg.msc_wrap_en & 0x1) << 1) | 0x1;
+
+	ptictrl = ((cfg.pti_clk_divider & 0x3) << 16) |
+		((cfg.pti_mode & 0xF) << 4) | 0x1;
+
+	scrpd = STH_IS_ENABLED;
+
+	if (cfg.output_port == npk_dev->dev_info->output->msc0) {
+		/* Output to MSC0 */
+		if (npk_reg_write_no_lock(msc0_reg->mscctrl, mscctrl))
+			return -EFAULT;
+		scrpd |= (MEM_IS_PRIM_DEST | MSC0_IS_ENABLED);
+	} else if (cfg.output_port == npk_dev->dev_info->output->msc1) {
+		/* Output to MSC1 */
+		if (npk_reg_write_no_lock(msc1_reg->mscctrl, mscctrl))
+			return -EFAULT;
+		scrpd |= (MEM_IS_PRIM_DEST | MSC1_IS_ENABLED);
+	} else if (cfg.output_port == npk_dev->dev_info->output->pti) {
+		/* Output to PTI */
+		if (npk_reg_write_no_lock(pti_reg->ptictrl, ptictrl))
+			return -EFAULT;
+		scrpd |= PTI_IS_PRIM_DEST;
+	} else {
+		pr_err("Unsupported output port\n");
+		return -EFAULT;
+	}
+
+	for (n = 0; n < 32; n++) {
+		swdest = 0;
+		for (i = 0; i < 8; i++)
+			if (cfg.swdest_bmp[n] & (1 << i))
+				swdest |= (mast_en_dest << (i * 4));
+		if (npk_reg_write_no_lock(gth_reg->swdest0 + (n * 4), swdest))
+			return -EFAULT;
+	}
+
+	if (cfg.gswtdest)
+		if (npk_reg_write_no_lock(gth_reg->gswtdest, mast_en_dest))
+			return -EFAULT;
+
+	if (npk_reg_write_no_lock(gth_reg->scrpd, scrpd))
+		return -EFAULT;
+
+	return 0;
+}
+
+/**
+ * Start NPK trace by setting the 'Storage Enable Override' bits,
+ * and clearing the 'Force Storage Enable Off' bits
+ *
+ * This function assumes the caller has grabbed the mutex
+ * that protects the npk device
+ */
+static int _npk_trace_start(struct npk_pci_device *npk_dev)
+{
+	struct npk_gth_reg *gth_reg = npk_dev->dev_info->gth_reg;
+
+	if (npk_reg_write_no_lock(gth_reg->scr, 0x00130000) ||
+	    npk_reg_write_no_lock(gth_reg->scr2, 0x00000000))
+		return -EFAULT;
+
+	return 0;
+}
+
+int npk_trace_start(void)
+{
+	int ret;
+	struct npk_pci_device *npk_dev = get_npk_dev();
+
+	if (!npk_dev)
+		return -ENODEV;
+
+	ret = _npk_trace_start(npk_dev);
+
+	put_npk_dev();
+	return ret;
+}
+EXPORT_SYMBOL(npk_trace_start);
+
+#define MAX_ATTEMPTS_FOR_PIPELINE_EMPTY 100
+
+/**
+ * Stop NPK trace by setting the 'Force Storage Enable Off' bits.
+ *
+ * This function assumes the caller has grabbed the mutex
+ * that protects the npk device
+ */
+static int _npk_trace_stop(struct npk_pci_device *npk_dev)
+{
+	int output_port = 0, counter = 0;
+	u32 scrpd, gthstat, mscstat;
+	bool gth_ple, msc_ple;
+	struct npk_gth_reg *gth_reg = npk_dev->dev_info->gth_reg;
+	struct npk_msu_reg *msc_reg = NULL;
+
+	/* Force all trace sources off, and force Capture Done */
+	if (npk_reg_write_no_lock(gth_reg->scr2, 0x000000FD))
+		return -EFAULT;
+
+	/* Then wait for GTH and MSCs pipeline to drain by checking
+	 * their status registers
+	 */
+
+	/* Use scratchpad bits to know which output port is in use */
+	if (npk_reg_read_no_lock(gth_reg->scrpd, &scrpd))
+		return -EFAULT;
+
+	if (scrpd & MEM_IS_PRIM_DEST) {
+		if (scrpd & MSC0_IS_ENABLED) {
+			output_port = npk_dev->dev_info->output->msc0;
+			msc_reg = &npk_dev->dev_info->msu_reg[0];
+		} else if (scrpd & MSC1_IS_ENABLED) {
+			output_port = npk_dev->dev_info->output->msc1;
+			msc_reg = &npk_dev->dev_info->msu_reg[1];
+		}
+	} else if (scrpd & PTI_IS_PRIM_DEST)
+		output_port = npk_dev->dev_info->output->pti;
+	else
+		return -EINVAL;
+
+	do {
+		/* Check GTH pipeline empty */
+		if (npk_reg_read_no_lock(gth_reg->gthstat, &gthstat))
+			return -EFAULT;
+		gth_ple = gthstat & (1 << output_port);
+
+		/* If appropriate, check MSC pipeline empty */
+		if (msc_reg) {
+			if (npk_reg_read_no_lock(msc_reg->mscsts, &mscstat))
+				return -EFAULT;
+			msc_ple = mscstat & 0x4;
+		} else
+			msc_ple = true;
+
+		/* Use a counter to prevent infinite loop in case of error */
+		counter++;
+
+	} while (counter < MAX_ATTEMPTS_FOR_PIPELINE_EMPTY &&
+		 (!gth_ple || !msc_ple));
+
+	if (counter == MAX_ATTEMPTS_FOR_PIPELINE_EMPTY)
+		pr_warn("Pipelines not empty\n");
+
+	return 0;
+}
+
+int npk_trace_stop(void)
+{
+	int ret;
+	struct npk_pci_device *npk_dev = get_npk_dev();
+
+	if (!npk_dev)
+		return -ENODEV;
+
+	ret = _npk_trace_stop(npk_dev);
+
+	put_npk_dev();
+	return ret;
+}
+EXPORT_SYMBOL(npk_trace_stop);
+
+/**
  * This function reads the CSR-driven mode buffer.
  * Depending on whether there has been a wrap in the
  * buffer, one or two copy operations may be necessary.
@@ -677,6 +870,15 @@ static long npk_trace_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 		break;
 	case NPKIOC_PRINT_MSU_INFO:
 		ret = print_msu_info(arg);
+		break;
+	case NPKIOC_START_TRACE:
+		ret = _npk_trace_start(npk_dev);
+		break;
+	case NPKIOC_STOP_TRACE:
+		ret = _npk_trace_stop(npk_dev);
+		break;
+	case NPKIOC_CONFIGURE_TRACE:
+		ret = npk_trace_configure(npk_dev, arg);
 		break;
 	default:
 		ret = -ENOIOCTLCMD;

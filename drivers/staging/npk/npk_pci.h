@@ -16,6 +16,24 @@
 #define FIRST_SVEN_KERNEL_CHANNEL 7
 #define LAST_SVEN_KERNEL_CHANNEL 10
 
+enum scratchpad_bits {
+	MEM_IS_PRIM_DEST = 1,
+	DBC_IS_PRIM_DEST = 1 << 1,
+	PTI_IS_PRIM_DEST = 1 << 2,
+	BSSB_IS_PRIM_DEST = 1 << 3,
+	PTI_IS_ALT_DEST = 1 << 4,
+	BSSB_IS_ALT_DEST = 1 << 5,
+	MSC0_IS_ENABLED = 1 << 9,
+	MSC1_IS_ENABLED = 1 << 10,
+	TRIGGER_IS_ENABLED = 1 << 12,
+	ODLA_IS_ENABLED = 1 << 13,
+	SOCHAP_IS_ENABLED = 1 << 14,
+	STH_IS_ENABLED = 1 << 15,
+	NPKH_IS_ENABLED = 1 << 16,
+	VER_IS_ENABLED = 1 << 17,
+	DEBUGGER_IN_USE = 1 << 24
+};
+
 struct npk_sth_master {
 	void __iomem *base;
 	DECLARE_BITMAP(channel_map, MAX_NUM_OF_STH_CHANNELS);
@@ -42,11 +60,35 @@ struct npk_msu_reg {
 	u32 mscmwp;
 	u32 msctrp;
 	u32 msctwp;
+	u32 mscnwsa;
+} __packed;
+
+struct npk_gth_reg {
+	u32 swdest0;
+	u32 gswtdest;
+	u32 smcr0;
+	u32 scr;
+	u32 gthstat;
+	u32 scr2;
+	u32 scrpd;
+} __packed;
+
+struct npk_pti_reg {
+	u32 ptictrl;
+} __packed;
+
+struct npk_output {
+	u8 msc0;
+	u8 msc1;
+	u8 pti;
 } __packed;
 
 struct npk_device_info {
 	struct npk_sth_reg *sth_reg;
 	struct npk_msu_reg *msu_reg;
+	struct npk_gth_reg *gth_reg;
+	struct npk_pti_reg *pti_reg;
+	struct npk_output *output;
 	bool (*check_reg_range)(u32 offset);
 	bool (*check_pci_range)(u32 offset);
 };
