@@ -220,6 +220,7 @@ struct pmic_chrg_info {
 	int min_temp;
 	bool online;
 	bool present;
+	bool a_bus_enable;
 	bool is_charging_enabled;
 	bool is_charger_enabled;
 	bool is_hw_chrg_term;
@@ -245,6 +246,8 @@ static enum power_supply_property pmic_chrg_usb_props[] = {
 	POWER_SUPPLY_PROP_MAX_TEMP,
 	POWER_SUPPLY_PROP_MIN_TEMP,
 };
+
+static struct pmic_chrg_info *pinfo;
 
 static int pmic_chrg_reg_readb(struct pmic_chrg_info *info, int reg)
 {
@@ -783,19 +786,38 @@ static irqreturn_t pmic_chrg_thread_handler(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+static int dc_xpwr_turn_otg_vbus(struct pmic_chrg_info *info, bool votg_on)
+{
+	int ret;
+
+	if (votg_on && info->a_bus_enable)
+		ret = gpio_direction_output(info->pdata->otg_gpio, true);
+	else
+		ret = gpio_direction_output(info->pdata->otg_gpio, false);
+
+	return ret;
+}
+
 static void dc_xpwr_otg_event_worker(struct work_struct *work)
 {
 	struct pmic_chrg_info *info =
 	    container_of(work, struct pmic_chrg_info, otg_work);
 	int ret;
 
+	mutex_lock(&info->lock);
 	/* disable VBUS path before enabling the 5V boost */
 	ret = pmic_chrg_enable_charger(info, !info->id_short);
 	if (ret < 0)
 		dev_warn(&info->pdev->dev, "vbus path disable failed\n");
 
-	if (info->pdata->otg_gpio >= 0)
-		gpio_direction_output(info->pdata->otg_gpio, info->id_short);
+	if (info->pdata->otg_gpio >= 0) {
+		ret = dc_xpwr_turn_otg_vbus(info, info->id_short);
+		if (ret < 0)
+			dev_err(&info->pdev->dev,
+					"VBUS ON/OFF FAILED: %d\n",
+					ret);
+	}
+	mutex_unlock(&info->lock);
 }
 
 static int dc_xpwr_handle_otg_event(struct notifier_block *nb,
@@ -881,6 +903,53 @@ intr_failed:
 	}
 }
 
+static void dc_xpwr_usb_otg_enable(struct usb_phy *phy)
+{
+	struct pmic_chrg_info *info;
+	int ret, id_value = -1;
+
+	if (!pinfo)
+		return;
+
+	info = pinfo;
+	mutex_lock(&info->lock);
+	if (phy->vbus_state == VBUS_DISABLED)
+		info->a_bus_enable = false;
+	else
+		info->a_bus_enable = true;
+	mutex_unlock(&info->lock);
+
+	if (phy->get_id_status) {
+		/* get_id_status will store 0 in id_value if otg device is connected */
+		ret = phy->get_id_status(phy, &id_value);
+		if (ret < 0) {
+			dev_warn(&info->pdev->dev,
+					"otg get ID status failed:%d\n", ret);
+			return;
+		} else if (id_value != 0) {
+			/* otg vbus should not be enabled or disabled if otg device is not connected */
+			return;
+		}
+	} else {
+		dev_err(&info->pdev->dev, "get_id_status is not defined for usb_phy");
+		return;
+	}
+
+	mutex_lock(&info->lock);
+	if (phy->vbus_state == VBUS_DISABLED) {
+		dev_info(&info->pdev->dev, "OTG Disable");
+		ret = dc_xpwr_turn_otg_vbus(info, false);
+		if (ret < 0)
+			dev_err(&info->pdev->dev, "VBUS OFF FAILED:\n");
+	} else {
+		dev_info(&info->pdev->dev, "OTG Enable");
+		ret = dc_xpwr_turn_otg_vbus(info, true);
+		if (ret < 0)
+			dev_err(&info->pdev->dev, "VBUS ON FAILED:\n");
+	}
+	mutex_unlock(&info->lock);
+}
+
 static int pmic_chrg_probe(struct platform_device *pdev)
 {
 	struct pmic_chrg_info *info;
@@ -904,6 +973,9 @@ static int pmic_chrg_probe(struct platform_device *pdev)
 	pmic_chrg_init_psy_props(info);
 	pmic_chrg_init_irq(info);
 	pmic_chrg_init_hw_regs(info);
+	info->a_bus_enable = true;
+
+	pinfo = info;
 
 	/* Register for OTG notification */
 	info->otg = usb_get_phy(USB_PHY_TYPE_USB2);
@@ -911,6 +983,7 @@ static int pmic_chrg_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev, "Failed to get otg transceiver!!\n");
 	} else {
 		info->id_nb.notifier_call = dc_xpwr_handle_otg_event;
+		info->otg->a_bus_drop = dc_xpwr_usb_otg_enable;
 		ret = usb_register_notifier(info->otg, &info->id_nb);
 		if (ret)
 			dev_err(&pdev->dev, "failed to register otg notifier\n");
