@@ -2,7 +2,6 @@
 #  define KCT_H_
 
 #  include <linux/netlink.h>
-
 /*
  * warning: structures and constants in this header must match the
  * ones in libc/kernel/common/linux/kct.h, so that information can
@@ -95,6 +94,9 @@ struct kct_packet {
 						     + sizeof(*(Attchmt)) + \
 			      (Attchmt)->size, ATTCHMT_ALIGNMENT))
 
+
+
+#ifdef __KERNEL__
 /*
  * User should use the macros below rather than those extern functions
  * directly. Laters' declaration are only to set them __weak so
@@ -321,5 +323,5 @@ extern int kct_log_event(struct ct_event *ev, gfp_t flags) __weak;
 			kct_log_event(__ev, GFP_ATOMIC); \
 		} \
 	} } while (0)
-
+#endif /*__KERNEL__*/
 #endif /* !KCT_H_ */
