@@ -130,10 +130,6 @@ struct pti_dev {
 #endif
 };
 
-static unsigned int stm_enabled;
-module_param(stm_enabled, uint, 0600);
-MODULE_PARM_DESC(stm_enabled, "set to 1 to enable stm");
-
 /*
  * This protects access to ia_app, ia_os, and ia_modem,
  * which keeps track of channels allocated in
@@ -1004,7 +1000,7 @@ static int pti_pci_probe(struct pci_dev *pdev,
 
 #ifdef CONFIG_INTEL_PTI_STM
 	/* Initialize STM resources */
-	if ((stm_enabled) && (stm_dev_init(pdev, &drv_data->stm) != 0)) {
+	if (stm_dev_init(pdev, &drv_data->stm) != 0) {
 		retval = -ENOMEM;
 		goto err_rel_reg;
 	}
@@ -1054,8 +1050,7 @@ static void pti_pci_remove(struct pci_dev *pdev)
 	}
 
 #ifdef CONFIG_INTEL_PTI_STM
-	if (stm_enabled)
-		stm_dev_clean(pdev, &drv_data->stm);
+	stm_dev_clean(pdev, &drv_data->stm);
 #endif
 	iounmap(drv_data->pti_ioaddr);
 	pci_release_region(pdev, GET_PCI_BAR(drv_data));
