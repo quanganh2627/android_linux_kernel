@@ -77,7 +77,7 @@
 #define ADC_NON_BAT_CUR_DATAL_MASK	0x0F
 
 #define ADC_TS_PIN_CNRTL_REG           0x84
-#define ADC_TS_PIN_ON                  0xF3
+#define ADC_TS_PIN_ON                  0xF2
 
 #define DEV_NAME			"dollar_cove_adc"
 
