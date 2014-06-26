@@ -416,6 +416,7 @@ struct atomisp_parameters {
 	struct atomisp_ecd_config  *ecd_config; /* Eigen Color Demosaicing */
 	struct atomisp_ynr_config  *ynr_config; /* Y(Luma) Noise Reduction */
 	struct atomisp_fc_config   *fc_config;  /* Fringe Control */
+	struct atomisp_formats_config *formats_config; /* Formats Control */
 	struct atomisp_cnr_config  *cnr_config; /* Chroma Noise Reduction */
 	struct atomisp_macc_config *macc_config;  /* MACC */
 	struct atomisp_ctc_config  *ctc_config; /* Chroma Tone Control */
