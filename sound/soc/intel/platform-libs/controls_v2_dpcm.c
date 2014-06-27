@@ -1628,8 +1628,7 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_PATH_OUTPUT("pcm2_out", SST_TASK_SBA, SST_SWM_OUT_PCM2, sst_set_media_path),
 	SST_PATH_OUTPUT("pcm3_out", SST_TASK_SBA, SST_SWM_OUT_PCM3, sst_set_media_path),
 	SST_PATH_OUTPUT("pcm4_out", SST_TASK_SBA, SST_SWM_OUT_PCM4, sst_set_media_path),
-	/* TODO: check if this needs SET_MEDIA_PATH command*/
-	SST_PATH_INPUT("low_pcm0_in", SST_TASK_SBA, SST_SWM_IN_LOW_PCM0, NULL),
+	SST_PATH_INPUT("low_pcm0_in", SST_TASK_SBA, SST_SWM_IN_LOW_PCM0, sst_set_media_path),
 
 	SST_PATH_INPUT("voip_in", SST_TASK_SBA, SST_SWM_IN_VOIP, sst_set_media_path),
 	SST_PATH_OUTPUT("voip_out", SST_TASK_SBA, SST_SWM_OUT_VOIP, sst_set_media_path),
@@ -1758,6 +1757,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"sprot_loop_out", NULL, "sprot_loop_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("sprot_loop_out mix 0"),
 
+	{"low_pcm0_in", NULL, "Low Latency Playback"},
 	{"voip_in", NULL, "VOIP Playback"},
 	{"VOIP Capture", NULL, "voip_out"},
 	{"voip_out", NULL, "voip_out mix 0"},
