@@ -777,9 +777,6 @@ static void i915_hotplug_work_func(struct work_struct *work)
 				changed = true;
 		}
 	}
-
-	/* Encoder hotplug fn is suppose to use this, now clear it */
-	dev_priv->hotplug_status = 0;
 	mutex_unlock(&mode_config->mutex);
 
 	/* HDCPD needs a uevent, every time when there is a hotplug */
@@ -1421,9 +1418,7 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 			if (!(hotplug_trigger & HPD_SHORT_PULSE)) {
 				DRM_DEBUG_DRIVER("hotplug event received, stat 0x%08x\n",
 					 hotplug_status);
-				/* Few display's cant set the status for long time. Lets save this status for
-				future references like in bottom halves */
-				dev_priv->hotplug_status = hotplug_status;
+
 				intel_hpd_irq_handler(dev, hotplug_trigger, hpd_status_i915);
 			}
 			I915_WRITE(PORT_HOTPLUG_STAT, hotplug_status);
