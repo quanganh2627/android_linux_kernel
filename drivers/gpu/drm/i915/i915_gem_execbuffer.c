@@ -683,49 +683,6 @@ i915_gem_execbuffer_preallocate_objs(struct list_head *objects)
 }
 
 static int
-i915_gem_execbuffer_clear_objs(struct drm_device *dev, struct list_head *objects)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_ring_buffer *ring = &dev_priv->ring[BCS];
-	struct drm_i915_gem_object *obj;
-	bool clear_required = false;
-	u32 seqno;
-	int ret;
-
-	list_for_each_entry(obj, objects, exec_list) {
-		if (obj->require_clear) {
-			/* Flush the CPU write domain for the object if it's dirty. */
-			if (obj->base.write_domain & I915_GEM_DOMAIN_CPU)
-				i915_gem_clflush_object(obj, false);
-
-			ret = i915_gem_add_clear_obj_cmd(obj);
-			if (ret)
-				return ret;
-
-			seqno = intel_ring_get_seqno(ring);
-
-			obj->base.read_domains = I915_GEM_DOMAIN_RENDER;
-			obj->base.write_domain = I915_GEM_DOMAIN_RENDER;
-			i915_gem_object_move_to_active(obj, ring);
-
-			obj->dirty = 1;
-			obj->last_write_seqno = seqno;
-			obj->require_clear = false;
-			clear_required = true;
-		}
-	}
-
-	if (clear_required == true) {
-		/* Unconditionally force add_request to emit a full flush. */
-		ring->gpu_caches_dirty = true;
-
-		/* Add a breadcrumb for the completion of the batch buffer */
-		(void)i915_add_request(ring, NULL);
-	}
-	return 0;
-}
-
-static int
 i915_gem_execbuffer_reserve(struct intel_ring_buffer *ring,
 			    struct list_head *objects,
 			    struct i915_address_space *vm,
@@ -1374,10 +1331,6 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	/* Move the objects en-masse into the GTT, evicting if necessary. */
 	need_relocs = (args->flags & I915_EXEC_NO_RELOC) == 0;
 	ret = i915_gem_execbuffer_reserve(ring, &eb->objects, vm, &need_relocs);
-	if (ret)
-		goto err;
-
-	ret = i915_gem_execbuffer_clear_objs(dev, &eb->objects);
 	if (ret)
 		goto err;
 

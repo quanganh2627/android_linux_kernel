@@ -1591,11 +1591,6 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	if (ret)
 		goto unlock;
 
-	if (obj->require_clear) {
-		i915_gem_memset_obj(obj);
-		obj->require_clear = false;
-	}
-
 	ret = i915_gem_object_set_to_gtt_domain(obj, write);
 	if (ret)
 		goto unpin;
@@ -2124,13 +2119,12 @@ i915_gem_object_shmem_preallocate(struct drm_i915_gem_object *obj)
 	/* Get the list of pages out of our struct file
 	 * Fail silently without starting the shrinker
 	 */
-	obj->require_clear = 1;
 	mapping = file_inode(obj->base.filp)->i_mapping;
 	gfp = mapping_gfp_mask(mapping);
 	gfp |= __GFP_NORETRY | __GFP_NOWARN | __GFP_NO_KSWAPD;
 	gfp &= ~(__GFP_IO | __GFP_WAIT);
 	for (i = 0; i < page_count; i++) {
-		page = shmem_read_mapping_page_gfp_noclear(mapping, i, gfp);
+		page = shmem_read_mapping_page_gfp(mapping, i, gfp);
 		if (IS_ERR(page)) {
 			DRM_DEBUG_DRIVER("Failure for obj(%p) size(%x) at page(%d)\n",
 					obj, (unsigned int)obj->base.size, i);
