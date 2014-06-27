@@ -354,28 +354,6 @@ static void dwc_set_ssphy_p3_clockrate(struct usb_hcd *hcd)
 	writel(gctl, hcd->regs + GCTL);
 }
 
-static ssize_t
-show_pm_get(struct device *_dev, struct device_attribute *attr, char *buf)
-{
-	struct platform_device		*pdev = to_platform_device(_dev);
-	struct usb_hcd		*hcd = platform_get_drvdata(pdev);
-
-	pm_runtime_put(hcd->self.controller);
-	return 0;
-
-}
-static ssize_t store_pm_get(struct device *_dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct platform_device		*pdev = to_platform_device(_dev);
-	struct usb_hcd		*hcd = platform_get_drvdata(pdev);
-
-	pm_runtime_get(hcd->self.controller);
-	return count;
-
-}
-static DEVICE_ATTR(pm_get, S_IRUGO|S_IWUSR|S_IWGRP,
-			show_pm_get, store_pm_get);
 /*
  * This is for host compliance test
  * *
@@ -561,11 +539,6 @@ static int __dwc3_start_host(struct usb_hcd *hcd)
 	dwc3_link_issue_wa(xhci);
 	pm_runtime_put(hcd->self.controller);
 
-	ret = device_create_file(hcd->self.controller, &dev_attr_pm_get);
-	if (ret < 0)
-		dev_err(hcd->self.controller,
-			"Can't register sysfs attribute: %d\n", ret);
-
 	dwc3_xhci_driver.shutdown = usb_hcd_platform_shutdown;
 
 	return ret;
@@ -644,7 +617,6 @@ static int __dwc3_stop_host(struct usb_hcd *hcd)
 	dwc_xhci_enable_phy_suspend(hcd, false);
 
 	pm_runtime_put(hcd->self.controller);
-	device_remove_file(hcd->self.controller, &dev_attr_pm_get);
 	return 0;
 }
 
