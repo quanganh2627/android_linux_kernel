@@ -682,18 +682,6 @@ i915_gem_execbuffer_preallocate_objs(struct list_head *objects)
 	}
 }
 
-static void
-i915_gem_execbuffer_check_undo_prealloc(struct list_head *objects)
-{
-	struct drm_i915_gem_object *obj;
-
-	i915_gem_execbuffer_unreserve(objects);
-	/* Check if the objects remained uncleared after the preallocation */
-	list_for_each_entry(obj, objects, exec_list) {
-		i915_gem_check_undo_prealloc_pages(obj);
-	}
-}
-
 static int
 i915_gem_execbuffer_clear_objs(struct drm_device *dev, struct list_head *objects)
 {
@@ -1368,7 +1356,6 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	/* Reacquire the 'struct_mutex' post preallocation */
 	ret = i915_mutex_lock_interruptible(dev);
 	if (ret) {
-		i915_gem_execbuffer_check_undo_prealloc(&eb->objects);
 		eb_destroy(eb);
 		mutex_unlock(&dev_priv->exec_lock);
 		goto pre_mutex_err;
@@ -1387,16 +1374,12 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	/* Move the objects en-masse into the GTT, evicting if necessary. */
 	need_relocs = (args->flags & I915_EXEC_NO_RELOC) == 0;
 	ret = i915_gem_execbuffer_reserve(ring, &eb->objects, vm, &need_relocs);
-	if (ret) {
-		i915_gem_execbuffer_check_undo_prealloc(&eb->objects);
+	if (ret)
 		goto err;
-	}
 
 	ret = i915_gem_execbuffer_clear_objs(dev, &eb->objects);
-	if (ret) {
-		i915_gem_execbuffer_check_undo_prealloc(&eb->objects);
+	if (ret)
 		goto err;
-	}
 
 	/* The objects are in their final locations, apply the relocations. */
 	if (need_relocs)

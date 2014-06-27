@@ -2313,7 +2313,6 @@ void i915_set_reset_status(struct intel_ring_buffer *ring,
 
 void
 i915_gem_object_shmem_preallocate(struct drm_i915_gem_object *obj);
-void i915_gem_check_undo_prealloc_pages(struct drm_i915_gem_object *obj);
 int i915_gem_add_clear_obj_cmd(struct drm_i915_gem_object *obj);
 int i915_gem_memset_obj_hw(struct drm_i915_gem_object *obj);
 void i915_gem_memset_obj_sw(struct drm_i915_gem_object *obj);
