@@ -200,6 +200,8 @@ static struct m10mo_fw_id fw_ids[] = {
 	{ "T13F0SAHF02", M10MO_FW_TYPE_1 },
 	{ "T13F0SAHF03", M10MO_FW_TYPE_1 },
 	{ "T13F0SAHF04", M10MO_FW_TYPE_1 },
+	{ "T13F0SAHF05", M10MO_FW_TYPE_1 },
+	{ "T13F0SAHF06", M10MO_FW_TYPE_1 },
 	{ NULL, 0},
 };
 
