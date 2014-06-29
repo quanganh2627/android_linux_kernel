@@ -1488,7 +1488,7 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 	pmu_stat_seq_printf(s, SYS_STATE_S0I1_DISP, "s0i1-disp        ", uptime);
 	pmu_stat_seq_printf(s, SYS_STATE_S0I1_LPMP3_PSH, "s0i1-lpe-psh     ", uptime);
 	pmu_stat_seq_printf(s, SYS_STATE_S0I1_LPMP3_DISP, "s0i1-lpe-disp    ", uptime);
-	pmu_stat_seq_printf(s, SYS_STATE_S0I1_PSH, "s0i1-psh-disp    ", uptime);
+	pmu_stat_seq_printf(s, SYS_STATE_S0I1_PSH_DISP, "s0i1-psh-disp    ", uptime);
 	pmu_stat_seq_printf(s, SYS_STATE_S0I1_LPMP3_PSH_DISP, "s0i1-lpe-psh-disp", uptime);
 	pmu_stat_seq_printf(s, SYS_STATE_S0I2, "s0i2             ", uptime);
 	pmu_stat_seq_printf(s, SYS_STATE_S0I3, "s0i3             ", uptime);
