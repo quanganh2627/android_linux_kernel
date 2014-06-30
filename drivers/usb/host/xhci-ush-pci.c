@@ -1655,12 +1655,17 @@ static int xhci_pci_reinit(struct xhci_hcd *xhci, struct pci_dev *pdev)
 
 static void xhci_ush_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
 {
+	struct pci_dev          *pdev = to_pci_dev(dev);
+
 	xhci->quirks |= XHCI_SPURIOUS_SUCCESS;
 	/*
 	 * We found two USB Disk cannot pass Enumeration with LPM
 	 * token sent on BYT, so disable LPM here.
 	 */
 	xhci->quirks |= XHCI_LPM_DISABLE_QUIRK;
+
+	if (pdev->device == PCI_DEVICE_ID_INTEL_MOOR_SSIC)
+		xhci->quirks |= XHCI_BROKEN_MSI;
 	return;
 }
 
