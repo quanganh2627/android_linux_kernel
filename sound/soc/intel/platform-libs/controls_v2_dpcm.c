@@ -2497,6 +2497,12 @@ int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 		return -ENOMEM;
 	}
 
+	sst->vtsv_path = devm_kzalloc(platform->dev, SST_MAX_VTSV_PATH_BYTE_CTL_LEN, GFP_KERNEL);
+	if (!sst->vtsv_path) {
+		pr_err("%s: kzalloc failed\n", __func__);
+		return -ENOMEM;
+	}
+
 	ret = request_firmware(&fw, "dfw_sst.bin", platform->dev);
 	if (fw == NULL) {
 		pr_err("config firmware request failed with %d\n", ret);
@@ -2512,6 +2518,8 @@ int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 			ARRAY_SIZE(sst_slot_controls));
 	snd_soc_add_platform_controls(platform, sst_vad_enroll,
 			ARRAY_SIZE(sst_vad_enroll));
+	snd_soc_add_platform_controls(platform, sst_vtsv_read,
+			ARRAY_SIZE(sst_vtsv_read));
 
 	/* initialize the names of the probe points */
 	for (i = 0; i < ARRAY_SIZE(sst_probes); i++)
