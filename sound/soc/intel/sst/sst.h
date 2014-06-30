@@ -434,6 +434,7 @@ struct sst_shim_regs64 {
 	u64 ipclpesc;
 	u64 clkctl;
 	u64 csr2;
+	u64 tmrctl;
 };
 
 struct sst_vtsv_cache {
@@ -446,6 +447,13 @@ struct sst_vtsv_cache {
 struct sst_shim_reg_table {
 	u32 offset;
 	char name[25];
+};
+
+struct sst_monitor_lpe {
+	u64 prev_match_val;
+	struct work_struct mwork;
+	struct timer_list sst_timer;
+	u32 interval;
 };
 
 /***
@@ -516,6 +524,7 @@ struct intel_sst_drv {
 	struct work_struct      ipc_post_msg_wq;
 	wait_queue_head_t	wait_queue;
 	struct workqueue_struct *mad_wq;
+	struct workqueue_struct *recovery_wq; /*to queue work once recovery is triggered*/
 	struct workqueue_struct *post_msg_wq;
 	unsigned int		tstamp;
 	struct stream_info	streams[MAX_NUM_STREAMS+1]; /*str_id 0 is not used*/
@@ -561,6 +570,8 @@ struct intel_sst_drv {
 	struct sst_mem_mgr      lib_mem_mgr;
 	/* Contains the cached vtsv files*/
 	struct sst_vtsv_cache	vcache;
+	/* To store external lpe timer info and recovery timer info*/
+	struct sst_monitor_lpe monitor_lpe;
 	/* Pointer to device ID, now for same PCI_ID, HID will be
 	 * will be different for FDK and EDK2. This will be used
 	 * for devices where PCI or ACPI id is same but HID is
@@ -700,11 +711,17 @@ int sst_cache_vtsv_libs(struct intel_sst_drv *ctx);
 
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst);
 void sst_debug_dump(struct intel_sst_drv *sst);
+void sst_do_recovery(struct intel_sst_drv *sst);
+void sst_trigger_recovery(struct work_struct *work);
+void sst_update_timer(struct intel_sst_drv *sst_drv_ctx);
 long intel_sst_ioctl_dsp(unsigned int cmd,
 		struct snd_ppp_params *algo_params, unsigned long arg);
 
 void sst_dump_to_buffer(const void *from, size_t from_len, char *buf);
 char *sst_get_shim_buf(struct intel_sst_drv *sst_drv_ctx);
+int sst_recovery_init(struct intel_sst_drv *sst_drv_ctx);
+int sst_set_timer(struct sst_monitor_lpe *monitor_lpe, bool enable);
+void sst_timer_cb(unsigned long data);
 
 extern int intel_scu_ipc_simple_command(int, int);
 
