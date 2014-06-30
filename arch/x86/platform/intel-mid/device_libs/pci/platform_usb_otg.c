@@ -28,8 +28,8 @@ struct {
 	u8 name[16];
 	u32 val;
 } usb2_el_cal[] = {
-	{"ULPICAL_7D", 0x7F},
-	{"ULPICAL_7F", 0x7D},
+	{"ULPICAL_7D", 0x7D},
+	{"ULPICAL_7F", 0x7F},
 	{"UTMICAL_PEDE3TX0", 0x51801},
 	{"UTMICAL_PEDE6TX7", 0x53f01},
 };
@@ -137,7 +137,6 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 			dwc_otg_pdata.charging_compliance =
 				dwc_otg_get_usbspecoverride(MERR_SMIP_VIOLATE_BC_ADDR);
 			dwc_otg_pdata.usb2_phy_type = USB2_PHY_ULPI;
-			dwc_otg_pdata.ulpi_eye_calibration = 0x7D;
 
 		} else if (intel_mid_identify_sim() ==
 				INTEL_MID_CPU_SIMULATION_HVP) {
