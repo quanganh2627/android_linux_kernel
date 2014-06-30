@@ -191,9 +191,9 @@ static struct m10mo_fw_id fw_ids[] = {
 	{ "TEST",        M10MO_FW_TYPE_0 },
 	{ "S13F0SAHE01", M10MO_FW_TYPE_3 },
 	{ "O13F0SAHE01", M10MO_FW_TYPE_3 },
-	{ "O13F0SAHF02", M10MO_FW_TYPE_3 },
+	{ "O13F0SAHF02", M10MO_FW_TYPE_4 },
 	{ "S13F0SAHF01", M10MO_FW_TYPE_3 },
-	{ "S13F0SAHF02", M10MO_FW_TYPE_3 },
+	{ "S13F0SAHF02", M10MO_FW_TYPE_4 },
 	{ "O13F0SAHF01", M10MO_FW_TYPE_3 },
 	{ "T13F0SAHE01", M10MO_FW_TYPE_1 },
 	{ "T13F0SAHF01", M10MO_FW_TYPE_1 },
@@ -208,6 +208,11 @@ static struct m10mo_fw_id fw_ids[] = {
 static u32 clock_rate[] = {
 	24000000,
 	19200000,
+};
+
+static u32 mipi_packet_size[] = {
+	2048,
+	4096,
 };
 
 static void spi_hw_resources_setup(struct m10mo_atomisp_spi_platform_data *pdata)
@@ -348,6 +353,7 @@ static struct m10mo_platform_data m10mo_sensor_platform_data = {
 
 	.def_fw_type    = M10MO_FW_TYPE_0,
 	.ref_clock_rate = clock_rate, /* Board specific */
+	.mipi_packet_size = mipi_packet_size,
 	.fw_ids		= fw_ids,
 	.spi_setup	= setup_m10mo_spi,
 	.identify_fw	= m10mo_platform_identify_fw,
