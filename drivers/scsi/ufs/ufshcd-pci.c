@@ -214,6 +214,8 @@ static const struct dev_pm_ops ufshcd_pci_pm_ops = {
 
 static DEFINE_PCI_DEVICE_TABLE(ufshcd_pci_tbl) = {
 	{ PCI_VENDOR_ID_SAMSUNG, 0xC00C, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+	{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BXT_UFS,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 	{ }	/* terminate list */
 };
 
