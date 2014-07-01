@@ -258,8 +258,11 @@ static void set_mrfld_sst_config(struct sst_platform_info *sst_info)
 	sst_info->ipc_info = &mrfld_ipc_info;
 	sst_info->debugfs_data = &mrfld_debugfs_data;
 	sst_info->lib_info = &mrfld_lib_dnld_info;
+
 	/* By default set recovery to true for all mrfld based devices */
 	sst_info->enable_recovery = 1;
+	/* Timer based recovery not enabled in mrfld based devices */
+	sst_info->start_recovery_timer = false;
 
 	return ;
 
@@ -276,6 +279,8 @@ static void set_mofd_sst_config(struct sst_platform_info *sst_info)
 	sst_info->lib_info = &mofd_lib_dnld_info;
 
 	sst_info->enable_recovery = 0;
+	/* Timer based recovery not enabled in mofd based devices */
+	sst_info->start_recovery_timer = false;
 
 	return ;
 
