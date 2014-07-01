@@ -874,9 +874,16 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			spin_lock_irqsave(&xhci->lock, flags);
 			break;
 		case USB_PORT_FEAT_RESET:
-			temp = (temp | PORT_RESET);
-			xhci_writel(xhci, temp, port_array[wIndex]);
+			/*
+			 * WR solution to individual USB3.0 UMS address fail due
+			 * to link state unstable after Hot reset.
+			 */
+			if ((xhci->quirks & XHCI_FORCE_WR) && (DEV_SUPERSPEED(temp)))
+				temp = (temp | PORT_WR);
+			else
+				temp = (temp | PORT_RESET);
 
+			xhci_writel(xhci, temp, port_array[wIndex]);
 			temp = xhci_readl(xhci, port_array[wIndex]);
 			xhci_dbg(xhci, "set port reset, actual port %d status  = 0x%x\n", wIndex, temp);
 			break;
