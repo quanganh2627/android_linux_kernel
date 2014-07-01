@@ -977,7 +977,11 @@ intel_dsi_calc_panel_downclock(struct drm_device *dev,
 			struct drm_display_mode *fixed_mode,
 			struct drm_connector *connector)
 {
-	struct drm_display_mode *downclock_mode;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_display_mode *downclock_mode = NULL;
+
+	if (dev_priv->vbt.drrs_min_vrefresh == 0)
+		return downclock_mode;
 
 	/* Allocate */
 	downclock_mode = drm_mode_duplicate(dev, fixed_mode);
@@ -986,8 +990,8 @@ intel_dsi_calc_panel_downclock(struct drm_device *dev,
 		return NULL;
 	}
 
-	/* By default downclock refresh rate is 40 */
-	downclock_mode->vrefresh = 40;
+	downclock_mode->vrefresh = dev_priv->vbt.drrs_min_vrefresh;
+	DRM_DEBUG("drrs_min_vrefresh = %u\n", downclock_mode->vrefresh);
 	downclock_mode->clock =  downclock_mode->vrefresh *
 		downclock_mode->vtotal * downclock_mode->htotal / 1000;
 

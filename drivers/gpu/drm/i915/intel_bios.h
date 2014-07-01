@@ -324,8 +324,6 @@ struct lvds_fp_timing {
 	u32 pp_off_reg_val;
 	u32 pp_cycle_reg;
 	u32 pp_cycle_reg_val;
-	u32 pfit_reg;
-	u32 pfit_reg_val;
 	u16 terminator;
 } __attribute__((packed));
 
@@ -371,8 +369,15 @@ struct bdb_lvds_lfp_data_entry {
 	struct lvds_pnp_id pnp_id;
 } __attribute__((packed));
 
+struct lfp_panel_name {
+	u8 name[13];
+} __attribute__((packed));
+
 struct bdb_lvds_lfp_data {
 	struct bdb_lvds_lfp_data_entry data[16];
+	struct lfp_panel_name name[16];
+	u16 scaling_enabling_bits;
+	u8 seamless_drrs_min_vrefresh[16];
 } __attribute__((packed));
 
 struct aimdb_header {
