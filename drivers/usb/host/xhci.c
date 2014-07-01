@@ -268,13 +268,15 @@ static void xhci_free_irq(struct xhci_hcd *xhci)
 	struct pci_dev *pdev = to_pci_dev(xhci_to_hcd(xhci)->self.controller);
 	int ret;
 
-	/* return if using legacy interrupt */
+	/* free_irq directly if using legacy interrupt */
 	if (xhci_to_hcd(xhci)->irq > 0)
-		return;
+		goto legacy_irq;
 
 	ret = xhci_free_msi(xhci);
 	if (!ret)
 		return;
+
+legacy_irq:
 	if (pdev->irq > 0)
 		free_irq(pdev->irq, xhci_to_hcd(xhci));
 
@@ -350,6 +352,9 @@ static void xhci_cleanup_msix(struct xhci_hcd *xhci)
 		return;
 
 	xhci_free_irq(xhci);
+
+	if (xhci->quirks & XHCI_BROKEN_MSI)
+		return;
 
 	if (xhci->msix_entries) {
 		pci_disable_msix(pdev);
