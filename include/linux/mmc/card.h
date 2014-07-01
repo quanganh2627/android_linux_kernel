@@ -538,4 +538,5 @@ extern void mmc_fixup_device(struct mmc_card *card,
 extern int mmc_rpmb_req_handle(struct device *emmc,
 		struct mmc_ioc_rpmb_req *req);
 
+extern void dis_cache_mmc(struct mmc_card *card, int data);
 #endif /* LINUX_MMC_CARD_H */
