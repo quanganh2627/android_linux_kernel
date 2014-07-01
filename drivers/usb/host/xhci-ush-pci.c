@@ -38,6 +38,8 @@
 #include "xhci.h"
 #include "../core/hub.h"
 
+static const char ush_hcd_name[] = "USH Host Controller";
+
 static struct ush_hsic_pdata *hsic_pdata;
 static int set_port_feature(struct usb_device *hdev, int port1, int feature);
 static int clear_port_feature(struct usb_device *hdev, int port1, int feature);
@@ -1750,7 +1752,7 @@ static int xhci_ush_pci_resume(struct usb_hcd *hcd, bool hibernated)
 #endif
 
 static const struct hc_driver xhci_ush_pci_hc_driver = {
-	.description =          "USH HSIC/SSIC",
+	.description =          ush_hcd_name,
 	.product_desc =         "xHCI Host Controller",
 	.hcd_priv_size =        sizeof(struct xhci_hcd *),
 
@@ -1851,7 +1853,7 @@ static const struct dev_pm_ops xhci_ush_pm_ops = {
 };
 
 static struct pci_driver xhci_ush_driver = {
-	.name = "USH Host Controller",
+	.name = (char *) ush_hcd_name,
 	.id_table =     xhci_ush_pci_ids,
 
 	.probe =        xhci_ush_pci_probe,
