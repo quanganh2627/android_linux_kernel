@@ -162,7 +162,7 @@ struct snd_ctl_elem_value32 {
 	unsigned int indirect;	/* bit-field causes misalignment */
         union {
 		s32 integer[256];
-		unsigned char data[1024];
+		unsigned char data[4096];
 #ifndef CONFIG_X86_64
 		s64 integer64[128];
 #endif
