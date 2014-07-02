@@ -840,6 +840,7 @@ struct atomisp_acc_map {
 };
 
 #define ATOMISP_MAP_FLAG_NOFLUSH	0x0001	/* Do not flush cache */
+#define ATOMISP_MAP_FLAG_CACHED		0x0002	/* Enable cache */
 
 /*
  * V4L2 private internal data interface.
