@@ -836,11 +836,12 @@ static int intel_dsi_get_modes(struct drm_connector *connector)
 	struct intel_dsi *intel_dsi = intel_attached_dsi(connector);
 	struct drm_display_mode *mode;
 	struct drm_display_mode *input_mode = NULL;
+	int count = 0;
 	DRM_DEBUG_KMS("\n");
 
 	if (!intel_connector->panel.fixed_mode) {
 		DRM_DEBUG_KMS("no fixed mode\n");
-		return 0;
+		return count;
 	}
 
 	input_mode = intel_connector->panel.fixed_mode;
@@ -848,13 +849,27 @@ static int intel_dsi_get_modes(struct drm_connector *connector)
 				  input_mode);
 	if (!mode) {
 		DRM_DEBUG_KMS("drm_mode_duplicate failed\n");
-		return 0;
+		return count;
 	}
 
 	drm_mode_probed_add(connector, mode);
+	count++;
+
+	if (intel_connector->panel.downclock_mode) {
+		mode = drm_mode_duplicate(connector->dev,
+				intel_connector->panel.downclock_mode);
+		if (!mode) {
+			DRM_DEBUG_KMS("drm_mode_duplicate failed\n");
+			return count;
+		}
+
+		drm_mode_probed_add(connector, mode);
+		count++;
+	}
+
 	/*Fill the panel info here*/
 	intel_dsi->dev.dev_ops->get_info(0, connector);
-	return 1;
+	return count;
 }
 
 static void intel_dsi_destroy(struct drm_connector *connector)

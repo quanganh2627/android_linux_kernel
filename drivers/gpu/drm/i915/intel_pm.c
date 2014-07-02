@@ -631,7 +631,8 @@ void intel_set_drrs_state(struct drm_device *dev, int refresh_rate)
 	enum drrs_refresh_rate_type index;
 
 	if (refresh_rate <= 0) {
-		DRM_INFO("Refresh rate should be positive non-zero.\n");
+		DRM_INFO("Refresh rate should be positive non-zero.<%d>\n",
+								refresh_rate);
 		return;
 	}
 
