@@ -133,6 +133,24 @@ static const struct sst_ipc_info ctp_ipc_info = {
 	.mbox_recv_off = SST_V1_MAILBOX_RECV,
 };
 
+static const struct sst_info moor_sst_info = {
+	.iram_start = 0,
+	.iram_end = 0,
+	.iram_use = false,
+	.dram_start = 0,
+	.dram_end = 0,
+	.dram_use = false,
+	.imr_start = 0,
+	.imr_end = 0,
+	.imr_use = false,
+	.mailbox_start = 0,
+	.use_elf = false,
+	.lpe_viewpt_rqd = false,
+	.max_streams = MAX_NUM_STREAMS_MRFLD,
+	.dma_max_len = SST_MAX_DMA_LEN_MRFLD,
+	.num_probes = 16,
+};
+
 static const struct sst_info mrfld_sst_info = {
 	.iram_start = 0,
 	.iram_end = 0,
@@ -204,7 +222,7 @@ static const struct sst_lib_dnld_info  mofd_lib_dnld_info = {
 	.mod_table_offset   = MOFD_FW_MOD_TABLE_OFFSET,
 	.mod_table_size     = MOFD_FW_MOD_TABLE_SIZE,
 	.mod_offset         = MOFD_FW_MOD_OFFSET,
-	.mod_ddr_dnld       = true,
+	.mod_ddr_dnld       = false,
 };
 
 static int set_ctp_sst_config(struct sst_platform_info *sst_info)
@@ -252,7 +270,7 @@ static void set_mofd_sst_config(struct sst_platform_info *sst_info)
 	sst_info->ssp_data = &ssp_inf_mrfld;
 	sst_info->pdata = &sst_mrfld_pdata;
 	sst_info->bdata = NULL;
-	sst_info->probe_data = &mrfld_sst_info;
+	sst_info->probe_data = &moor_sst_info;
 	sst_info->ipc_info = &moor_ipc_info;
 	sst_info->debugfs_data = &moor_debugfs_data;
 	sst_info->lib_info = &mofd_lib_dnld_info;
