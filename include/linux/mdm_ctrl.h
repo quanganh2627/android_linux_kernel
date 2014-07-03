@@ -85,6 +85,17 @@ struct mdm_ctrl_cmd {
 	unsigned int timeout;
 };
 
+/**
+ * struct mdm_ctrl_cfg - MCD configuration
+ *
+ * @board board type
+ * @type modem family type
+ */
+struct mdm_ctrl_cfg {
+	enum mdm_ctrl_board_type board;
+	enum mdm_ctrl_mdm_type type;
+};
+
 #define MDM_CTRL_MAGIC	0x87 /* FIXME: Revisit */
 
 /* IOCTL commands list */
@@ -99,8 +110,7 @@ struct mdm_ctrl_cmd {
 #define MDM_CTRL_GET_HANGUP_REASONS	_IO(MDM_CTRL_MAGIC, 8)
 #define MDM_CTRL_CLEAR_HANGUP_REASONS	_IO(MDM_CTRL_MAGIC, 9)
 #define MDM_CTRL_SET_POLLED_STATES	_IO(MDM_CTRL_MAGIC, 10)
-#define MDM_CTRL_SET_BOARD		_IO(MDM_CTRL_MAGIC, 11)
-#define MDM_CTRL_SET_MDM		_IO(MDM_CTRL_MAGIC, 12)
+#define MDM_CTRL_SET_CFG		_IO(MDM_CTRL_MAGIC, 11)
 
 #endif /* _MDM_CTRL_H */
 
