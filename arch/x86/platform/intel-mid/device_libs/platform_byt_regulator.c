@@ -21,9 +21,20 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/intel_crystal_cove_pmic.h>
 #include <linux/regulator/machine.h>
+#include <linux/regulator/intel_dcove_regulator.h>
+#include <asm/spid.h>
+#include <linux/i2c.h>
+#include <linux/mfd/intel_mid_pmic.h>
+
 
 /* 3P3SX regulator controlled over gpio */
 #define GPIO_3P3SX_EN	151
+
+
+/* To differentiate between BYTCR Versions based on PMIC */
+#define REGULATOR_PMIC_HID_RHM		"INT33FD:00"
+#define REGULATOR_PMIC_HID_XPR		"INT33F4:00"
+#define REGULATOR_PMIC_HID_TEIN		"INT33F5:00"
 
 /***********V2P85S REGUATOR platform data*************/
 static struct regulator_consumer_supply v2p85s_consumer[] = {
@@ -284,7 +295,7 @@ static struct platform_device v1p8a_device = {
 	},
 };
 
-static struct platform_device *regulator_devices[] __initdata = {
+static struct platform_device *byt_t_ffd8_regulator_devices[] __initdata = {
 	&v2p85s_device,
 	&v2p85sx_device,
 	&v3p3sx_device,
@@ -295,10 +306,140 @@ static struct platform_device *regulator_devices[] __initdata = {
 	&v1p8a_device,
 };
 
+/**************** Regulator Devices for BYTCRV2.0 ******************/
+static struct platform_device *byt_t_crv20_regulator_devices[] __initdata = {
+	&v2p85s_device,
+	&v2p85sx_device,
+	&v3p3sx_device,
+	&v1p8s_device,
+	&v1p8sx_device,
+	&vsys_s_device,
+};
+
+/****************DCOVE LDO2 RAIL Platform Data********************/
+
+static struct regulator_consumer_supply dcove_ldo2_consumer[] = {
+	REGULATOR_SUPPLY("vmmc", "80860F14:01"),
+	/* Add More Consumers here */
+};
+
+static struct regulator_init_data dcove_ldo2_data = {
+	.constraints = {
+		.name			= "LDO_2",
+		.min_uV			= 1800000,
+		.max_uV			= 3300000,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
+						REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(dcove_ldo2_consumer),
+	.consumer_supplies	= dcove_ldo2_consumer,
+};
+
+static struct dcove_regulator_info dcove_ldo2 = {
+	.init_data = &dcove_ldo2_data,
+};
+
+static struct platform_device dcove_ldo2_device = {
+	.name = "dcove_regulator",
+	.id = DCOVE_ID_LDO2,
+	.dev = {
+		.platform_data = &dcove_ldo2,
+	},
+};
+
+/****************DCOVE GPIO_1 RAIL Platform Data ********************/
+static struct regulator_consumer_supply dcove_gpio1_consumer[] = {
+	REGULATOR_SUPPLY("vqmmc", "80860F14:01"),
+	/* Add More Consumers here */
+};
+
+static struct regulator_init_data dcove_gpio1_data = {
+	.constraints = {
+		.name			= "GPIO_1",
+		.min_uV			= 1800000,
+		.max_uV			= 3300000,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
+						REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(dcove_gpio1_consumer),
+	.consumer_supplies	= dcove_gpio1_consumer,
+};
+
+static struct dcove_regulator_info dcove_gpio1 = {
+	.init_data = &dcove_gpio1_data,
+};
+
+static struct platform_device dcove_gpio1_device = {
+	.name = "dcove_regulator",
+	.id = DCOVE_ID_GPIO1,
+	.dev = {
+		.platform_data = &dcove_gpio1,
+	},
+};
+
+/**************** Regulator Devices for BYTCRV2.1 ******************/
+static struct platform_device *byt_t_crv21_regulator_devices[] __initdata = {
+	&dcove_ldo2_device,
+	&dcove_gpio1_device,
+};
+
+
+/**************** Regulator Devices for BYTCRV2.2 ******************/
+static struct platform_device *byt_t_crv22_regulator_devices[] __initdata = {
+	/* Add Devices Here */
+};
+
+
+static int regulator_match_name(struct device *dev, void *data)
+{
+	const char *name = data;
+	struct i2c_client *client = to_i2c_client(dev);
+	return !strncmp(client->name, name, strlen(client->name));
+}
+
+static struct i2c_client *regulator_find_i2c_client_by_name(char *name)
+{
+	struct device *dev = bus_find_device(&i2c_bus_type, NULL,
+						name, regulator_match_name);
+	return dev ? to_i2c_client(dev) : NULL;
+}
+
 static int __init regulator_init(void)
 {
-	platform_add_devices(regulator_devices,
-		ARRAY_SIZE(regulator_devices));
+	if (spid.hardware_id == BYT_TABLET_BLK_CRV2) {
+
+		if (regulator_find_i2c_client_by_name(REGULATOR_PMIC_HID_RHM)) {
+			pr_info("Regulator Devices Found for BYTCRv2.0 (RHM)\n");
+			platform_add_devices(byt_t_crv20_regulator_devices,
+				ARRAY_SIZE(byt_t_crv20_regulator_devices));
+		}
+
+		else if (regulator_find_i2c_client_by_name(REGULATOR_PMIC_HID_XPR)) {
+			pr_info("Regulator Devices Found for BYTCRv2.1 (XPR)\n");
+			platform_add_devices(byt_t_crv21_regulator_devices,
+				ARRAY_SIZE(byt_t_crv21_regulator_devices));
+		}
+
+		else if (regulator_find_i2c_client_by_name(REGULATOR_PMIC_HID_TEIN)) {
+			pr_info("Regulator Devices Found for BYTCRv2.2 (TE. IN.)\n");
+			platform_add_devices(byt_t_crv22_regulator_devices,
+				ARRAY_SIZE(byt_t_crv22_regulator_devices));
+		}
+
+		else {
+			pr_err("%s: No Regulator Devices Found for BYT_CR :: \
+				Version NOT DETECTED !!\n", __func__);
+			return -ENODEV;
+		}
+	}
+
+	else {
+		platform_add_devices(byt_t_ffd8_regulator_devices,
+			ARRAY_SIZE(byt_t_ffd8_regulator_devices));
+	}
+
 	return 0;
 }
 device_initcall(regulator_init);
