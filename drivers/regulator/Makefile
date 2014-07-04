@@ -3,6 +3,7 @@
 #
 
 CFLAGS_pmic_basin_cove.o		:= -Werror
+CFLAGS_dcovex_regulator.o		:= -Werror
 CFLAGS_pmic_crystal_cove.0		:= -Werror
 CFLAGS_pmic_crystal_cove_plus.0		:= -Werror
 CFLAGS_pmic_whiskey_cove.o		:= -Werror
@@ -26,6 +27,7 @@ obj-$(CONFIG_REGULATOR_DA9052)	+= da9052-regulator.o
 obj-$(CONFIG_REGULATOR_DA9055)	+= da9055-regulator.o
 obj-$(CONFIG_REGULATOR_DBX500_PRCMU) += dbx500-prcmu.o
 obj-$(CONFIG_REGULATOR_DB8500_PRCMU) += db8500-prcmu.o
+obj-$(CONFIG_REGULATOR_PMIC_DCOVE) += dcovex_regulator.o
 obj-$(CONFIG_REGULATOR_FAN53555) += fan53555.o
 obj-$(CONFIG_REGULATOR_GPIO) += gpio-regulator.o
 obj-$(CONFIG_REGULATOR_ISL6271A) += isl6271a-regulator.o

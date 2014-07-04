@@ -529,4 +529,9 @@ config REGULATOR_WHISKEY_COVE
         help
           This driver controls Intel Whiskey Cove pmic voltage output regulator
 
+config REGULATOR_PMIC_DCOVE
+	tristate "Intel DollarCove PMIC Voltage Regulators (X)"
+	help
+	  Support the voltagae regulators for the DollarCove based PMIC.
+
 endif
