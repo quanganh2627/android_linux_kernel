@@ -89,6 +89,12 @@ struct m10mo_atomisp_spi_platform_data {
 			 M10MO_SHOT_MODE_SUPPORT | \
 			 M10MO_MIPI_PACKET_SIZE_4K)
 
+#define M10MO_FW_TYPE_5	(M10MO_RESOLUTION_MODE_1 | \
+			 M10MO_AF_MODE_1 |	   \
+			 M10MO_MIPI_FREQ_MODE_1 |  \
+			 M10MO_CLOCK_RATE_MODE_1 | \
+			 M10MO_MIPI_PACKET_SIZE_4K)
+
 struct m10mo_fw_id {
 	char *id_string;
 	int fw_type;
