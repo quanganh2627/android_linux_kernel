@@ -22,6 +22,7 @@
 #include <linux/regulator/intel_crystal_cove_pmic.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/intel_dcovex_regulator.h>
+#include <linux/regulator/intel_dcovet_regulator.h>
 #include <asm/spid.h>
 #include <linux/i2c.h>
 #include <linux/mfd/intel_mid_pmic.h>
@@ -386,9 +387,73 @@ static struct platform_device *byt_t_crv21_regulator_devices[] __initdata = {
 };
 
 
+/****************DCOVEX LDO8 RAIL Platform Data for CRV2.2****************/
+static struct regulator_consumer_supply dcovet_ldo8_consumer[] = {
+	REGULATOR_SUPPLY("vmmc", "80860F14:01"),
+	/* Add More Consumers here */
+};
+
+static struct regulator_init_data dcovet_ldo8_data = {
+	.constraints = {
+		.name			= "LDO_8",
+		.min_uV			= 1800000,
+		.max_uV			= 3300000,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
+						REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(dcovet_ldo8_consumer),
+	.consumer_supplies	= dcovet_ldo8_consumer,
+};
+
+static struct dcovet_regulator_info dcovet_ldo8 = {
+	.init_data = &dcovet_ldo8_data,
+};
+
+static struct platform_device dcovet_ldo8_device = {
+	.name = "dcovet_regulator",
+	.id = DCOVET_ID_LDO8,
+	.dev = {
+		.platform_data = &dcovet_ldo8,
+	},
+};
+
+/****************DCOVEX LDO_7 RAIL Platform Data for CRV2.2****************/
+static struct regulator_consumer_supply dcovet_ldo7_consumer[] = {
+	REGULATOR_SUPPLY("vqmmc", "80860F14:01"),
+	/* Add More Consumers here */
+};
+
+static struct regulator_init_data dcovet_ldo7_data = {
+	.constraints = {
+		.name			= "LDO_7",
+		.min_uV			= 1800000,
+		.max_uV			= 3300000,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
+						REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(dcovet_ldo7_consumer),
+	.consumer_supplies	= dcovet_ldo7_consumer,
+};
+
+static struct dcovet_regulator_info dcovet_ldo7 = {
+	.init_data = &dcovet_ldo7_data,
+};
+
+static struct platform_device dcovet_ldo7_device = {
+	.name = "dcovet_regulator",
+	.id = DCOVET_ID_LDO7,
+	.dev = {
+		.platform_data = &dcovet_ldo7,
+	},
+};
+
+
 /**************** Regulator Devices for BYTCRV2.2 ******************/
 static struct platform_device *byt_t_crv22_regulator_devices[] __initdata = {
-	/* Add Devices Here */
+	&dcovet_ldo8_device,
+	&dcovet_ldo7_device,
 };
 
 
