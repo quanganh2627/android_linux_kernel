@@ -21,7 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/intel_crystal_cove_pmic.h>
 #include <linux/regulator/machine.h>
-#include <linux/regulator/intel_dcove_regulator.h>
+#include <linux/regulator/intel_dcovex_regulator.h>
 #include <asm/spid.h>
 #include <linux/i2c.h>
 #include <linux/mfd/intel_mid_pmic.h>
@@ -316,14 +316,14 @@ static struct platform_device *byt_t_crv20_regulator_devices[] __initdata = {
 	&vsys_s_device,
 };
 
-/****************DCOVE LDO2 RAIL Platform Data********************/
+/****************DCOVEX LDO2 RAIL Platform Data********************/
 
-static struct regulator_consumer_supply dcove_ldo2_consumer[] = {
+static struct regulator_consumer_supply dcovex_ldo2_consumer[] = {
 	REGULATOR_SUPPLY("vmmc", "80860F14:01"),
 	/* Add More Consumers here */
 };
 
-static struct regulator_init_data dcove_ldo2_data = {
+static struct regulator_init_data dcovex_ldo2_data = {
 	.constraints = {
 		.name			= "LDO_2",
 		.min_uV			= 1800000,
@@ -332,29 +332,29 @@ static struct regulator_init_data dcove_ldo2_data = {
 						REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
 	},
-	.num_consumer_supplies	= ARRAY_SIZE(dcove_ldo2_consumer),
-	.consumer_supplies	= dcove_ldo2_consumer,
+	.num_consumer_supplies	= ARRAY_SIZE(dcovex_ldo2_consumer),
+	.consumer_supplies	= dcovex_ldo2_consumer,
 };
 
-static struct dcove_regulator_info dcove_ldo2 = {
-	.init_data = &dcove_ldo2_data,
+static struct dcovex_regulator_info dcovex_ldo2 = {
+	.init_data = &dcovex_ldo2_data,
 };
 
-static struct platform_device dcove_ldo2_device = {
-	.name = "dcove_regulator",
-	.id = DCOVE_ID_LDO2,
+static struct platform_device dcovex_ldo2_device = {
+	.name = "dcovex_regulator",
+	.id = DCOVEX_ID_LDO2,
 	.dev = {
-		.platform_data = &dcove_ldo2,
+		.platform_data = &dcovex_ldo2,
 	},
 };
 
-/****************DCOVE GPIO_1 RAIL Platform Data ********************/
-static struct regulator_consumer_supply dcove_gpio1_consumer[] = {
+/****************DCOVEX GPIO_1 RAIL Platform Data ********************/
+static struct regulator_consumer_supply dcovex_gpio1_consumer[] = {
 	REGULATOR_SUPPLY("vqmmc", "80860F14:01"),
 	/* Add More Consumers here */
 };
 
-static struct regulator_init_data dcove_gpio1_data = {
+static struct regulator_init_data dcovex_gpio1_data = {
 	.constraints = {
 		.name			= "GPIO_1",
 		.min_uV			= 1800000,
@@ -363,26 +363,26 @@ static struct regulator_init_data dcove_gpio1_data = {
 						REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
 	},
-	.num_consumer_supplies	= ARRAY_SIZE(dcove_gpio1_consumer),
-	.consumer_supplies	= dcove_gpio1_consumer,
+	.num_consumer_supplies	= ARRAY_SIZE(dcovex_gpio1_consumer),
+	.consumer_supplies	= dcovex_gpio1_consumer,
 };
 
-static struct dcove_regulator_info dcove_gpio1 = {
-	.init_data = &dcove_gpio1_data,
+static struct dcovex_regulator_info dcovex_gpio1 = {
+	.init_data = &dcovex_gpio1_data,
 };
 
-static struct platform_device dcove_gpio1_device = {
-	.name = "dcove_regulator",
-	.id = DCOVE_ID_GPIO1,
+static struct platform_device dcovex_gpio1_device = {
+	.name = "dcovex_regulator",
+	.id = DCOVEX_ID_GPIO1,
 	.dev = {
-		.platform_data = &dcove_gpio1,
+		.platform_data = &dcovex_gpio1,
 	},
 };
 
 /**************** Regulator Devices for BYTCRV2.1 ******************/
 static struct platform_device *byt_t_crv21_regulator_devices[] __initdata = {
-	&dcove_ldo2_device,
-	&dcove_gpio1_device,
+	&dcovex_ldo2_device,
+	&dcovex_gpio1_device,
 };
 
 

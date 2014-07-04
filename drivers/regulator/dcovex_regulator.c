@@ -1,6 +1,6 @@
 /*
- * Regulator driver for DollarCove PMIC
- *	(Based on XPower Design)
+ * Regulator driver for DollarCove XB PMIC
+ *	(Based on XPwr Design)
  * Copyright(c) 2014 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
@@ -15,47 +15,47 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
-#include <linux/regulator/intel_dcove_regulator.h>
+#include <linux/regulator/intel_dcovex_regulator.h>
 #include <linux/mfd/intel_mid_pmic.h>
 #include <linux/delay.h>
 
 /* LDO and BUCK voltage control registers */
 
 /* DLDOs */
-#define DCOVE_LDO1_VOL_CTRL		0x15
-#define DCOVE_LDO2_VOL_CTRL		0x16
-#define DCOVE_LDO3_VOL_CTRL		0x17
-#define DCOVE_LDO4_VOL_CTRL		0x18
+#define DCOVEX_LDO1_VOL_CTRL		0x15
+#define DCOVEX_LDO2_VOL_CTRL		0x16
+#define DCOVEX_LDO3_VOL_CTRL		0x17
+#define DCOVEX_LDO4_VOL_CTRL		0x18
 /* ELDOs */
-#define DCOVE_LDO5_VOL_CTRL		0x19
-#define DCOVE_LDO6_VOL_CTRL		0x1a
-#define DCOVE_LDO7_VOL_CTRL		0x1b
+#define DCOVEX_LDO5_VOL_CTRL		0x19
+#define DCOVEX_LDO6_VOL_CTRL		0x1a
+#define DCOVEX_LDO7_VOL_CTRL		0x1b
 /* FLDOs */
-#define DCOVE_LDO8_VOL_CTRL		0x1c
-#define DCOVE_LDO9_VOL_CTRL		0x1d
-#define DCOVE_LDO10_VOL_CTRL		0x1d
+#define DCOVEX_LDO8_VOL_CTRL		0x1c
+#define DCOVEX_LDO9_VOL_CTRL		0x1d
+#define DCOVEX_LDO10_VOL_CTRL		0x1d
 
-#define DCOVE_BUCK6_VOL_CTRL		0x20
-#define DCOVE_BUCK5_VOL_CTRL		0x21
+#define DCOVEX_BUCK6_VOL_CTRL		0x20
+#define DCOVEX_BUCK5_VOL_CTRL		0x21
 					/* 0x22 is RESERVED */
-#define DCOVE_BUCK1_VOL_CTRL		0x23
-#define DCOVE_BUCK4_VOL_CTRL		0x24
-#define DCOVE_BUCK3_VOL_CTRL		0x25
-#define DCOVE_BUCK2_VOL_CTRL		0x26
+#define DCOVEX_BUCK1_VOL_CTRL		0x23
+#define DCOVEX_BUCK4_VOL_CTRL		0x24
+#define DCOVEX_BUCK3_VOL_CTRL		0x25
+#define DCOVEX_BUCK2_VOL_CTRL		0x26
 					/* 0x27 BUCK1/2/3/4/5 DVM */
 /* ADOs */
-#define DCOVE_LDO11_VOL_CTRL		0x28
-#define DCOVE_LDO12_VOL_CTRL		0x29
-#define DCOVE_LDO13_VOL_CTRL		0x2a
+#define DCOVEX_LDO11_VOL_CTRL		0x28
+#define DCOVEX_LDO12_VOL_CTRL		0x29
+#define DCOVEX_LDO13_VOL_CTRL		0x2a
 
 /* GPIOs */
-#define DCOVE_GPIO1_VOL_CTRL		0x93
+#define DCOVEX_GPIO1_VOL_CTRL		0x93
 
-#define DCOVE_GPIO0_EN_REG		0x90
-#define DCOVE_GPIO1_EN_REG		0x92
+#define DCOVEX_GPIO0_EN_REG		0x90
+#define DCOVEX_GPIO1_EN_REG		0x92
 
-#define DCOVE_GPIO_EN_VAL		0x3
-#define DCOVE_GPIO_DIS_VAL		0x4
+#define DCOVEX_GPIO_EN_VAL		0x3
+#define DCOVEX_GPIO_DIS_VAL		0x4
 
 /* BUCK1 == BUCK5 */
 static const unsigned int BUCK1_table[] = {
@@ -220,16 +220,16 @@ static const unsigned int GPIO1_table[] = {
 	3100000, 3200000, 3300000,
 };
 
-static inline int dcove_is_gpio_regulator(struct dcove_regulator_info *info)
+static inline int dcovex_is_gpio_regulator(struct dcovex_regulator_info *info)
 {
-	return ((info->enable_reg == DCOVE_GPIO0_EN_REG) ||
-			(info->enable_reg == DCOVE_GPIO1_EN_REG)) ?
+	return ((info->enable_reg == DCOVEX_GPIO0_EN_REG) ||
+			(info->enable_reg == DCOVEX_GPIO1_EN_REG)) ?
 		true : false;
 }
 
-static int dcove_regulator_is_enabled(struct regulator_dev *rdev)
+static int dcovex_regulator_is_enabled(struct regulator_dev *rdev)
 {
-	struct dcove_regulator_info *info = rdev_get_drvdata(rdev);
+	struct dcovex_regulator_info *info = rdev_get_drvdata(rdev);
 	int reg_val;
 
 	reg_val = intel_mid_pmic_readb(info->enable_reg);
@@ -238,15 +238,15 @@ static int dcove_regulator_is_enabled(struct regulator_dev *rdev)
 		return reg_val;
 	}
 
-	if (dcove_is_gpio_regulator(info))
-		return (reg_val == DCOVE_GPIO_EN_VAL);
+	if (dcovex_is_gpio_regulator(info))
+		return (reg_val == DCOVEX_GPIO_EN_VAL);
 	else
 		return !!(reg_val & (1 << info->enable_bit));
 }
 
-static int dcove_regulator_enable(struct regulator_dev *rdev)
+static int dcovex_regulator_enable(struct regulator_dev *rdev)
 {
-	struct dcove_regulator_info *info = rdev_get_drvdata(rdev);
+	struct dcovex_regulator_info *info = rdev_get_drvdata(rdev);
 	int reg_val;
 
 	/* enable_reg is output power on-off control register */
@@ -256,17 +256,17 @@ static int dcove_regulator_enable(struct regulator_dev *rdev)
 		return reg_val;
 	}
 
-	if (dcove_is_gpio_regulator(info))
-		reg_val = DCOVE_GPIO_EN_VAL;
+	if (dcovex_is_gpio_regulator(info))
+		reg_val = DCOVEX_GPIO_EN_VAL;
 	else
 		reg_val |= (1 << info->enable_bit);
 
 	return intel_mid_pmic_writeb(info->enable_reg, reg_val);
 }
 
-static int dcove_regulator_disable(struct regulator_dev *rdev)
+static int dcovex_regulator_disable(struct regulator_dev *rdev)
 {
-	struct dcove_regulator_info *info = rdev_get_drvdata(rdev);
+	struct dcovex_regulator_info *info = rdev_get_drvdata(rdev);
 	int reg_val;
 
 	reg_val = intel_mid_pmic_readb(info->enable_reg);
@@ -275,17 +275,17 @@ static int dcove_regulator_disable(struct regulator_dev *rdev)
 		return reg_val;
 	}
 
-	if (dcove_is_gpio_regulator(info))
-		reg_val = DCOVE_GPIO_DIS_VAL;
+	if (dcovex_is_gpio_regulator(info))
+		reg_val = DCOVEX_GPIO_DIS_VAL;
 	else
 		reg_val &= ~(1 << info->enable_bit);
 
 	return intel_mid_pmic_writeb(info->enable_reg, reg_val);
 }
 
-static int dcove_regulator_get_voltage_sel(struct regulator_dev *rdev)
+static int dcovex_regulator_get_voltage_sel(struct regulator_dev *rdev)
 {
-	struct dcove_regulator_info *info = rdev_get_drvdata(rdev);
+	struct dcovex_regulator_info *info = rdev_get_drvdata(rdev);
 	int reg_val, mask;
 
 	/* vol_reg is voltage control registers */
@@ -301,10 +301,10 @@ static int dcove_regulator_get_voltage_sel(struct regulator_dev *rdev)
 	return reg_val;
 }
 
-static int dcove_regulator_set_voltage_sel(struct regulator_dev *rdev,
+static int dcovex_regulator_set_voltage_sel(struct regulator_dev *rdev,
 				unsigned selector)
 {
-	struct dcove_regulator_info *info = rdev_get_drvdata(rdev);
+	struct dcovex_regulator_info *info = rdev_get_drvdata(rdev);
 	int reg_val, mask;
 
 	reg_val = intel_mid_pmic_readb(info->vol_reg);
@@ -317,7 +317,7 @@ static int dcove_regulator_set_voltage_sel(struct regulator_dev *rdev,
 	reg_val &= ~mask;
 	reg_val |= (selector << info->vol_shift);
 
-	if (dcove_is_gpio_regulator(info)) {
+	if (dcovex_is_gpio_regulator(info)) {
 		int ret = intel_mid_pmic_writeb(info->vol_reg, reg_val);
 		/* Seems GPIO regulator needs a delay to be stable */
 		usleep_range(20000, 21000);
@@ -326,125 +326,125 @@ static int dcove_regulator_set_voltage_sel(struct regulator_dev *rdev,
 		return intel_mid_pmic_writeb(info->vol_reg, reg_val);
 }
 
-static struct regulator_ops dcove_regulator_ops = {
-	.enable			= dcove_regulator_enable,
-	.disable		= dcove_regulator_disable,
-	.is_enabled		= dcove_regulator_is_enabled,
-	.get_voltage_sel	= dcove_regulator_get_voltage_sel,
-	.set_voltage_sel	= dcove_regulator_set_voltage_sel,
+static struct regulator_ops dcovex_regulator_ops = {
+	.enable			= dcovex_regulator_enable,
+	.disable		= dcovex_regulator_disable,
+	.is_enabled		= dcovex_regulator_is_enabled,
+	.get_voltage_sel	= dcovex_regulator_get_voltage_sel,
+	.set_voltage_sel	= dcovex_regulator_set_voltage_sel,
 	.list_voltage		= regulator_list_voltage_table,
 };
 
 /* TODO: If the mfd is regmap complaint, most of the mask, shifts not needed */
-#define DCOVE_BUCK(_id, vreg, shift, nbits, ereg, ebit)	\
+#define DCOVEX_BUCK(_id, vreg, shift, nbits, ereg, ebit)		\
 {									\
 	.desc	= {							\
 		.name	= "BUCK" #_id,					\
-		.ops	= &dcove_regulator_ops,				\
+		.ops	= &dcovex_regulator_ops,			\
 		.type	= REGULATOR_VOLTAGE,				\
-		.id	= DCOVE_ID_BUCK##_id,				\
+		.id	= DCOVEX_ID_BUCK##_id,				\
 		.n_voltages = ARRAY_SIZE(BUCK##_id##_table),		\
 		.volt_table = BUCK##_id##_table,			\
 		.owner	= THIS_MODULE,					\
 	},								\
-	.vol_reg	= DCOVE_##vreg##_VOL_CTRL,			\
+	.vol_reg	= DCOVEX_##vreg##_VOL_CTRL,			\
 	.vol_shift	= (shift),					\
 	.vol_nbits	= (nbits),					\
 	.enable_reg	= (ereg),					\
 	.enable_bit	= (ebit),					\
 }
 
-#define DCOVE_LDO(_id, vreg, shift, nbits, ereg, ebit)			\
+#define DCOVEX_LDO(_id, vreg, shift, nbits, ereg, ebit)			\
 {									\
 	.desc	= {							\
 		.name	= "LDO" #_id,					\
-		.ops	= &dcove_regulator_ops,				\
+		.ops	= &dcovex_regulator_ops,			\
 		.type	= REGULATOR_VOLTAGE,				\
-		.id	= DCOVE_ID_LDO##_id,				\
+		.id	= DCOVEX_ID_LDO##_id,				\
 		.n_voltages = ARRAY_SIZE(LDO##_id##_table),		\
-		.volt_table = LDO##_id##_table,			\
+		.volt_table = LDO##_id##_table,				\
 		.owner	= THIS_MODULE,					\
 	},								\
-	.vol_reg	= DCOVE_##vreg##_VOL_CTRL,			\
+	.vol_reg	= DCOVEX_##vreg##_VOL_CTRL,			\
 	.vol_shift	= (shift),					\
 	.vol_nbits	= (nbits),					\
 	.enable_reg	= (ereg),					\
 	.enable_bit	= (ebit),					\
 }
 
-#define DCOVE_GPIO(_id, vreg, shift, nbits, ereg, ebit)			\
+#define DCOVEX_GPIO(_id, vreg, shift, nbits, ereg, ebit)		\
 {									\
 	.desc	= {							\
 		.name	= "GPIO" #_id,					\
-		.ops	= &dcove_regulator_ops,				\
+		.ops	= &dcovex_regulator_ops,			\
 		.type	= REGULATOR_VOLTAGE,				\
-		.id	= DCOVE_ID_GPIO##_id,				\
+		.id	= DCOVEX_ID_GPIO##_id,				\
 		.n_voltages = ARRAY_SIZE(GPIO##_id##_table),		\
 		.volt_table = GPIO##_id##_table,			\
 		.owner	= THIS_MODULE,					\
 	},								\
-	.vol_reg	= DCOVE_##vreg##_VOL_CTRL,			\
+	.vol_reg	= DCOVEX_##vreg##_VOL_CTRL,			\
 	.vol_shift	= (shift),					\
 	.vol_nbits	= (nbits),					\
 	.enable_reg	= (ereg),					\
 	.enable_bit	= (ebit),					\
 }
 
-static struct dcove_regulator_info dcove_regulator_info[] = {
+static struct dcovex_regulator_info dcovex_regulator_info[] = {
 	/* BUCK */
-	DCOVE_BUCK(1, BUCK1, 0, 7, 0x10, 3),
-	DCOVE_BUCK(2, BUCK2, 0, 7, 0x10, 6),
-	DCOVE_BUCK(3, BUCK3, 0, 7, 0x10, 5),
-	DCOVE_BUCK(4, BUCK4, 0, 7, 0x10, 4),
-	DCOVE_BUCK(5, BUCK5, 0, 7, 0x10, 1),
-	DCOVE_BUCK(6, BUCK6, 0, 5, 0x10, 0),
+	DCOVEX_BUCK(1, BUCK1, 0, 7, 0x10, 3),
+	DCOVEX_BUCK(2, BUCK2, 0, 7, 0x10, 6),
+	DCOVEX_BUCK(3, BUCK3, 0, 7, 0x10, 5),
+	DCOVEX_BUCK(4, BUCK4, 0, 7, 0x10, 4),
+	DCOVEX_BUCK(5, BUCK5, 0, 7, 0x10, 1),
+	DCOVEX_BUCK(6, BUCK6, 0, 5, 0x10, 0),
 
 	/* DLDO */
-	DCOVE_LDO(1, LDO1, 0, 5, 0x12, 3),
-	DCOVE_LDO(2, LDO2, 0, 5, 0x12, 4),
-	DCOVE_LDO(3, LDO3, 0, 5, 0x12, 5),
-	DCOVE_LDO(4, LDO4, 0, 5, 0x12, 6),
+	DCOVEX_LDO(1, LDO1, 0, 5, 0x12, 3),
+	DCOVEX_LDO(2, LDO2, 0, 5, 0x12, 4),
+	DCOVEX_LDO(3, LDO3, 0, 5, 0x12, 5),
+	DCOVEX_LDO(4, LDO4, 0, 5, 0x12, 6),
 
 	/* ELDO */
-	DCOVE_LDO(5, LDO5, 0, 5, 0x12, 0),
-	DCOVE_LDO(6, LDO6, 0, 5, 0x12, 1),
-	DCOVE_LDO(7, LDO7, 0, 5, 0x12, 2),
+	DCOVEX_LDO(5, LDO5, 0, 5, 0x12, 0),
+	DCOVEX_LDO(6, LDO6, 0, 5, 0x12, 1),
+	DCOVEX_LDO(7, LDO7, 0, 5, 0x12, 2),
 
 	/* ALDO */
-	DCOVE_LDO(8, LDO8, 0, 5, 0x13, 5),
-	DCOVE_LDO(9, LDO9, 0, 5, 0x13, 6),
-	DCOVE_LDO(10, LDO10, 0, 5, 0x13, 7),
+	DCOVEX_LDO(8, LDO8, 0, 5, 0x13, 5),
+	DCOVEX_LDO(9, LDO9, 0, 5, 0x13, 6),
+	DCOVEX_LDO(10, LDO10, 0, 5, 0x13, 7),
 
 	/* FLDO */
-	DCOVE_LDO(11, LDO11, 0, 4, 0x13, 2),
-	DCOVE_LDO(12, LDO12, 0, 5, 0x13, 3),
-	DCOVE_LDO(13, LDO13, 0, 5, 0x13, 4),
+	DCOVEX_LDO(11, LDO11, 0, 4, 0x13, 2),
+	DCOVEX_LDO(12, LDO12, 0, 5, 0x13, 3),
+	DCOVEX_LDO(13, LDO13, 0, 5, 0x13, 4),
 
 	/* GPIO */
-	DCOVE_GPIO(1, GPIO1, 0, 5, 0x92, 4),
+	DCOVEX_GPIO(1, GPIO1, 0, 5, 0x92, 4),
 };
 
-static inline struct dcove_regulator_info *find_regulator_info(int id)
+static inline struct dcovex_regulator_info *find_regulator_info(int id)
 {
-	struct dcove_regulator_info *di;
+	struct dcovex_regulator_info *di;
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(dcove_regulator_info); i++) {
-		di = &dcove_regulator_info[i];
+	for (i = 0; i < ARRAY_SIZE(dcovex_regulator_info); i++) {
+		di = &dcovex_regulator_info[i];
 		if (di->desc.id == id)
 			return di;
 	}
 	return NULL;
 }
 
-static int dcove_regulator_probe(struct platform_device *pdev)
+static int dcovex_regulator_probe(struct platform_device *pdev)
 {
-	struct dcove_regulator_info *pdata = dev_get_platdata(&pdev->dev);
+	struct dcovex_regulator_info *pdata = dev_get_platdata(&pdev->dev);
 	struct regulator_config config = { };
-	struct dcove_regulator_info *di = NULL;
+	struct dcovex_regulator_info *di = NULL;
 
 	if (!pdata) {
-		dev_err(&pdev->dev, "No dcove_regulator_info\n");
+		dev_err(&pdev->dev, "No dcovex_regulator_info\n");
 		return -EINVAL;
 	}
 
@@ -473,41 +473,41 @@ static int dcove_regulator_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int dcove_regulator_remove(struct platform_device *pdev)
+static int dcovex_regulator_remove(struct platform_device *pdev)
 {
 	regulator_unregister(platform_get_drvdata(pdev));
 	return 0;
 }
 
-static const struct platform_device_id dcove_regulator_id_table[] = {
-	{ "dcove_regulator", 0 },
+static const struct platform_device_id dcovex_regulator_id_table[] = {
+	{ "dcovex_regulator", 0 },
 	{ },
 };
-MODULE_DEVICE_TABLE(platform, dcove_regulator_id_table);
+MODULE_DEVICE_TABLE(platform, dcovex_regulator_id_table);
 
-static struct platform_driver dcove_regulator_driver = {
+static struct platform_driver dcovex_regulator_driver = {
 	.driver	= {
-		.name	= "dcove_regulator",
+		.name	= "dcovex_regulator",
 		.owner	= THIS_MODULE,
 	},
-	.probe		= dcove_regulator_probe,
-	.remove		= dcove_regulator_remove,
-	.id_table	= dcove_regulator_id_table,
+	.probe		= dcovex_regulator_probe,
+	.remove		= dcovex_regulator_remove,
+	.id_table	= dcovex_regulator_id_table,
 };
 
-static int __init dcove_regulator_init(void)
+static int __init dcovex_regulator_init(void)
 {
-	return platform_driver_register(&dcove_regulator_driver);
+	return platform_driver_register(&dcovex_regulator_driver);
 }
-module_init(dcove_regulator_init);
+module_init(dcovex_regulator_init);
 
-static void __exit dcove_regulator_exit(void)
+static void __exit dcovex_regulator_exit(void)
 {
-	platform_driver_unregister(&dcove_regulator_driver);
+	platform_driver_unregister(&dcovex_regulator_driver);
 }
-module_exit(dcove_regulator_exit);
+module_exit(dcovex_regulator_exit);
 
-MODULE_DESCRIPTION("DollarCove regulator driver");
+MODULE_DESCRIPTION("DollarCove XB regulator driver");
 MODULE_AUTHOR("Srinidhi Kasagar <srinidhi.kasagar@intel.com>");
 MODULE_LICENSE("GPL v2");
-MODULE_ALIAS("platform:dcove_regulator");
+MODULE_ALIAS("platform:dcovex_regulator");

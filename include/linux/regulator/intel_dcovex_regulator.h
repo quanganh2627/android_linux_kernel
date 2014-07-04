@@ -1,5 +1,5 @@
 /*
- * intel_dcove_regulator.h - Support for dollar cove pmic
+ * intel_dcovex_regulator.h - Support for dollar cove XB pmic
  * Copyright (c) 2013, Intel Corporation.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,39 +16,39 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#ifndef __INTEL_DCOVE_REGULATOR_H_
-#define __INTEL_DCOVE_REGULATOR_H_
+#ifndef __INTEL_DCOVEX_REGULATOR_H_
+#define __INTEL_DCOVEX_REGULATOR_H_
 
 #include <linux/regulator/driver.h>
 
 enum {
-	DCOVE_ID_BUCK1 = 1,
-	DCOVE_ID_BUCK2,
-	DCOVE_ID_BUCK3,
-	DCOVE_ID_BUCK4,
-	DCOVE_ID_BUCK5,
-	DCOVE_ID_BUCK6,
+	DCOVEX_ID_BUCK1 = 1,
+	DCOVEX_ID_BUCK2,
+	DCOVEX_ID_BUCK3,
+	DCOVEX_ID_BUCK4,
+	DCOVEX_ID_BUCK5,
+	DCOVEX_ID_BUCK6,
 
-	DCOVE_ID_LDO1,
-	DCOVE_ID_LDO2,
-	DCOVE_ID_LDO3,
-	DCOVE_ID_LDO4,
-	DCOVE_ID_LDO5,	/* ELDO1 */
-	DCOVE_ID_LDO6,
-	DCOVE_ID_LDO7,
-	DCOVE_ID_LDO8,	/* FLDO1 */
-	DCOVE_ID_LDO9,
-	DCOVE_ID_LDO10,
-	DCOVE_ID_LDO11,	/* ALDO1 */
-	DCOVE_ID_LDO12,
-	DCOVE_ID_LDO13,
+	DCOVEX_ID_LDO1,
+	DCOVEX_ID_LDO2,
+	DCOVEX_ID_LDO3,
+	DCOVEX_ID_LDO4,
+	DCOVEX_ID_LDO5,	/* ELDO1 */
+	DCOVEX_ID_LDO6,
+	DCOVEX_ID_LDO7,
+	DCOVEX_ID_LDO8,	/* FLDO1 */
+	DCOVEX_ID_LDO9,
+	DCOVEX_ID_LDO10,
+	DCOVEX_ID_LDO11,/* ALDO1 */
+	DCOVEX_ID_LDO12,
+	DCOVEX_ID_LDO13,
 
-	DCOVE_ID_GPIO1,
+	DCOVEX_ID_GPIO1,
 
-	DCOVE_ID_MAX,
+	DCOVEX_ID_MAX,
 };
 
-struct dcove_regulator_info {
+struct dcovex_regulator_info {
 	struct regulator_desc	desc;
 	struct regulator_dev	*regulator;
 	struct regulator_init_data *init_data;
