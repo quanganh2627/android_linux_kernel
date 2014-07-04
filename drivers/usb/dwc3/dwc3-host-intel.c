@@ -70,6 +70,12 @@ static void dwc3_host_quirks(struct device *dev, struct xhci_hcd *xhci)
 	 * for make driver continue work.
 	 */
 	xhci->quirks |= XHCI_RESET;
+
+	/*
+	 * Change SS port host reset to warm reset, due to individual USB3.0
+	 * UMS address fail caused by link state unstable afer hot reset.
+	 */
+	xhci->quirks |= XHCI_FORCE_WR;
 }
 
 static int dwc3_host_setup(struct usb_hcd *hcd)
