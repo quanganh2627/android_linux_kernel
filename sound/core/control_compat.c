@@ -209,7 +209,7 @@ static int get_elem_size(int type, int count)
 	case SNDRV_CTL_ELEM_TYPE_ENUMERATED:
 		return sizeof(int) * count;
 	case SNDRV_CTL_ELEM_TYPE_BYTES:
-		return 512;
+		return 4096;
 	case SNDRV_CTL_ELEM_TYPE_IEC958:
 		return sizeof(struct snd_aes_iec958);
 	default:
