@@ -331,7 +331,7 @@ static int scale_adc_write_event_value(struct iio_dev *indio_dev,
 	struct gpadc_info *gp_info = iio_priv(indio_dev);
 	int ch = chan->channel;
 	struct iio_channel *cur_chan = gp_info->iio_chans_adc[ch];
-	int ret = 0, inter;
+	int ret = 0, inter = val;
 
 	dev_dbg(gp_info->dev, "write_event_value: %d", val);
 	if (info == IIO_EV_INFO_VALUE) {
