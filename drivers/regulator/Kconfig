@@ -534,4 +534,9 @@ config REGULATOR_PMIC_DCOVE_XB
 	help
 	  Support the voltagae regulators for the DollarCove based PMIC from XPwr.
 
+config REGULATOR_PMIC_DCOVE_TB
+	tristate "Intel DollarCove PMIC Voltage Regulators (TB)"
+	help
+	  Support the voltage regulators for the DollarCove based PMIC from TE. IN.
+
 endif
