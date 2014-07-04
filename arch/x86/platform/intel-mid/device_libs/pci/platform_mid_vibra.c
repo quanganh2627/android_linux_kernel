@@ -73,12 +73,12 @@ static struct mid_vibra_pdata *get_vibra_platform_data(struct pci_dev *pdev)
 		}
 		break;
 	case PCI_DEVICE_ID_INTEL_VIBRA_MOOR:
-		/* Mountain Praire board uses DRV2605, same as Saltbay */
-		if (SPID_HARDWARE_ID(MOFD, PHONE, MP, VVA) ||
-				SPID_HARDWARE_ID(MOFD, PHONE, MP, VVB))
+		/* Mofd v1 has vibra DRV2603 */
+		if (INTEL_MID_BOARD(2, PHONE, MOFD, V1, PRO) ||
+			INTEL_MID_BOARD(2, PHONE, MOFD, V1, ENG))
+			pdata = &moor_pr_vibra_pci_data;
+		else /* Mofd V0 has Vibra DRV2605 */
 			pdata = &mrfld_vibra_pci_data;
-		else
-			pdata = &moor_pr_vibra_pci_data; /*PR uses DRV2603*/
 
 		pdata->gpio_en = get_gpio_by_name("haptics_en");
 		pdata->gpio_pwm = get_gpio_by_name("haptics_pwm");
