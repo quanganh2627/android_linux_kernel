@@ -330,7 +330,7 @@ static int merr_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-#define SST_MUX_REG 25
+#define SST_MUX_REG 27
 #define SST_BT_FM_MUX_SHIFT	0
 #define SST_BT_MODE_SHIFT	2
 static int mrfld_bt_fm_fixup(struct snd_soc_dai_link *dai_link, struct snd_soc_dai *dai)
