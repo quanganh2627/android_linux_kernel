@@ -3315,26 +3315,46 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 
 	if (enabled && vlv_compute_drain_latency(dev, 0, NULL, NULL, NULL, NULL,
 			&sprite_prec_mult, &sprite_dl, pixel_size, enable)) {
-
+		/*
+		 * DL programming for Sprite plane is separated out as DL programming sequence
+		 * will be different during pixel format chnage when both the sprite may change
+		 * pixel format simultaneously, one from 4->2 and other 2->4.
+		 */
 		if (intel_plane->plane == 0) {
 			sprite_prec = (sprite_prec_mult ==
 					DRAIN_LATENCY_PRECISION_32) ?
 					DDL_SPRITEA_PRECISION_32 :
 					DDL_SPRITEA_PRECISION_64;
+			/*
+			 * DL programming during pixel format change for Sprite A plane
+			 * from 4->2 a vblank is required which is done in irq_handler after
+			 * vblank interrupt received.
+			 */
+			if (dev_priv->pf_change_status[intel_plane->pipe] &
+					BPP_CHANGED_SPRITEA) {
+				dev_priv->pf_change_status[intel_plane->pipe] |=
+						(sprite_prec | (sprite_dl << shift));
+			} else
+				I915_WRITE_BITS(VLV_DDL(intel_plane->pipe),
+					sprite_prec | (sprite_dl << shift), mask);
 		} else {
 			sprite_prec = (sprite_prec_mult ==
 					DRAIN_LATENCY_PRECISION_32) ?
 					DDL_SPRITEB_PRECISION_32 :
 					DDL_SPRITEB_PRECISION_64;
+			/*
+			 * DL programming during pixel format change for Sprite A plane
+			 * from 4->2 a vblank is required which is done in irq_handler after
+			 * vblank interrupt received.
+			 */
+			if (dev_priv->pf_change_status[intel_plane->pipe] &
+					BPP_CHANGED_SPRITEB) {
+				dev_priv->pf_change_status[intel_plane->pipe] |=
+						(sprite_prec | (sprite_dl << shift));
+			} else
+				I915_WRITE_BITS(VLV_DDL(intel_plane->pipe),
+					sprite_prec | (sprite_dl << shift), mask);
 		}
-
-		if (dev_priv->pf_change_status[intel_plane->pipe] &
-				(BPP_CHANGED_SPRITEA | BPP_CHANGED_SPRITEB)) {
-			dev_priv->pf_change_status[intel_plane->pipe] |=
-					(sprite_prec | (sprite_dl << shift));
-		} else
-			I915_WRITE_BITS(VLV_DDL(intel_plane->pipe),
-				sprite_prec | (sprite_dl << shift), mask);
 	} else
 		I915_WRITE_BITS(VLV_DDL(intel_plane->pipe), 0x00, mask);
 

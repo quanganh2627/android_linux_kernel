@@ -1366,9 +1366,9 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 			if (pipe_stats[pipe] & PIPE_VBLANK_INTERRUPT_STATUS) {
 				if (dev_priv->pf_change_status[pipe] & BPP_CHANGED_PRIMARY)
 					I915_WRITE_BITS(VLV_DDL(pipe), dev_priv->pf_change_status[pipe], DL_PRIMARY_MASK);
-				else if (dev_priv->pf_change_status[pipe] & BPP_CHANGED_SPRITEA)
+				if (dev_priv->pf_change_status[pipe] & BPP_CHANGED_SPRITEA)
 					I915_WRITE_BITS(VLV_DDL(pipe), dev_priv->pf_change_status[pipe], DL_SPRITEA_MASK);
-				else if (dev_priv->pf_change_status[pipe] & BPP_CHANGED_SPRITEB)
+				if (dev_priv->pf_change_status[pipe] & BPP_CHANGED_SPRITEB)
 					I915_WRITE_BITS(VLV_DDL(pipe), dev_priv->pf_change_status[pipe], DL_SPRITEB_MASK);
 
 				dev_priv->pf_change_status[pipe] = 0x0;
