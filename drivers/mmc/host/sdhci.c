@@ -2414,22 +2414,23 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 					intmask & SDHCI_INT_DATA_AVAIL,
 					SDHCI_INT_STATUS);
 			}
-			spin_unlock_irqrestore(&host->lock, flags);
 
-			if (!host->tuning_done)
+			if (!host->tuning_done) {
+				spin_unlock_irqrestore(&host->lock, flags);
 				/* Wait for Buffer Read Ready interrupt */
-				wait_event_interruptible_timeout(
+				wait_event_timeout(
 						host->buf_ready_int,
 						(host->tuning_done == 1),
 						msecs_to_jiffies(50));
-			spin_lock_irqsave(&host->lock, flags);
+				spin_lock_irqsave(&host->lock, flags);
 
-			intmask = sdhci_readl(host, SDHCI_INT_STATUS);
-			if (intmask & SDHCI_INT_DATA_AVAIL) {
-				host->tuning_done = 1;
-				sdhci_writel(host,
-					intmask & SDHCI_INT_DATA_AVAIL,
-					SDHCI_INT_STATUS);
+				intmask = sdhci_readl(host, SDHCI_INT_STATUS);
+				if (intmask & SDHCI_INT_DATA_AVAIL) {
+					host->tuning_done = 1;
+					sdhci_writel(host,
+						intmask & SDHCI_INT_DATA_AVAIL,
+						SDHCI_INT_STATUS);
+				}
 			}
 		}
 
