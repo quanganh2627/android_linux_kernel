@@ -181,6 +181,8 @@
 #define DC_CHRG_INTR_NUM		9
 #define FULL_THREAD_JIFFIES		(HZ * 30) /* 30sec */
 
+#define RETRY_RW			3
+
 #define DEV_NAME			"dollar_cove_charger"
 
 enum {
@@ -248,47 +250,71 @@ static enum power_supply_property pmic_chrg_usb_props[] = {
 };
 
 static struct pmic_chrg_info *pinfo;
+static int probe_retry_cnt;
 
 static int pmic_chrg_reg_readb(struct pmic_chrg_info *info, int reg)
 {
-	int ret;
+	int ret, i;
 
-	ret = intel_mid_pmic_readb(reg);
-	if (ret < 0)
-		dev_err(&info->pdev->dev, "pmic reg read err:%d\n", ret);
-
+	for (i = 0; i < RETRY_RW; i++) {
+		ret = intel_mid_pmic_readb(reg);
+		if (ret < 0) {
+			dev_warn(&info->pdev->dev,
+				"failed to read reg 0x%x: %d\n", reg, ret);
+			usleep_range(1000, 2000);
+		} else
+			break;
+	}
 	return ret;
 }
 
 static int pmic_chrg_reg_writeb(struct pmic_chrg_info *info, int reg, u8 val)
 {
-	int ret;
+	int ret, i;
 
-	ret = intel_mid_pmic_writeb(reg, val);
-	if (ret < 0)
-		dev_err(&info->pdev->dev, "pmic reg write err:%d\n", ret);
+	for (i = 0; i < RETRY_RW; i++) {
+		ret = intel_mid_pmic_writeb(reg, val);
+		if (ret < 0) {
+			dev_warn(&info->pdev->dev,
+				"failed to write reg 0x%x: %d\n", reg, ret);
+			usleep_range(1000, 2000);
+		} else
+			break;
+	}
 
 	return ret;
 }
 
 static int pmic_chrg_reg_setb(struct pmic_chrg_info *info, int reg, u8 mask)
 {
-	int ret;
+	int ret, i;
 
-	ret = intel_mid_pmic_setb(reg, mask);
-	if (ret < 0)
-		dev_err(&info->pdev->dev, "pmic reg set mask err:%d\n", ret);
+	for (i = 0; i < RETRY_RW; i++) {
+		ret = intel_mid_pmic_setb(reg, mask);
+		if (ret < 0) {
+			dev_warn(&info->pdev->dev,
+				"failed to set reg 0x%x: %d\n", reg, ret);
+			usleep_range(1000, 2000);
+		} else
+			break;
+	}
 
 	return ret;
 }
 
 static int pmic_chrg_reg_clearb(struct pmic_chrg_info *info, int reg, u8 mask)
 {
-	int ret;
+	int ret, i;
 
-	ret = intel_mid_pmic_clearb(reg, mask);
-	if (ret < 0)
-		dev_err(&info->pdev->dev, "pmic reg set mask err:%d\n", ret);
+	for (i = 0; i < RETRY_RW; i++) {
+		ret = intel_mid_pmic_clearb(reg, mask);
+		if (ret < 0) {
+			dev_warn(&info->pdev->dev,
+				"failed to clear reg 0x%x: %d\n", reg, ret);
+			usleep_range(1000, 2000);
+		} else
+			break;
+	}
 
 	return ret;
 }
@@ -852,21 +878,50 @@ static int dc_xpwr_handle_otg_event(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-static void pmic_chrg_init_hw_regs(struct pmic_chrg_info *info)
+static int pmic_chrg_init_hw_regs(struct pmic_chrg_info *info)
 {
+	int ret;
 	/* program temperature thresholds */
-	intel_mid_pmic_writeb(DC_CHRG_VLTFC_REG, CHRG_VLTFC_N5C);
-	intel_mid_pmic_writeb(DC_CHRG_VHTFC_REG, CHRG_VHTFC_60C);
+	ret = pmic_chrg_reg_writeb(info, DC_CHRG_VLTFC_REG, CHRG_VLTFC_N5C);
+	if (ret < 0) {
+		dev_err(&info->pdev->dev, "Failed to program low temp thresholds\n");
+		return ret;
+	}
+	ret = pmic_chrg_reg_writeb(info, DC_CHRG_VHTFC_REG, CHRG_VHTFC_60C);
+	if (ret < 0) {
+		dev_err(&info->pdev->dev, "Failed to program high temp thresholds\n");
+		return ret;
+	}
 
-	/* do not turn-off charger o/p after charge cycle ends */
-	intel_mid_pmic_setb(DC_CHRG_CNTL2_REG, CNTL2_CHG_OUT_TURNON);
+	/* do not turn-off charger o/p after charge cycle ends.
+	 * Set charge timer as 12Hrs.
+	 */
+	ret = pmic_chrg_reg_setb(info, DC_CHRG_CNTL2_REG,
+			CNTL2_CHG_OUT_TURNON | CNTL2_CC_TIMEOUT_12HRS);
+	if (ret < 0) {
+		dev_err(&info->pdev->dev, "Failed to program CNTL2 reg\n");
+		return ret;
+	}
 
 	/* set the Charge end condition to 20% of CC */
-	intel_mid_pmic_setb(DC_CHRG_CCCV_REG, CHRG_CCCV_ITERM_20P);
+	ret = pmic_chrg_reg_setb(info, DC_CHRG_CCCV_REG, CHRG_CCCV_ITERM_20P);
+	if (ret < 0) {
+		dev_err(&info->pdev->dev, "Failed to program Iterm as 20\%\n");
+		return ret;
+	}
 
 	/* enable interrupts */
-	intel_mid_pmic_setb(DC_BAT_IRQ_CFG_REG, BAT_IRQ_CFG_BAT_MASK);
-	intel_mid_pmic_setb(DC_TEMP_IRQ_CFG_REG, TEMP_IRQ_CFG_MASK);
+	ret = pmic_chrg_reg_setb(info, DC_BAT_IRQ_CFG_REG, BAT_IRQ_CFG_BAT_MASK);
+	if (ret < 0) {
+		dev_err(&info->pdev->dev, "Failed to program IRQ batt config\n");
+		return ret;
+	}
+	ret = pmic_chrg_reg_setb(info, DC_TEMP_IRQ_CFG_REG, TEMP_IRQ_CFG_MASK);
+	if (ret < 0) {
+		dev_err(&info->pdev->dev, "Failed to program IRQ temp condig\n");
+		return ret;
+	}
+	return 0;
 }
 
 static void pmic_chrg_init_psy_props(struct pmic_chrg_info *info)
@@ -953,7 +1008,7 @@ static void dc_xpwr_usb_otg_enable(struct usb_phy *phy)
 static int pmic_chrg_probe(struct platform_device *pdev)
 {
 	struct pmic_chrg_info *info;
-	int ret;
+	int ret, i;
 
 	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
 	if (!info) {
@@ -966,15 +1021,19 @@ static int pmic_chrg_probe(struct platform_device *pdev)
 	if (!info->pdata)
 		return -ENODEV;
 
-	platform_set_drvdata(pdev, info);
 	mutex_init(&info->lock);
 	INIT_WORK(&info->otg_work, dc_xpwr_otg_event_worker);
 
 	pmic_chrg_init_psy_props(info);
 	pmic_chrg_init_irq(info);
-	pmic_chrg_init_hw_regs(info);
+	ret = pmic_chrg_init_hw_regs(info);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Failed to initialize the charge registers, ret=%d\n", ret);
+		goto chrg_init_failed;
+	}
 	info->a_bus_enable = true;
 
+	platform_set_drvdata(pdev, info);
 	pinfo = info;
 
 	/* Register for OTG notification */
@@ -1010,7 +1069,17 @@ static int pmic_chrg_probe(struct platform_device *pdev)
 
 	return 0;
 
+chrg_init_failed:
+	probe_retry_cnt++;
+	/* XPWR pmic will give read write error if busy with other R/W operations.
+	 * Defer probe if charger register initialization failed.
+	 */
+	if (probe_retry_cnt < RETRY_RW)
+		ret = -EPROBE_DEFER;
 psy_reg_failed:
+	/* Free IRQs */
+	for (i = 0; i < DC_CHRG_INTR_NUM && info->irq[i] != -1; i++)
+		free_irq(info->irq[i], info);
 	return ret;
 }
 
