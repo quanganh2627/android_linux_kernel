@@ -1338,7 +1338,7 @@ static int aic31xx_codec_probe(struct snd_soc_codec *codec)
 			AIC31XX_JACK_DEBOUCE_MASK, 0x14);
 
 	/*Reconfiguring CM to band gap mode*/
-	snd_soc_update_bits(codec, AIC31XX_HPPOP, 0xff, 0xAE);
+	snd_soc_update_bits(codec, AIC31XX_HPPOP, 0xff, 0xA8);
 
 	/*disable soft stepping of DAC volume */
 	snd_soc_update_bits(codec, AIC31XX_DACSETUP, AIC31XX_SOFTSTEP_MASK, 0x02);
