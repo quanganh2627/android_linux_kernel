@@ -1688,6 +1688,13 @@ static int xhci_ssic_init(struct usb_hcd *hcd)
 	temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2);
 	xhci_dbg(xhci, " Config Register2 = 0x%08X\n", temp);
 
+	/*WA: Set T_ACT_H8_EXIT = 0x7 to fix U3 exit failure */
+	temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg1);
+	temp |= 0x7 << 8;
+	xhci_writel(xhci, temp, &ssic_hcd.policy_regs->config_reg1);
+	temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg1);
+	xhci_dbg(xhci, "Config Regsiter1 = 0x%08X\n", temp);
+
 	return 0;
 }
 
