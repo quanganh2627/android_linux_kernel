@@ -376,7 +376,7 @@ static struct intel_sst_ops mrfld_32_ops = {
 	.restore_dsp_context = sst_restore_fw_context,
 	.alloc_stream = sst_alloc_stream_ctp,
 	.post_download = sst_post_download_byt,
-	.do_recovery = sst_do_recovery,
+	.do_recovery = sst_debug_dump,
 };
 
 static struct intel_sst_ops ctp_ops = {
@@ -394,7 +394,7 @@ static struct intel_sst_ops ctp_ops = {
 	.restore_dsp_context = sst_restore_fw_context,
 	.alloc_stream = sst_alloc_stream_ctp,
 	.post_download = sst_post_download_ctp,
-	.do_recovery = sst_do_recovery,
+	.do_recovery = sst_debug_dump,
 };
 
 int sst_driver_ops(struct intel_sst_drv *sst)
@@ -410,7 +410,7 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 		sst->ops = &mrfld_ops;
 		if (!sst->pdata->enable_recovery) {
 			pr_debug("Recovery disabled for this mofd platform\n");
-			sst->ops->do_recovery = sst_do_recovery;
+			sst->ops->do_recovery = sst_debug_dump;
 		} else
 			pr_debug("Recovery enabled for this mofd platform\n");
 		return 0;
@@ -418,7 +418,7 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 		sst->tstamp = SST_TIME_STAMP_MOFD;
 		sst->ops = &mrfld_ops;
 		/* Override the recovery ops for CHT platforms */
-		sst->ops->do_recovery = sst_do_recovery;
+		sst->ops->do_recovery = sst_debug_dump;
 		return 0;
 	case SST_BYT_PCI_ID:
 		sst->tstamp = SST_TIME_STAMP_BYT;

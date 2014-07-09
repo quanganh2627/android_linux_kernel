@@ -471,7 +471,7 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	}
 }
 
-void sst_do_recovery(struct intel_sst_drv *sst)
+void sst_debug_dump(struct intel_sst_drv *sst)
 {
 	pr_err("Audio: Intel SST engine encountered an unrecoverable error\n");
 
