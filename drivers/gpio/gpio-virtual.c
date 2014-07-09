@@ -40,6 +40,7 @@
 #define GPE0A_PME_EN_BIT                0x2000
 #define GPE0A_STS_PORT			0x420
 #define GPE0A_EN_PORT			0x428
+#define BYT_MODEL				0x37
 
 struct workqueue_struct *vgpio_wq;
 
@@ -76,11 +77,12 @@ void virtual_gpio_irq_handler_isr(struct work_struct *work)
 		temp = gpe_en_reg&(~GPE0A_PME_EN_BIT);
 		outl(temp, GPE0A_EN_PORT);
 	}
-
-	status = acpi_evaluate_object(handle,
-					"_E02", NULL, NULL);
-	if (ACPI_FAILURE(status))
-		dev_err(dev, "_E02 call failed in virtual gpio\n");
+	if (boot_cpu_data.x86_model != BYT_MODEL) {
+		status = acpi_evaluate_object(handle,
+						"_E02", NULL, NULL);
+		if (ACPI_FAILURE(status))
+			dev_err(dev, "_E02 call failed in virtual gpio\n");
+	}
 
 	if (gpe_sts_reg & GPE0A_PME_STS_BIT)
 			outl(GPE0A_PME_STS_BIT, GPE0A_STS_PORT);
