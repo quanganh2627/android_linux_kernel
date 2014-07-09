@@ -57,6 +57,7 @@ enum {
 /* Supported Modem IDs*/
 enum mdm_ctrl_mdm_type {
 	MODEM_UNSUP,
+	MODEM_2230,
 	MODEM_6260,
 	MODEM_6268,
 	MODEM_6360,

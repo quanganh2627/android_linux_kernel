@@ -117,6 +117,7 @@ struct sfi_to_mdm {
 
 /* Retrieve modem parameters on ACPI framework */
 int retrieve_modem_platform_data(struct platform_device *pdev);
+int get_nb_mdms(void);
 
 int mcd_register_mdm_info(struct mcd_base_info *info,
 			  struct platform_device *pdev);
