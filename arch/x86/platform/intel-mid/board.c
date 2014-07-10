@@ -107,6 +107,7 @@
 #include "device_libs/platform_imx208.h"
 #include "device_libs/platform_imx175.h"
 #include "device_libs/platform_imx135.h"
+#include "device_libs/platform_imx219.h"
 #include "device_libs/platform_imx134.h"
 #include "device_libs/platform_imx132.h"
 #include "device_libs/platform_s5k8aay.h"
@@ -309,6 +310,8 @@ struct devs_id __initconst device_ids[] = {
 	{"imx175", SFI_DEV_TYPE_I2C, 0, &imx175_platform_data,
 					&intel_register_i2c_camera_device},
 	{"imx135", SFI_DEV_TYPE_I2C, 0, &imx135_platform_data,
+					&intel_register_i2c_camera_device},
+	{"imx219", SFI_DEV_TYPE_I2C, 0, &imx219_platform_data,
 					&intel_register_i2c_camera_device},
 	{"imx135fuji", SFI_DEV_TYPE_I2C, 0, &imx135_platform_data,
 					&intel_register_i2c_camera_device},
