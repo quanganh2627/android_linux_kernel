@@ -1442,7 +1442,7 @@ static bool g4x_compute_srwm(struct drm_device *dev,
 }
 
 static bool vlv_compute_drain_latency(struct drm_device *dev,
-				int plane,
+				int pipe,
 				int *plane_prec_mult,
 				int *plane_dl,
 				int *cursor_prec_mult,
@@ -1456,7 +1456,7 @@ static bool vlv_compute_drain_latency(struct drm_device *dev,
 	int entries;
 	bool latencyprogrammed = false;
 
-	crtc = intel_get_crtc_for_plane(dev, plane);
+	crtc = intel_get_crtc_for_pipe(dev, pipe);
 	if (!intel_crtc_active(crtc))
 		return false;
 
@@ -3323,7 +3323,7 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 		shift = DDL_SPRITEB_SHIFT;
 	}
 
-	if (enabled && vlv_compute_drain_latency(dev, 0, NULL, NULL, NULL, NULL,
+	if (enabled && vlv_compute_drain_latency(dev, intel_plane->pipe, NULL, NULL, NULL, NULL,
 			&sprite_prec_mult, &sprite_dl, pixel_size, enable)) {
 		/*
 		 * DL programming for Sprite plane is separated out as DL programming sequence
