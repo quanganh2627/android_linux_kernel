@@ -1443,6 +1443,8 @@ static int xhci_ush_pci_probe(struct pci_dev *dev,
 		ssic_hcd.autosuspend_enable = SSIC_AUTOSUSPEND;
 		ssic_hcd.port_inactivity_duration = SSIC_PORT_INACTIVITYDURATION;
 		ssic_hcd.bus_inactivity_duration = SSIC_BUS_INACTIVITYDURATION;
+		ssic_hcd.u1_inactivity_duration = SSIC_DEFAULT_U1_TIMEOUT;
+		ssic_hcd.u2_inactivity_duration = SSIC_DEFAULT_U2_TIMEOUT;
 		/* Enable remote wakeup feature for Modem and root hub */
 		ssic_hcd.remote_wakeup_enable = 1;
 		/* Set the ssic_enable to 0 as requested */

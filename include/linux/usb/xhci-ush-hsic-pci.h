@@ -21,6 +21,14 @@
 #define HSIC_PORT_INACTIVITYDURATION              500
 #define HSIC_BUS_INACTIVITYDURATION              500
 #define HSIC_REMOTEWAKEUP                       1
+/* Default U1 timeout is 127us */
+#define SSIC_DEFAULT_U1_TIMEOUT		127
+#define SSIC_MAX_U1_TIMEOUT			127
+/* Default U2 timeout is 1ms*/
+#define SSIC_DEFAULT_U2_TIMEOUT		1
+#define SSIC_MAX_U2_TIMEOUT			64
+
+
 
 #define USH_PCI_ID                     0x0F35
 #define USH_REENUM_DELAY_FFRD8_PR0     600000

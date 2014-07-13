@@ -315,6 +315,8 @@ struct ssic_xhci_hcd {
 
 	unsigned		u1_enable;
 	unsigned		u2_enable;
+	unsigned		u1_inactivity_duration;
+	unsigned		u2_inactivity_duration;
 
 	/* Modem device add/remove notifier */
 	struct notifier_block	ssicdev_nb;
