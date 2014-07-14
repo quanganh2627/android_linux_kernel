@@ -744,6 +744,7 @@ static void intel_hdmi_mode_set(struct intel_encoder *encoder)
 	POSTING_READ(intel_hdmi->hdmi_reg);
 
 	intel_hdmi->set_infoframes(&encoder->base, adjusted_mode);
+	switch_set_state(&intel_hdmi->sdev, 1);
 }
 
 static bool intel_hdmi_get_hw_state(struct intel_encoder *encoder,
@@ -1159,7 +1160,6 @@ void intel_hdmi_hot_plug(struct intel_encoder *intel_encoder)
 	int pipe = 0;
 
 	connector = &intel_hdmi->attached_connector->base;
-
 	/* We are here, means there is a HDMI hot-plug
 	Lets try to get EDID */
 	edid = intel_hdmi_get_edid(connector, false);
@@ -1214,6 +1214,9 @@ void intel_hdmi_hot_plug(struct intel_encoder *intel_encoder)
 	if (need_event) {
 		DRM_DEBUG_DRIVER("Sending self event");
 		intel_hdmi_send_uevent(dev, "HOTPLUG=1");
+	}
+	if (edid == NULL) {
+		switch_set_state(&intel_hdmi->sdev, 0);
 	}
 
 	/* Update EDID, kfree is NULL protected */
@@ -1825,6 +1828,10 @@ void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 	intel_dig_port->dp.output_reg = 0;
 
 	intel_hdmi_init_connector(intel_dig_port, intel_connector);
+	intel_dig_port->hdmi.sdev.name = "hdmi";
+	if (switch_dev_register(&intel_dig_port->hdmi.sdev) < 0) {
+	    DRM_ERROR("Hdmi switch_dev registration failed\n");
+	}
 	/* Added for HDMI Audio */
 	/* HDMI private data */
 	INIT_WORK(&dev_priv->hdmi_audio_wq, i915_had_wq);
