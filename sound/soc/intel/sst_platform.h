@@ -164,6 +164,7 @@ struct sst_runtime_stream {
 };
 
 #define SST_PLATFORM_VTSV_READ_EVENT	0x1
+#define SST_PLATFORM_TRIGGER_RECOVERY	0x2
 struct sst_platform_cb_params {
 	/* Async event from firmware like VTSV*/
 	unsigned int event;
