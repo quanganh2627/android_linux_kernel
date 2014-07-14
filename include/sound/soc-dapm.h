@@ -148,6 +148,9 @@ struct snd_soc_dapm_widget *snd_soc_dapm_find_widget(
 			struct snd_soc_dapm_context *dapm, const char *pin,
 			bool search_other_contexts);
 
+/* dapm set/reset */
+int snd_soc_dapm_state_set(struct snd_soc_card *card, bool reset_state);
+
 enum snd_soc_dapm_subclass {
 	SND_SOC_DAPM_CLASS_INIT		= 0,
 	SND_SOC_DAPM_CLASS_RUNTIME	= 1,
