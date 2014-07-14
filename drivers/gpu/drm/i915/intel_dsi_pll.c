@@ -221,19 +221,51 @@ int dsi_calc_mnp(u32 dsi_clk, struct intel_dsi_mnp *intel_dsi_mnp)
 	return 0;
 }
 
-/* Toggle the VCO_EN to bring in the new dividers values */
-void intel_drrs_update_dsi_pll(struct intel_dsi *intel_dsi)
+static void intel_configure_dsi_pll_reg(struct drm_i915_private *dev_priv,
+				struct intel_dsi_mnp *intel_dsi_mnp,
+				struct intel_dsi *intel_dsi,
+						bool divider_update_only)
+{
+	u32 dsi_pll_ctrl = 0, dsi_pll_div = 0;
+
+	if (divider_update_only) {
+		dsi_pll_ctrl = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
+		dsi_pll_ctrl &= ~DSI_PLL_P1_POST_DIV_MASK;
+	} else {
+		vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, 0);
+		dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI0_DSIPLL;
+	}
+
+	if (intel_dsi->dual_link)
+		dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI1_DSIPLL;
+
+	dsi_pll_ctrl |= (1 <<
+			(DSI_PLL_P1_POST_DIV_SHIFT + intel_dsi_mnp->p - 2));
+	dsi_pll_div = ((intel_dsi_mnp->n - 1) <<
+			DSI_PLL_N1_DIV_SHIFT) | intel_dsi_mnp->m;
+
+	DRM_DEBUG_KMS("dsi pll div %08x, ctrl %08x\n",
+					dsi_pll_div, dsi_pll_ctrl);
+
+	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_DIVIDER, dsi_pll_div);
+	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, dsi_pll_ctrl);
+}
+
+int intel_drrs_configure_dsi_pll(struct intel_dsi *intel_dsi,
+					struct intel_dsi_mnp *intel_dsi_mnp)
 {
 	struct drm_i915_private *dev_priv =
 			intel_dsi->base.base.dev->dev_private;
-	struct drm_encoder *encoder = &(intel_dsi->base.base);
-	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
-	u32 dsi_pll_ctrl, dsi_pll_ctrl_mod, vactive;
+	struct intel_crtc *intel_crtc =
+				to_intel_crtc(intel_dsi->base.base.crtc);
+	u32 dsi_pll_ctrl, vactive;
 	u32 dsl_offset = PIPEDSL(intel_crtc->pipe), dsl;
 	unsigned long timeout;
 
+	intel_configure_dsi_pll_reg(dev_priv, intel_dsi_mnp, intel_dsi, true);
+
 	dsi_pll_ctrl = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
-	dsi_pll_ctrl_mod = dsi_pll_ctrl & (~DSI_PLL_VCO_EN);
+	dsi_pll_ctrl &= (~DSI_PLL_VCO_EN);
 
 	vactive = (I915_READ(VTOTAL(intel_crtc->pipe)) &
 				VERTICAL_ACTIVE_DISPLAY_MASK) + 1;
@@ -245,40 +277,31 @@ void intel_drrs_update_dsi_pll(struct intel_dsi *intel_dsi)
 
 		if (jiffies >= timeout) {
 			DRM_ERROR("Timeout at waiting for Vblank\n");
-			break;
+			return -ETIMEDOUT;
 		}
 	} while (dsl <= vactive);
 
-	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, dsi_pll_ctrl_mod);
+	mutex_lock(&dev_priv->dpio_lock);
+	/* Toggle the VCO_EN to bring in the new dividers values */
 	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, dsi_pll_ctrl);
 
-	DRM_DEBUG_KMS("PLL Changed at DSL:%d\n", dsl);
+	dsi_pll_ctrl |= DSI_PLL_VCO_EN;
+	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, dsi_pll_ctrl);
+	mutex_unlock(&dev_priv->dpio_lock);
+
+	DRM_DEBUG_KMS("PLL Changed between DSL: %d, %d\n",
+			dsl, I915_READ(dsl_offset) & DSL_LINEMASK_GEN3);
+	return 0;
 }
 
-int intel_drrs_configure_dsi_pll(struct intel_dsi *intel_dsi,
-					struct intel_dsi_mnp *intel_dsi_mnp)
+int intel_calculate_dsi_pll_mnp(struct intel_dsi *intel_dsi,
+		struct drm_display_mode *mode,
+			struct intel_dsi_mnp *intel_dsi_mnp, u32 dsi_clk)
 {
-	struct drm_i915_private *dev_priv =
-			intel_dsi->base.base.dev->dev_private;
-	u32 dsi_pll_ctrl = 0, dsi_pll_div = 0;
+	if (dsi_clk == 0)
+		get_dsi_clk(intel_dsi, mode, &dsi_clk);
 
-	DRM_DEBUG_KMS("\n");
-
-	dsi_pll_ctrl = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
-
-	dsi_pll_ctrl &= ~DSI_PLL_P1_POST_DIV_MASK;
-	dsi_pll_ctrl |= (1 <<
-			(DSI_PLL_P1_POST_DIV_SHIFT + intel_dsi_mnp->p - 2));
-	dsi_pll_div = ((intel_dsi_mnp->n - 1) <<
-				DSI_PLL_N1_DIV_SHIFT) | intel_dsi_mnp->m;
-
-	DRM_DEBUG_KMS("dsi pll div %08x, ctrl %08x\n",
-			dsi_pll_div, dsi_pll_ctrl);
-
-	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_DIVIDER, dsi_pll_div);
-	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, dsi_pll_ctrl);
-
-	return 0;
+	return dsi_calc_mnp(dsi_clk, intel_dsi_mnp);
 }
 
 int intel_configure_dsi_pll(struct intel_dsi *intel_dsi,
@@ -290,48 +313,27 @@ int intel_configure_dsi_pll(struct intel_dsi *intel_dsi,
 	struct intel_connector *intel_connector = intel_dsi->attached_connector;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
 	struct intel_crtc_config *config = &intel_crtc->config;
-	struct intel_dsi_mnp *intel_dsi_mnp;
 	int ret;
-	u32 dsi_clk, dsi_pll_ctrl = 0, dsi_pll_div = 0;
 
 	DRM_DEBUG_KMS("\n");
 
-	if (intel_dsi->dsi_clock_freq)
-		dsi_clk = intel_dsi->dsi_clock_freq;
-	else
-		get_dsi_clk(intel_dsi, mode, &dsi_clk);
-
-	intel_dsi_mnp = &config->dsi_mnp;
-	ret = dsi_calc_mnp(dsi_clk, intel_dsi_mnp);
+	ret = intel_calculate_dsi_pll_mnp(intel_dsi, mode,
+					&config->dsi_mnp, intel_dsi->dsi_clock_freq);
 	if (ret != 0)
 		return ret;
 
 	/* In case of DRRS, Calculating the divider values for downclock_mode */
 	if (intel_connector->panel.downclock_avail &&
 		dev_priv->drrs_state.type >= SEAMLESS_DRRS_SUPPORT) {
-		get_dsi_clk(intel_dsi,
-			intel_connector->panel.downclock_mode, &dsi_clk);
-		intel_dsi_mnp = &config->dsi_mnp2;
-		ret = dsi_calc_mnp(dsi_clk, intel_dsi_mnp);
+		ret = intel_calculate_dsi_pll_mnp(intel_dsi,
+			intel_connector->panel.downclock_mode, &config->dsi_mnp2, 0);
 		if (ret != 0)
 			return ret;
 	}
 
-	dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI0_DSIPLL;
-	dsi_pll_ctrl |= (1 <<
-			(DSI_PLL_P1_POST_DIV_SHIFT + config->dsi_mnp.p - 2));
-	dsi_pll_div = ((config->dsi_mnp.n - 1) <<
-				DSI_PLL_N1_DIV_SHIFT) | config->dsi_mnp.m;
 
-	if (intel_dsi->dual_link)
-		dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI1_DSIPLL;
+	intel_configure_dsi_pll_reg(dev_priv, &config->dsi_mnp, intel_dsi, false);
 
-	DRM_DEBUG_KMS("dsi pll div %08x, ctrl %08x\n",
-						dsi_pll_div, dsi_pll_ctrl);
-
-	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, 0);
-	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_DIVIDER, dsi_pll_div);
-	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, dsi_pll_ctrl);
 
 	return 0;
 }

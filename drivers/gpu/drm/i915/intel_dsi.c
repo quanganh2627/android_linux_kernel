@@ -1045,6 +1045,7 @@ intel_dsi_set_drrs_state(struct intel_encoder *intel_encoder,
 	struct drm_i915_private *dev_priv =
 				intel_encoder->base.dev->dev_private;
 	struct intel_connector *intel_connector = dev_priv->drrs.connector;
+	struct intel_dsi_mnp *intel_dsi_mnp;
 	struct intel_dsi *intel_dsi = NULL;
 	struct intel_crtc *intel_crtc = NULL;
 
@@ -1053,13 +1054,11 @@ intel_dsi_set_drrs_state(struct intel_encoder *intel_encoder,
 	intel_crtc = intel_encoder->new_crtc;
 
 	if (refresh_rate_type == DRRS_HIGH_RR)
-		intel_drrs_configure_dsi_pll(intel_dsi,
-				&intel_crtc->config.dsi_mnp);
+		intel_dsi_mnp = &intel_crtc->config.dsi_mnp;
 	else
-		intel_drrs_configure_dsi_pll(intel_dsi,
-				&intel_crtc->config.dsi_mnp2);
-	/* To bring in the new divider values */
-	intel_drrs_update_dsi_pll(intel_dsi);
+		intel_dsi_mnp = &intel_crtc->config.dsi_mnp2;
+
+	intel_drrs_configure_dsi_pll(intel_dsi, intel_dsi_mnp);
 }
 
 void intel_dsi_drrs_init(struct intel_connector *intel_connector,
