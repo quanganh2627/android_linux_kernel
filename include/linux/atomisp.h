@@ -301,6 +301,14 @@ struct atomisp_cont_capture_conf {
 	__u32 reserved[5];
 };
 
+struct atomisp_ae_window {
+	int x_left;
+	int x_right;
+	int y_top;
+	int y_bottom;
+	int weight;
+};
+
 /* White Balance (Gain Adjust) */
 struct atomisp_wb_config {
 	unsigned int integer_bits;
@@ -1065,6 +1073,10 @@ struct v4l2_private_int_data {
 
 #define ATOMISP_IOC_S_FORMATS_CONFIG \
 	_IOW('v', BASE_VIDIOC_PRIVATE + 39, struct atomisp_formats_config)
+
+#define ATOMISP_IOC_S_EXPOSURE_WINDOW \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 40, struct atomisp_ae_window)
+
 /*
  * Reserved ioctls. We have customer implementing it internally.
  * We can't use both numbers to not cause ABI conflict.
@@ -1159,6 +1171,8 @@ struct v4l2_private_int_data {
 #define V4L2_CID_ENABLE_RAW_BUFFER_LOCK (V4L2_CID_CAMERA_LASTP1 + 29)
 
 #define V4L2_CID_DEPTH_MODE		(V4L2_CID_CAMERA_LASTP1 + 30)
+
+#define V4L2_CID_EXPOSURE_ZONE_NUM	(V4L2_CID_CAMERA_LASTP1 + 31)
 
 #define V4L2_BUF_FLAG_BUFFER_INVALID       0x0400
 #define V4L2_BUF_FLAG_BUFFER_VALID         0x0800
