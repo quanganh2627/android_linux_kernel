@@ -720,6 +720,7 @@ long intel_sst_ioctl_dsp(unsigned int cmd,
 void sst_dump_to_buffer(const void *from, size_t from_len, char *buf);
 char *sst_get_shim_buf(struct intel_sst_drv *sst_drv_ctx);
 int sst_recovery_init(struct intel_sst_drv *sst_drv_ctx);
+void sst_recovery_exit(struct intel_sst_drv *sst_drv_ctx);
 int sst_set_timer(struct sst_monitor_lpe *monitor_lpe, bool enable);
 void sst_timer_cb(unsigned long data);
 
