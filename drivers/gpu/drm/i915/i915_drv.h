@@ -710,6 +710,12 @@ struct i915_drrs {
 		struct drm_crtc *crtc;
 		int interval;
 	} *drrs_work;
+	struct intel_mipi_drrs_work {
+		struct delayed_work work;
+		struct intel_encoder *intel_encoder;
+		enum drrs_refresh_rate_type target_rr_type;
+		atomic_t abort_wait_loop;
+	} *mipi_drrs_work;
 };
 
 enum intel_pch {

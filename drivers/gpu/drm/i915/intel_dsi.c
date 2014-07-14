@@ -1038,27 +1038,82 @@ intel_dsi_add_properties(struct intel_dsi *intel_dsi,
 	intel_attach_scaling_src_size_property(connector);
 }
 
+static void intel_mipi_drrs_work_fn(struct work_struct *__work)
+{
+	struct intel_mipi_drrs_work *work =
+		container_of(to_delayed_work(__work),
+			struct intel_mipi_drrs_work, work);
+	struct intel_encoder *intel_encoder = work->intel_encoder;
+	struct drm_i915_private *dev_priv =
+				intel_encoder->base.dev->dev_private;
+	struct intel_panel *panel = &dev_priv->drrs.connector->panel;
+	struct intel_dsi_mnp *intel_dsi_mnp;
+	struct intel_dsi *intel_dsi = NULL;
+	struct intel_crtc *intel_crtc = NULL;
+	int refresh_rate;
+	int ret, retry_cnt = 3;
+
+	intel_dsi = enc_to_intel_dsi(&intel_encoder->base);
+	intel_crtc = intel_encoder->new_crtc;
+
+	if (work->target_rr_type == DRRS_HIGH_RR) {
+		intel_dsi_mnp = &intel_crtc->config.dsi_mnp;
+		refresh_rate = panel->fixed_mode->vrefresh;
+	} else {
+		intel_dsi_mnp = &intel_crtc->config.dsi_mnp2;
+		refresh_rate = panel->downclock_mode->vrefresh;
+	}
+
+retry:
+	ret = intel_drrs_configure_dsi_pll(intel_dsi, intel_dsi_mnp);
+	if (ret == 0) {
+		mutex_lock(&dev_priv->drrs_state.mutex);
+		dev_priv->drrs_state.refresh_rate_type =
+						work->target_rr_type;
+		mutex_unlock(&dev_priv->drrs_state.mutex);
+
+		DRM_INFO("Refresh Rate set to : %dHz\n", refresh_rate);
+	} else if (ret == -ETIMEDOUT && retry_cnt) {
+		DRM_ERROR("Retry left ... <%d>\n", --retry_cnt);
+		goto retry;
+	}
+}
+
 void
 intel_dsi_set_drrs_state(struct intel_encoder *intel_encoder,
 			enum drrs_refresh_rate_type refresh_rate_type)
 {
 	struct drm_i915_private *dev_priv =
 				intel_encoder->base.dev->dev_private;
-	struct intel_connector *intel_connector = dev_priv->drrs.connector;
-	struct intel_dsi_mnp *intel_dsi_mnp;
-	struct intel_dsi *intel_dsi = NULL;
-	struct intel_crtc *intel_crtc = NULL;
+	struct intel_mipi_drrs_work *work = dev_priv->drrs.mipi_drrs_work;
 
-	intel_encoder = intel_attached_encoder(&intel_connector->base);
-	intel_dsi = enc_to_intel_dsi(&intel_encoder->base);
-	intel_crtc = intel_encoder->new_crtc;
+	if (work_busy(&work->work.work)) {
+		DRM_DEBUG_KMS("Cancelling an queued/executing work\n");
+		atomic_set(&work->abort_wait_loop, 1);
+		cancel_delayed_work_sync(&work->work);
+		atomic_set(&work->abort_wait_loop, 0);
+	}
+	dev_priv->drrs.mipi_drrs_work->intel_encoder = intel_encoder;
+	dev_priv->drrs.mipi_drrs_work->target_rr_type = refresh_rate_type;
 
-	if (refresh_rate_type == DRRS_HIGH_RR)
-		intel_dsi_mnp = &intel_crtc->config.dsi_mnp;
-	else
-		intel_dsi_mnp = &intel_crtc->config.dsi_mnp2;
+	schedule_delayed_work(&dev_priv->drrs.mipi_drrs_work->work, 0);
+}
 
-	intel_drrs_configure_dsi_pll(intel_dsi, intel_dsi_mnp);
+static int intel_dsi_drrs_deferred_work_init(struct drm_device *dev)
+{
+	struct intel_mipi_drrs_work *work;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	work = kzalloc(sizeof(struct intel_mipi_drrs_work), GFP_KERNEL);
+	if (!work) {
+		DRM_ERROR("Failed to allocate mipi DRRS work structure\n");
+		return -ENOMEM;
+	}
+
+	atomic_set(&work->abort_wait_loop, 0);
+	INIT_DELAYED_WORK(&work->work, intel_mipi_drrs_work_fn);
+	dev_priv->drrs.mipi_drrs_work = work;
+	return 0;
 }
 
 void intel_dsi_drrs_init(struct intel_connector *intel_connector,
@@ -1068,8 +1123,11 @@ void intel_dsi_drrs_init(struct intel_connector *intel_connector,
 	struct drm_device *dev = connector->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if (intel_drrs_init(dev, intel_connector, downclock_mode) < 0)
+	if (intel_dsi_drrs_deferred_work_init(dev) < 0)
 		return;
+
+	if (intel_drrs_init(dev, intel_connector, downclock_mode) < 0)
+		kfree(dev_priv->drrs.mipi_drrs_work);
 	else if (dev_priv->drrs_state.type == SEAMLESS_DRRS_SUPPORT) {
 		/* In DSI SEAMLESS DRRS is a SW driven feature */
 		dev_priv->drrs_state.type = SEAMLESS_DRRS_SUPPORT_SW;

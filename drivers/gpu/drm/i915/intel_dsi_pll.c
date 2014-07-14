@@ -258,6 +258,8 @@ int intel_drrs_configure_dsi_pll(struct intel_dsi *intel_dsi,
 			intel_dsi->base.base.dev->dev_private;
 	struct intel_crtc *intel_crtc =
 				to_intel_crtc(intel_dsi->base.base.crtc);
+	struct intel_mipi_drrs_work *work =
+				dev_priv->drrs.mipi_drrs_work;
 	u32 dsi_pll_ctrl, vactive;
 	u32 dsl_offset = PIPEDSL(intel_crtc->pipe), dsl;
 	unsigned long timeout;
@@ -273,6 +275,11 @@ int intel_drrs_configure_dsi_pll(struct intel_dsi *intel_dsi,
 	timeout = jiffies + msecs_to_jiffies(50);
 
 	do {
+		if (atomic_read(&work->abort_wait_loop) == 1) {
+			DRM_DEBUG_KMS("Aborting the pll update\n");
+			return -EPERM;
+		}
+
 		dsl = (I915_READ(dsl_offset) & DSL_LINEMASK_GEN3);
 
 		if (jiffies >= timeout) {

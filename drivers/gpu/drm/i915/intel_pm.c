@@ -677,13 +677,14 @@ void intel_set_drrs_state(struct drm_device *dev, int refresh_rate)
 		return;
 	}
 
-	mutex_lock(&dev_priv->drrs_state.mutex);
-	dev_priv->drrs_state.refresh_rate_type = index;
-	mutex_unlock(&dev_priv->drrs_state.mutex);
+	if (dev_priv->drrs_state.type != SEAMLESS_DRRS_SUPPORT_SW) {
+		mutex_lock(&dev_priv->drrs_state.mutex);
+		dev_priv->drrs_state.refresh_rate_type = index;
+		mutex_unlock(&dev_priv->drrs_state.mutex);
 
-	DRM_INFO("Refresh Rate set to : %dHz\n", refresh_rate);
+		DRM_INFO("Refresh Rate set to : %dHz\n", refresh_rate);
+	}
 }
-
 
 static void intel_drrs_work_fn(struct work_struct *__work)
 {
@@ -716,10 +717,19 @@ static void intel_cancel_drrs_work(struct drm_i915_private *dev_priv)
 static void intel_enable_drrs(struct drm_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = crtc->dev->dev_private;
+	struct intel_mipi_drrs_work *work = dev_priv->drrs.mipi_drrs_work;
+	bool force_enable_drrs = false;
 
 	intel_cancel_drrs_work(dev_priv);
 
-	if (dev_priv->drrs_state.refresh_rate_type != DRRS_LOW_RR) {
+	/* Capturing the deferred request for disable_drrs */
+	if (dev_priv->drrs_state.type == SEAMLESS_DRRS_SUPPORT_SW)
+		if (work_busy(&work->work.work) &&
+				work->target_rr_type == DRRS_HIGH_RR)
+			force_enable_drrs = true;
+
+	if (dev_priv->drrs_state.refresh_rate_type != DRRS_LOW_RR ||
+							force_enable_drrs) {
 		dev_priv->drrs.drrs_work->crtc = crtc;
 
 		/* Delay the actual enabling to let pageflipping cease and the
