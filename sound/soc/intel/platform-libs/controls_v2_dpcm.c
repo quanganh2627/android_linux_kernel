@@ -1509,7 +1509,7 @@ static const struct snd_kcontrol_new sst_mix_sw_aware =
 		sst_mix_get, sst_mix_put);
 
 static const struct snd_kcontrol_new sst_mix_sw_vad =
-	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 0, 1, 0,
+	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 2, 1, 0,
 		sst_mix_get, sst_mix_put);
 
 static const struct snd_kcontrol_new sst_vad_enroll[] = {
