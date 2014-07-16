@@ -27,6 +27,7 @@ struct batt_props {
 	long status;
 	unsigned long tstamp;
 	enum psy_algo_stat algo_stat;
+	unsigned int charge_type;
 	int health;
 	int throttle_state;
 };
@@ -115,6 +116,9 @@ static inline int get_ps_int_property(struct power_supply *psy,
 #define set_inlmt(psy, inlmt) \
 		set_ps_int_property(psy, POWER_SUPPLY_PROP_INLMT, inlmt)
 
+#define set_charge_type(psy, type) \
+		set_ps_int_property(psy, POWER_SUPPLY_PROP_CHARGE_TYPE, type)
+
 #define set_present(psy, present) \
 		set_ps_int_property(psy, POWER_SUPPLY_PROP_PRESENT, present)
 
@@ -168,6 +172,8 @@ static inline int get_ps_int_property(struct power_supply *psy,
 		get_ps_int_property(psy, POWER_SUPPLY_PROP_INLMT)
 #define ITERM(psy) \
 		get_ps_int_property(psy, POWER_SUPPLY_PROP_CHARGE_TERM_CUR)
+#define CHARGE_TYPE(psy) \
+		get_ps_int_property(psy, POWER_SUPPLY_PROP_CHARGE_TYPE)
 
 #define IS_CHARGING_ENABLED(psy) \
 		get_ps_int_property(psy, POWER_SUPPLY_PROP_ENABLE_CHARGING)
@@ -200,7 +206,8 @@ static inline int get_ps_int_property(struct power_supply *psy,
 	(bat_cache.voltage_now != bat_prop.voltage_now))) || \
 	(bat_cache.temperature != bat_prop.temperature) || \
 	(bat_cache.health != bat_prop.health) || \
-	(bat_cache.throttle_state != bat_prop.throttle_state))
+	(bat_cache.throttle_state != bat_prop.throttle_state) || \
+	(bat_cache.charge_type != bat_prop.charge_type))
 
 #define THROTTLE_ACTION(psy, state)\
 		(((psy->throttle_states)+state)->throttle_action)

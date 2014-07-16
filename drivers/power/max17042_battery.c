@@ -310,6 +310,7 @@ struct max17042_chip {
 	int	extra_resv_cap;
 	int	voltage_max;
 	int	model_algo_factor;
+	int	charge_type;
 };
 
 /* Sysfs entry for disable shutdown methods from user space */
@@ -497,6 +498,7 @@ static enum power_supply_property max17042_battery_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
+	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_AVG,
@@ -846,6 +848,10 @@ static int max17042_set_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		chip->status = val->intval;
+		if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING)
+			chip->charge_type = POWER_SUPPLY_CHARGE_TYPE_UNKNOWN;
+		else if (chip->status == POWER_SUPPLY_STATUS_CHARGING)
+			chip->charge_type = POWER_SUPPLY_CHARGE_TYPE_NONE;
 		break;
 	case POWER_SUPPLY_PROP_TEMP_ALERT_MIN:
 		ret = max17042_read_reg(chip->client, MAX17042_TALRT_Th);
@@ -869,6 +875,16 @@ static int max17042_set_property(struct power_supply *psy,
 		ret = (temp << 8) + (ret & 0xff);
 		ret = max17042_write_reg(chip->client, MAX17042_TALRT_Th, ret);
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_TYPE:
+		if (chip->status == POWER_SUPPLY_STATUS_CHARGING) {
+			chip->charge_type =  val->intval;
+			power_supply_changed(&chip->battery);
+			dev_info(&chip->client->dev,
+				"%s:charge_type%x\n",
+				__func__, chip->charge_type);
+		}
+		break;
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -1123,6 +1139,9 @@ static int max17042_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
 		val->strval = chip->pdata->serial_num;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_TYPE:
+		val->intval = chip->charge_type;
 		break;
 	default:
 		mutex_unlock(&chip->batt_lock);
