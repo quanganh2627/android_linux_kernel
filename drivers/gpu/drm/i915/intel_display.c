@@ -9086,6 +9086,12 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	disp->errored = 0;
 	disp->presented = 0;
 
+	/* If HWC version and size of the struct doesnt match, return NULL */
+	if (!(disp->version == DRM_MODE_SET_DISPLAY_VERSION && disp->size ==
+			sizeof(struct drm_mode_set_display))) {
+		DRM_ERROR("HWC version or struct size mismatch");
+		return -EINVAL;
+	}
 	/*
 	 * userspace app will not call this function again until the
 	 * page_flip done event is received so no locking is required here
@@ -9155,13 +9161,13 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 		 * For now, continue to use "plane id", and hack -2 to convert from obj_id.
 		 * (since  drm ids happen to be crtc 3, sprite 4,5 crtc 4, sprite 6,7 etc.)
 		*/
-		int plane_id = disp->plane[i]->obj_id - 2;
+		int plane_id = disp->plane[i].obj_id - 2;
 
 		if (!(disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_PLANE(i)))
 			continue;
 		DRM_DEBUG("plane %u (obj_id %u, obj_type 0x%x)", i,
-				disp->plane[i]->obj_id, disp->plane[i]->obj_type);
-		if (disp->plane[i]->update_flag &
+				disp->plane[i].obj_id, disp->plane[i].obj_type);
+		if (disp->plane[i].update_flag &
 				DRM_MODE_SET_DISPLAY_PLANE_UPDATE_ALPHA) {
 			alpha = kzalloc(sizeof(struct drm_i915_set_plane_alpha),
 					GFP_KERNEL);
@@ -9170,14 +9176,14 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 				disp->errored |= (1 << i);
 				ret = -ENOMEM;
 			} else {
-				alpha->alpha = disp->plane[i]->alpha;
+				alpha->alpha = disp->plane[i].alpha;
 				alpha->plane = plane_id;
 				tmp_ret = i915_set_plane_alpha(dev, (void *)alpha, NULL);
 				if (tmp_ret) {
 					DRM_ERROR("i915_set_plane_alpha failed\n");
 					DRM_ERROR("::plane %u(obj id %u)alpha %u ret %d SKIPPED\n",
 						alpha->plane,
-						disp->plane[i]->obj_id,
+						disp->plane[i].obj_id,
 						alpha->alpha, tmp_ret);
 					ret = -EINVAL;
 					disp->errored |= (1 << i);
@@ -9186,7 +9192,7 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 			}
 		}
 
-		if (disp->plane[i]->update_flag &
+		if (disp->plane[i].update_flag &
 				DRM_MODE_SET_DISPLAY_PLANE_UPDATE_TRANSFORM) {
 			rotate = kzalloc(sizeof(struct
 					drm_i915_plane_180_rotation),
@@ -9197,9 +9203,9 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 				disp->errored |= (1 << i);
 				ret = -ENOMEM;
 			} else {
-				rotate->obj_id = disp->plane[i]->obj_id;
-				rotate->obj_type = disp->plane[i]->obj_type;
-				rotate->rotate = disp->plane[i]->transform ==
+				rotate->obj_id = disp->plane[i].obj_id;
+				rotate->obj_type = disp->plane[i].obj_type;
+				rotate->rotate = disp->plane[i].transform ==
 					DRM_MODE_SET_DISPLAY_PLANE_TRANSFORM_ROT180 ? 1 : 0;
 				tmp_ret = i915_set_plane_180_rotation(dev, (void *)rotate, NULL);
 				if (tmp_ret) {
@@ -9215,7 +9221,7 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 				kfree(rotate);
 			}
 		}
-		if (disp->plane[i]->update_flag &
+		if (disp->plane[i].update_flag &
 				DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2) {
 
 			rrb2 = kzalloc(sizeof(struct
@@ -9226,14 +9232,14 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 				disp->errored |= (1 << i);
 				ret = -ENOMEM;
 			} else {
-				rrb2->enable = disp->plane[i]->rrb2_enable;
+				rrb2->enable = disp->plane[i].rrb2_enable;
 				rrb2->plane = plane_id;
 				tmp_ret = i915_enable_plane_reserved_reg_bit_2(
 						dev, (void *)rrb2, NULL);
 				if (tmp_ret) {
 					DRM_ERROR("i915_enable_plane_reserved_bit2 failed\n");
 					DRM_ERROR("::plane %u (obj id %u) enable %u ret %d\n",
-						rrb2->plane, disp->plane[i]->obj_id,
+						rrb2->plane, disp->plane[i].obj_id,
 						rrb2->enable, tmp_ret);
 					disp->errored |= (1 << i);
 					ret = -EINVAL;
@@ -9241,9 +9247,9 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 				kfree(rrb2);
 			}
 		}
-		if (disp->plane[i]->update_flag &
+		if (disp->plane[i].update_flag &
 				DRM_MODE_SET_DISPLAY_PLANE_UPDATE_PRESENT) {
-			if (disp->plane[i]->obj_type == DRM_MODE_OBJECT_CRTC) {
+			if (disp->plane[i].obj_type == DRM_MODE_OBJECT_CRTC) {
 				flip = kzalloc(sizeof
 						(struct drm_mode_crtc_page_flip),
 						GFP_ATOMIC);
@@ -9257,11 +9263,11 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 				 * for primary and secondary planes page flip call drm
 				 * page flip ioctl, set_plane is done as part of this.
 				 */
-				flip->crtc_id = disp->plane[i]->obj_id;
-				flip->fb_id = disp->plane[i]->fb_id;
-				flip->flags = disp->plane[i]->flags;
+				flip->crtc_id = disp->plane[i].obj_id;
+				flip->fb_id = disp->plane[i].fb_id;
+				flip->flags = disp->plane[i].flags;
 				flip->reserved = 0;
-				flip->user_data = disp->plane[i]->user_data;
+				flip->user_data = disp->plane[i].user_data;
 				tmp_ret = drm_mode_page_flip_ioctl(dev, flip, file_priv);
 				if (tmp_ret) {
 					DRM_ERROR("drm_mode_page_flio_ioctl failed\n");
@@ -9288,19 +9294,19 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 				 * for sprite plane call update_plane or setplane, which
 				 * internally does page_flip.
 				 */
-				plane->plane_id = disp->plane[i]->obj_id;
+				plane->plane_id = disp->plane[i].obj_id;
 				plane->crtc_id = disp->crtc_id;
-				plane->fb_id	= disp->plane[i]->fb_id;
-				plane->flags	= disp->plane[i]->flags;
-				plane->crtc_x = disp->plane[i]->crtc_x;
-				plane->crtc_y = disp->plane[i]->crtc_y;
-				plane->crtc_w = disp->plane[i]->crtc_w;
-				plane->crtc_h = disp->plane[i]->crtc_h;
-				plane->src_x	= disp->plane[i]->src_x;
-				plane->src_y	= disp->plane[i]->src_y;
-				plane->src_w	= disp->plane[i]->src_w;
-				plane->src_h	= disp->plane[i]->src_h;
-				plane->user_data = disp->plane[i]->user_data;
+				plane->fb_id	= disp->plane[i].fb_id;
+				plane->flags	= disp->plane[i].flags;
+				plane->crtc_x = disp->plane[i].crtc_x;
+				plane->crtc_y = disp->plane[i].crtc_y;
+				plane->crtc_w = disp->plane[i].crtc_w;
+				plane->crtc_h = disp->plane[i].crtc_h;
+				plane->src_x	= disp->plane[i].src_x;
+				plane->src_y	= disp->plane[i].src_y;
+				plane->src_w	= disp->plane[i].src_w;
+				plane->src_h	= disp->plane[i].src_h;
+				plane->user_data = disp->plane[i].user_data;
 				tmp_ret = drm_mode_setplane(dev, plane, file_priv);
 				if (tmp_ret) {
 					DRM_ERROR("drm_mode_setplane failed\n");

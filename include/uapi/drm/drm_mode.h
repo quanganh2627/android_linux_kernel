@@ -467,8 +467,9 @@ struct drm_mode_crtc_page_flip {
 
 /* drm_mode_set_display API */
 
-/* Max supported planes by drm_mode_set_display API */
-#define DRM_MODE_SET_DISPLAY_MAX_PLANES			8
+#define DRM_MODE_SET_DISPLAY_VERSION			1
+/* Max supported planes by drm_mode_set_display API per pipe basis */
+#define DRM_MODE_SET_DISPLAY_MAX_PLANES			4
 /* Per-display update flag */
 #define DRM_MODE_SET_DISPLAY_UPDATE_ZORDER		(1 << 0)
 #define DRM_MODE_SET_DISPLAY_UPDATE_PANEL_FITTER        (1 << 1)
@@ -546,10 +547,10 @@ struct drm_mode_set_display_plane {
 	__u32 crtc_w, crtc_h;
 	__u32 src_x, src_y;
 	__u32 src_h, src_w;
-	__u64 user_data;
 	__u32 rrb2_enable;
 	__u32 transform;
 	__u32 alpha;
+	__u64 user_data;
 };
 
 /**
@@ -567,13 +568,12 @@ struct drm_mode_set_display_plane {
  *
  */
 struct drm_mode_set_display {
+	__u32 size;
 	__u32 version;
 	__u32 crtc_id;
 	__u32 update_flag;
 	__u32 zorder;
-	struct drm_mode_set_display_panel_fitter panel_fitter;
 	__u32 num_planes;
-	struct drm_mode_set_display_plane *plane[DRM_MODE_SET_DISPLAY_MAX_PLANES];
 	/*
 	 * NOTE: These returns are temporary.
 	 * The final drm_mode_set_display implementation should be atomic and
@@ -581,6 +581,8 @@ struct drm_mode_set_display {
 	 */
 	__u32 presented;
 	__u32 errored;
+	struct drm_mode_set_display_panel_fitter panel_fitter;
+	struct drm_mode_set_display_plane plane[DRM_MODE_SET_DISPLAY_MAX_PLANES];
 };
 
 /* create a dumb scanout buffer */
