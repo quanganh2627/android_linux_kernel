@@ -597,6 +597,7 @@ int mei_cl_connect(struct mei_cl *cl, struct file *file)
 	mutex_lock(&dev->device_lock);
 
 	if (cl->state != MEI_FILE_CONNECTED) {
+		cl->state = MEI_FILE_DISCONNECTED;
 		/* something went really wrong */
 		if (!cl->status)
 			cl->status = -EFAULT;
