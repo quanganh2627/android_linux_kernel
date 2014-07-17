@@ -30,8 +30,10 @@
 #include "../platform_ipc_v2.h"
 #include "../sst_platform.h"
 #include "../sst_platform_pvt.h"
-#include "controls_v2.h"
+#include "controls_v2_dpcm.h"
 #include "sst_widgets.h"
+
+struct sst_cmd_sba_hw_set_ssp ssp_cmd[SST_NUM_SSPS];
 
 static inline void sst_fill_byte_control(char *param,
 					 u8 ipc_msg, u8 block,
@@ -962,7 +964,7 @@ int sst_fill_ssp_slot(struct sst_data *sst, unsigned int tx_mask,
 				unsigned int rx_mask, int id, int slots, int slot_width)
 {
 	int nb_slot;
-	struct sst_cmd_sba_hw_set_ssp *cmd = &sst->ssp_cmd[id];
+	struct sst_cmd_sba_hw_set_ssp *cmd = &ssp_cmd[id];
 
 	pr_debug("Enter:%s, slot=%d, slot_width=%d\n", __func__, slots, slot_width);
 
@@ -1089,7 +1091,7 @@ static int sst_get_ssp_protocol(unsigned int fmt, struct sst_cmd_sba_hw_set_ssp 
 int sst_fill_ssp_config(struct sst_data *sst, unsigned int id, unsigned int fmt, bool enable)
 {
 	int ssp_id, ret, fs_polarity;
-	struct sst_cmd_sba_hw_set_ssp *cmd = &sst->ssp_cmd[id];
+	struct sst_cmd_sba_hw_set_ssp *cmd = &ssp_cmd[id];
 
 	pr_debug("Enter:%s\n", __func__);
 
@@ -1116,8 +1118,8 @@ void send_ssp_cmd(struct snd_soc_platform *platform, unsigned int rate, unsigned
 
 	pr_debug("Enter:%s, enable=%d\n", __func__, enable);
 	if (enable)
-		sst->ssp_cmd[id].frame_sync_frequency = sst_get_frame_sync_freq(rate);
-	memcpy(&cmd, &sst->ssp_cmd[id], sizeof(struct sst_cmd_sba_hw_set_ssp));
+		ssp_cmd[id].frame_sync_frequency = sst_get_frame_sync_freq(rate);
+	memcpy(&cmd, &ssp_cmd[id], sizeof(struct sst_cmd_sba_hw_set_ssp));
 	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
 	cmd.header.command_id = SBA_HW_SET_SSP;
 	cmd.header.length = sizeof(struct sst_cmd_sba_hw_set_ssp)

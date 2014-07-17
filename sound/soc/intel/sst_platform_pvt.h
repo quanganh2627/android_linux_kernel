@@ -26,7 +26,6 @@
 
 #ifndef __SST_PLATFORM_PVT_H__
 #define __SST_PLATFORM_PVT_H__
-#include "platform-libs/controls_v2.h"
 
 /* TODO rmv this global */
 extern struct sst_device *sst_dsp;
@@ -143,7 +142,6 @@ struct sst_vtsv_result {
 struct sst_data {
 	struct platform_device *pdev;
 	struct sst_platform_data *pdata;
-	struct sst_cmd_sba_hw_set_ssp ssp_cmd[SST_NUM_SSPS];
 	unsigned int lpe_mixer_input_ihf;
 	unsigned int lpe_mixer_input_hs;
 	u32 *widget;

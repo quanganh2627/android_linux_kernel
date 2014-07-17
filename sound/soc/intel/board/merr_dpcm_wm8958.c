@@ -44,6 +44,7 @@
 #include <linux/mfd/wm8994/registers.h>
 #include <linux/mfd/wm8994/pdata.h>
 #include "../../codecs/wm8994.h"
+#include "../platform-libs/controls_v2_dpcm.h"
 
 /* Codec PLL output clk rate */
 #define CODEC_SYSCLK_RATE			24576000
@@ -97,8 +98,6 @@ static const struct snd_soc_pcm_stream mrfld_wm8958_ssp1_bt_wb = {
 	.channels_min = 2,
 	.channels_max = 2,
 };
-
-#define SST_BT_FM_MUX_SHIFT	0
 
 /* set_osc_clk0-	enable/disables the osc clock0
  * addr:		address of the register to write to
@@ -330,9 +329,6 @@ static int merr_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-#define SST_MUX_REG 27
-#define SST_BT_FM_MUX_SHIFT	0
-#define SST_BT_MODE_SHIFT	2
 static int mrfld_bt_fm_fixup(struct snd_soc_dai_link *dai_link, struct snd_soc_dai *dai)
 {
 	unsigned int fmt;
