@@ -132,7 +132,7 @@ int sst_mix_put(struct snd_kcontrol *kcontrol,
 	update.kcontrol = kcontrol;
 	update.widget = widget;
 	update.reg = mc->reg;
-	update.mask = mask;
+	update.mask = mask << mc->shift;
 	update.val = val;
 
 	widget->dapm->update = &update;
