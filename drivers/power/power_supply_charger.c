@@ -1005,9 +1005,6 @@ int psy_charger_throttle_charger(struct power_supply *psy,
 {
 	int ret = 0;
 
-	if (!IS_PRESENT(psy))
-		return 0;
-
 	if (state < 0 || state > MAX_THROTTLE_STATE(psy))
 		return -EINVAL;
 
@@ -1042,7 +1039,7 @@ int psy_charger_throttle_charger(struct power_supply *psy,
 	mutex_unlock(&psy_chrgr.evt_lock);
 
 	/* Configure the driver based on new state */
-	if (!ret)
+	if (!ret && IS_PRESENT(psy))
 		configure_chrgr_source(cable_list);
 	return ret;
 }
