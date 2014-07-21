@@ -693,12 +693,14 @@ enum drrs_support_type {
 enum drrs_refresh_rate_type {
 	DRRS_HIGH_RR,
 	DRRS_LOW_RR,
+	DRRS_MEDIA_RR,
 	DRRS_MAX_RR, /* RR count */
 };
 
 struct drrs_info {
 	enum drrs_support_type type;
 	enum drrs_refresh_rate_type refresh_rate_type;
+	enum drrs_refresh_rate_type target_rr_type;
 	struct mutex mutex;
 };
 
@@ -714,6 +716,7 @@ struct i915_drrs {
 		struct delayed_work work;
 		struct intel_encoder *intel_encoder;
 		enum drrs_refresh_rate_type target_rr_type;
+		struct drm_display_mode *target_mode;
 		atomic_t abort_wait_loop;
 	} *mipi_drrs_work;
 };

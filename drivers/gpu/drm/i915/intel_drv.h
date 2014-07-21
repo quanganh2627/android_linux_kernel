@@ -225,7 +225,7 @@ struct intel_encoder {
 	 * be set correctly before calling this function. */
 	void (*get_config)(struct intel_encoder *,
 			   struct intel_crtc_config *pipe_config);
-	void (*set_drrs_state)(struct intel_encoder *, enum drrs_refresh_rate_type);
+	void (*set_drrs_state)(struct intel_encoder *);
 	int crtc_mask;
 	enum hpd_pin hpd_pin;
 };
@@ -233,6 +233,7 @@ struct intel_encoder {
 struct intel_panel {
 	struct drm_display_mode *fixed_mode;
 	struct drm_display_mode *downclock_mode;
+	struct drm_display_mode *target_mode;
 	int fitting_mode;
 	bool downclock_avail;
 	int downclock;
@@ -346,10 +347,16 @@ struct intel_crtc_config {
 	/* m2_n2 for eDP downclock */
 	struct intel_link_m_n dp_m2_n2;
 
+	/* m3_n3 for eDP Media Playback RR */
+	struct intel_link_m_n dp_m3_n3;
+
 	struct intel_dsi_mnp dsi_mnp;
 
 	/* Divider values for DSI downclock */
 	struct intel_dsi_mnp dsi_mnp2;
+
+	/* Divider values for DSI Media Playback RR */
+	struct intel_dsi_mnp dsi_mnp3;
 
 	/*
 	 * Frequence the dpll for the port should run at. Differs from the

@@ -622,13 +622,28 @@ out_disable:
 	i915_gem_stolen_cleanup_compression(dev);
 }
 
-void intel_set_drrs_state(struct drm_device *dev, int refresh_rate)
+void intel_set_drrs_state(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_connector *intel_connector = dev_priv->drrs.connector;
 	struct intel_encoder *intel_encoder = NULL;
 	struct intel_crtc *intel_crtc = NULL;
-	enum drrs_refresh_rate_type index;
+	struct drm_display_mode *target_mode;
+	struct drrs_info *drrs_state = &dev_priv->drrs_state;
+	int refresh_rate;
+	bool resume_idleness_detection = false;
+
+	if (intel_connector == NULL) {
+		DRM_DEBUG_KMS("DRRS is not supported on this encoder\n");
+		return;
+	}
+
+	target_mode = intel_connector->panel.target_mode;
+	if (target_mode == NULL) {
+		DRM_DEBUG_KMS("target_mode cannot be NULL\n");
+		return;
+	}
+	refresh_rate = target_mode->vrefresh;
 
 	if (refresh_rate <= 0) {
 		DRM_INFO("Refresh rate should be positive non-zero.<%d>\n",
@@ -636,8 +651,8 @@ void intel_set_drrs_state(struct drm_device *dev, int refresh_rate)
 		return;
 	}
 
-	if (intel_connector == NULL) {
-		DRM_DEBUG_KMS("DRRS is not supported on this encoder\n");
+	if (drrs_state->target_rr_type > DRRS_MEDIA_RR) {
+		DRM_ERROR("Unknown refresh_rate_type\n");
 		return;
 	}
 
@@ -649,17 +664,13 @@ void intel_set_drrs_state(struct drm_device *dev, int refresh_rate)
 		return;
 	}
 
-	if (dev_priv->drrs_state.type < SEAMLESS_DRRS_SUPPORT) {
+	if (drrs_state->type < SEAMLESS_DRRS_SUPPORT) {
 		DRM_INFO("Seamless DRRS not supported.\n");
 		return;
 	}
 
-	if (intel_connector->panel.fixed_mode->vrefresh == refresh_rate)
-		index = DRRS_HIGH_RR;
-	else
-		index = DRRS_LOW_RR;
-
-	if (index == dev_priv->drrs_state.refresh_rate_type) {
+	if (drrs_state->target_rr_type == drrs_state->refresh_rate_type &&
+			drrs_state->refresh_rate_type != DRRS_MEDIA_RR) {
 		DRM_INFO("DRRS requested for previously set RR...ignoring\n");
 		return;
 	}
@@ -670,20 +681,37 @@ void intel_set_drrs_state(struct drm_device *dev, int refresh_rate)
 	}
 
 	if (INTEL_INFO(dev)->gen > 6 && INTEL_INFO(dev)->gen < 8) {
-		intel_encoder->set_drrs_state(intel_encoder, index);
+		intel_encoder->set_drrs_state(intel_encoder);
 	} else {
 		DRM_ERROR("DRRS not enabled for gen %d\n",
 							INTEL_INFO(dev)->gen);
 		return;
 	}
 
-	if (dev_priv->drrs_state.type != SEAMLESS_DRRS_SUPPORT_SW) {
-		mutex_lock(&dev_priv->drrs_state.mutex);
-		dev_priv->drrs_state.refresh_rate_type = index;
-		mutex_unlock(&dev_priv->drrs_state.mutex);
+	if (drrs_state->type != SEAMLESS_DRRS_SUPPORT_SW) {
+		if (drrs_state->refresh_rate_type == DRRS_MEDIA_RR &&
+				drrs_state->target_rr_type == DRRS_HIGH_RR)
+			resume_idleness_detection = true;
+
+		mutex_lock(&drrs_state->mutex);
+		drrs_state->refresh_rate_type = drrs_state->target_rr_type;
+		mutex_unlock(&drrs_state->mutex);
 
 		DRM_INFO("Refresh Rate set to : %dHz\n", refresh_rate);
+
+		intel_crtc->base.mode.vrefresh = target_mode->vrefresh;
+		intel_crtc->base.mode.clock = target_mode->clock;
+
+		if (resume_idleness_detection)
+			intel_update_drrs(dev);
 	}
+}
+
+/* Returns TRUE if the media playback DRRS is in progress */
+bool is_media_playback_drrs_in_progress(struct drrs_info *drrs_state)
+{
+	return (drrs_state->refresh_rate_type == DRRS_MEDIA_RR ||
+			drrs_state->target_rr_type == DRRS_MEDIA_RR);
 }
 
 static void intel_drrs_work_fn(struct work_struct *__work)
@@ -693,14 +721,24 @@ static void intel_drrs_work_fn(struct work_struct *__work)
 				struct intel_drrs_work, work);
 	struct drm_device *dev = work->crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_panel *panel = &dev_priv->drrs.connector->panel;
 
 	/* Double check if the dual-display mode is active. */
 	if (dev_priv->drrs.is_clone)
 		return;
 
-	intel_set_drrs_state(work->crtc->dev,
-		dev_priv->drrs.connector->panel.downclock_mode->vrefresh);
+	if (is_media_playback_drrs_in_progress(&dev_priv->drrs_state))
+		return;
 
+	if (panel->target_mode != NULL)
+		DRM_ERROR("FIXME: Something wrong in DRRS State machine\n");
+
+	panel->target_mode = panel->downclock_mode;
+	dev_priv->drrs_state.target_rr_type = DRRS_LOW_RR;
+
+	intel_set_drrs_state(work->crtc->dev);
+
+	panel->target_mode = NULL;
 	/* Update Watermark Values */
 	intel_update_watermarks(dev);
 }
@@ -710,8 +748,8 @@ static void intel_cancel_drrs_work(struct drm_i915_private *dev_priv)
 	if (dev_priv->drrs.drrs_work == NULL)
 		return;
 
-
 	cancel_delayed_work_sync(&dev_priv->drrs.drrs_work->work);
+	dev_priv->drrs.connector->panel.target_mode = NULL;
 }
 
 static void intel_enable_drrs(struct drm_crtc *crtc)
@@ -719,6 +757,9 @@ static void intel_enable_drrs(struct drm_crtc *crtc)
 	struct drm_i915_private *dev_priv = crtc->dev->dev_private;
 	struct intel_mipi_drrs_work *work = dev_priv->drrs.mipi_drrs_work;
 	bool force_enable_drrs = false;
+
+	if (is_media_playback_drrs_in_progress(&dev_priv->drrs_state))
+		return;
 
 	intel_cancel_drrs_work(dev_priv);
 
@@ -743,19 +784,30 @@ static void intel_enable_drrs(struct drm_crtc *crtc)
 void intel_disable_drrs(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_panel *panel;
 
 	if (dev_priv->drrs.connector == NULL)
+		return;
+
+	if (is_media_playback_drrs_in_progress(&dev_priv->drrs_state))
 		return;
 
 	/* as part of disable DRRS, reset refresh rate to HIGH_RR */
 	if (dev_priv->drrs_state.refresh_rate_type == DRRS_LOW_RR) {
 		intel_cancel_drrs_work(dev_priv);
-		intel_set_drrs_state(dev,
-			dev_priv->drrs.connector->panel.fixed_mode->vrefresh);
+		panel = &dev_priv->drrs.connector->panel;
+		if (panel->target_mode != NULL)
+			DRM_ERROR("FIXME: Something wrong in DRRS State\n");
+
+		panel->target_mode = panel->fixed_mode;
+		dev_priv->drrs_state.target_rr_type = DRRS_HIGH_RR;
+		intel_set_drrs_state(dev);
+		panel->target_mode = NULL;
+
+		/* Update Watermark Values */
+		intel_update_watermarks(dev);
 	}
 
-	/* Update Watermark Values */
-	intel_update_watermarks(dev);
 }
 
 /*
@@ -773,6 +825,9 @@ void intel_update_drrs(struct drm_device *dev)
 	 * which means DRRS is not supported.
 	 */
 	if (dev_priv->drrs.connector == NULL)
+		return;
+
+	if (is_media_playback_drrs_in_progress(&dev_priv->drrs_state))
 		return;
 
 	if (dev_priv->drrs.connector->panel.downclock_mode == NULL)
@@ -851,8 +906,8 @@ intel_drrs_init(struct drm_device *dev,
 	}
 
 	intel_connector->panel.downclock_avail = true;
-	intel_connector->panel.downclock =
-					downclock_mode->clock;
+	intel_connector->panel.downclock = downclock_mode->clock;
+	intel_connector->panel.target_mode = NULL;
 
 	ret = intel_init_drrs_idleness_detection(dev, intel_connector);
 	if (ret)

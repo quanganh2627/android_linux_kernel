@@ -3725,27 +3725,45 @@ intel_dp_init_panel_power_sequencer(struct drm_device *dev,
 }
 
 void
-intel_dp_set_drrs_state(struct intel_encoder *intel_encoder,
-			enum drrs_refresh_rate_type refresh_rate_type)
+intel_dp_set_drrs_state(struct intel_encoder *intel_encoder)
 {
 	struct drm_device *dev = intel_encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_connector *intel_connector = dev_priv->drrs.connector;
+	struct intel_dp *intel_dp = enc_to_intel_dp(&intel_encoder->base);
 	struct intel_crtc *intel_crtc = NULL;
+	struct intel_crtc_config *config;
+	struct intel_link_m_n *dp_m_n;
 	u32 reg, val;
 
 	intel_encoder = intel_attached_encoder(&intel_connector->base);
 	intel_crtc = intel_encoder->new_crtc;
 
-	reg = PIPECONF(intel_crtc->config.cpu_transcoder);
+	config = &intel_crtc->config;
+	reg = PIPECONF(config->cpu_transcoder);
 	val = I915_READ(reg);
-	if (refresh_rate_type > DRRS_HIGH_RR) {
+
+	if (dev_priv->drrs_state.target_rr_type > DRRS_HIGH_RR) {
 		if (IS_VALLEYVIEW(dev))
 			val |= PIPECONF_EDP_RR_MODE_SWITCH_VLV;
 		else
 			val |= PIPECONF_EDP_RR_MODE_SWITCH;
-		intel_dp_set_m2_n2(intel_crtc,
-				&intel_crtc->config.dp_m2_n2);
+
+		if (dev_priv->drrs_state.target_rr_type == DRRS_LOW_RR) {
+			dp_m_n = &config->dp_m2_n2;
+		} else if (dev_priv->drrs_state.target_rr_type ==
+								DRRS_MEDIA_RR) {
+			intel_link_compute_m_n(config->pipe_bpp,
+				intel_dp->lane_count,
+				intel_connector->panel.target_mode->clock,
+				config->port_clock, &config->dp_m3_n3);
+			dp_m_n = &config->dp_m3_n3;
+		} else {
+			DRM_ERROR("Unknown refreshrate type\n");
+			return;
+		}
+
+		intel_dp_set_m2_n2(intel_crtc, dp_m_n);
 	} else {
 		if (IS_VALLEYVIEW(dev))
 			val &= ~PIPECONF_EDP_RR_MODE_SWITCH_VLV;

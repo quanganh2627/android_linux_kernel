@@ -1046,11 +1046,10 @@ static void intel_mipi_drrs_work_fn(struct work_struct *__work)
 	struct intel_encoder *intel_encoder = work->intel_encoder;
 	struct drm_i915_private *dev_priv =
 				intel_encoder->base.dev->dev_private;
-	struct intel_panel *panel = &dev_priv->drrs.connector->panel;
 	struct intel_dsi_mnp *intel_dsi_mnp;
 	struct intel_dsi *intel_dsi = NULL;
 	struct intel_crtc *intel_crtc = NULL;
-	int refresh_rate;
+	bool resume_idleness_detection = false;
 	int ret, retry_cnt = 3;
 
 	intel_dsi = enc_to_intel_dsi(&intel_encoder->base);
@@ -1058,48 +1057,89 @@ static void intel_mipi_drrs_work_fn(struct work_struct *__work)
 
 	if (work->target_rr_type == DRRS_HIGH_RR) {
 		intel_dsi_mnp = &intel_crtc->config.dsi_mnp;
-		refresh_rate = panel->fixed_mode->vrefresh;
-	} else {
+	} else if (work->target_rr_type == DRRS_LOW_RR) {
 		intel_dsi_mnp = &intel_crtc->config.dsi_mnp2;
-		refresh_rate = panel->downclock_mode->vrefresh;
+	} else if (work->target_rr_type == DRRS_MEDIA_RR) {
+		if (intel_calculate_dsi_pll_mnp(intel_dsi,
+				work->target_mode,
+				&intel_crtc->config.dsi_mnp3, 0) < 0)
+			return;
+		intel_dsi_mnp = &intel_crtc->config.dsi_mnp3;
+	} else {
+		DRM_ERROR("Unknown refreshrate_type\n");
+		return;
 	}
+
+	if (dev_priv->drrs_state.refresh_rate_type == DRRS_MEDIA_RR &&
+			work->target_rr_type == DRRS_HIGH_RR)
+		resume_idleness_detection = true;
 
 retry:
 	ret = intel_drrs_configure_dsi_pll(intel_dsi, intel_dsi_mnp);
 	if (ret == 0) {
+		DRM_DEBUG_KMS("cur_rr_type: %d, cur_rr: %d, target_rr_type: %d, target_rr: %d\n",
+				dev_priv->drrs_state.refresh_rate_type,
+				intel_crtc->base.mode.vrefresh,
+				work->target_rr_type, work->target_mode->vrefresh);
+
 		mutex_lock(&dev_priv->drrs_state.mutex);
 		dev_priv->drrs_state.refresh_rate_type =
 						work->target_rr_type;
 		mutex_unlock(&dev_priv->drrs_state.mutex);
 
-		DRM_INFO("Refresh Rate set to : %dHz\n", refresh_rate);
+		DRM_INFO("Refresh Rate set to : %dHz\n",
+						work->target_mode->vrefresh);
+
+		intel_crtc->base.mode.vrefresh = work->target_mode->vrefresh;
+		intel_crtc->base.mode.clock = work->target_mode->clock;
+
+		if (resume_idleness_detection)
+			intel_update_drrs(intel_encoder->base.dev);
 	} else if (ret == -ETIMEDOUT && retry_cnt) {
 		DRM_ERROR("Retry left ... <%d>\n", --retry_cnt);
 		goto retry;
 	}
+
+	drm_mode_destroy(intel_encoder->base.dev, work->target_mode);
 }
 
 void
-intel_dsi_set_drrs_state(struct intel_encoder *intel_encoder,
-			enum drrs_refresh_rate_type refresh_rate_type)
+intel_dsi_set_drrs_state(struct intel_encoder *intel_encoder)
 {
 	struct drm_i915_private *dev_priv =
 				intel_encoder->base.dev->dev_private;
+	struct drm_display_mode *target_mode =
+				dev_priv->drrs.connector->panel.target_mode;
 	struct intel_mipi_drrs_work *work = dev_priv->drrs.mipi_drrs_work;
+	unsigned int ret;
 
-	if (work_busy(&work->work.work)) {
+	ret = work_busy(&work->work.work);
+	if (ret) {
+		if (work->target_mode)
+			if (work->target_mode->vrefresh ==
+						target_mode->vrefresh) {
+				DRM_DEBUG_KMS("Repeated request for %dHz\n",
+							target_mode->vrefresh);
+				return;
+			}
 		DRM_DEBUG_KMS("Cancelling an queued/executing work\n");
 		atomic_set(&work->abort_wait_loop, 1);
 		cancel_delayed_work_sync(&work->work);
 		atomic_set(&work->abort_wait_loop, 0);
+		if (ret & WORK_BUSY_PENDING)
+			drm_mode_destroy(intel_encoder->base.dev,
+							work->target_mode);
+
 	}
-	dev_priv->drrs.mipi_drrs_work->intel_encoder = intel_encoder;
-	dev_priv->drrs.mipi_drrs_work->target_rr_type = refresh_rate_type;
+	work->intel_encoder = intel_encoder;
+	work->target_rr_type = dev_priv->drrs_state.target_rr_type;
+	work->target_mode = drm_mode_duplicate(intel_encoder->base.dev,
+								target_mode);
 
 	schedule_delayed_work(&dev_priv->drrs.mipi_drrs_work->work, 0);
 }
 
-static int intel_dsi_drrs_deferred_work_init(struct drm_device *dev)
+int intel_dsi_drrs_deferred_work_init(struct drm_device *dev)
 {
 	struct intel_mipi_drrs_work *work;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1112,6 +1152,8 @@ static int intel_dsi_drrs_deferred_work_init(struct drm_device *dev)
 
 	atomic_set(&work->abort_wait_loop, 0);
 	INIT_DELAYED_WORK(&work->work, intel_mipi_drrs_work_fn);
+	work->target_mode = NULL;
+
 	dev_priv->drrs.mipi_drrs_work = work;
 	return 0;
 }
