@@ -254,6 +254,8 @@ static int ssic_port_enable(struct xhci_hcd *xhci, int enable)
 			dev_dbg(&ssic_pci_dev->dev,
 				"%s----> disable port\n", __func__);
 
+			hub_usb3_port_disable(usb_hub_to_struct_hub(ssic_hcd.rh_dev), ssic_hcd.ssic_port);
+
 			/* Config SSIC Configuration Register2 */
 			temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2);
 			xhci_dbg(xhci, "Config Register2 = 0x%08X before write\n", temp);
@@ -302,11 +304,19 @@ static int ssic_port_enable(struct xhci_hcd *xhci, int enable)
 			xhci_dbg(xhci, "After clear PP, portsc = 0x%X\n",
 			xhci_readl(xhci, port_array[ssic_hcd.ssic_port - 1]));
 
-			if (ssic_hcd.modem_dev) {
-				dev_dbg(&ssic_pci_dev->dev,
-						"Enable auto suspend in port disable\n");
-				usb_enable_autosuspend(ssic_hcd.modem_dev);
+			status = set_port_feature(ssic_hcd.rh_dev,
+							ssic_hcd.ssic_port,
+						USB_PORT_FEAT_POWER);
+			if (status < 0) {
+				dev_err(&ssic_pci_dev->dev,
+						"%s set port power failed, return %d\n",
+						__func__, status);
+				return status;
 			}
+			if (status == 0)
+				xhci_dbg(xhci, "set port power() successful\n");
+			xhci_dbg(xhci, "After set PP, portsc = 0x%X\n",
+			xhci_readl(xhci, port_array[ssic_hcd.ssic_port - 1]));
 
 			dev_dbg(&ssic_pci_dev->dev,
 					"Enable root hub auto suspend in port disable\n");
@@ -361,6 +371,7 @@ static ssize_t ssic_enable_store(struct device *dev,
 		return -EINVAL;
 	}
 
+	usb_lock_device(ssic_hcd.rh_dev);
 	mutex_lock(&ssic_hcd.ssic_mutex);
 	if (!ssic_hcd.rh_dev) {
 		dev_dbg(dev, "root hub is already removed\n");
@@ -432,6 +443,7 @@ pm_out:
 		pm_runtime_put(&ssic_hcd.rh_dev->dev);
 out:
 	mutex_unlock(&ssic_hcd.ssic_mutex);
+	usb_unlock_device(ssic_hcd.rh_dev);
 	return size;
 }
 
@@ -1144,6 +1156,8 @@ static void ssicdev_remove(struct usb_device *udev)
 			mutex_lock(&ssic_hcd.ssic_mutex);
 			ssic_hcd.modem_dev = NULL;
 
+			hub_usb3_port_disable(usb_hub_to_struct_hub(ssic_hcd.rh_dev), ssic_hcd.ssic_port);
+
 			/* enable autosuspend when modem remove
 			 * sync internal autosuspend_enable value
 			 */
@@ -1151,7 +1165,6 @@ static void ssicdev_remove(struct usb_device *udev)
 				usb_enable_autosuspend(ssic_hcd.rh_dev);
 			ssic_hcd.autosuspend_enable = 1;
 
-			hub_usb3_port_disable(usb_hub_to_struct_hub(ssic_hcd.rh_dev), ssic_hcd.ssic_port);
 			mutex_unlock(&ssic_hcd.ssic_mutex);
 
 		}
