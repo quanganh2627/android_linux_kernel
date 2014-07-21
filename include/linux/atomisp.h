@@ -260,6 +260,31 @@ struct atomisp_3a_rgby_output {
 	uint32_t y;
 };
 
+/*
+ * Because we have 2 pipes at max to output metadata, therefore driver will use
+ * ATOMISP_MAIN_METADATA to specify the metadata from the pipe which keeps
+ * streaming always and use ATOMISP_SEC_METADATA to specify the metadata from
+ * the pipe which is streaming by request like capture pipe of ZSL or SDV mode
+ * as secondary metadata. And for the use case which has only one pipe
+ * streaming like online capture, ATOMISP_MAIN_METADATA will be used.
+ */
+enum atomisp_metadata_type {
+	ATOMISP_MAIN_METADATA = 0,
+	ATOMISP_SEC_METADATA,
+	ATOMISP_METADATA_TYPE_NUM,
+};
+
+struct atomisp_metadata_with_type {
+	/* to specify which type of metadata to get */
+	enum atomisp_metadata_type type;
+	void __user *data;
+	uint32_t width;
+	uint32_t height;
+	uint32_t stride; /* in bytes */
+	uint32_t exp_id; /* exposure ID */
+	uint32_t *effective_width; /* mipi packets valid data size */
+};
+
 struct atomisp_metadata {
 	void __user *data;
 	uint32_t width;
@@ -1055,6 +1080,9 @@ struct v4l2_private_int_data {
 
 #define ATOMISP_IOC_G_METADATA \
 	_IOWR('v', BASE_VIDIOC_PRIVATE + 34, struct atomisp_metadata)
+
+#define ATOMISP_IOC_G_METADATA_BY_TYPE \
+	_IOWR('v', BASE_VIDIOC_PRIVATE + 34, struct atomisp_metadata_with_type)
 
 #define ATOMISP_IOC_EXT_ISP_CTRL \
 	_IOWR('v', BASE_VIDIOC_PRIVATE + 35, struct atomisp_ext_isp_ctrl)
