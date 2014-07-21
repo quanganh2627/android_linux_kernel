@@ -35,9 +35,9 @@
 #define PIXTER_0_LANES		4
 #define PIXTER_0_STREAMS	1
 
-#define PIXTER_1_TYPE		SOC_CAMERA
+#define PIXTER_1_TYPE		RAW_CAMERA
 #define PIXTER_1_FORMAT		-1
-#define PIXTER_1_BAYER		0
+#define PIXTER_1_BAYER		atomisp_bayer_order_rggb
 #define PIXTER_1_LANES		1
 #define PIXTER_1_STREAMS	1
 
