@@ -858,6 +858,143 @@ void intel_update_drrs(struct drm_device *dev)
 	intel_enable_drrs(crtc);
 }
 
+/* Function to handle the Media Playback DRRS requests
+	DRRS_HIGH_RR/DRRS_LOW_RR -> DRRS_MEDIA_RR
+	DRRS_MEDIA_RR -> DRRS_HIGH_RR
+*/
+int intel_media_playback_drrs_configure(struct drm_device *dev,
+					struct drm_display_mode *mode)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drrs_info *drrs_state = &dev_priv->drrs_state;
+	struct drm_crtc *crtc = NULL;
+	struct intel_panel *panel;
+	int refresh_rate = mode->vrefresh;
+	u32 active_crtc_cnt = 0;
+
+	if (dev_priv->drrs_state.type < SEAMLESS_DRRS_SUPPORT) {
+		DRM_ERROR("SEAMLESS_DRRS is not supported\n");
+		return -EPERM;
+	}
+	panel = &dev_priv->drrs.connector->panel;
+
+	if (refresh_rate < panel->downclock_mode->vrefresh &&
+			refresh_rate > panel->fixed_mode->vrefresh) {
+		DRM_ERROR("Invalid refresh_rate\n");
+		return -EINVAL;
+	}
+
+	if (refresh_rate == panel->fixed_mode->vrefresh) {
+		if (drrs_state->refresh_rate_type == DRRS_MEDIA_RR) {
+			/* DRRS_MEDIA_RR -> DRRS_HIGH_RR */
+			if (panel->target_mode)
+				drm_mode_destroy(dev, panel->target_mode);
+			panel->target_mode = panel->fixed_mode;
+			drrs_state->target_rr_type = DRRS_HIGH_RR;
+		} else {
+			/* Invalid Media Playback DRRS request.
+			 * Resume the Idleness Detection */
+			DRM_DEBUG_KMS("Requested for Fixed mode\n");
+			intel_update_drrs(dev);
+			return 0;
+		}
+	} else {
+		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+			if (intel_crtc_active(crtc)) {
+				if (active_crtc_cnt) {
+					DRM_DEBUG_KMS(
+					"more than one pipe active\n");
+					dev_priv->drrs.is_clone = true;
+					break;
+				} else {
+					dev_priv->drrs.is_clone = false;
+				}
+				active_crtc_cnt++;
+			}
+		}
+
+		if (dev_priv->drrs.is_clone) {
+			if (panel->target_mode &&
+				drrs_state->refresh_rate_type == DRRS_MEDIA_RR)
+				drm_mode_destroy(dev, panel->target_mode);
+			/* Cancel Idleness detection if exist */
+			intel_cancel_drrs_work(dev_priv);
+			panel->target_mode = panel->fixed_mode;
+			drrs_state->target_rr_type = DRRS_HIGH_RR;
+			goto set_state;
+		}
+
+		drrs_state->target_rr_type = DRRS_MEDIA_RR;
+
+		if (drrs_state->refresh_rate_type == DRRS_MEDIA_RR) {
+			/* Refresh rate change in Media playback DRRS */
+			if (refresh_rate == panel->target_mode->vrefresh) {
+				DRM_DEBUG_KMS("Request for current RR.<%d>\n",
+						panel->target_mode->vrefresh);
+				return 0;
+			}
+			panel->target_mode->vrefresh = refresh_rate;
+		} else {
+			/* Entering MEDIA Playback DRRS state*/
+			intel_cancel_drrs_work(dev_priv);
+			panel->target_mode = drm_mode_duplicate(dev, mode);
+		}
+
+		panel->target_mode->clock = mode->vrefresh * mode->vtotal *
+							mode->htotal / 1000;
+	}
+
+	DRM_DEBUG_KMS("cur_rr_type: %d, target_rr_type: %d, target_rr: %d\n",
+				drrs_state->refresh_rate_type,
+				drrs_state->target_rr_type,
+				panel->target_mode->vrefresh);
+set_state:
+	intel_set_drrs_state(dev);
+	return 0;
+}
+
+/* Function to filter the Media playback DRRS request from the normal
+ * mode set */
+bool is_media_playback_drrs_request(struct drm_mode_set *set)
+{
+	struct drm_device *dev = set->crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drrs_info *drrs_state = &dev_priv->drrs_state;
+	struct intel_mipi_drrs_work *work = dev_priv->drrs.mipi_drrs_work;
+	bool ret = false;
+
+	if (dev_priv->drrs_state.type < SEAMLESS_DRRS_SUPPORT)
+		return ret;
+
+	if (set->mode == NULL)
+		return ret;
+
+	DRM_DEBUG_KMS("mode_vr: %d, crtc_vr: %d, cur_rr_type: %d\n",
+				set->mode->vrefresh, set->crtc->mode.vrefresh,
+						drrs_state->refresh_rate_type);
+
+	if (drm_mode_equal_no_clocks(set->mode, &set->crtc->mode)) {
+		if (set->mode->vrefresh != set->crtc->mode.vrefresh)
+			ret = true;
+
+		if (dev_priv->drrs_state.type == SEAMLESS_DRRS_SUPPORT_SW) {
+			if (work_busy(&work->work.work)) {
+				if (work->target_mode->vrefresh !=
+						set->mode->vrefresh)
+					/* Deferred work is in place to change
+					 * the DRRS state. Hence this call is
+					 * valid Media playback DRRS request */
+					ret = true;
+				else if (drrs_state->refresh_rate_type !=
+								DRRS_MEDIA_RR)
+					ret = true;
+			}
+		}
+	}
+
+	return ret;
+}
+
 int intel_init_drrs_idleness_detection(struct drm_device *dev,
 					struct intel_connector *connector)
 {

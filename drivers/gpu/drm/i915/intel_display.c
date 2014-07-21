@@ -10571,6 +10571,16 @@ static int intel_crtc_set_config(struct drm_mode_set *set)
 	save_set.y = set->crtc->y;
 	save_set.fb = set->crtc->fb;
 
+	/* Identifying the Media Playback DRRS request */
+	if (is_media_playback_drrs_request(set)) {
+		/* While requesting for Media Playback DRRS Userspace should
+		 * make sure that fb passed is same as that is in use.
+		 * Else at successful drrs request, we will hit a warn_on on
+		 * return path for fb mismatch */
+		ret = intel_media_playback_drrs_configure(dev, set->mode);
+		goto out_config;
+	}
+
 	/* Compute whether we need a full modeset, only an fb base update or no
 	 * change at all. In the future we might also check whether only the
 	 * mode changed, e.g. for LVDS where we only change the panel fitter in

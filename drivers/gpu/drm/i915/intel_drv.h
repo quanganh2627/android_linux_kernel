@@ -982,6 +982,9 @@ extern void intel_edp_psr_update(struct drm_device *dev);
 extern int intel_drrs_init(struct drm_device *dev,
 				struct intel_connector *intel_connector,
 				struct drm_display_mode *downclock_mode);
+extern int intel_media_playback_drrs_configure(struct drm_device *dev,
+					struct drm_display_mode *mode);
+extern bool is_media_playback_drrs_request(struct drm_mode_set *set);
 
 extern void intel_update_drrs(struct drm_device *dev);
 extern void intel_disable_drrs(struct drm_device *dev);
