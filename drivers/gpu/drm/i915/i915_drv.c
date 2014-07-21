@@ -243,10 +243,10 @@ module_param_named(i915_enable_cmd_parser, i915_enable_cmd_parser, int, 0600);
 MODULE_PARM_DESC(i915_enable_cmd_parser,
 		"Enable command parsing (default: true)");
 
-int i915_drrs_interval __read_mostly = 2000;
+int i915_drrs_interval __read_mostly = 180;
 module_param_named(drrs_interval, i915_drrs_interval, int, 0600);
 MODULE_PARM_DESC(drrs_interval,
-	"DRRS idleness detection interval (default: 2000 ms)."
+	"DRRS idleness detection interval (default: 180 ms)."
 	"If this field is set to 0, then seamless DRRS feature "
 	"based on idleness detection is disabled."
 	"The interval is to be set in milliseconds.");
