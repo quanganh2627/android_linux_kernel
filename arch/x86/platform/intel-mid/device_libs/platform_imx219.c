@@ -28,6 +28,9 @@ static int is_moorefield(void)
 	       INTEL_MID_BOARD(1, TABLET, MOFD);
 }
 
+#ifdef CONFIG_SFI
+#define CONFIG_VIDEO_IMX219_FAKE_SFI_TABLE
+#endif
 /*
  * MOFD VV primary camera sensor - imx219 platform data
  */
@@ -35,8 +38,15 @@ static int is_moorefield(void)
 static int imx219_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	int ret;
+#ifdef CONFIG_VIDEO_IMX219_FAKE_SFI_TABLE
+	int pin;
+#endif
 
 	if (camera_reset < 0) {
+#ifdef CONFIG_VIDEO_IMX219_FAKE_SFI_TABLE
+		pin = get_gpio_by_name(GP_CAMERA_0_RESET);
+		gpio_free(pin);
+#endif
 		ret = camera_sensor_gpio(-1, GP_CAMERA_0_RESET,
 					GPIOF_DIR_OUT, 1);
 		if (ret < 0)
@@ -134,3 +144,26 @@ void *imx219_platform_data(void *info)
 	camera_reset = -1;
 	return &imx219_sensor_platform_data;
 }
+
+#ifdef CONFIG_VIDEO_IMX219_FAKE_SFI_TABLE
+static struct sfi_device_table_entry imx219_entry = {
+	.type = SFI_DEV_TYPE_I2C,
+	.host_num = 4,
+	.addr = 0x1a,
+	.irq = 0xFF,
+	.max_freq = 0x400000,
+	.name = "imx219",
+};
+
+static int __init platform_imx219_module_init(void)
+{
+	struct devs_id *dev;
+	dev = get_device_id(imx219_entry.type, imx219_entry.name);
+	if (dev && dev->device_handler)
+		dev->device_handler(&imx219_entry, dev);
+	return 0;
+}
+
+module_init(platform_imx219_module_init);
+#endif
+
