@@ -10875,10 +10875,9 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 	dev_priv->is_resuming = false;
 	dev_priv->s0ixstat = false;
 
-	if (dev_priv->dpst.state) {
-		i915_dpst_set_default_luma(dev);
+	i915_dpst_set_default_luma(dev);
+	if (dev_priv->dpst.state)
 		i915_dpst_enable_hist_interrupt(dev);
-	}
 
 	DRM_DEBUG_PM("Value in iClk5val = %x\n",
 		vlv_ccu_read(dev_priv, CCU_ICLK5_REG));
