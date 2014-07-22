@@ -112,21 +112,21 @@ enum sst_gain_kcontrol_type {
 };
 
 struct sst_dfw_gain_data {
-	u8 stereo;
+	__u8 stereo;
 	enum sst_gain_kcontrol_type type;
-	u32 gain_val_index;
-	s32 max;
-	s32 min;
-	u16 instance_id;
-	u16 module_id;
-	u16 pipe_id;
-	u16 task_id;
-	u16 ramp_duration;
-	s16 l_gain;
-	s16 r_gain;
-	u8 mute;
+	__u32 gain_val_index;
+	__s32 max;
+	__s32 min;
+	__u16 instance_id;
+	__u16 module_id;
+	__u16 pipe_id;
+	__u16 task_id;
+	__u16 ramp_duration;
+	__s16 l_gain;
+	__s16 r_gain;
+	__u8 mute;
 	char pname[44];
-} __packed;
+} __attribute__((packed));
 
 enum sst_algo_kcontrol_type {
 	SST_ALGO_PARAMS,
@@ -135,29 +135,29 @@ enum sst_algo_kcontrol_type {
 
 struct sst_dfw_algo_data {
 	enum sst_algo_kcontrol_type type;
-	s32 max;
-	u16 module_id;
-	u16 pipe_id;
-	u16 task_id;
-	u16 cmd_id;
-	u8 bypass;
+	__s32 max;
+	__u16 module_id;
+	__u16 pipe_id;
+	__u16 task_id;
+	__u16 cmd_id;
+	__u8 bypass;
 	char params[0];
 	/* params will be in driver's pvt structure */
-} __packed;
+} __attribute__((packed));
 
 struct sst_dfw_ids {
-	u32 sample_bits;        /* sst_pcm_format->sample_bits */
-	u32 rate_min;           /* sst_pcm_format-> rate_min */
-	u32 rate_max;           /* sst_pcm_format->rate_max */
-	u32 channels_min;       /* sst_pcm_format->channels_min */
-	u32 channels_max;       /* sst_pcm_format->channels_max */
-	u16 location_id;
-	u16 module_id;
-	u8  task_id;
-	u8  format;             /* stereo/mono */
-	u8  reg;
+	__u32 sample_bits;        /* sst_pcm_format->sample_bits */
+	__u32 rate_min;           /* sst_pcm_format-> rate_min */
+	__u32 rate_max;           /* sst_pcm_format->rate_max */
+	__u32 channels_min;       /* sst_pcm_format->channels_min */
+	__u32 channels_max;       /* sst_pcm_format->channels_max */
+	__u16 location_id;
+	__u16 module_id;
+	__u8  task_id;
+	__u8  format;             /* stereo/mono */
+	__u8  reg;
 	const char parent_wname[44];
-} __packed;
+} __attribute__((packed));
 
 #if 0
 /* sst_fw_config: FW config data organization
@@ -192,7 +192,7 @@ struct sst_fw_config {
 	struct snd_soc_fw_aifin_widget aifin_widget[];
 
 	/* TODO: Add intercon */
-} __packed;
+} __attribute__((packed));
 #endif
 
 #endif
