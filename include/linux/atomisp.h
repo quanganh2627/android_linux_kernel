@@ -858,6 +858,7 @@ struct atomisp_acc_fw_load_to_pipe {
 #define ATOMISP_ACC_FW_LOAD_FL_VIDEO		(1 << 2)
 #define ATOMISP_ACC_FW_LOAD_FL_CAPTURE		(1 << 3)
 #define ATOMISP_ACC_FW_LOAD_FL_ACC		(1 << 4)
+#define ATOMISP_ACC_FW_LOAD_FL_ENABLE		(1 << 16)
 
 #define ATOMISP_ACC_FW_LOAD_TYPE_NONE		0 /* Normal binary: don't use */
 #define ATOMISP_ACC_FW_LOAD_TYPE_OUTPUT		1 /* Stage on output */
@@ -874,6 +875,12 @@ struct atomisp_acc_map {
 
 #define ATOMISP_MAP_FLAG_NOFLUSH	0x0001	/* Do not flush cache */
 #define ATOMISP_MAP_FLAG_CACHED		0x0002	/* Enable cache */
+
+struct atomisp_acc_state {
+	__u32 flags;			/* Flags, see list below */
+#define ATOMISP_STATE_FLAG_ENABLE	ATOMISP_ACC_FW_LOAD_FL_ENABLE
+	unsigned int fw_handle;
+};
 
 /*
  * V4L2 private internal data interface.
@@ -1104,6 +1111,12 @@ struct v4l2_private_int_data {
 
 #define ATOMISP_IOC_S_EXPOSURE_WINDOW \
 	_IOW('v', BASE_VIDIOC_PRIVATE + 40, struct atomisp_ae_window)
+
+#define ATOMISP_IOC_S_ACC_STATE \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 41, struct atomisp_acc_state)
+
+#define ATOMISP_IOC_G_ACC_STATE \
+	_IOR('v', BASE_VIDIOC_PRIVATE + 41, struct atomisp_acc_state)
 
 /*
  * Reserved ioctls. We have customer implementing it internally.
