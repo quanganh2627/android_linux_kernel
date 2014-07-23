@@ -213,11 +213,20 @@ int create_sysfs_telephony_entry(void *pdata)
 	return retval;
 }
 
-void mcd_register_finalize(struct mcd_base_info const *info)
+/**
+ * Retrieves GPIO configuration.
+ *
+ * @return -1 if at least one GPIO value is missing
+ * @return 0 if successful
+ */
+int mcd_register_finalize(struct mcd_base_info const *info)
 {
+	int ret = 0;
+
 	if (!info) {
 		pr_err("%s - oops: info is NULL\n", __func__);
-		return;
+		ret = 0;
+		goto out;
 	}
 
 	switch (info->cpu_ver) {
@@ -236,10 +245,18 @@ void mcd_register_finalize(struct mcd_base_info const *info)
 			    get_gpio_by_name(cpu_data->gpio_rst_bbn_name);
 			cpu_data->gpio_cdump =
 			    get_gpio_by_name(cpu_data->gpio_cdump_name);
+
+			if ((cpu_data->gpio_rst_out == -1) ||
+				(cpu_data->gpio_pwr_on == -1) ||
+				(cpu_data->gpio_rst_bbn == -1) ||
+				(cpu_data->gpio_cdump == -1))
+				ret = -1;
 			break;
 		}
 	}
-	return;
+
+out:
+	return ret;
 }
 
 void mcd_set_mdm(struct mcd_base_info *info, int mdm_ver)
@@ -280,7 +297,8 @@ int mcd_register_mdm_info(struct mcd_base_info *info,
 		info[i].pmic_data =
 			g_pmic_data[info[i].pmic_ver * MDM_CTRL_MAX_MDM + i];
 
-		mcd_register_finalize(&info[i]);
+		if (mcd_register_finalize(&info[i]))
+			break;
 	}
 
 	nb_mdms = i;
