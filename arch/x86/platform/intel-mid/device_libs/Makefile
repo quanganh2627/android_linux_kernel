@@ -65,6 +65,7 @@ obj-$(subst m,y,$(CONFIG_GPIO_PCA953X)) += platform_pca9574.o
 
 # SPI Devices
 obj-$(subst m,y,$(CONFIG_SERIAL_MRST_MAX3110)) += platform_max3111.o
+obj-$(subst m,y,$(CONFIG_SERIAL_XMM2230)) += platform_xmm2230.o
 # HSI Devices
 obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_hsi_modem.o
 obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_ffl_modem.o

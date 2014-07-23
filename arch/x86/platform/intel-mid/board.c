@@ -131,6 +131,7 @@
  */
 #include "device_libs/platform_max3111.h"
 #include "device_libs/platform_max17042.h"
+#include "device_libs/platform_xmm2230.h"
 
 /* HSI devices */
 #include "device_libs/platform_hsi_modem.h"
@@ -179,6 +180,7 @@ struct devs_id __initconst device_ids[] = {
 	{"pmic_gpio", SFI_DEV_TYPE_IPC, 1, &pmic_gpio_platform_data,
 					&ipc_device_handler},
 	{"spi_max3111", SFI_DEV_TYPE_SPI, 0, &max3111_platform_data, NULL},
+	{"spi_xmm2230", SFI_DEV_TYPE_SPI, 0, &xmm2230_platform_data, NULL},
 	{"i2c_max7315", SFI_DEV_TYPE_I2C, 1, &max7315_platform_data, NULL},
 	{"i2c_max7315_2", SFI_DEV_TYPE_I2C, 1, &max7315_platform_data, NULL},
 	{"tca6416", SFI_DEV_TYPE_I2C, 1, &tca6416_platform_data, NULL},
