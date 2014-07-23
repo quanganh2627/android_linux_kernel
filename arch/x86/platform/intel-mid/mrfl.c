@@ -174,7 +174,6 @@ static int set_safe_battery_param(void)
 	/* Populate the safe charging parameters */
 	memcpy(battery_chrg_profile->batt_id, "I2", BATTID_STR_LEN);
 	battery_chrg_profile->battery_type = 2;
-	battery_chrg_profile->turbo_chg = 0;
 	battery_chrg_profile->capacity = 2100;
 	battery_chrg_profile->voltage_max = 4100;
 	battery_chrg_profile->chrg_term_ma = 150;
@@ -265,7 +264,6 @@ static void set_batt_chrg_prof(struct ps_pse_mod_prof *batt_prof,
 	}
 
 	memcpy(batt_prof->batt_id, pentry->batt_id, BATTID_STR_LEN);
-	batt_prof->turbo_chg = pentry->turbo_chg;
 	batt_prof->battery_type = pentry->battery_type;
 	batt_prof->capacity = pentry->capacity;
 	batt_prof->voltage_max = pentry->voltage_max;
