@@ -458,9 +458,13 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 			I915_WRITE(SPTILEOFF(pipe, plane), (y << 16) | x);
 	} else {
 		if (rotate) {
+			/* Linear Offset should be the difference b/w the last pixel of
+			 * the last line of the display data in its unrotated orientation
+			 * and the display surface address.
+			 */
 			int rot_linoff = linear_offset +
 					 crtc_h * fb->pitches[0] +
-					 (crtc_w + 1) * pixel_size;
+					 (crtc_w) * pixel_size;
 			I915_WRITE(SPLINOFF(pipe, plane), rot_linoff);
 
 		} else
