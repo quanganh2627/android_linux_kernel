@@ -16,7 +16,6 @@ struct pmic_platform_data {
 	void (*inlmt_to_reg)(int, u8*);
 	int max_tbl_row_cnt;
 	struct temp_lookup *adc_tbl;
-	int max_inlmt;
 };
 
 extern int pmic_get_status(void);
