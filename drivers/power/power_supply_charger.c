@@ -274,6 +274,7 @@ static inline void get_cur_chrgr_prop(struct power_supply *psy,
 	chrgr_prop->cable = CABLE_TYPE(psy);
 	chrgr_prop->health = HEALTH(psy);
 	chrgr_prop->tstamp = get_jiffies_64();
+
 }
 
 static inline int get_chrgr_prop_cache(struct power_supply *psy,
@@ -413,7 +414,6 @@ update_props:
 	bat_cache->status = bat_prop_new->status;
 	bat_cache->algo_stat = bat_prop_new->algo_stat;
 	bat_cache->throttle_state = bat_prop_new->throttle_state;
-	bat_cache->charge_type = bat_prop_new->charge_type;
 }
 
 static inline int get_bat_prop_cache(struct power_supply *psy,
@@ -447,7 +447,6 @@ static inline void get_cur_bat_prop(struct power_supply *psy,
 	bat_prop->health = HEALTH(psy);
 	bat_prop->tstamp = get_jiffies_64();
 	bat_prop->throttle_state = CURRENT_THROTTLE_STATE(psy);
-	bat_prop->charge_type = CHARGE_TYPE(psy);
 
 	/* Populate cached algo data to new profile */
 	ret = get_bat_prop_cache(psy, &bat_prop_cache);
@@ -685,6 +684,7 @@ static int trigger_algo(struct power_supply *psy)
 		pr_err("%s:Error in getting charge profile\n", __func__);
 		return -EINVAL;
 	}
+
 
 	get_bat_prop_cache(psy, &bat_prop);
 

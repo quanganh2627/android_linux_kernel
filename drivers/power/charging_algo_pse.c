@@ -18,7 +18,6 @@
 *  MAINT_EXIT_OFFSET) then system can switch to normal charging
 */
 #define MAINT_EXIT_OFFSET 50  /* mV */
-#define TRICKLE_CC(cap) ((cap * 25)/100)
 
 static int get_tempzone(struct ps_pse_mod_prof *pse_mod_bprof,
 		int temp)
@@ -87,23 +86,6 @@ static int  pse_get_bat_thresholds(struct ps_batt_chg_prof  bprof,
 	bat_thresh->temp_max = pse_mod_bprof->temp_mon_range[0].temp_up_lim;
 
 	return 0;
-}
-
-static inline bool is_max_cc_tzone(struct ps_pse_mod_prof *pse_mod_bprof,
-					int tzone)
-{
-	int max_cur = -1;
-	int i;
-	/* Find the max charge current in all the zones */
-	for (i = 0; i <= pse_mod_bprof->temp_mon_ranges; i++) {
-		if (pse_mod_bprof->temp_mon_range[i].full_chrg_cur >= max_cur)
-			max_cur = pse_mod_bprof->temp_mon_range[i].full_chrg_cur;
-	}
-
-	if (pse_mod_bprof->temp_mon_range[tzone].full_chrg_cur >= max_cur)
-		return true;
-	else
-		return false;
 }
 
 static enum psy_algo_stat pse_get_next_cc_cv(struct batt_props bat_prop,
@@ -179,17 +161,6 @@ static enum psy_algo_stat pse_get_next_cc_cv(struct batt_props bat_prop,
 		*cv = pse_mod_bprof->temp_mon_range[tzone].full_chrg_vol;
 		*cc = pse_mod_bprof->temp_mon_range[tzone].full_chrg_cur;
 		algo_stat = PSY_ALGO_STAT_CHARGE;
-		/* setting CC based on charge_type */
-		if (bat_prop.charge_type == POWER_SUPPLY_CHARGE_TYPE_FAST) {
-			/* Enable the turbo_charge for the zones support
-			 * max charge current. */
-			if (is_max_cc_tzone(pse_mod_bprof, tzone))
-				*cc += (pse_mod_bprof->turbo_chg * 100);
-		} else if (bat_prop.charge_type ==
-				POWER_SUPPLY_CHARGE_TYPE_TRICKLE) {
-				/* Enable slow charge with 0.25C charging */
-				*cc = TRICKLE_CC(pse_mod_bprof->capacity);
-		}
 	}
 
 	if (bat_prop.voltage_now > *cv) {
