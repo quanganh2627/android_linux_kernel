@@ -30,6 +30,8 @@ static const struct sst_probe_config sst_probes[] = {
 	{ "aware_out gain", SST_PATH_INDEX_AWARE_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "vad_out gain", SST_PATH_INDEX_VAD_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "hf_sns_out gain", SST_PATH_INDEX_HF_SNS_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "hf_sns_3_out gain", SST_PATH_INDEX_HF_SNS_3_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "hf_sns_4_out gain", SST_PATH_INDEX_HF_SNS_4_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "hf_out gain", SST_PATH_INDEX_HF_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "speech_out gain", SST_PATH_INDEX_SPEECH_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "txspeech_in gain", SST_PATH_INDEX_TX_SPEECH_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
@@ -59,6 +61,8 @@ static const struct sst_probe_config sst_probes[] = {
 	{ "speech_in src", SST_PATH_INDEX_SPEECH_IN, SST_MODULE_ID_SRC, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "hf_out src", SST_PATH_INDEX_HF_OUT, SST_MODULE_ID_SRC, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "hf_sns_out src", SST_PATH_INDEX_HF_SNS_OUT, SST_MODULE_ID_SRC, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "hf_sns_3_out src", SST_PATH_INDEX_HF_SNS_3_OUT, SST_MODULE_ID_SRC, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "hf_sns_4_out src", SST_PATH_INDEX_HF_SNS_4_OUT, SST_MODULE_ID_SRC, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "pcm1_out src", SST_PATH_INDEX_PCM1_OUT, SST_MODULE_ID_SRC, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "pcm2_out src", SST_PATH_INDEX_PCM2_OUT, SST_MODULE_ID_SRC, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "voip_in src", SST_PATH_INDEX_VOIP_IN, SST_MODULE_ID_SRC, SST_TASK_SBA, { 1, 2, 1 } },
@@ -121,9 +125,15 @@ static const struct sst_probe_config sst_probes[] = {
 
 	{ "tone_in tone_gen", SST_PATH_INDEX_TONE_IN, SST_MODULE_ID_TONE_GEN, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "hf_sns_out bmf", SST_PATH_INDEX_HF_SNS_OUT, SST_MODULE_ID_BMF, SST_TASK_FBA_UL, { 1, 2, 1 } },
+	{ "hf_sns_3_out bmf", SST_PATH_INDEX_HF_SNS_3_OUT, SST_MODULE_ID_BMF, SST_TASK_FBA_UL, { 1, 2, 1 } },
+	{ "hf_sns_4_out bmf", SST_PATH_INDEX_HF_SNS_4_OUT, SST_MODULE_ID_BMF, SST_TASK_FBA_UL, { 1, 2, 1 } },
 	{ "hf_out edl", SST_PATH_INDEX_HF_OUT, SST_MODULE_ID_EDL, SST_TASK_FBA_UL, { 1, 2, 1 } },
 	{ "hf_sns_out fir", SST_PATH_INDEX_HF_SNS_OUT, SST_MODULE_ID_FIR_16, SST_TASK_FBA_UL, { 1, 2, 1 } },
 	{ "hf_sns_out iir", SST_PATH_INDEX_HF_SNS_OUT, SST_MODULE_ID_IIR_16, SST_TASK_FBA_UL, { 1, 2, 1 } },
+	{ "hf_sns_3_out fir", SST_PATH_INDEX_HF_SNS_3_OUT, SST_MODULE_ID_FIR_16, SST_TASK_FBA_UL, { 1, 2, 1 } },
+	{ "hf_sns_3_out iir", SST_PATH_INDEX_HF_SNS_3_OUT, SST_MODULE_ID_IIR_16, SST_TASK_FBA_UL, { 1, 2, 1 } },
+	{ "hf_sns_4_out fir", SST_PATH_INDEX_HF_SNS_4_OUT, SST_MODULE_ID_FIR_16, SST_TASK_FBA_UL, { 1, 2, 1 } },
+	{ "hf_sns_4_out iir", SST_PATH_INDEX_HF_SNS_4_OUT, SST_MODULE_ID_IIR_16, SST_TASK_FBA_UL, { 1, 2, 1 } },
 	{ "hf_out ref_line", SST_PATH_INDEX_HF_OUT, SST_MODULE_ID_REF_LINE, SST_TASK_FBA_UL, { 1, 2, 1 } },
 
 	{ "media0_in volume", SST_PATH_INDEX_MEDIA0_IN, SST_MODULE_ID_VOLUME, SST_TASK_MMX, { 1, 2, 1 } },
@@ -148,6 +158,8 @@ static const struct sst_probe_config sst_probes[] = {
 	{ "voice_uplink log", SST_PATH_INDEX_VOICE_UPLINK, SST_MODULE_ID_LOG, SST_TASK_FBA_UL, { 1, 2, 1 } },
 	{ "hf_out log", SST_PATH_INDEX_HF_OUT, SST_MODULE_ID_LOG, SST_TASK_FBA_UL, { 1, 2, 1 } },
 	{ "hf_sns_out log", SST_PATH_INDEX_HF_SNS_OUT, SST_MODULE_ID_LOG, SST_TASK_FBA_UL, { 1, 2, 1 } },
+	{ "hf_sns_3_out log", SST_PATH_INDEX_HF_SNS_3_OUT, SST_MODULE_ID_LOG, SST_TASK_FBA_UL, { 1, 2, 1 } },
+	{ "hf_sns_4_out log", SST_PATH_INDEX_HF_SNS_4_OUT, SST_MODULE_ID_LOG, SST_TASK_FBA_UL, { 1, 2, 1 } },
 
 	/* Decoder */
 	{ "media0_in pcm", SST_PATH_INDEX_MEDIA0_IN, SST_MODULE_ID_PCM, SST_TASK_MMX, { 1, 2, 1 } },

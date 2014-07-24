@@ -374,8 +374,8 @@ static void sst_send_pipe_module_params(struct snd_soc_dapm_widget *w)
 }
 
 static const char * const sst_voice_widgets[] = {
-	"speech_out", "hf_out", "hf_sns_out", "txspeech_in", "sidetone_in",
-	"speech_in", "rxspeech_out",
+	"speech_out", "hf_out", "hf_sns_out", "hf_sns_3_out", "hf_sns_4_out",
+	"txspeech_in", "sidetone_in", "speech_in", "rxspeech_out",
 };
 
 static int sst_voice_mode_put(struct snd_kcontrol *kcontrol,
@@ -855,6 +855,8 @@ SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_voip_controls, SST_MIX_VOIP);
 SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_aware_controls, SST_MIX_AWARE);
 SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_vad_controls, SST_MIX_VAD);
 SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_hf_sns_controls, SST_MIX_HF_SNS);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_hf_sns_3_controls, SST_MIX_HF_SNS_3);
+SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_hf_sns_4_controls, SST_MIX_HF_SNS_4);
 SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_hf_controls, SST_MIX_HF);
 SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_speech_controls, SST_MIX_SPEECH);
 SST_SBA_DECLARE_MIX_CONTROLS(sst_mix_rxspeech_controls, SST_MIX_RXSPEECH);
@@ -1636,6 +1638,8 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_PATH_INPUT("speech_in", SST_TASK_SBA, SST_SWM_IN_SPEECH, sst_set_speech_path),
 	SST_PATH_INPUT("txspeech_in", SST_TASK_SBA, SST_SWM_IN_TXSPEECH, sst_set_speech_path),
 	SST_PATH_OUTPUT("hf_sns_out", SST_TASK_SBA, SST_SWM_OUT_HF_SNS, sst_set_speech_path),
+	SST_PATH_OUTPUT("hf_sns_3_out", SST_TASK_SBA, SST_SWM_OUT_HF_SNS_3, sst_set_speech_path),
+	SST_PATH_OUTPUT("hf_sns_4_out", SST_TASK_SBA, SST_SWM_OUT_HF_SNS_4, sst_set_speech_path),
 	SST_PATH_OUTPUT("hf_out", SST_TASK_SBA, SST_SWM_OUT_HF, sst_set_speech_path),
 	SST_PATH_OUTPUT("speech_out", SST_TASK_SBA, SST_SWM_OUT_SPEECH, sst_set_speech_path),
 	SST_PATH_OUTPUT("rxspeech_out", SST_TASK_SBA, SST_SWM_OUT_RXSPEECH, sst_set_speech_path),
@@ -1670,6 +1674,10 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	/* SBA Voice mixers */
 	SST_SWM_MIXER("hf_sns_out mix 0", SST_MIX_HF_SNS, SST_TASK_SBA, SST_SWM_OUT_HF_SNS,
 		      sst_mix_hf_sns_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("hf_sns_3_out mix 0", SST_MIX_HF_SNS_3, SST_TASK_SBA, SST_SWM_OUT_HF_SNS_3,
+		      sst_mix_hf_sns_3_controls, sst_swm_mixer_event),
+	SST_SWM_MIXER("hf_sns_4_out mix 0", SST_MIX_HF_SNS_4, SST_TASK_SBA, SST_SWM_OUT_HF_SNS_4,
+		      sst_mix_hf_sns_4_controls, sst_swm_mixer_event),
 	SST_SWM_MIXER("hf_out mix 0", SST_MIX_HF, SST_TASK_SBA, SST_SWM_OUT_HF,
 		      sst_mix_hf_controls, sst_swm_mixer_event),
 	SST_SWM_MIXER("speech_out mix 0", SST_MIX_SPEECH, SST_TASK_SBA, SST_SWM_OUT_SPEECH,
@@ -1765,12 +1773,18 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 	/* Uplink processing */
 	{"txspeech_in", NULL, "hf_sns_out"},
+	{"txspeech_in", NULL, "hf_sns_3_out"},
+	{"txspeech_in", NULL, "hf_sns_4_out"},
 	{"txspeech_in", NULL, "hf_out"},
 	{"txspeech_in", NULL, "speech_out"},
 	{"sidetone_in", NULL, "speech_out"},
 
 	{"hf_sns_out", NULL, "hf_sns_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("hf_sns_out mix 0"),
+	{"hf_sns_3_out", NULL, "hf_sns_3_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("hf_sns_3_out mix 0"),
+	{"hf_sns_4_out", NULL, "hf_sns_4_out mix 0"},
+	SST_SBA_MIXER_GRAPH_MAP("hf_sns_4_out mix 0"),
 	{"hf_out", NULL, "hf_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("hf_out mix 0"),
 	{"speech_out", NULL, "speech_out mix 0"},
@@ -1883,7 +1897,7 @@ static const struct snd_kcontrol_new sst_probe_controls[] = {
 		SST_MODULE_ID_VOLUME, path_id, instance, task_id,			\
 		sst_gain_tlv_common, gain_var)
 
-#define SST_NUM_GAINS 35
+#define SST_NUM_GAINS 37
 static struct sst_gain_value sst_gains[SST_NUM_GAINS];
 
 static const struct snd_kcontrol_new sst_gain_controls[] = {
@@ -1927,6 +1941,8 @@ static const struct snd_kcontrol_new sst_gain_controls[] = {
 	SST_GAIN("speech_out", SST_PATH_INDEX_SPEECH_OUT, SST_TASK_FBA_UL, 1, &sst_gains[32]),
 	SST_GAIN("pcm3_out", SST_PATH_INDEX_PCM3_OUT, SST_TASK_SBA, 0, &sst_gains[33]),
 	SST_GAIN("pcm4_out", SST_PATH_INDEX_PCM4_OUT, SST_TASK_SBA, 0, &sst_gains[34]),
+	SST_GAIN("hf_sns_3_out", SST_PATH_INDEX_HF_SNS_3_OUT, SST_TASK_SBA, 0, &sst_gains[35]),
+	SST_GAIN("hf_sns_4_out", SST_PATH_INDEX_HF_SNS_4_OUT, SST_TASK_SBA, 0, &sst_gains[36]),
 };
 
 static const struct snd_kcontrol_new sst_algo_controls[] = {
@@ -1978,11 +1994,19 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "fir_speech", 134, SST_MODULE_ID_FIR_16,
 		SST_PATH_INDEX_VOICE_UPLINK, 0, SST_TASK_FBA_UL, FBA_VB_SET_FIR),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "fir_hf_sns", 134, SST_MODULE_ID_FIR_16,
-		SST_PATH_INDEX_HF_SNS_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_FIR | (0x0001<<11)),
+		SST_PATH_INDEX_HF_SNS_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_FIR | FBA_FIR_IIR_CELL_ID_1),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "fir_hf_sns_3", 134, SST_MODULE_ID_FIR_16,
+		SST_PATH_INDEX_HF_SNS_3_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_FIR | FBA_FIR_IIR_CELL_ID_2),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "fir_hf_sns_4", 134, SST_MODULE_ID_FIR_16,
+		SST_PATH_INDEX_HF_SNS_4_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_FIR | FBA_FIR_IIR_CELL_ID_3),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "iir_speech", 46, SST_MODULE_ID_IIR_16,
 		SST_PATH_INDEX_VOICE_UPLINK, 0, SST_TASK_FBA_UL, FBA_VB_SET_IIR),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "iir_hf_sns", 46, SST_MODULE_ID_IIR_16,
-		SST_PATH_INDEX_HF_SNS_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_IIR | (0x0001<<11)),
+		SST_PATH_INDEX_HF_SNS_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_IIR | FBA_FIR_IIR_CELL_ID_1),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "iir_hf_sns_3", 46, SST_MODULE_ID_IIR_16,
+		SST_PATH_INDEX_HF_SNS_3_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_IIR | FBA_FIR_IIR_CELL_ID_2),
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "iir_hf_sns_4", 46, SST_MODULE_ID_IIR_16,
+		SST_PATH_INDEX_HF_SNS_4_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_IIR | FBA_FIR_IIR_CELL_ID_3),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "aec", 642, SST_MODULE_ID_AEC,
 		SST_PATH_INDEX_VOICE_UPLINK, 0, SST_TASK_FBA_UL, FBA_VB_AEC),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "nr", 38, SST_MODULE_ID_NR,
