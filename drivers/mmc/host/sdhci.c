@@ -2710,6 +2710,10 @@ static void sdhci_timeout_timer(unsigned long data)
 		pr_err("%s: Timeout waiting for hardware "
 			"interrupt.\n", mmc_hostname(host->mmc));
 		sdhci_dumpregs(host);
+		if (host->ops->get_cd)
+			pr_err("%s: gpio_cd=%d.\n",
+				mmc_hostname(host->mmc),
+				host->ops->get_cd(host));
 
 		if (host->ops->gpio_buf_dump)
 			host->ops->gpio_buf_dump(host);
