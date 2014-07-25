@@ -691,19 +691,15 @@ static int imx135_reg_access(struct smiapp_sensor *sensor, bool write, u32 *reg,
 	 * before.
 	 */
 	case SMIAPP_REG_U16_DIGITAL_CROP_X_OFFSET:
-		*val /= sensor->binning_horizontal;
 		*reg = SMIAPP_IMX135_REG_U16_DIG_CROP_X_START;
 		break;
 	case SMIAPP_REG_U16_DIGITAL_CROP_Y_OFFSET:
-		*val /= sensor->binning_vertical;
 		*reg = SMIAPP_IMX135_REG_U16_DIG_CROP_Y_START;
 		break;
 	case SMIAPP_REG_U16_DIGITAL_CROP_IMAGE_WIDTH:
-		*val /= sensor->binning_horizontal;
 		*reg = SMIAPP_IMX135_REG_U16_DIG_CROP_X_SIZE;
 		break;
 	case SMIAPP_REG_U16_DIGITAL_CROP_IMAGE_HEIGHT:
-		*val /= sensor->binning_vertical;
 		*reg = SMIAPP_IMX135_REG_U16_DIG_CROP_Y_SIZE;
 		break;
 	case SMIAPP_REG_U8_BINNING_MODE:
