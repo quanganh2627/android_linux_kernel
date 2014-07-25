@@ -630,7 +630,8 @@ static int imx135_pre_streamon(struct smiapp_sensor *sensor)
 
 	rval = smiapp_write(sensor, SMIAPP_IMX135_REG_U16_SCL_BYPASS,
 			    (sensor->binning_horizontal == 1 &&
-			     sensor->binning_vertical == 1) ?
+			     sensor->binning_vertical == 1 &&
+			     sensor->scaling_mode == 0) ?
 			    SMIAPP_IMX135_U16_SCL_BYPASS_ENABLE : 0);
 	if (rval)
 		return rval;
