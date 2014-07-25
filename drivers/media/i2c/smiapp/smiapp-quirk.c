@@ -564,10 +564,6 @@ static int imx135_pre_streamon(struct smiapp_sensor *sensor)
 		{ 0x301D, 0x30 },
 		{ 0x331C, 0x00 },
 		{ 0x331D, 0x10 },
-		{ 0x4084, 0x00 }, /* If scaling, Fill this */
-		{ 0x4085, 0x00 },
-		{ 0x4086, 0x00 },
-		{ 0x4087, 0x00 },
 		{ 0x4400, 0x00 },
 	};
 	struct imx135_timing_reg_set *tregs;
@@ -651,6 +647,18 @@ static int imx135_pre_streamon(struct smiapp_sensor *sensor)
 	rval = smiapp_write(
 		sensor, SMIAPP_IMX135_REG_U16_WRITE_VSIZE,
 		sensor->src->crop[SMIAPP_PAD_SRC].height);
+	if (rval)
+		return rval;
+
+	rval = smiapp_write(
+		sensor, SMIAPP_IMX135_REG_U16_WRITE_SCALE_RSZ_H,
+		sensor->scaling_mode == 0 ? 0 : sensor->scaler->compose.width);
+	if (rval)
+		return rval;
+
+	rval = smiapp_write(
+		sensor, SMIAPP_IMX135_REG_U16_WRITE_SCALE_RSZ_V,
+		sensor->scaling_mode == 0 ? 0 : sensor->scaler->compose.height);
 	if (rval)
 		return rval;
 
