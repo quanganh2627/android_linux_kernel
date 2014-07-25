@@ -27,6 +27,7 @@
 #include <sound/tlv.h>
 #include <linux/firmware.h>
 #include <sound/soc-fw.h>
+#include <asm/platform_sst_audio.h>
 #include "../platform_ipc_v2.h"
 #include "../sst_platform.h"
 #include "../sst_platform_pvt.h"
@@ -1439,19 +1440,33 @@ static int sst_alloc_hostless_stream(const struct sst_pcm_format *pcm_params,
 static int sst_hostless_stream_event(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *k, int event)
 {
+#define MERR_DPCM_HOSTLESS_VADID 25
+#define MERR_DPCM_HOSTLESS_AWAREID 26
 	struct sst_ids *ids = w->priv;
+	uint str_id = 0;
 
-#define MERR_DPCM_HOSTLESS_STRID 25
+	switch (ids->location_id >> SST_PATH_ID_SHIFT) {
+	case PIPE_VAD_OUT:
+		str_id = MERR_DPCM_HOSTLESS_VADID;
+		break;
+	case PIPE_AWARE_OUT:
+		str_id = MERR_DPCM_HOSTLESS_AWAREID;
+		break;
+	default:
+		pr_err("Current hostless stream support is only for AWARE/VAD\n");
+		return -EINVAL;
+	}
+
 	if (SND_SOC_DAPM_EVENT_ON(event))
 		/* ALLOC */
 		/* FIXME: HACK - FW shouldn't require alloc for aware */
 		return sst_alloc_hostless_stream(ids->pcm_fmt,
-						 MERR_DPCM_HOSTLESS_STRID,
+						 str_id,
 						 ids->location_id >> SST_PATH_ID_SHIFT,
 						 ids->task_id);
 	else
 		/* FREE */
-		return sst_dsp->ops->close(MERR_DPCM_HOSTLESS_STRID);
+		return sst_dsp->ops->close(str_id);
 }
 
 static int sst_vtsv_event(struct snd_soc_dapm_widget *w,
