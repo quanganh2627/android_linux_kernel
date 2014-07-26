@@ -356,7 +356,7 @@ static ssize_t ssic_enable_store(struct device *dev,
 {
 	int		retval;
 	int		value;
-	struct usb_hcd  *hcd = dev_get_drvdata(dev);
+	struct usb_hcd  *hcd = dev_get_drvdata(&ssic_pci_dev->dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 
 	if (sscanf(buf, "%d", &value) != 1) {
@@ -465,19 +465,19 @@ static ssize_t ssic_show_registers(struct device *dev,
 	size = PAGE_SIZE;
 
 	/* check if pm_runtime_get_sync successful or not */
-	status = pm_runtime_get_sync(dev);
+	status = pm_runtime_get_sync(&ssic_pci_dev->dev);
 	if (status < 0) {
 		dev_err(&ssic_pci_dev->dev,
 			"%s: pm_runtime_get_sync FAILED err = %d\n",
 			__func__, status);
-		pm_runtime_put_sync(dev);
+		pm_runtime_put_sync(&ssic_pci_dev->dev);
 		return -EINVAL;
 	}
 
-	hcd = dev_get_drvdata(dev);
+	hcd = dev_get_drvdata(&ssic_pci_dev->dev);
 	if (!hcd) {
 		dev_err(&ssic_pci_dev->dev, "hcd is NULL\n");
-		pm_runtime_put_sync(dev);
+		pm_runtime_put_sync(&ssic_pci_dev->dev);
 		return -ENODEV;
 	}
 
@@ -485,7 +485,7 @@ static ssize_t ssic_show_registers(struct device *dev,
 		xhci = hcd_to_xhci(hcd);
 		if (!xhci) {
 			dev_err(&ssic_pci_dev->dev, "xhci is NULL\n");
-			pm_runtime_put_sync(dev);
+			pm_runtime_put_sync(&ssic_pci_dev->dev);
 			return -ENODEV;
 		}
 
@@ -528,7 +528,7 @@ static ssize_t ssic_show_registers(struct device *dev,
 			xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2 + 12));
 	}
 
-	pm_runtime_put_sync(dev);
+	pm_runtime_put_sync(&ssic_pci_dev->dev);
 
 	size -= t;
 	next += t;
@@ -745,7 +745,7 @@ static int ssic_set_host_initiated_lpm(struct device *dev,
 	u32 temp, timeout, port;
 	int ret;
 
-	hcd = dev_get_drvdata(dev);
+	hcd = dev_get_drvdata(&ssic_pci_dev->dev);
 
 	if (!hcd)
 		return -ENODEV;
