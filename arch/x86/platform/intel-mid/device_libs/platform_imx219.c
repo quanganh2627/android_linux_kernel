@@ -91,17 +91,6 @@ static int imx219_power_ctrl(struct v4l2_subdev *sd, int flag)
 			return ret;
 		}
 
-		ret = camera_set_vprog_power(CAMERA_VPROG3, flag,
-					     CAMERA_1_05_VOLT);
-		if (ret) {
-			pr_err("imx219 power %s vprog3 failed\n",
-			       flag ? "on" : "off");
-			if (flag)
-				camera_set_vprog_power(CAMERA_VPROG1, !flag,
-						       DEFAULT_VOLTAGE);
-			return ret;
-		}
-
 		if (flag)
 			usleep_range(1000, 1200);
 #else
@@ -110,17 +99,7 @@ static int imx219_power_ctrl(struct v4l2_subdev *sd, int flag)
 		return ret;
 	}
 
-	return 0;
-}
-
-static int imx219_platform_init(struct i2c_client *client)
-{
-	return 0;
-}
-
-static int imx219_platform_deinit(void)
-{
-	return 0;
+	return -ENODEV;
 }
 
 static int imx219_csi_configure(struct v4l2_subdev *sd, int flag)
@@ -135,8 +114,6 @@ static struct camera_sensor_platform_data imx219_sensor_platform_data = {
 	.flisclk_ctrl   = imx219_flisclk_ctrl,
 	.power_ctrl     = imx219_power_ctrl,
 	.csi_cfg        = imx219_csi_configure,
-	.platform_init  = imx219_platform_init,
-	.platform_deinit = imx219_platform_deinit,
 };
 
 void *imx219_platform_data(void *info)
