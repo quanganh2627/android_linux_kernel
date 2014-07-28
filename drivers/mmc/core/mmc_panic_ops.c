@@ -460,13 +460,6 @@ static int mmc_emergency_reinit_card(void)
 		return 0;
 
 	/*
-	 * before re-init card, flush cache first
-	 * if there is.
-	 * flush may be failed. So just ignore the failure
-	 * here
-	 */
-	mmc_emergency_cache_disable(host);
-	/*
 	 * low the clock to be init clock
 	 */
 	if (mmc_host_is_spi(host)) {
