@@ -44,6 +44,7 @@ static int ov680_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	}
 
 	if (isp1_pwdn < 0) {
+		/* Fetch ISP1_PWDN gpio number and set it to low */
 		ret = camera_sensor_gpio(-1, GP_CAMERA_ISP1_POWERDOWN,
 			GPIOF_DIR_OUT, 0);
 		if (ret < 0)
@@ -60,7 +61,6 @@ static int ov680_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 			return -EINVAL;
 		}
 		fsa642_gpio_ctrl(1); /* Flip CSI mux in favor of ov680 */
-		gpio_set_value(isp1_pwdn, 0);
 		gpio_set_value(camera_reset, 0);
 		msleep(40);
 		gpio_set_value(camera_reset, 1);
@@ -69,9 +69,6 @@ static int ov680_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		dev_dbg(&client->dev,
 			"%s: Turning off isp reset pin\n", __func__);
 		gpio_set_value(camera_reset, 0);
-		gpio_set_value(isp1_pwdn, 0);
-		msleep(20);
-		gpio_set_value(isp1_pwdn, 1);
 	}
 
 	return 0;
