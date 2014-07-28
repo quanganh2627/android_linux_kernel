@@ -59,7 +59,7 @@ struct mdm_ops {
 	int	(*cleanup) (void *data);
 	int	(*get_cflash_delay) (void *data);
 	int	(*get_wflash_delay) (void *data);
-	int	(*power_on) (void *data, int gpio_rst, int gpio_pwr);
+	int	(*power_on) (void *data, int gpio_rst, int gpio_pwr, int gpio_on);
 	int	(*power_off) (void *data, int gpio_rst, int pwr_on);
 	int	(*warm_reset) (void *data, int gpio_rst);
 };
@@ -72,6 +72,7 @@ struct cpu_ops {
 	int	(*get_irq_rst) (void *data);
 	int	(*get_gpio_rst) (void *data);
 	int	(*get_gpio_pwr) (void *data);
+	int	(*get_gpio_on) (void *data);
 };
 
 struct pmic_ops {
@@ -115,6 +116,7 @@ struct sfi_to_mdm {
 #define GPIO_RST_BBN	"ifx_mdm_rst_pmu"
 #define GPIO_CDUMP	"modem-gpio2"
 #define GPIO_CDUMP_MRFL	"MODEM_CORE_DUMP"
+#define GPIO_ON_KEY	"camera_1_power"	/* @TODO: rename to adapt to the GPIO function */
 
 /* Retrieve modem parameters on ACPI framework */
 int retrieve_modem_platform_data(struct platform_device *pdev);
@@ -146,6 +148,8 @@ struct mdm_ctrl_cpu_data {
 	int		gpio_rst_bbn;
 	char	*gpio_cdump_name;
 	int		 gpio_cdump;
+	char	*gpio_on_key_name;
+	int		gpio_on_key;
 	char	*gpio_wwan_disable_name;
 	char	*gpio_wake_on_wwan_name;
 
