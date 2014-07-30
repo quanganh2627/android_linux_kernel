@@ -309,7 +309,7 @@ static int __init logger_kernel_init(void)
 	if (!(logger_console.flags & CON_ENABLED))
 		return 0;
 
-	ret = create_log(LOGGER_LOG_KERNEL, 256*1024);
+	ret = create_log(LOGGER_LOG_KERNEL, 512*1024);
 	return ret;
 }
 device_initcall(logger_kernel_init);
