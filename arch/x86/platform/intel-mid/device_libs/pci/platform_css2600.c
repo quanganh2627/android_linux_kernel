@@ -28,6 +28,11 @@
 
 #define IMX135_LANES 4
 
+/* IMX132 could be configured with 2 lanes. Currently only 1 lane is used */
+#define IMX132_LANES 1
+
+#define IMX132_I2C_ADDRESS 0x36
+
 static int set_xclk(struct v4l2_subdev *sd, int hz)
 {
 #ifdef CONFIG_INTEL_SCU_IPC_UTIL
@@ -83,6 +88,31 @@ static int set_power(struct v4l2_subdev *sd, int poweron)
 #endif
 }
 
+static struct smiapp_platform_data imx132_pdata = {
+	.xshutdown = 10,
+	.lanes = IMX132_LANES,
+	.ext_clk = 19200000,
+	.op_sys_clock = (uint64_t []){ 316800000 / IMX132_LANES, 0 },
+	.set_power = set_power,
+	.set_xclk = set_xclk,
+};
+
+static struct css2600_isys_csi2_config imx132_csi2_cfg = {
+	.nlanes = IMX132_LANES,
+	.port = 1,
+};
+
+static struct css2600_isys_subdev_info imx132_sd = {
+	.csi2 = &imx132_csi2_cfg,
+	.i2c = {
+		.board_info = {
+			 I2C_BOARD_INFO(SMIAPP_NAME,  IMX132_I2C_ADDRESS),
+			 .platform_data = &imx132_pdata,
+		},
+		.i2c_adapter_id = 4,
+	}
+};
+
 static struct smiapp_platform_data imx135_pdata = {
 	.xshutdown = 9,
 	.lanes = IMX135_LANES,
@@ -115,6 +145,7 @@ static struct css2600_isys_subdev_info imx135_sd = {
 static struct css2600_isys_subdev_pdata pdata = {
 	.subdevs = (struct css2600_isys_subdev_info *[]) {
 		&imx135_sd,
+		&imx132_sd,
 		NULL,
 	},
 };
