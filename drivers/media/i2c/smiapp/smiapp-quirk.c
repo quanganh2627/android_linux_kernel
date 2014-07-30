@@ -766,3 +766,206 @@ const struct smiapp_quirk smiapp_imx135_quirk = {
 	.pll_flags = imx135_pll_flags,
 	.reg_access = imx135_reg_access,
 };
+
+static int imx132_reg_access(struct smiapp_sensor *sensor, bool write, u32 *reg,
+			     u32 *val)
+{
+	switch (*reg) {
+	case SMIAPP_REG_U16_DATA_FORMAT_DESCRIPTOR(4):
+	case SMIAPP_REG_U8_FAST_STANDBY_CTRL:
+	case SMIAPP_REG_U8_DPHY_CTRL:
+	case SMIAPP_REG_U32_REQUESTED_LINK_BIT_RATE_MBPS:
+	case SMIAPP_REG_U16_VT_PIX_CLK_DIV:
+	case SMIAPP_REG_U16_OP_PIX_CLK_DIV:
+	case SMIAPP_REG_U16_OP_SYS_CLK_DIV:
+	case SMIAPP_REG_U16_DIGITAL_CROP_X_OFFSET:
+	case SMIAPP_REG_U16_DIGITAL_CROP_Y_OFFSET:
+	case SMIAPP_REG_U16_DIGITAL_CROP_IMAGE_WIDTH:
+	case SMIAPP_REG_U16_DIGITAL_CROP_IMAGE_HEIGHT:
+	case SMIAPP_REG_U16_SCALING_MODE:
+	case SMIAPP_REG_U16_SCALE_M:
+	case SMIAPP_REG_U8_BINNING_MODE:
+	case SMIAPP_REG_U8_BINNING_TYPE:
+		return -ENOIOCTLCMD;
+	case SMIAPP_REG_U8_BINNING_CAPABILITY:
+		*val = SMIAPP_BINNING_CAPABILITY_YES;
+		return -ENOIOCTLCMD;
+	/*
+	 * Restrict binning to 1x1 : No binning!
+	 * TODO: Revisit when binning is enabled
+	*/
+	case SMIAPP_REG_U8_BINNING_SUBTYPES:
+		*val = 1;
+		return -ENOIOCTLCMD;
+	case SMIAPP_REG_U8_BINNING_TYPE_n(0):
+		*val = 0x11;
+		return -ENOIOCTLCMD;
+	case SMIAPP_REG_U16_VT_SYS_CLK_DIV:
+		/* Set the register configuration based on the divider */
+		switch (*val) {
+		case 2:
+			*val = 0;
+			break;
+		case 4:
+			*val = 1;
+			break;
+		case 1:
+		default:
+			*val = 2;
+			break;
+		}
+		*reg = SMIAPP_IMX132_REG_U8_POST_PLL_DIV;
+		break;
+	case SMIAPP_REG_U8_CSI_LANE_MODE:
+		/*
+		 * IMX132 with 2 lanes -> set register as 0x00
+		 * IMX132 with 1 lane  -> set register as 0x01
+		 * Ignore rest as imx132 has only maximum 2 lanes supported.
+		 * The contents of "val" being passed here is
+		 * "sensor->platform_data->lanes - 1"
+		 */
+		*val = (*val == 1) ? 0 : 1;
+		*reg = SMIAPP_IMX132_REG_U8_CSI_LANES;
+		break;
+	case SMIAPP_REG_U16_EXTCLK_FREQUENCY_MHZ:
+		/*
+		 * When start streaming, the internal control circuit of imx132
+		 * needs to wait for a settling time and it depends on the
+		 * external clock. This setting time is 200 micro sec and is
+		 * controlled by using PLL STAB TIMER register. This settling
+		 * time is calculated using the following formula
+		 *
+		 * PLL settling time =
+		 *      ((PLL_STAB_TIMER * 64) + 63) * 1 / EXTCLK[in MHz]
+		 *
+		 * PLL_STAB_TIMER = (200 * EXTCLK_MHz - 63) / 64
+		 */
+		*val = DIV_ROUND_UP(sensor->platform_data->ext_clk / 5000 - 63,
+				    64);
+		*reg = SMIAPP_IMX132_REG_U8_PLL_STAB_TIMER;
+		break;
+	}
+
+	return 0;
+}
+
+static int imx132_post_poweron(struct smiapp_sensor *sensor)
+{
+	struct smiapp_reg_8 regs[] = {
+		{ 0x3087, 0x53 },
+		{ 0x308B, 0x5A },
+		{ 0x3094, 0x11 },
+		{ 0x309D, 0xA4 },
+		{ 0x30AA, 0x01 },
+		{ 0x30C6, 0x00 },
+		{ 0x30C7, 0x00 },
+		{ 0x3118, 0x2F },
+		{ 0x312A, 0x00 },
+		{ 0x312B, 0x0B },
+		{ 0x312C, 0x0B },
+		{ 0x312D, 0x13 },
+		{ 0x303D, 0x10 },
+		{ 0x303E, 0x5A },
+		{ 0x3040, 0x00 },
+		{ 0x3041, 0x00 },
+		{ 0x3048, 0x00 },
+		{ 0x304C, 0x2F },
+		{ 0x304D, 0x02 },
+		{ 0x3064, 0x92 },
+		{ 0x306A, 0x10 },
+		{ 0x309B, 0x00 },
+		{ 0x309E, 0x41 },
+		{ 0x30A0, 0x10 },
+		{ 0x30A1, 0x0B },
+		{ 0x30B2, 0x00 },
+		{ 0x30D5, 0x00 },
+		{ 0x30D6, 0x00 },
+		{ 0x30D7, 0x00 },
+		{ 0x30D8, 0x00 },
+		{ 0x30D9, 0x00 },
+		{ 0x30DA, 0x00 },
+		{ 0x30DB, 0x00 },
+		{ 0x30DC, 0x00 },
+		{ 0x30DD, 0x00 },
+		{ 0x30DE, 0x00 },
+		{ 0x3102, 0x0C },
+		{ 0x3103, 0x33 },
+		{ 0x3104, 0x18 },
+		{ 0x3105, 0x00 },
+		{ 0x3106, 0x65 },
+		{ 0x3107, 0x00 },
+		{ 0x3108, 0x06 },
+		{ 0x3109, 0x04 },
+		{ 0x310A, 0x04 },
+		{ 0x315C, 0x3D },
+		{ 0x315D, 0x3C },
+		{ 0x316E, 0x3E },
+		{ 0x316F, 0x3D },
+		{ 0x3304, 0x07 },
+		{ 0x3305, 0x06 },
+		{ 0x3306, 0x19 },
+		{ 0x3307, 0x03 },
+		{ 0x3308, 0x0F },
+		{ 0x3309, 0x07 },
+		{ 0x330A, 0x0C },
+		{ 0x330B, 0x06 },
+		{ 0x330C, 0x0B },
+		{ 0x330D, 0x07 },
+		{ 0x330E, 0x03 },
+		{ 0x3318, 0x62 },
+		{ 0x3322, 0x09 },
+		{ 0x3342, 0x00 },
+		{ 0x3348, 0xE0 },
+	};
+	int rval;
+
+	rval = smiapp_write_8s(sensor, regs, ARRAY_SIZE(regs));
+	if (rval)
+		return rval;
+
+	rval = smiapp_write(sensor, SMIAPP_REG_U16_DIGITAL_GAIN_GREENR, 0x0100);
+	if (rval)
+		return rval;
+
+	rval = smiapp_write(sensor, SMIAPP_REG_U16_DIGITAL_GAIN_RED, 0x01a0);
+	if (rval)
+		return rval;
+
+	rval = smiapp_write(sensor, SMIAPP_REG_U16_DIGITAL_GAIN_BLUE, 0x0200);
+	if (rval)
+		return rval;
+
+	return smiapp_write(sensor, SMIAPP_REG_U16_DIGITAL_GAIN_GREENB, 0x0100);
+}
+
+static int imx132_limits(struct smiapp_sensor *sensor)
+{
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_PLL_OP_FREQ_HZ,
+			     1000000000);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MIN_VT_SYS_CLK_DIV, 1);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_VT_SYS_CLK_DIV, 4);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MIN_VT_SYS_CLK_FREQ_HZ,
+			     384000000);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_VT_SYS_CLK_FREQ_HZ,
+			     806400000);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MIN_VT_PIX_CLK_DIV, 8);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_VT_PIX_CLK_DIV, 10);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MIN_VT_PIX_CLK_FREQ_HZ,
+			     53760000);
+	smiapp_replace_limit(sensor, SMIAPP_LIMIT_MAX_VT_PIX_CLK_FREQ_HZ,
+			     80640000);
+	return 0;
+}
+
+static unsigned long imx132_pll_flags(struct smiapp_sensor *sensor)
+{
+	return SMIAPP_PLL_FLAG_VT_PIX_CLOCK_PER_LANE
+	       | SMIAPP_PLL_FLAG_OP_PIX_CLOCK_PER_LANE;
+}
+
+const struct smiapp_quirk smiapp_imx132_quirk = {
+	.flags = imx132_pll_flags,
+	.limits = imx132_limits,
+	.post_poweron = imx132_post_poweron,
+	.reg_access = imx132_reg_access,
+};
