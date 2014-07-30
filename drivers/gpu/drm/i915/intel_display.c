@@ -10813,7 +10813,7 @@ ssize_t display_runtime_suspend(struct drm_device *dev)
 
 	dev_priv->dpst.state = dev_priv->dpst.enabled;
 	if (dev_priv->dpst.state)
-		i915_dpst_disable_hist_interrupt(dev);
+		i915_dpst_disable_hist_interrupt(dev, true);
 
 	/* ignore lid events during suspend */
 	mutex_lock(&dev_priv->modeset_restore_lock);
@@ -10903,7 +10903,7 @@ ssize_t display_runtime_resume(struct drm_device *dev)
 
 	i915_dpst_set_default_luma(dev);
 	if (dev_priv->dpst.state)
-		i915_dpst_enable_hist_interrupt(dev);
+		i915_dpst_enable_hist_interrupt(dev, true);
 
 	DRM_DEBUG_PM("Value in iClk5val = %x\n",
 		vlv_ccu_read(dev_priv, CCU_ICLK5_REG));

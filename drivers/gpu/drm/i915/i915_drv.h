@@ -2718,8 +2718,8 @@ int i915_dpst_context(struct drm_device *dev, void *data,
 u32 i915_dpst_get_brightness(struct drm_device *dev);
 u32 i915_dpst_compute_brightness(struct drm_device *dev, u32 brightness_val);
 void i915_dpst_irq_handler(struct drm_device *dev);
-int i915_dpst_disable_hist_interrupt(struct drm_device *dev);
-int i915_dpst_enable_hist_interrupt(struct drm_device *dev);
+int i915_dpst_disable_hist_interrupt(struct drm_device *dev, bool reset_adjustment);
+int i915_dpst_enable_hist_interrupt(struct drm_device *dev, bool reset_adjustment);
 int i915_dpst_set_default_luma(struct drm_device *dev);
 
 /* intel_acpi.c */

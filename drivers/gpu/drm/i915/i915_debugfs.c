@@ -2720,9 +2720,9 @@ i915_dpst_enable_disable(struct drm_device *dev, unsigned int val)
 
 	/* 1=> Enable DPST, else disable. */
 	if (val == 1)
-		i915_dpst_enable_hist_interrupt(dev);
+		i915_dpst_enable_hist_interrupt(dev, true);
 	else
-		i915_dpst_disable_hist_interrupt(dev);
+		i915_dpst_disable_hist_interrupt(dev, true);
 
 	/* Send a fake signal to start the process */
 	i915_dpst_irq_handler(dev);
