@@ -682,7 +682,8 @@ enum no_psr_reason {
 enum drrs_support_type {
 	DRRS_NOT_SUPPORTED = 0,
 	STATIC_DRRS_SUPPORT = 1,
-	SEAMLESS_DRRS_SUPPORT = 2
+	SEAMLESS_DRRS_SUPPORT = 2,
+	SEAMLESS_DRRS_SUPPORT_SW = 3,
 };
 
 /*
@@ -1596,6 +1597,7 @@ typedef struct drm_i915_private {
 	struct drm_property *force_audio_property;
 	struct drm_property *force_pfit_property;
 	struct drm_property *scaling_src_size_property;
+	struct drm_property *drrs_capability_property;
 
 	bool hw_contexts_disabled;
 	uint32_t hw_context_size;

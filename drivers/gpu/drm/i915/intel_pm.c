@@ -793,7 +793,7 @@ void intel_update_drrs(struct drm_device *dev)
 	intel_enable_drrs(crtc);
 }
 
-void intel_init_drrs_idleness_detection(struct drm_device *dev,
+int intel_init_drrs_idleness_detection(struct drm_device *dev,
 					struct intel_connector *connector)
 {
 	struct intel_drrs_work *work;
@@ -801,13 +801,13 @@ void intel_init_drrs_idleness_detection(struct drm_device *dev,
 
 	if (i915_drrs_interval == 0) {
 		DRM_INFO("DRRS disable by flag\n");
-		return;
+		return -EPERM;
 	}
 
 	work = kzalloc(sizeof(struct intel_drrs_work), GFP_KERNEL);
 	if (!work) {
 		DRM_ERROR("Failed to allocate DRRS work structure\n");
-		return;
+		return -ENOMEM;
 	}
 
 	dev_priv->drrs.connector = connector;
@@ -817,39 +817,43 @@ void intel_init_drrs_idleness_detection(struct drm_device *dev,
 	INIT_DELAYED_WORK(&work->work, intel_drrs_work_fn);
 
 	dev_priv->drrs.drrs_work = work;
+	return 0;
 }
 
-bool
+int
 intel_drrs_init(struct drm_device *dev,
 			struct intel_connector *intel_connector,
 			struct drm_display_mode *downclock_mode) {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret = 0;
 
 	/* DRRS will be extended to all gen 7+ platforms */
 	if (INTEL_INFO(dev)->gen <= 6 && INTEL_INFO(dev)->gen >= 8) {
 		DRM_ERROR("DRRS is not enabled on Gen %d\n",
 						INTEL_INFO(dev)->gen);
-		return false;
+		return -EPERM;
 	}
 
 	/* First check if DRRS is enabled from VBT struct */
 	if (dev_priv->vbt.drrs_type != SEAMLESS_DRRS_SUPPORT) {
 		DRM_INFO("VBT doesn't support SEAMLESS DRRS\n");
-		return false;
+		return -EPERM;
 	}
 
 	intel_connector->panel.downclock_avail = true;
 	intel_connector->panel.downclock =
 					downclock_mode->clock;
 
-	intel_init_drrs_idleness_detection(dev, intel_connector);
+	ret = intel_init_drrs_idleness_detection(dev, intel_connector);
+	if (ret)
+		return ret;
 	mutex_init(&dev_priv->drrs_state.mutex);
 
 	dev_priv->drrs_state.type = dev_priv->vbt.drrs_type;
 	dev_priv->drrs_state.refresh_rate_type = DRRS_HIGH_RR;
 	DRM_INFO("SEAMLESS DRRS supported on this panel.\n");
 
-	return true;
+	return ret;
 }
 
 

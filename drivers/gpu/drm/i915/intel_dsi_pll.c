@@ -308,7 +308,7 @@ int intel_configure_dsi_pll(struct intel_dsi *intel_dsi,
 
 	/* In case of DRRS, Calculating the divider values for downclock_mode */
 	if (intel_connector->panel.downclock_avail &&
-		dev_priv->drrs_state.type == SEAMLESS_DRRS_SUPPORT) {
+		dev_priv->drrs_state.type >= SEAMLESS_DRRS_SUPPORT) {
 		get_dsi_clk(intel_dsi,
 			intel_connector->panel.downclock_mode, &dsi_clk);
 		intel_dsi_mnp = &config->dsi_mnp2;

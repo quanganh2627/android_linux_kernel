@@ -668,6 +668,8 @@ void intel_cleanup_modes(struct drm_connector *connector);
 extern void intel_attach_force_audio_property(struct drm_connector *connector);
 extern void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
 
+extern void intel_attach_drrs_capability_property(struct drm_connector *connector,
+							unsigned int init_val);
 extern bool intel_pipe_has_type(const struct drm_crtc *crtc, int type);
 extern void intel_attach_force_pfit_property(struct drm_connector *connector);
 extern void intel_attach_scaling_src_size_property(struct drm_connector *connector);
@@ -970,7 +972,7 @@ extern bool intel_set_pch_fifo_underrun_reporting(struct drm_device *dev,
 extern void intel_edp_psr_enable(struct intel_dp *intel_dp);
 extern void intel_edp_psr_disable(struct intel_dp *intel_dp);
 extern void intel_edp_psr_update(struct drm_device *dev);
-extern bool intel_drrs_init(struct drm_device *dev,
+extern int intel_drrs_init(struct drm_device *dev,
 				struct intel_connector *intel_connector,
 				struct drm_display_mode *downclock_mode);
 

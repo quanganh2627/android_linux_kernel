@@ -1062,6 +1062,23 @@ intel_dsi_set_drrs_state(struct intel_encoder *intel_encoder,
 	intel_drrs_update_dsi_pll(intel_dsi);
 }
 
+void intel_dsi_drrs_init(struct intel_connector *intel_connector,
+				struct drm_display_mode *downclock_mode)
+{
+	struct drm_connector *connector = &intel_connector->base;
+	struct drm_device *dev = connector->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (intel_drrs_init(dev, intel_connector, downclock_mode) < 0)
+		return;
+	else if (dev_priv->drrs_state.type == SEAMLESS_DRRS_SUPPORT) {
+		/* In DSI SEAMLESS DRRS is a SW driven feature */
+		dev_priv->drrs_state.type = SEAMLESS_DRRS_SUPPORT_SW;
+		intel_attach_drrs_capability_property(connector,
+						dev_priv->drrs_state.type);
+	}
+}
+
 bool intel_dsi_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1169,7 +1186,7 @@ bool intel_dsi_init(struct drm_device *dev)
 		downclock_mode = intel_dsi_calc_panel_downclock(dev,
 							fixed_mode, connector);
 		if (downclock_mode)
-			intel_drrs_init(dev, intel_connector, downclock_mode);
+			intel_dsi_drrs_init(intel_connector, downclock_mode);
 		else
 			DRM_DEBUG_KMS("Downclock_mode is not found\n");
 	}
