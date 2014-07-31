@@ -31,20 +31,13 @@
 		.consumer_channel = _consumer_channel,          \
 	}
 
-/* adc_channel_label needs to be unique w.r.t the same from
- * the iio_maps of the platform specific GPADC driver
- */
 struct iio_map scale_iio_maps[] = {
-	SCALE_ADC_MAP("CH20", "PMICTEMP", "SPMICTEMP"),
-	SCALE_ADC_MAP("CH21", "BATTEMP", "SBATTEMP0"),
-	SCALE_ADC_MAP("CH22", "BATTEMP", "SBATTEMP1"),
-	SCALE_ADC_MAP("CH23", "SYSTEMP", "SSYSTEMP0"),
-	SCALE_ADC_MAP("CH24", "SYSTEMP", "SSYSTEMP1"),
-	SCALE_ADC_MAP("CH25", "SYSTEMP", "SSYSTEMP2"),
-	SCALE_ADC_MAP("CH23", "scove_thrm", "SSYSTEMP0"),
-	SCALE_ADC_MAP("CH24", "scove_thrm", "SSYSTEMP1"),
-	SCALE_ADC_MAP("CH25", "scove_thrm", "SSYSTEMP2"),
-	SCALE_ADC_MAP("CH20", "scove_thrm", "SPMICTEMP"),
+	SCALE_ADC_MAP("CH0", "PMICTEMP", "SPMICTEMP"),
+	SCALE_ADC_MAP("CH1", "BATTEMP", "SBATTEMP0"),
+	SCALE_ADC_MAP("CH2", "BATTEMP", "SBATTEMP1"),
+	SCALE_ADC_MAP("CH3", "SYSTEMP", "SSYSTEMP0"),
+	SCALE_ADC_MAP("CH4", "SYSTEMP", "SSYSTEMP1"),
+	SCALE_ADC_MAP("CH5", "SYSTEMP", "SSYSTEMP2"),
 	{ },
 };
 
@@ -56,12 +49,12 @@ struct iio_map scale_iio_maps[] = {
 		.datasheet_name = _datasheet_name,      \
 	}
 static const struct iio_chan_spec const scale_adc_channels[] = {
-	SCALE_ADC_CHANNEL(IIO_TEMP, 0, "CH20"),
-	SCALE_ADC_CHANNEL(IIO_TEMP, 1, "CH21"),
-	SCALE_ADC_CHANNEL(IIO_TEMP, 2, "CH22"),
-	SCALE_ADC_CHANNEL(IIO_TEMP, 3, "CH23"),
-	SCALE_ADC_CHANNEL(IIO_TEMP, 4, "CH24"),
-	SCALE_ADC_CHANNEL(IIO_TEMP, 5, "CH25"),
+	SCALE_ADC_CHANNEL(IIO_TEMP, 0, "CH0"),
+	SCALE_ADC_CHANNEL(IIO_TEMP, 1, "CH1"),
+	SCALE_ADC_CHANNEL(IIO_TEMP, 2, "CH2"),
+	SCALE_ADC_CHANNEL(IIO_TEMP, 3, "CH3"),
+	SCALE_ADC_CHANNEL(IIO_TEMP, 4, "CH4"),
+	SCALE_ADC_CHANNEL(IIO_TEMP, 5, "CH5"),
 };
 
 static struct channel_thrms_map shadycove_thrms_map[] = {

@@ -635,19 +635,17 @@ static int basincove_adc_write_event_value(struct iio_dev *indio_dev,
 		val_h = (val >> 8) & 0xF;
 		val_l = val & 0xFF;
 		mask = 0x0F;
-		break;
 
-	case IIO_EV_INFO_HYSTERESIS:
-		val_h = (val << 4) & 0xF0;
-		err = gpadc_read(reg_l, &val_l);
+		err = intel_scu_ipc_update_register(reg_l, val_l, 0xFF);
 		if (err) {
-			dev_err(gp_info->dev, "Error reading register:%x\n",
-				reg_l);
+			dev_err(gp_info->dev, "Error updating register:%X\n", reg_l);
 			return -EINVAL;
 		}
+		break;
+	case IIO_EV_INFO_HYSTERESIS:
+		val_h = (val << 4) & 0xF0;
 		mask = 0xF0;
 		break;
-
 	default:
 		dev_err(gp_info->dev,
 				"iio_event_info %d not supported\n",
@@ -657,15 +655,7 @@ static int basincove_adc_write_event_value(struct iio_dev *indio_dev,
 
 	err = intel_scu_ipc_update_register(reg_h, val_h, mask);
 	if (err) {
-		dev_err(gp_info->dev, "Error updating register:%X\n",
-				reg_h);
-		return -EINVAL;
-	}
-
-	err = intel_scu_ipc_update_register(reg_l, val_l, 0xFF);
-	if (err) {
-		dev_err(gp_info->dev, "Error updating register:%X\n",
-				reg_l);
+		dev_err(gp_info->dev, "Error updating register:%X\n", reg_h);
 		return -EINVAL;
 	}
 
