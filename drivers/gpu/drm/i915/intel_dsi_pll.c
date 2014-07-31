@@ -298,6 +298,13 @@ int intel_drrs_configure_dsi_pll(struct intel_dsi *intel_dsi,
 
 	DRM_DEBUG_KMS("PLL Changed between DSL: %d, %d\n",
 			dsl, I915_READ(dsl_offset) & DSL_LINEMASK_GEN3);
+
+	if (wait_for(I915_READ(PIPECONF(PIPE_A)) & PIPECONF_DSI_PLL_LOCKED,
+									20)) {
+		DRM_ERROR("DSI PLL lock failed\n");
+		return -EACCES;
+	}
+
 	return 0;
 }
 

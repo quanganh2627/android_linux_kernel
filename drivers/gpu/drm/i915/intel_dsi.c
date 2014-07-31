@@ -1049,12 +1049,14 @@ static void intel_mipi_drrs_work_fn(struct work_struct *__work)
 	struct intel_dsi_mnp *intel_dsi_mnp;
 	struct intel_dsi *intel_dsi = NULL;
 	struct intel_crtc *intel_crtc = NULL;
-	bool resume_idleness_detection = false;
+	struct drm_display_mode *prev_mode = NULL;
+	bool resume_idleness_detection = false, fallback_attempt = false;
 	int ret, retry_cnt = 3;
 
 	intel_dsi = enc_to_intel_dsi(&intel_encoder->base);
 	intel_crtc = intel_encoder->new_crtc;
 
+init:
 	if (work->target_rr_type == DRRS_HIGH_RR) {
 		intel_dsi_mnp = &intel_crtc->config.dsi_mnp;
 	} else if (work->target_rr_type == DRRS_LOW_RR) {
@@ -1096,8 +1098,40 @@ retry:
 		if (resume_idleness_detection)
 			intel_update_drrs(intel_encoder->base.dev);
 	} else if (ret == -ETIMEDOUT && retry_cnt) {
-		DRM_ERROR("Retry left ... <%d>\n", --retry_cnt);
+		retry_cnt--;
+		DRM_DEBUG_KMS("Retry left ... <%d>\n", retry_cnt);
 		goto retry;
+	} else if (ret == -EACCES && !fallback_attempt) {
+		DRM_ERROR("Falling back to the previous DRRS state. %d->%d\n",
+				work->target_rr_type,
+				dev_priv->drrs_state.refresh_rate_type);
+
+		dev_priv->drrs_state.target_rr_type =
+					dev_priv->drrs_state.refresh_rate_type;
+		work->target_rr_type = dev_priv->drrs_state.target_rr_type;
+		drm_mode_destroy(intel_encoder->base.dev, work->target_mode);
+
+		if (work->target_rr_type == DRRS_HIGH_RR) {
+			prev_mode =
+				dev_priv->drrs.connector->panel.fixed_mode;
+			resume_idleness_detection = true;
+		} else if (work->target_rr_type == DRRS_LOW_RR) {
+			prev_mode =
+				dev_priv->drrs.connector->panel.downclock_mode;
+		} else if (work->target_rr_type == DRRS_MEDIA_RR) {
+			prev_mode =
+				dev_priv->drrs.connector->panel.target_mode;
+		}
+
+		work->target_mode = drm_mode_duplicate(intel_encoder->base.dev,
+								prev_mode);
+		fallback_attempt = true;
+		goto init;
+	} else {
+		if (fallback_attempt)
+			DRM_ERROR("DRRS State Fallback attempt failed\n");
+		if (ret == -ETIMEDOUT)
+			DRM_ERROR("TIMEDOUT in all retry attempt\n");
 	}
 
 	drm_mode_destroy(intel_encoder->base.dev, work->target_mode);
