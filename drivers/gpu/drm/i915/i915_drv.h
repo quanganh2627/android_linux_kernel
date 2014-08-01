@@ -1659,8 +1659,8 @@ typedef struct drm_i915_private {
 
 	int planeid_gamma;
 	int planeid_csc;
-	bool gamma_enabled;
-	bool csc_enabled;
+	bool gamma_enabled[I915_MAX_PIPES];
+	bool csc_enabled[I915_MAX_PIPES];
 	bool is_hdmi;
 	bool is_mipi_from_vbt;
 	u16 is_mipi;
