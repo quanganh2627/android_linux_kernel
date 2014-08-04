@@ -181,6 +181,7 @@ struct sdhci_host {
 #define SDHCI_USING_RETUNING_TIMER (1<<11)	/* Host is using a retuning timer for the card */
 #define SDHCI_POWER_CTRL_DEV	(1<<12) /* ctrl dev power */
 #define SDHCI_EXIT_RPM_RESUME (1<<13)	/* Exit from runtime PM resume */
+#define SDHCI_TUNE_FOR_CMD52	(1<<14)	/* Execute tuning when CMD52 fail */
 
 	unsigned int version;	/* SDHCI spec. version */
 

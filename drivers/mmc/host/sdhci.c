@@ -31,6 +31,7 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/slot-gpio.h>
+#include <linux/mmc/sdio.h>
 
 #include "sdhci.h"
 
@@ -1680,7 +1681,8 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		    (present_state & SDHCI_DATA_0_LVL_MASK)) {
 			if (mmc->card) {
 				if (mmc_card_sdio(mmc->card) &&
-				    (mmc_cmd_type(mrq->cmd) != MMC_CMD_ADTC))
+				    (mmc_cmd_type(mrq->cmd) != MMC_CMD_ADTC) &&
+				    !(host->flags & SDHCI_TUNE_FOR_CMD52))
 					goto end_tuning;
 				if ((mmc->card->ext_csd.part_config & 0x07) ==
 					EXT_CSD_PART_CONFIG_ACC_RPMB)
@@ -2486,7 +2488,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		/* Tuning mode 1 limits the maximum data length to 4MB */
 		mmc->max_blk_count = (4 * 1024 * 1024) / mmc->max_blk_size;
 	} else {
-		if (tuning_loop_counter)
+		if (tuning_loop_counter && err != -EIO)
 			host->flags &= ~SDHCI_NEEDS_RETUNING;
 		/* Reload the new initial value for timer */
 		if ((host->tuning_mode == SDHCI_TUNING_MODE_1) &&
@@ -2494,6 +2496,10 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 			mod_timer(&host->tuning_timer, jiffies +
 				host->tuning_count * HZ);
 	}
+
+	/* WA for some Broadcom chip */
+	if (host->flags & SDHCI_TUNE_FOR_CMD52 && err != -EIO)
+		host->flags &= ~SDHCI_TUNE_FOR_CMD52;
 
 	/*
 	 * In case tuning fails, host controllers which support re-tuning can
@@ -2778,6 +2784,14 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 		host->cmd->error = -EILSEQ;
 
 	if (host->cmd->error) {
+		/* WA for some Broadcom chip */
+		if (host->cmd->error == -EILSEQ &&
+		    host->cmd->opcode == SD_IO_RW_DIRECT &&
+		    host->flags & SDHCI_NEEDS_RETUNING) {
+			host->flags |= SDHCI_TUNE_FOR_CMD52;
+			pr_warn("%s: set SDHCI_TUNE_FOR_CMD52.\n",
+				mmc_hostname(host->mmc));
+		}
 		tasklet_schedule(&host->finish_tasklet);
 		return;
 	}
