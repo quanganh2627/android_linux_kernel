@@ -61,6 +61,7 @@ static const struct smiapp_module_ident smiapp_module_idents[] = {
 	SMIAPP_IDENT_LQ(0x10, 0x4241, -1, "imx125es", &smiapp_imx125es_quirk),
 	SMIAPP_IDENT_LQ(0x00, 0x0135, -1, "imx135", &smiapp_imx135_quirk),
 	SMIAPP_IDENT_LQ(0x0b, 0x0132, -1, "imx132", &smiapp_imx132_quirk),
+	SMIAPP_IDENT_LQ(0x0b, 0x0214, -1, "imx214", &smiapp_imx214_quirk),
 };
 
 /*
