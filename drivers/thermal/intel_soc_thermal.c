@@ -58,7 +58,7 @@
 #define TJMAX_CODE		0x7F
 
 /* Default hysteresis values in C */
-#define DEFAULT_H2C_HYST	3
+#define DEFAULT_H2C_HYST	1
 #define MAX_HYST		7
 
 /* Power Limit registers */
