@@ -111,6 +111,7 @@ struct sfi_to_mdm {
 /* GPIO names */
 #define GPIO_RST_OUT	"ifx_mdm_rst_out"
 #define GPIO_PWR_ON	"ifx_mdm_pwr_on"
+#define GPIO_PWR_ON_2	"xenon_trigger"
 #define GPIO_RST_BBN	"ifx_mdm_rst_pmu"
 #define GPIO_CDUMP	"modem-gpio2"
 #define GPIO_CDUMP_MRFL	"MODEM_CORE_DUMP"
