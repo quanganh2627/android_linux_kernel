@@ -103,11 +103,26 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 	struct drm_display_mode *mode = &config->requested_mode;
 	struct intel_crtc *intel_crtc = encoder->new_crtc;
 	struct drm_device *dev = encoder->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	DRM_DEBUG_KMS("\n");
 
 	if (fixed_mode)
 		intel_fixed_panel_mode(fixed_mode, adjusted_mode);
+
+	/* Panel native resolution and desired mode can be different in
+	these two cases:
+	1. Generic driver specifies scaling reqd flag.
+	2. Static driver for Panasonic panel with BYT_CR
+
+	Fixme: Remove static driver's panel ID check as we are planning to
+	enable generic driver by default */
+	if ((dev_priv->scaling_reqd) ||
+		(BYT_CR_CONFIG && (i915_mipi_panel_id ==
+		MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID)))  {
+		intel_connector->panel.fitting_mode = AUTOSCALE;
+		DRM_DEBUG_DRIVER("Enabling panel fitter as scaling required flag set\n");
+	}
 
 	if (IS_VALLEYVIEW(dev)) {
 		intel_gmch_panel_fitting(intel_crtc, config,
@@ -907,6 +922,18 @@ static int intel_dsi_set_property(struct drm_connector *connector,
 		intel_connector->panel.fitting_mode = val;
 
 		if (IS_VALLEYVIEW(dev_priv->dev)) {
+
+			/* In case of BYT_CR platform with the panasonic panel of
+			 * resolution 19x10, panel fitter needs to be enabled always
+			 * becoz we simulate the 12x8 mode due to memory limitation
+			 */
+			if ((dev_priv->scaling_reqd) ||
+			(BYT_CR_CONFIG && (i915_mipi_panel_id ==
+				MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID))) {
+				if (intel_connector->panel.fitting_mode == PFIT_OFF)
+					return 0;
+			}
+
 			intel_gmch_panel_fitting(intel_crtc, &intel_crtc->config,
 				intel_connector->panel.fitting_mode);
 			DRM_DEBUG_DRIVER("panel fitting mode = %x", intel_connector->panel.fitting_mode);
@@ -1327,20 +1354,6 @@ bool intel_dsi_init(struct drm_device *dev)
 	intel_panel_init(&intel_connector->panel, fixed_mode, downclock_mode);
 	intel_panel_setup_backlight(connector);
 	intel_connector->panel.fitting_mode = 0;
-
-	/* Panel native resolution and desired mode can be different in
-	these two cases:
-	1. Generic driver specifies scaling reqd flag.
-	2. Static driver for Panasonic panel with BYT_CR
-
-	Fixme: Remove static driver's panel ID check as we are planning to
-	enable generic driver by default */
-	if ((dev_priv->scaling_reqd) ||
-		(BYT_CR_CONFIG && (i915_mipi_panel_id ==
-		MIPI_DSI_PANASONIC_VXX09F006A00_PANEL_ID)))  {
-		intel_connector->panel.fitting_mode = AUTOSCALE;
-		DRM_DEBUG_DRIVER("Enabling panel fitter as scaling required flag set\n");
-	}
 
 	return true;
 err:
