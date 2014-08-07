@@ -451,6 +451,19 @@ int intel_enable_pipe_gamma(struct drm_crtc *crtc)
 	status |= GAMMA_ENABLE_SPR;
 	I915_WRITE(GAMMA_SP2_CNTRL(pipe), status);
 
+	if (IS_VALLEYVIEW(dev)) {
+		/* Need a trigger to update framebuffer for panel */
+		mutex_lock(&crtc->mutex);
+		if (I915_READ(DSPCNTR(pipe) & DISPLAY_PLANE_ENABLE))
+			I915_WRITE(DSPSURF(pipe), I915_READ(DSPSURF(pipe)));
+		if (I915_READ(SPCNTR(pipe, PLANE_A)) & SP_ENABLE)
+			I915_WRITE(SPSURF(pipe, PLANE_A), I915_READ(SPSURF(pipe, PLANE_A)));
+		if (I915_READ(SPCNTR(pipe, PLANE_B)) & SP_ENABLE)
+			I915_WRITE(SPSURF(pipe, PLANE_B), I915_READ(SPSURF(pipe, PLANE_B)));
+		intel_crtc->dummy_flip = true;
+		mutex_unlock(&crtc->mutex);
+	}
+
 	DRM_DEBUG("Gamma enabled on Pipe %d\n", pipe);
 	return 0;
 }

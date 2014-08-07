@@ -568,8 +568,13 @@ void intel_finish_sprite_page_flip(struct drm_device *dev, int pipe)
 	}
 
 	intel_crtc->sprite_unpin_work = NULL;
-	if (work->event)
-		drm_send_vblank_event(dev, intel_crtc->pipe, work->event);
+
+	if (intel_crtc->dummy_flip)
+		intel_crtc->dummy_flip = false;
+	else {
+		if (work->event)
+			drm_send_vblank_event(dev, intel_crtc->pipe, work->event);
+	}
 
 	drm_vblank_put(dev, intel_crtc->pipe);
 	spin_unlock_irqrestore(&dev->event_lock, flags);

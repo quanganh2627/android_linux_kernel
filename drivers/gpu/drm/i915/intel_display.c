@@ -8521,8 +8521,12 @@ static void do_intel_finish_page_flip(struct drm_device *dev,
 
 	intel_crtc->unpin_work = NULL;
 
-	if (work->event)
-		drm_send_vblank_event(dev, intel_crtc->pipe, work->event);
+	if (intel_crtc->dummy_flip)
+		intel_crtc->dummy_flip = false;
+	else {
+		if (work->event)
+			drm_send_vblank_event(dev, intel_crtc->pipe, work->event);
+	}
 
 	drm_vblank_put(dev, intel_crtc->pipe);
 
@@ -10981,6 +10985,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->base.panning_en = false;
 	intel_crtc->scaling_src_size = 0;
 	intel_crtc->pfit_en_status = false;
+	intel_crtc->dummy_flip = false;
 }
 
 int intel_get_pipe_from_crtc_id(struct drm_device *dev, void *data,
