@@ -256,6 +256,29 @@ static int const therm_curve_data[THERM_CURVE_MAX_SAMPLES]
 	{70, 65, 25, 22},
 };
 
+
+static int pmic_fg_reg_setb(struct pmic_fg_info *info, int reg, u8 mask)
+{
+       int ret;
+
+       ret = intel_mid_pmic_setb(reg, mask);
+       if (ret < 0)
+			dev_err(&info->pdev->dev, "pmic reg set mask err:%d\n", ret);
+       return ret;
+}
+
+static int pmic_fg_reg_clearb(struct pmic_fg_info *info, int reg, u8 mask)
+{
+       int ret;
+
+       ret = intel_mid_pmic_clearb(reg, mask);
+       if (ret < 0)
+			dev_err(&info->pdev->dev, "pmic reg set mask err:%d\n", ret);
+
+       return ret;
+}
+
+
 static int pmic_fg_reg_readb(struct pmic_fg_info *info, int reg)
 {
 	int ret, i;
@@ -972,15 +995,37 @@ fg_prog_ocv_fail:
 static int pmic_fg_program_design_cap(struct pmic_fg_info *info)
 {
 	int ret;
-
-	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP1_REG, info->cfg->cap1);
+	int cap1, cap0;
+/*
+	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP1_REG, info->pdata->cap1);
 	if (ret < 0)
 		goto fg_prog_descap_fail;
+*/
+       cap1 = pmic_fg_reg_readb(info, DC_FG_DES_CAP1_REG);
+       if (cap1 < 0) {
+				dev_warn(&info->pdev->dev, "CAP1 reg read err!!\n");
+				return ret;
+      }
+       cap0 = pmic_fg_reg_readb(info, DC_FG_DES_CAP0_REG);
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP0_REG, info->cfg->cap0);
+       if (cap1 == info->cfg->cap1 && cap0 == info->cfg->cap0) {
+				dev_info(&info->pdev->dev, "FG data is already initialized\n");
+				return 0;
+       } else {
+				dev_info(&info->pdev->dev, "FG data need to be initialized\n");
+       }
 
-fg_prog_descap_fail:
-	return ret;
+       /*Disable coulomb meter*/
+       ret = pmic_fg_reg_clearb(info, DC_FG_CNTL_REG, FG_CNTL_CC_EN);
+
+       ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP1_REG, info->cfg->cap1);
+
+
+		ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP0_REG, info->cfg->cap0);
+
+	ret = pmic_fg_reg_setb(info, DC_FG_CNTL_REG, FG_CNTL_CC_EN);
+
+	return 0;
 }
 
 static int pmic_fg_program_ocv_curve(struct pmic_fg_info *info)
@@ -1001,14 +1046,31 @@ fg_prog_ocv_fail:
 static int pmic_fg_program_rdc_vals(struct pmic_fg_info *info)
 {
 	int ret;
+	int rdc1, rdc0;
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_RDC1_REG, info->cfg->rdc1);
-	if (ret < 0)
-		goto fg_prog_ocv_fail;
+
+       rdc1 = pmic_fg_reg_readb(info, DC_FG_RDC1_REG);
+       if (rdc1 < 0) {
+				dev_warn(&info->pdev->dev, "RDC1 reg read err!!\n");
+				return ret;
+       }
+       rdc0 = pmic_fg_reg_readb(info, DC_FG_RDC1_REG);
+
+       if (rdc1 == info->cfg->rdc1 && rdc0 == info->cfg->rdc0) {
+				dev_info(&info->pdev->dev, "RDC is already initialized\n");
+				return 0;
+       } else {
+				dev_info(&info->pdev->dev, "RDC need to be initialized\n");
+       }
+
+       ret = pmic_fg_reg_writeb(info, DC_FG_RDC1_REG, info->cfg->rdc1);
 
 	ret = pmic_fg_reg_writeb(info, DC_FG_RDC0_REG, info->cfg->rdc0);
 
-fg_prog_ocv_fail:
+
+	ret = pmic_fg_reg_clearb(info, DC_FG_TUNING_CNTL4, (1<<3));
+	ret = pmic_fg_reg_setb(info, DC_FG_TUNING_CNTL4, (1<<4));
+
 	return ret;
 }
 
@@ -1043,27 +1105,28 @@ static void pmic_fg_init_config_regs(struct pmic_fg_info *info)
 		dev_info(&info->pdev->dev, "FG data need to be initialized\n");
 	}
 
-	ret = pmic_fg_program_vbatt_full(info);
-	if (ret < 0)
-		dev_err(&info->pdev->dev, "set vbatt full fail:%d\n", ret);
-
-	ret = pmic_fg_program_design_cap(info);
-	if (ret < 0)
-		dev_err(&info->pdev->dev, "set design cap fail:%d\n", ret);
-
-	ret = pmic_fg_program_rdc_vals(info);
-	if (ret < 0)
-		dev_err(&info->pdev->dev, "set rdc fail:%d\n", ret);
 
 	ret = pmic_fg_program_ocv_curve(info);
 	if (ret < 0)
 		dev_err(&info->pdev->dev, "set ocv curve fail:%d\n", ret);
 
+	ret = pmic_fg_program_rdc_vals(info);
+	if (ret < 0)
+		dev_err(&info->pdev->dev, "set rdc fail:%d\n", ret);
+
+	ret = pmic_fg_program_design_cap(info);
+	if (ret < 0)
+		dev_err(&info->pdev->dev, "set design cap fail:%d\n", ret);
+
+	ret = pmic_fg_program_vbatt_full(info);
+	if (ret < 0)
+		dev_err(&info->pdev->dev, "set vbatt full fail:%d\n", ret);
+
 	ret = pmic_fg_set_lowbatt_thresholds(info);
 	if (ret < 0)
 		dev_err(&info->pdev->dev, "lowbatt thr set fail:%d\n", ret);
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_CNTL_REG, FG_CNTL_DEF_EN_MASK);
+	ret = pmic_fg_reg_writeb(info, DC_FG_CNTL_REG, 0xff);
 	if (ret < 0)
 		dev_err(&info->pdev->dev, "gauge cntl set fail:%d\n", ret);
 
