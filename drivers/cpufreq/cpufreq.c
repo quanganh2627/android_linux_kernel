@@ -1172,7 +1172,6 @@ static int __cpufreq_remove_dev(struct device *dev,
 				/* when in a shared_type policy on hotplug path need to exit the driver on old CPU */
 				if (cpufreq_driver->exit)
 					cpufreq_driver->exit(data);
-				}
 			}
 			WARN_ON(lock_policy_rwsem_write(cpu));
 			update_policy_cpu(data, new_cpu);
@@ -1185,6 +1184,7 @@ static int __cpufreq_remove_dev(struct device *dev,
 						pr_debug("initialization failed during promotion from CPU%d to CPU%d\n", data->cpu, new_cpu);
 
 					cpumask_clear_cpu(cpu, data->cpus); /* init will restore data->cpus to default while we just removed cpu */
+				}
 			}
 			if (!frozen)
 				pr_debug("policy_kobj moved to cpu:%d from:%d\n", new_cpu, cpu);
