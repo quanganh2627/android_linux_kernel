@@ -1680,9 +1680,11 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		    !(present_state & (SDHCI_DOING_WRITE | SDHCI_DOING_READ)) &&
 		    (present_state & SDHCI_DATA_0_LVL_MASK)) {
 			if (mmc->card) {
+				/* WA for some Broadcom chip */
 				if (mmc_card_sdio(mmc->card) &&
 				    (mmc_cmd_type(mrq->cmd) != MMC_CMD_ADTC) &&
-				    !(host->flags & SDHCI_TUNE_FOR_CMD52))
+				    !(host->quirks2 & SDHCI_QUIRK2_BCM_WIFI_WA &&
+				      host->flags & SDHCI_TUNE_FOR_CMD52))
 					goto end_tuning;
 				if ((mmc->card->ext_csd.part_config & 0x07) ==
 					EXT_CSD_PART_CONFIG_ACC_RPMB)
@@ -1719,6 +1721,15 @@ end_tuning:
 			goto out;
 		}
 
+		/* WA for some Broadcom chip */
+		if (host->quirks2 & SDHCI_QUIRK2_BCM_WIFI_WA &&
+		    host->mrq->cmd->opcode == SD_IO_RW_DIRECT &&
+		    host->flags & SDHCI_NEEDS_RETUNING &&
+		    host->flags & SDHCI_EXIT_RPM_RESUME) {
+			host->flags |= SDHCI_TUNE_FOR_CMD52;
+			pr_info("%s: set SDHCI_TUNE_FOR_CMD52.\n",
+				mmc_hostname(host->mmc));
+		}
 		/* Clear the flag for Samsung emmc APS prepartion bug WA */
 		if (host->flags & SDHCI_EXIT_RPM_RESUME)
 			host->flags &= ~SDHCI_EXIT_RPM_RESUME;
@@ -2488,8 +2499,14 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		/* Tuning mode 1 limits the maximum data length to 4MB */
 		mmc->max_blk_count = (4 * 1024 * 1024) / mmc->max_blk_size;
 	} else {
-		if (tuning_loop_counter && err != -EIO)
-			host->flags &= ~SDHCI_NEEDS_RETUNING;
+		/* WA for some Broadcom chip */
+		if (host->quirks2 & SDHCI_QUIRK2_BCM_WIFI_WA) {
+			if (tuning_loop_counter && err != -EIO)
+				host->flags &= ~SDHCI_NEEDS_RETUNING;
+		} else {
+			if (tuning_loop_counter)
+				host->flags &= ~SDHCI_NEEDS_RETUNING;
+		}
 		/* Reload the new initial value for timer */
 		if ((host->tuning_mode == SDHCI_TUNING_MODE_1) &&
 				host->tuning_count)
@@ -2498,7 +2515,9 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	}
 
 	/* WA for some Broadcom chip */
-	if (host->flags & SDHCI_TUNE_FOR_CMD52 && err != -EIO)
+	if (host->quirks2 & SDHCI_QUIRK2_BCM_WIFI_WA &&
+	    host->flags & SDHCI_TUNE_FOR_CMD52 &&
+	    err != -EIO)
 		host->flags &= ~SDHCI_TUNE_FOR_CMD52;
 
 	/*
@@ -2784,14 +2803,6 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 		host->cmd->error = -EILSEQ;
 
 	if (host->cmd->error) {
-		/* WA for some Broadcom chip */
-		if (host->cmd->error == -EILSEQ &&
-		    host->cmd->opcode == SD_IO_RW_DIRECT &&
-		    host->flags & SDHCI_NEEDS_RETUNING) {
-			host->flags |= SDHCI_TUNE_FOR_CMD52;
-			pr_warn("%s: set SDHCI_TUNE_FOR_CMD52.\n",
-				mmc_hostname(host->mmc));
-		}
 		tasklet_schedule(&host->finish_tasklet);
 		return;
 	}

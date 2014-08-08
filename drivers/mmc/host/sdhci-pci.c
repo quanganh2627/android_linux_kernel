@@ -999,7 +999,8 @@ static const struct sdhci_pci_fixes sdhci_intel_moor_sdio = {
 	.quirks2	= SDHCI_QUIRK2_HIGH_SPEED_SET_LATE |
 				SDHCI_QUIRK2_FAKE_VDD |
 				SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
-				SDHCI_QUIRK2_WA_LNP,
+				SDHCI_QUIRK2_WA_LNP |
+				SDHCI_QUIRK2_BCM_WIFI_WA,
 	.allow_runtime_pm = true,
 	.probe_slot	= intel_moor_sdio_probe_slot,
 	.remove_slot	= intel_moor_sdio_remove_slot,

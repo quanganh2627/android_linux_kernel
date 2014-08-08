@@ -120,7 +120,8 @@ struct sdhci_host {
 /* BAD sd cd in HOST IC. This will cause system hang when removing SD */
 #define SDHCI_QUIRK2_BAD_SD_CD				(1<<26)
 #define SDHCI_QUIRK2_POWER_PIN_GPIO_MODE		(1<<27)
-#define SDHCI_QUIRK2_NON_STD_CIS   (1<<29)
+#define SDHCI_QUIRK2_BCM_WIFI_WA			(1<<28)
+#define SDHCI_QUIRK2_NON_STD_CIS			(1<<29)
 #define SDHCI_QUIRK2_TUNING_POLL			(1<<30)
 #define SDHCI_QUIRK2_WA_LNP				(1<<31)
 
