@@ -414,38 +414,99 @@ EXPORT_SYMBOL_GPL(intel_scu_ipc_set_osc_clk0);
 #define MSIC_VPROG_OFF          0x24 /*1.200V and OFF*/
 
 /* Defines specific of MRFLD platform (CONFIG_X86_MRFLD). */
-#define MSIC_VPROG1_MRFLD_CTRL	0xAC
-#define MSIC_VPROG2_MRFLD_CTRL	0xAD
-#define MSIC_VPROG3_MRFLD_CTRL	0xAE
 
-#define MSIC_VPROG1_MRFLD_ON	0xC1	/* 2.80V and Auto mode */
-#define MSIC_VPROG2_MRFLD_ON	0xC1	/* 2.80V and Auto mode */
-#define MSIC_VPROG3_MRFLD_ON	0x01	/* 1.05V and Auto mode */
-#define MSIC_VPROG_MRFLD_OFF	0	/* OFF */
+#define MSIC_VPROG1_MRFLD_CTRL 0xAC
+#define MSIC_VPROG2_MRFLD_CTRL 0xAD
+#define MSIC_VPROG3_MRFLD_CTRL 0xAE
+
+#define MSIC_VPROG1_MRFLD_ON   0xC1    /* 2.80V and Auto mode */
+#define MSIC_VPROG2_MRFLD_ON   0xC1    /* 2.80V and Auto mode */
+
+#define MSIC_VPROG3_MRFLD_ON    0x01    /* 1.05V and Auto mode */
+#define MSIC_VPROG_MRFLD_OFF    0       /* OFF */
+
+/* Shadycove BO-PMIC registers */
+#define MSIC_B0_VPROG1_MRFLD_CTRL	0x140
+#define MSIC_B0_VPROG2_MRFLD_CTRL	0x141
+#define MSIC_B0_VPROG3_MRFLD_CTRL	0x142
+
+#define MSIC_B0_VPROG1_MRFLD_SEL	0x150
+#define MSIC_B0_VPROG2_MRFLD_SEL	0x151
+#define MSIC_B0_VPROG3_MRFLD_SEL	0x152
+
+#define MSIC_B0_VPROG1_MRFLD_ON	0x1	/* Auto mode */
+#define MSIC_B0_VPROG2_MRFLD_ON	0x1	/* Auto mode */
+#define MSIC_B0_VPROG3_MRFLD_ON 0x1     /* Auto mode */
+
+#define MSIC_B0_VPROG1_MRFLD_VAL  0x33 /* 2.80 V */
+#define MSIC_B0_VPROG2_MRFLD_VAL  0x33 /* 2.80 V */
+#define MSIC_B0_VPROG3_MRFLD_VAL  0x33 /* 2.80 V */
+/* End of Shadycove B0-PMIC registers */
+
 /* End of MRFLD specific.*/
+
+#define PMIC_ID_ADDR            0x00
+#define PMIC_CHIP_ID_B0_VAL     0x08
 
 /* Helpers to turn on/off msic vprog1, vprog2 and vprog3 */
 int intel_scu_ipc_msic_vprog1(int on)
 {
+	int ret;
+	uint8_t pmic_id;
+
+	ret  = intel_scu_ipc_ioread8(PMIC_ID_ADDR, &pmic_id);
+	if (ret) {
+		pr_err("Failed to read PMIC ID!\n");
+		return ret;
+	}
+
 	if ((oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
-		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE))
-		return intel_scu_ipc_iowrite8(MSIC_VPROG1_MRFLD_CTRL,
-			on ? MSIC_VPROG1_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE)) {
+			if (PMIC_CHIP_ID_B0_VAL == pmic_id) {
+				ret = intel_scu_ipc_iowrite8(MSIC_B0_VPROG1_MRFLD_CTRL,
+					on ? MSIC_B0_VPROG1_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
+				if (!ret)
+					return intel_scu_ipc_iowrite8(MSIC_B0_VPROG1_MRFLD_SEL,
+						on ? MSIC_B0_VPROG1_MRFLD_VAL : MSIC_VPROG_MRFLD_OFF);
+			} else {
+				return intel_scu_ipc_iowrite8(MSIC_VPROG1_MRFLD_CTRL,
+					on ? MSIC_VPROG1_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
+			}
+		}
 	else
 		return intel_scu_ipc_iowrite8(MSIC_VPROG1_CTRL,
 			on ? MSIC_VPROG1_ON : MSIC_VPROG_OFF);
+	return ret;
 }
 EXPORT_SYMBOL_GPL(intel_scu_ipc_msic_vprog1);
 
 int intel_scu_ipc_msic_vprog2(int on)
 {
+	int ret;
+	uint8_t pmic_id;
+
+	ret  = intel_scu_ipc_ioread8(PMIC_ID_ADDR, &pmic_id);
+	if (ret) {
+		pr_err("Failed to read PMIC ID!\n");
+		return ret;
+	}
 	if ((oshob_info->platform_type == INTEL_MID_CPU_CHIP_TANGIER) ||
-		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE))
-		return intel_scu_ipc_iowrite8(MSIC_VPROG2_MRFLD_CTRL,
-			on ? MSIC_VPROG2_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
+		(oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE)) {
+			if (PMIC_CHIP_ID_B0_VAL == pmic_id) {
+				ret = intel_scu_ipc_iowrite8(MSIC_B0_VPROG2_MRFLD_CTRL,
+					on ? MSIC_B0_VPROG2_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
+				if (!ret)
+					return intel_scu_ipc_iowrite8(MSIC_B0_VPROG2_MRFLD_SEL,
+						on ? MSIC_B0_VPROG2_MRFLD_VAL : MSIC_VPROG_MRFLD_OFF);
+			} else {
+				return intel_scu_ipc_iowrite8(MSIC_VPROG2_MRFLD_CTRL,
+					on ? MSIC_VPROG2_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
+			}
+		}
 	else
 		return intel_scu_ipc_iowrite8(MSIC_VPROG2_CTRL,
 			on ? MSIC_VPROG2_ON : MSIC_VPROG_OFF);
+	return ret;
 }
 EXPORT_SYMBOL_GPL(intel_scu_ipc_msic_vprog2);
 
@@ -458,9 +519,25 @@ EXPORT_SYMBOL_GPL(intel_scu_ipc_msic_vemmc1);
 
 int intel_scu_ipc_msic_vprog3(int on)
 {
-	if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE)
-		return intel_scu_ipc_iowrite8(MSIC_VPROG3_MRFLD_CTRL,
-			on ? MSIC_VPROG3_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
+	int ret;
+	uint8_t pmic_id;
+	ret  = intel_scu_ipc_ioread8(PMIC_ID_ADDR, &pmic_id);
+	if (ret) {
+		pr_err("Failed to read PMIC ID!\n");
+		return ret;
+	}
+	if (oshob_info->platform_type == INTEL_MID_CPU_CHIP_ANNIEDALE) {
+		if (PMIC_CHIP_ID_B0_VAL == pmic_id) {
+			ret = intel_scu_ipc_iowrite8(MSIC_B0_VPROG3_MRFLD_CTRL,
+				on ? MSIC_B0_VPROG3_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
+			if (!ret)
+				return intel_scu_ipc_iowrite8(MSIC_B0_VPROG3_MRFLD_SEL,
+					on ? MSIC_B0_VPROG3_MRFLD_VAL : MSIC_VPROG_MRFLD_OFF);
+		} else {
+			return intel_scu_ipc_iowrite8(MSIC_VPROG3_MRFLD_CTRL,
+				on ? MSIC_VPROG3_MRFLD_ON : MSIC_VPROG_MRFLD_OFF);
+		}
+	}
 	return -ENODEV;
 }
 EXPORT_SYMBOL_GPL(intel_scu_ipc_msic_vprog3);
