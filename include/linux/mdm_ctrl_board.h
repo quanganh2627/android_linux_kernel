@@ -60,7 +60,7 @@ struct mdm_ops {
 	int	(*get_cflash_delay) (void *data);
 	int	(*get_wflash_delay) (void *data);
 	int	(*power_on) (void *data, int gpio_rst, int gpio_pwr);
-	int	(*power_off) (void *data, int gpio_rst);
+	int	(*power_off) (void *data, int gpio_rst, int pwr_on);
 	int	(*warm_reset) (void *data, int gpio_rst);
 };
 
