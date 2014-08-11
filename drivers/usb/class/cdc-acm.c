@@ -254,7 +254,20 @@ static int acm_write_start(struct acm *acm, int wbn)
 	}
 	usb_mark_last_busy(acm->dev);
 
-	rc = acm_start_wb(acm, wb);
+	/* If meet disconnect flow during tty write, then there will be
+	 * one race condition. The urbs will be killed and free during
+	 * disconnect flow. If acm_start_wb be called after urbs be free.
+	 * Then it will be cause unexpected memory corruption in slab/slub/slob.
+	 */
+	if (!acm->disconnected) {
+		usb_get_urb(wb->urb);
+		rc = acm_start_wb(acm, wb);
+		usb_put_urb(wb->urb);
+	} else {
+		usb_autopm_put_interface_async(acm->control);
+		rc = -ENODEV;
+	}
+
 	spin_unlock_irqrestore(&acm->write_lock, flags);
 
 	return rc;
