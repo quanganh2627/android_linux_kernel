@@ -195,6 +195,7 @@ void reset_sst_shim(struct intel_sst_drv *sst)
 	sst_shim_write64(sst_drv_ctx->shim, SST_CSR, csr.full);
 }
 
+#define SST_DUMP_LPE_STACK_SIZE 600
 static void dump_lpe_stack(struct intel_sst_drv *sst)
 {
 	u32 dump_word;
@@ -203,7 +204,7 @@ static void dump_lpe_stack(struct intel_sst_drv *sst)
 
 	addr = sst->dram + SST_LPE_STACK_OFFSET;
 	pr_err("Dump LPE stack area begin@ %p\n:", (u32 *)addr);
-	for (i = 0; i < (SST_LPE_STACK_SIZE/(sizeof(u32))); i++) {
+	for (i = 0; i < (SST_DUMP_LPE_STACK_SIZE/(sizeof(u32))); i++) {
 		dump_word = readl(addr + i * (sizeof(u32)));
 		pr_err("Data[%d]=%#x\n", i, dump_word);
 	}
@@ -389,8 +390,8 @@ static void sst_send_scu_reset_ipc(struct intel_sst_drv *sst)
 }
 #endif
 
-#define SRAM_OFFSET_MRFLD	0xc00
 #define NUM_DWORDS		256
+#define DUMP_SRAM_CHECKPOINT_DWORDS		640
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 {
 	char iram_event[30], dram_event[30], ddr_imr_event[65], event_type[30];
@@ -419,10 +420,12 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	mutex_unlock(&sst->sst_lock);
 
 	/* dump mailbox and sram */
-	pr_err("Dumping Mailbox...\n");
-	dump_buffer_fromio(sst->mailbox, NUM_DWORDS);
-	pr_err("Dumping SRAM...\n");
-	dump_buffer_fromio(sst->mailbox + SRAM_OFFSET_MRFLD, NUM_DWORDS);
+	pr_err("Dumping Mailbox IA to LPE...\n");
+	dump_buffer_fromio(sst->ipc_mailbox, NUM_DWORDS);
+	pr_err("Dumping Mailbox LPE to IA...Lw\n");
+	dump_buffer_fromio(sst->ipc_mailbox + sst->mailbox_recv_offset, NUM_DWORDS);
+	pr_err("Dumping SRAM CHECKPOINT...\n");
+	dump_buffer_fromio(sst->mailbox +  sst->pdata->debugfs_data->checkpoint_offset, DUMP_SRAM_CHECKPOINT_DWORDS);
 
 	if (sst_drv_ctx->ops->set_bypass) {
 
@@ -477,6 +480,14 @@ void sst_debug_dump(struct intel_sst_drv *sst)
 
 	dump_stack();
 	dump_sst_shim(sst);
+
+	/* dump mailbox and sram */
+	pr_err("Dumping Mailbox IA to LPE...\n");
+	dump_buffer_fromio(sst->ipc_mailbox, NUM_DWORDS);
+	pr_err("Dumping Mailbox LPE to IA...Lw\n");
+	dump_buffer_fromio(sst->ipc_mailbox + sst->mailbox_recv_offset, NUM_DWORDS);
+	pr_err("Dumping SRAM CHECKPOINT...\n");
+	dump_buffer_fromio(sst->mailbox +  sst->pdata->debugfs_data->checkpoint_offset, DUMP_SRAM_CHECKPOINT_DWORDS);
 
 	if (sst->sst_state == SST_FW_RUNNING &&
 		sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
