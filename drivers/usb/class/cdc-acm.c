@@ -1581,6 +1581,8 @@ static void stop_data_traffic(struct acm *acm)
 
 static void acm_disconnect(struct usb_interface *intf)
 {
+	struct acm_wb *wb;
+	struct delayed_wb *d_wb, *nd_wb;
 	struct acm *acm = usb_get_intfdata(intf);
 	struct usb_device *usb_dev = interface_to_usbdev(intf);
 	struct tty_struct *tty;
@@ -1615,6 +1617,15 @@ static void acm_disconnect(struct usb_interface *intf)
 	stop_data_traffic(acm);
 
 	tty_unregister_device(acm_tty_driver, acm->minor);
+
+	spin_lock_irq(&acm->write_lock);
+	list_for_each_entry_safe(d_wb, nd_wb,
+			&acm->delayed_wb_list, list) {
+		wb = d_wb->wb;
+		list_del(&d_wb->list);
+		kfree(d_wb);
+	}
+	spin_unlock_irq(&acm->write_lock);
 
 	usb_free_urb(acm->ctrlurb);
 	for (i = 0; i < ACM_NW; i++)
