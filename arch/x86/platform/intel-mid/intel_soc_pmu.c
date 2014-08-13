@@ -22,6 +22,7 @@
 #include <linux/proc_fs.h>
 #include <asm/stacktrace.h>
 #include <asm/intel_mid_rpmsg.h>
+#include <linux/platform_data/intel_mid_remoteproc.h>
 
 #include <asm/hypervisor.h>
 #include <asm/xen/hypercall.h>
@@ -2248,10 +2249,21 @@ fs_initcall(mid_pci_register_init);
 void pmu_power_off(void)
 {
 	/* wait till SCU is ready */
-	if (!_pmu2_wait_not_busy())
-		writel(S5_VALUE, &mid_pmu_cxt->pmu_reg->pm_cmd);
+	if (!_pmu2_wait_not_busy()) {
+		/*
+		* TNG and ANN use COLD_OFF IPC message to shut
+		* down the system.
+		*/
+		if ((intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_TANGIER) ||
+				(intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)) {
+			pr_err("[SHTDWN] %s, executing COLD_OFF...\n", __func__);
+			if (rpmsg_send_generic_simple_command(RP_COLD_OFF, 0))
+				WARN("%s(): COLD_OFF ipc failed\n", __func__);
+		} else {
+			writel(S5_VALUE, &mid_pmu_cxt->pmu_reg->pm_cmd);
+		}
 
-	else {
+	} else {
 		/* If PM_BUSY bit is not clear issue COLD_OFF */
 		WARN(1, "%s: pmu busy bit not cleared.\n", __func__);
 		rpmsg_send_generic_simple_command(IPCMSG_COLD_RESET, 1);
