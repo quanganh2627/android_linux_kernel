@@ -3226,7 +3226,7 @@ int snd_soc_dapm_new_controls(struct snd_soc_dapm_context *dapm,
 }
 EXPORT_SYMBOL_GPL(snd_soc_dapm_new_controls);
 
-static int snd_soc_get_hw_params(struct snd_pcm_hw_params *params, struct snd_soc_pcm_stream *config)
+static void snd_soc_get_hw_params(struct snd_pcm_hw_params *params, struct snd_soc_pcm_stream *config)
 {
 	hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE)->min =
 		config->rate_min;
