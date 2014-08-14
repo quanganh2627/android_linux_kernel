@@ -534,7 +534,7 @@ static int dvc_trace_ctrlrequest(struct usb_composite_dev *cdev,
 
 	/* respond with data transfer or status phase? */
 	if (value >= 0) {
-		if (!cdev->req || cdev->gadget || !cdev->gadget->ep0)
+		if (!cdev->req || !cdev->gadget || !cdev->gadget->ep0)
 			return -EINVAL;
 		cdev->req->zero = 0;
 		cdev->req->length = value;
