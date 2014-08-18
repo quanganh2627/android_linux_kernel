@@ -62,3 +62,11 @@ config NPK_NUM_CHANNELS_FOR_EARLY_PRINTK
 	---help---
 	 This is the number of software channels that are reserved
 	 for early printk messages for each logical processor
+
+config INTEL_NORTHPEAK_DVC_IO
+	tristate "DvC.Trace over NorthPeak"
+	depends on USB_G_ANDROID && INTEL_NORTHPEAK_TRACE
+	default n
+	---help---
+	  DvC.Trace will use NorthPeak multi-window buffer
+	  and PCI device.

@@ -529,4 +529,18 @@ config REGULATOR_WHISKEY_COVE
         help
           This driver controls Intel Whiskey Cove pmic voltage output regulator
 
+config REGULATOR_PMIC_DCOVE_XB
+	tristate "Intel DollarCove PMIC Voltage Regulators (XB)"
+	help
+	  Support the voltagae regulators for the DollarCove based PMIC from XPwr.
+
+config REGULATOR_PMIC_DCOVE_TB
+	tristate "Intel DollarCove PMIC Voltage Regulators (TB)"
+	help
+	  Support the voltage regulators for the DollarCove based PMIC from TE. IN.
+
+config REGULATOR_PMIC_SHADY_COVE
+        tristate "PMIC Shady  Cove voltage regulator"
+        help
+          This driver controls intel Shady Cove pmic voltage output regulator
 endif

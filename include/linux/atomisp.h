@@ -260,6 +260,31 @@ struct atomisp_3a_rgby_output {
 	uint32_t y;
 };
 
+/*
+ * Because we have 2 pipes at max to output metadata, therefore driver will use
+ * ATOMISP_MAIN_METADATA to specify the metadata from the pipe which keeps
+ * streaming always and use ATOMISP_SEC_METADATA to specify the metadata from
+ * the pipe which is streaming by request like capture pipe of ZSL or SDV mode
+ * as secondary metadata. And for the use case which has only one pipe
+ * streaming like online capture, ATOMISP_MAIN_METADATA will be used.
+ */
+enum atomisp_metadata_type {
+	ATOMISP_MAIN_METADATA = 0,
+	ATOMISP_SEC_METADATA,
+	ATOMISP_METADATA_TYPE_NUM,
+};
+
+struct atomisp_metadata_with_type {
+	/* to specify which type of metadata to get */
+	enum atomisp_metadata_type type;
+	void __user *data;
+	uint32_t width;
+	uint32_t height;
+	uint32_t stride; /* in bytes */
+	uint32_t exp_id; /* exposure ID */
+	uint32_t *effective_width; /* mipi packets valid data size */
+};
+
 struct atomisp_metadata {
 	void __user *data;
 	uint32_t width;
@@ -299,6 +324,14 @@ struct atomisp_cont_capture_conf {
 	unsigned int skip_frames;
 	int offset;
 	__u32 reserved[5];
+};
+
+struct atomisp_ae_window {
+	int x_left;
+	int x_right;
+	int y_top;
+	int y_bottom;
+	int weight;
 };
 
 /* White Balance (Gain Adjust) */
@@ -825,6 +858,7 @@ struct atomisp_acc_fw_load_to_pipe {
 #define ATOMISP_ACC_FW_LOAD_FL_VIDEO		(1 << 2)
 #define ATOMISP_ACC_FW_LOAD_FL_CAPTURE		(1 << 3)
 #define ATOMISP_ACC_FW_LOAD_FL_ACC		(1 << 4)
+#define ATOMISP_ACC_FW_LOAD_FL_ENABLE		(1 << 16)
 
 #define ATOMISP_ACC_FW_LOAD_TYPE_NONE		0 /* Normal binary: don't use */
 #define ATOMISP_ACC_FW_LOAD_TYPE_OUTPUT		1 /* Stage on output */
@@ -841,6 +875,12 @@ struct atomisp_acc_map {
 
 #define ATOMISP_MAP_FLAG_NOFLUSH	0x0001	/* Do not flush cache */
 #define ATOMISP_MAP_FLAG_CACHED		0x0002	/* Enable cache */
+
+struct atomisp_acc_state {
+	__u32 flags;			/* Flags, see list below */
+#define ATOMISP_STATE_FLAG_ENABLE	ATOMISP_ACC_FW_LOAD_FL_ENABLE
+	unsigned int fw_handle;
+};
 
 /*
  * V4L2 private internal data interface.
@@ -1048,6 +1088,9 @@ struct v4l2_private_int_data {
 #define ATOMISP_IOC_G_METADATA \
 	_IOWR('v', BASE_VIDIOC_PRIVATE + 34, struct atomisp_metadata)
 
+#define ATOMISP_IOC_G_METADATA_BY_TYPE \
+	_IOWR('v', BASE_VIDIOC_PRIVATE + 34, struct atomisp_metadata_with_type)
+
 #define ATOMISP_IOC_EXT_ISP_CTRL \
 	_IOWR('v', BASE_VIDIOC_PRIVATE + 35, struct atomisp_ext_isp_ctrl)
 
@@ -1065,6 +1108,16 @@ struct v4l2_private_int_data {
 
 #define ATOMISP_IOC_S_FORMATS_CONFIG \
 	_IOW('v', BASE_VIDIOC_PRIVATE + 39, struct atomisp_formats_config)
+
+#define ATOMISP_IOC_S_EXPOSURE_WINDOW \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 40, struct atomisp_ae_window)
+
+#define ATOMISP_IOC_S_ACC_STATE \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 41, struct atomisp_acc_state)
+
+#define ATOMISP_IOC_G_ACC_STATE \
+	_IOR('v', BASE_VIDIOC_PRIVATE + 41, struct atomisp_acc_state)
+
 /*
  * Reserved ioctls. We have customer implementing it internally.
  * We can't use both numbers to not cause ABI conflict.
@@ -1160,6 +1213,13 @@ struct v4l2_private_int_data {
 
 #define V4L2_CID_DEPTH_MODE		(V4L2_CID_CAMERA_LASTP1 + 30)
 
+#define V4L2_CID_EXPOSURE_ZONE_NUM	(V4L2_CID_CAMERA_LASTP1 + 31)
+
+#define V4L2_CID_TEST_PATTERN_COLOR_R	(V4L2_CID_CAMERA_LASTP1 + 33)
+#define V4L2_CID_TEST_PATTERN_COLOR_GR	(V4L2_CID_CAMERA_LASTP1 + 34)
+#define V4L2_CID_TEST_PATTERN_COLOR_GB	(V4L2_CID_CAMERA_LASTP1 + 35)
+#define V4L2_CID_TEST_PATTERN_COLOR_B	(V4L2_CID_CAMERA_LASTP1 + 36)
+
 #define V4L2_BUF_FLAG_BUFFER_INVALID       0x0400
 #define V4L2_BUF_FLAG_BUFFER_VALID         0x0800
 
@@ -1168,6 +1228,7 @@ struct v4l2_private_int_data {
 #define V4L2_EVENT_ATOMISP_3A_STATS_READY   (V4L2_EVENT_PRIVATE_START + 1)
 #define V4L2_EVENT_ATOMISP_METADATA_READY   (V4L2_EVENT_PRIVATE_START + 2)
 #define V4L2_EVENT_ATOMISP_RAW_BUFFERS_ALLOC_DONE   (V4L2_EVENT_PRIVATE_START + 3)
+#define V4L2_EVENT_ATOMISP_ACC_COMPLETE     (V4L2_EVENT_PRIVATE_START + 4)
 
 /* Nonstandard color effects for V4L2_CID_COLORFX */
 enum {

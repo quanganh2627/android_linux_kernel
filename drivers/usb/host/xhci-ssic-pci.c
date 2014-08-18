@@ -246,11 +246,15 @@ static int ssic_port_enable(struct xhci_hcd *xhci, int enable)
 
 			usb_disable_autosuspend(ssic_hcd.rh_dev);
 			ssic_hcd.autosuspend_enable = 0;
+			ssic_hcd.u1_enable = 0;
+			ssic_hcd.u2_enable = 0;
 		}
 	} else {
 		if (ssic_hcd.rh_dev) {
 			dev_dbg(&ssic_pci_dev->dev,
 				"%s----> disable port\n", __func__);
+
+			hub_usb3_port_disable(usb_hub_to_struct_hub(ssic_hcd.rh_dev), ssic_hcd.ssic_port);
 
 			/* Config SSIC Configuration Register2 */
 			temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2);
@@ -300,11 +304,19 @@ static int ssic_port_enable(struct xhci_hcd *xhci, int enable)
 			xhci_dbg(xhci, "After clear PP, portsc = 0x%X\n",
 			xhci_readl(xhci, port_array[ssic_hcd.ssic_port - 1]));
 
-			if (ssic_hcd.modem_dev) {
-				dev_dbg(&ssic_pci_dev->dev,
-						"Enable auto suspend in port disable\n");
-				usb_enable_autosuspend(ssic_hcd.modem_dev);
+			status = set_port_feature(ssic_hcd.rh_dev,
+							ssic_hcd.ssic_port,
+						USB_PORT_FEAT_POWER);
+			if (status < 0) {
+				dev_err(&ssic_pci_dev->dev,
+						"%s set port power failed, return %d\n",
+						__func__, status);
+				return status;
 			}
+			if (status == 0)
+				xhci_dbg(xhci, "set port power() successful\n");
+			xhci_dbg(xhci, "After set PP, portsc = 0x%X\n",
+			xhci_readl(xhci, port_array[ssic_hcd.ssic_port - 1]));
 
 			dev_dbg(&ssic_pci_dev->dev,
 					"Enable root hub auto suspend in port disable\n");
@@ -344,7 +356,7 @@ static ssize_t ssic_enable_store(struct device *dev,
 {
 	int		retval;
 	int		value;
-	struct usb_hcd  *hcd = dev_get_drvdata(dev);
+	struct usb_hcd  *hcd = dev_get_drvdata(&ssic_pci_dev->dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 
 	if (sscanf(buf, "%d", &value) != 1) {
@@ -359,6 +371,7 @@ static ssize_t ssic_enable_store(struct device *dev,
 		return -EINVAL;
 	}
 
+	usb_lock_device(ssic_hcd.rh_dev);
 	mutex_lock(&ssic_hcd.ssic_mutex);
 	if (!ssic_hcd.rh_dev) {
 		dev_dbg(dev, "root hub is already removed\n");
@@ -430,6 +443,7 @@ pm_out:
 		pm_runtime_put(&ssic_hcd.rh_dev->dev);
 out:
 	mutex_unlock(&ssic_hcd.ssic_mutex);
+	usb_unlock_device(ssic_hcd.rh_dev);
 	return size;
 }
 
@@ -451,19 +465,19 @@ static ssize_t ssic_show_registers(struct device *dev,
 	size = PAGE_SIZE;
 
 	/* check if pm_runtime_get_sync successful or not */
-	status = pm_runtime_get_sync(dev);
+	status = pm_runtime_get_sync(&ssic_pci_dev->dev);
 	if (status < 0) {
 		dev_err(&ssic_pci_dev->dev,
 			"%s: pm_runtime_get_sync FAILED err = %d\n",
 			__func__, status);
-		pm_runtime_put_sync(dev);
+		pm_runtime_put_sync(&ssic_pci_dev->dev);
 		return -EINVAL;
 	}
 
-	hcd = dev_get_drvdata(dev);
+	hcd = dev_get_drvdata(&ssic_pci_dev->dev);
 	if (!hcd) {
 		dev_err(&ssic_pci_dev->dev, "hcd is NULL\n");
-		pm_runtime_put_sync(dev);
+		pm_runtime_put_sync(&ssic_pci_dev->dev);
 		return -ENODEV;
 	}
 
@@ -471,7 +485,7 @@ static ssize_t ssic_show_registers(struct device *dev,
 		xhci = hcd_to_xhci(hcd);
 		if (!xhci) {
 			dev_err(&ssic_pci_dev->dev, "xhci is NULL\n");
-			pm_runtime_put_sync(dev);
+			pm_runtime_put_sync(&ssic_pci_dev->dev);
 			return -ENODEV;
 		}
 
@@ -514,7 +528,7 @@ static ssize_t ssic_show_registers(struct device *dev,
 			xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2 + 12));
 	}
 
-	pm_runtime_put_sync(dev);
+	pm_runtime_put_sync(&ssic_pci_dev->dev);
 
 	size -= t;
 	next += t;
@@ -566,6 +580,88 @@ static DEVICE_ATTR(port_inactivity_duration,
 		S_IRUGO | S_IWUSR | S_IROTH | S_IWOTH,
 		ssic_port_inactivity_duration_show,
 		ssic_port_inactivity_duration_store);
+
+static ssize_t ssic_u1_inactivity_duration_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", ssic_hcd.u1_inactivity_duration);
+}
+
+static ssize_t ssic_u1_inactivity_duration_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned	duration;
+
+	if (sscanf(buf, "%d", &duration) != 1) {
+		dev_dbg(dev, "Invalid, value\n");
+		return -EINVAL;
+	}
+
+	if (duration <= 0 || duration > SSIC_MAX_U1_TIMEOUT) {
+		dev_dbg(dev, "Invalid, value\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ssic_hcd.ssic_mutex);
+	if (ssic_hcd.modem_dev != NULL) {
+		ssic_hcd.u1_inactivity_duration = duration;
+		dev_dbg(dev, "u1 Duration after change: %d\n",
+				ssic_hcd.u1_inactivity_duration);
+	} else {
+		dev_dbg(dev, "No SSIC Modem, just ignore this request\n");
+		mutex_unlock(&ssic_hcd.ssic_mutex);
+		return -ENODEV;
+	}
+
+	mutex_unlock(&ssic_hcd.ssic_mutex);
+	return size;
+}
+
+static DEVICE_ATTR(u1_inactivity_duration,
+		S_IRUGO | S_IWUSR | S_IROTH | S_IWOTH,
+		ssic_u1_inactivity_duration_show,
+		ssic_u1_inactivity_duration_store);
+
+static ssize_t ssic_u2_inactivity_duration_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", ssic_hcd.u2_inactivity_duration);
+}
+
+static ssize_t ssic_u2_inactivity_duration_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned	duration;
+
+	if (sscanf(buf, "%d", &duration) != 1) {
+		dev_dbg(dev, "Invalid, value\n");
+		return -EINVAL;
+	}
+
+	if (duration <= 0 || duration > SSIC_MAX_U2_TIMEOUT) {
+		dev_dbg(dev, "Invalid, value\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ssic_hcd.ssic_mutex);
+	if (ssic_hcd.modem_dev != NULL) {
+		ssic_hcd.u2_inactivity_duration = duration;
+		dev_dbg(dev, "u2 Duration after change: %d\n",
+				ssic_hcd.u1_inactivity_duration);
+	} else {
+		dev_dbg(dev, "No SSIC Modem, just ignore this request\n");
+		mutex_unlock(&ssic_hcd.ssic_mutex);
+		return -ENODEV;
+	}
+
+	mutex_unlock(&ssic_hcd.ssic_mutex);
+	return size;
+}
+
+static DEVICE_ATTR(u2_inactivity_duration,
+		S_IRUGO | S_IWUSR | S_IROTH | S_IWOTH,
+		ssic_u2_inactivity_duration_show,
+		ssic_u2_inactivity_duration_store);
 
 static int ssic_set_device_initiated_lpm(struct usb_device *udev,
 		enum usb3_link_state state, bool enable)
@@ -622,6 +718,71 @@ static int ssic_set_device_initiated_lpm(struct usb_device *udev,
 	return 0;
 }
 
+/*
+ * A U1 timeout of 0x0 means the parent hub will reject any transitions to U1.
+ * 0xff means the parent hub will accept transitions to U1, but will not
+ * initiate a transition.
+ *
+ * A U1 timeout of 0x1 to 0x7F also causes the hub to initiate a transition to
+ * U1 after that many microseconds.  Timeouts of 0x80 to 0xFE are reserved
+ * values.
+ *
+ * A U2 timeout of 0x0 means the parent hub will reject any transitions to U2.
+ * 0xff means the parent hub will accept transitions to U2, but will not
+ * initiate a transition.
+ *
+ * A U2 timeout of 0x1 to 0xFE also causes the hub to initiate a transition to
+ * U2 after N*256 microseconds.  Therefore a U2 timeout value of 0x1 means a U2
+ * idle timer of 256 microseconds, 0x2 means 512 microseconds, 0xFE means
+ * 65.024ms.
+ */
+static int ssic_set_host_initiated_lpm(struct device *dev,
+		enum usb3_link_state state, bool enable)
+{
+	struct usb_hcd		*hcd;
+	struct xhci_hcd		*xhci;
+	__le32 __iomem		**port_array;
+	u32 temp, timeout, port;
+	int ret;
+
+	hcd = dev_get_drvdata(&ssic_pci_dev->dev);
+
+	if (!hcd)
+		return -ENODEV;
+
+	xhci = hcd_to_xhci(hcd);
+	port_array = xhci->usb3_ports;
+	port = ssic_hcd.ssic_port - 1;
+
+	if (state != USB3_LPM_U1 && state != USB3_LPM_U2)
+		return -EINVAL;
+
+	switch (state) {
+	case USB3_LPM_U1:
+		if (enable)
+			timeout = ssic_hcd.u1_inactivity_duration;
+		else
+			timeout = 0;
+		temp = xhci_readl(xhci, port_array[port] + PORTPMSC);
+		temp &= ~PORT_U1_TIMEOUT_MASK;
+		temp |= PORT_U1_TIMEOUT(timeout);
+		xhci_writel(xhci, temp, port_array[port] + PORTPMSC);
+		break;
+
+	case USB3_LPM_U2:
+		if (enable)
+			timeout = ssic_hcd.u1_inactivity_duration * 4;
+		else
+			timeout = 0;
+		temp = xhci_readl(xhci, port_array[port] + PORTPMSC);
+		temp &= ~PORT_U2_TIMEOUT_MASK;
+		temp |= PORT_U2_TIMEOUT(timeout);
+		xhci_writel(xhci, temp, port_array[port] + PORTPMSC);
+		break;
+	}
+
+	return 0;
+}
 
 /* Interfaces for u1_enable */
 static ssize_t ssic_u1_enable_show(struct device *dev,
@@ -640,28 +801,28 @@ static ssize_t ssic_u1_enable_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	mutex_lock(&ssic_hcd.ssic_mutex);
-
-	if (!ssic_hcd.modem_dev) {
-		dev_err(dev, "Modem is not connected, ignore any request\n");
-		mutex_unlock(&ssic_hcd.ssic_mutex);
+	if (!ssic_hcd.modem_dev || !ssic_hcd.rh_dev) {
+		dev_err(dev, "Modem/roothub is not connected, ignore any request\n");
 		return -ENODEV;
 	}
 
-	if (ssic_hcd.modem_dev) {
-		if (request) {
-			/* Need to enable device U1 */
-			dev_err(dev, "Modem is alive, now enable Modem initiated U1\n");
-			 ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U1, true);
-		} else {
-			dev_err(dev, "Modem is alive, now need to disable Modem initiated U1\n");
-			ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U1, false);
-		}
+	pm_runtime_get_sync(&ssic_hcd.modem_dev->dev);
+	mutex_lock(&ssic_hcd.ssic_mutex);
+
+	if (request) {
+		dev_dbg(dev, "Enable U1 for SSIC\n");
+		ssic_set_host_initiated_lpm(dev, USB3_LPM_U1, true);
+		ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U1, true);
+	} else {
+		dev_dbg(dev, "Disable U1 for SSIC\n");
+		ssic_set_host_initiated_lpm(dev, USB3_LPM_U1, false);
+		ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U1, false);
 	}
 
 	ssic_hcd.u1_enable = request;
-
 	mutex_unlock(&ssic_hcd.ssic_mutex);
+	pm_runtime_put(&ssic_hcd.modem_dev->dev);
+
 	return size;
 }
 static DEVICE_ATTR(u1_enable, S_IRUGO | S_IWUSR | S_IROTH | S_IWOTH,
@@ -678,27 +839,27 @@ static ssize_t ssic_u2_enable_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	mutex_lock(&ssic_hcd.ssic_mutex);
-
-	if (!ssic_hcd.modem_dev) {
-		mutex_unlock(&ssic_hcd.ssic_mutex);
+	if (!ssic_hcd.modem_dev || !ssic_hcd.rh_dev) {
+		dev_err(dev, "Modem/roothub is not connected, ignore any request\n");
 		return -ENODEV;
 	}
 
-	if (ssic_hcd.modem_dev) {
-		if (request) {
-			/* Need to enable device U1 */
-			dev_err(dev, "Modem is alive, now enable Modem initiated U2\n");
-			ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U2, true);
-		} else {
-			dev_err(dev, "Modem is alive, now need to disable Modem initiated U2\n");
-			ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U2, false);
-		}
+	pm_runtime_get_sync(&ssic_hcd.modem_dev->dev);
+	mutex_lock(&ssic_hcd.ssic_mutex);
+
+	if (request) {
+		dev_dbg(dev, "SSIC U2 enabled\n");
+		ssic_set_host_initiated_lpm(dev, USB3_LPM_U2, true);
+		ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U2, true);
+	} else {
+		dev_dbg(dev, "SSIC U2 disabled\n");
+		ssic_set_host_initiated_lpm(dev, USB3_LPM_U2, false);
+		ssic_set_device_initiated_lpm(ssic_hcd.modem_dev, USB3_LPM_U2, false);
 	}
 
 	ssic_hcd.u2_enable = request;
-
 	mutex_unlock(&ssic_hcd.ssic_mutex);
+	pm_runtime_put(&ssic_hcd.modem_dev->dev);
 	return size;
 }
 
@@ -807,6 +968,8 @@ static struct attribute *ssic_attrs[] = {
 	&dev_attr_autosuspend_enable.attr,
 	&dev_attr_port_inactivity_duration.attr,
 	&dev_attr_bus_inactivity_duration.attr,
+	&dev_attr_u1_inactivity_duration.attr,
+	&dev_attr_u2_inactivity_duration.attr,
 	&dev_attr_ssic_enable.attr,
 	&dev_attr_u1_enable.attr,
 	&dev_attr_u2_enable.attr,
@@ -993,6 +1156,8 @@ static void ssicdev_remove(struct usb_device *udev)
 			mutex_lock(&ssic_hcd.ssic_mutex);
 			ssic_hcd.modem_dev = NULL;
 
+			hub_usb3_port_disable(usb_hub_to_struct_hub(ssic_hcd.rh_dev), ssic_hcd.ssic_port);
+
 			/* enable autosuspend when modem remove
 			 * sync internal autosuspend_enable value
 			 */
@@ -1000,7 +1165,6 @@ static void ssicdev_remove(struct usb_device *udev)
 				usb_enable_autosuspend(ssic_hcd.rh_dev);
 			ssic_hcd.autosuspend_enable = 1;
 
-			hub_usb3_port_disable(usb_hub_to_struct_hub(ssic_hcd.rh_dev), ssic_hcd.ssic_port);
 			mutex_unlock(&ssic_hcd.ssic_mutex);
 
 		}
@@ -1524,6 +1688,13 @@ static int xhci_ssic_init(struct usb_hcd *hcd)
 	temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg2);
 	xhci_dbg(xhci, " Config Register2 = 0x%08X\n", temp);
 
+	/*WA: Set T_ACT_H8_EXIT = 0x7 to fix U3 exit failure */
+	temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg1);
+	temp |= 0x7 << 8;
+	xhci_writel(xhci, temp, &ssic_hcd.policy_regs->config_reg1);
+	temp = xhci_readl(xhci, &ssic_hcd.policy_regs->config_reg1);
+	xhci_dbg(xhci, "Config Regsiter1 = 0x%08X\n", temp);
+
 	return 0;
 }
 
@@ -1681,6 +1852,20 @@ static int create_ssic_class_device_files(struct pci_dev *pdev)
 				&dev_attr_bus_inactivity_duration);
 	if (retval < 0) {
 		dev_dbg(&pdev->dev, "Error create bus_inactiveDuration\n");
+		goto ssic_class_dev_fail;
+	}
+
+	retval = device_create_file(ssic_class_dev,
+				&dev_attr_u1_inactivity_duration);
+	if (retval < 0) {
+		dev_dbg(&pdev->dev, "Error create u1_inactiveDuration\n");
+		goto ssic_class_dev_fail;
+	}
+
+	retval = device_create_file(ssic_class_dev,
+				&dev_attr_u2_inactivity_duration);
+	if (retval < 0) {
+		dev_dbg(&pdev->dev, "Error create u2_inactiveDuration\n");
 		goto ssic_class_dev_fail;
 	}
 

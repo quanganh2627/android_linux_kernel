@@ -31,6 +31,7 @@
 #include <linux/suspend.h>
 #include <linux/time.h>
 #include <linux/intel_mid_pm.h>
+#include <linux/pm_qos.h>
 #include <asm/intel_mid_pcihelpers.h>
 
 #define BYT_S3_HINT		0x64
@@ -490,6 +491,7 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 	const char **d3_device;
 	const char **pg_device;
 	const struct nc_device *nc_devices;
+	int cpu_dma_qos = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
 
 	pmc_cxt->residency_total = 0;
 
@@ -513,6 +515,13 @@ static int pmc_devices_state_show(struct seq_file *s, void *unused)
 	pr_info("func_dis2 = %x\n", reg_func_dis2);
 	pg_status = readl(pmc_cxt->pmc_pss);
 	pr_info("Power Gate status = %x\n", pg_status);
+
+	seq_puts(s, "\nPM_QOS LATENCIES\n");
+	seq_printf(s, "CPU_DMA_QOS LATENCY= %d [us]\n\n", cpu_dma_qos);
+	seq_printf(s, "CSTATE_EXIT_LATENCY_C1 = %d [us]\n", CSTATE_EXIT_LATENCY_C1);
+	seq_printf(s, "CSTATE_EXIT_LATENCY_C6 = %d [us]\n", CSTATE_EXIT_LATENCY_C6);
+	seq_printf(s, "CSTATE_EXIT_LATENCY_S0i1 = %d [us]\n", CSTATE_EXIT_LATENCY_S0i1);
+	seq_printf(s, "CSTATE_EXIT_LATENCY_S0i3 = %d [us]\n\n", CSTATE_EXIT_LATENCY_S0i3);
 
 	if (platform_is(INTEL_ATOM_BYT)) {
 		nc_devices = nc_devices_byt;

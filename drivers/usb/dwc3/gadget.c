@@ -1016,9 +1016,15 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 
 				if (i == (request->num_mapped_sgs - 1) ||
 						sg_is_last(s)) {
-					if (list_is_last(&req->list,
-							&dep->request_list))
-						last_one = true;
+					/* FIXME: After the first TRB is made
+					 * the USB request is removed from
+					 * request_list: we can't check if the
+					 * request is the last, but we could
+					 * check if the list is empty afterward
+					 * This is critical to get an interrupt
+					 * after the sg list is sent.
+					 */
+					last_one = true;
 					chain = false;
 				}
 

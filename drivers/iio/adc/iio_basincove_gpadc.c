@@ -165,11 +165,13 @@ static void gpadc_dump(struct gpadc_info *info)
 
 static irqreturn_t gpadc_isr(int irq, void *data)
 {
+#ifdef CONFIG_INTEL_SCU_IPC
 	struct gpadc_info *info = iio_priv(data);
 
 	info->irq_status = ioread8(info->intr);
 	info->sample_done = 1;
 	wake_up(&info->wait);
+#endif
 	return IRQ_WAKE_THREAD;
 }
 
@@ -177,9 +179,14 @@ static irqreturn_t gpadc_threaded_isr(int irq, void *data)
 {
 	struct gpadc_info *info = iio_priv(data);
 	struct gpadc_regs_t *regs = info->gpadc_regs;
-
+#ifndef CONFIG_INTEL_SCU_IPC
+	gpadc_read(regs->adcirq, &info->irq_status);
+	info->sample_done = 1;
+	wake_up(&info->wait);
+#else
 	/* Clear IRQLVL1MASK */
 	gpadc_clear_bits(regs->mirqlvl1, regs->mirqlvl1_adc);
+#endif
 
 	return IRQ_HANDLED;
 }
@@ -258,8 +265,9 @@ int iio_basincove_gpadc_sample(struct iio_dev *indio_dev,
 
 			reg_val = ((th & 0xF) << 8) + tl;
 
-			if ((info->pmic_id & PMIC_VENDOR_ID_MASK)
-					== SHADYCOVE_VENDORID) {
+			if (((info->pmic_id & PMIC_VENDOR_ID_MASK)
+					== SHADYCOVE_VENDORID) ||
+					is_whiskey_cove()) {
 				switch (i) {
 				case PMIC_GPADC_CHANNEL_VBUS:
 				case PMIC_GPADC_CHANNEL_PMICTEMP:
@@ -275,7 +283,7 @@ int iio_basincove_gpadc_sample(struct iio_dev *indio_dev,
 				case PMIC_GPADC_CHANNEL_SYSTEMP0:
 				case PMIC_GPADC_CHANNEL_SYSTEMP1:
 				case PMIC_GPADC_CHANNEL_SYSTEMP2:
-					if (pmic_a0 &&
+					if (!is_whiskey_cove() && pmic_a0 &&
 						!info->is_pmic_provisioned) {
 						/* Auto mode with Scaling 4
 						 * for non-provisioned A0 */
@@ -547,8 +555,9 @@ static int basincove_adc_read_event_value(struct iio_dev *indio_dev,
 	switch (info) {
 	case IIO_EV_INFO_VALUE:
 		*val = ((val_h & 0xF) << 8) + val_l;
-		if ((gp_info->pmic_id & PMIC_VENDOR_ID_MASK)
-				== SHADYCOVE_VENDORID) {
+		if (((gp_info->pmic_id & PMIC_VENDOR_ID_MASK)
+				== SHADYCOVE_VENDORID) ||
+			is_whiskey_cove()) {
 			if (ch != PMIC_GPADC_CHANNEL_PMICTEMP) {
 				int thrsh = *val & 0x01FF;
 				int cur = (*val >> 9) & 0x07;
@@ -617,8 +626,8 @@ static int basincove_adc_write_event_value(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_EV_INFO_VALUE:
-		if ((gp_info->pmic_id & PMIC_VENDOR_ID_MASK)
-				== SHADYCOVE_VENDORID) {
+		if (((gp_info->pmic_id & PMIC_VENDOR_ID_MASK)
+				== SHADYCOVE_VENDORID) || is_whiskey_cove()) {
 			if (ch != PMIC_GPADC_CHANNEL_PMICTEMP)
 				val = get_scove_tempzone_val(val);
 		}
@@ -689,12 +698,14 @@ static int bcove_gpadc_probe(struct platform_device *pdev)
 	init_waitqueue_head(&info->wait);
 	info->dev = &pdev->dev;
 	info->irq = platform_get_irq(pdev, 0);
+#ifdef CONFIG_INTEL_SCU_IPC
 	info->intr = ioremap_nocache(pdata->intr, 1);
 	if (!info->intr) {
 		dev_err(&pdev->dev, "ioremap of ADCIRQ failed\n");
 		err = -ENOMEM;
 		goto err_free;
 	}
+#endif
 	info->intr_mask = pdata->intr_mask;
 	info->channel_num = pdata->channel_num;
 	info->gpadc_regmaps = pdata->gpadc_regmaps;
@@ -733,7 +744,8 @@ static int bcove_gpadc_probe(struct platform_device *pdev)
 	}
 
 	dev_info(&pdev->dev, "PMIC-ID: %x\n", info->pmic_id);
-	if ((info->pmic_id & PMIC_VENDOR_ID_MASK) == SHADYCOVE_VENDORID) {
+	if (((info->pmic_id & PMIC_VENDOR_ID_MASK)
+			== SHADYCOVE_VENDORID) || is_whiskey_cove()) {
 		/* Check if PMIC is provisioned */
 		err = gpadc_read(PMIC_SPARE03_ADDR, &pmic_prov);
 		if (err) {
@@ -827,7 +839,7 @@ static const struct dev_pm_ops bcove_gpadc_driver_pm_ops = {
 
 static struct platform_driver bcove_gpadc_driver = {
 	.driver = {
-		   .name = "bcove_adc",
+		   .name = DRIVERNAME,
 		   .owner = THIS_MODULE,
 		   .pm = &bcove_gpadc_driver_pm_ops,
 		   },
@@ -845,6 +857,7 @@ static void bcove_gpadc_module_exit(void)
 	platform_driver_unregister(&bcove_gpadc_driver);
 }
 
+#ifdef CONFIG_INTEL_SCU_IPC
 static int bcove_adc_rpmsg_probe(struct rpmsg_channel *rpdev)
 {
 	int ret = 0;
@@ -909,6 +922,17 @@ static void __exit bcove_adc_rpmsg_exit(void)
 	return unregister_rpmsg_driver(&bcove_adc_rpmsg);
 }
 module_exit(bcove_adc_rpmsg_exit);
+#else
+
+#ifdef MODULE
+module_init(bcove_gpadc_module_init);
+#else
+rootfs_initcall(bcove_gpadc_module_init);
+#endif
+
+module_exit(bcove_gpadc_module_exit);
+#endif
+
 
 MODULE_AUTHOR("Yang Bin<bin.yang@intel.com>");
 MODULE_DESCRIPTION("Intel Merrifield Basin Cove GPADC Driver");

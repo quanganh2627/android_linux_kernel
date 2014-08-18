@@ -4,6 +4,8 @@ obj-y += platform_clv_regulator.o
 obj-y += platform_mrfl_regulator.o
 obj-y += platform_byt_regulator.o
 obj-$(CONFIG_REGULATOR_CRYSTAL_COVE_PLUS) += platform_cht_ccovep_regulator.o
+obj-$(CONFIG_REGULATOR_WHISKEY_COVE) += platform_cht_wcove_regulator.o
+obj-y += platform_mofd_regulator.o
 obj-y += platform_soc_thermal.o
 obj-$(subst m,y,$(CONFIG_SND_BYT_MACHINE)) += platform_byt_audio.o
 obj-$(subst m,y,$(CONFIG_SND_CHT_MACHINE)) += platform_byt_audio.o
@@ -64,6 +66,7 @@ obj-$(subst m,y,$(CONFIG_GPIO_PCA953X)) += platform_pca9574.o
 
 # SPI Devices
 obj-$(subst m,y,$(CONFIG_SERIAL_MRST_MAX3110)) += platform_max3111.o
+obj-$(subst m,y,$(CONFIG_SERIAL_XMM2230)) += platform_xmm2230.o
 # HSI Devices
 obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_hsi_modem.o
 obj-$(subst m,y,$(CONFIG_HSI_ARASAN))					+= platform_ffl_modem.o
@@ -77,6 +80,7 @@ obj-$(subst m,y,$(CONFIG_KEYBOARD_GPIO)) += platform_gpio_keys.o
 # ADC
 obj-$(subst m,y,$(CONFIG_MSIC_GPADC))	+= platform_msic_adc.o
 obj-$(subst m,y,$(CONFIG_IIO_BASINCOVE_GPADC))	+= platform_bcove_adc.o
+obj-$(subst m,y,$(CONFIG_WHISKEY_COVE))	+= platform_bcove_adc.o
 obj-$(subst m,y,$(CONFIG_IIO_SCALE_GPADC))	+= platform_scale_adc.o
 # UART Devices
 obj-$(subst m,y,$(CONFIG_SERIAL_MFD_HSU_EXT)) += platform_hsu.o
@@ -98,6 +102,7 @@ obj-$(subst m,y,$(CONFIG_VIDEO_OV8858))					+= platform_ov8858.o
 obj-$(subst m,y,$(CONFIG_VIDEO_IMX))					+= platform_imx208.o
 obj-$(subst m,y,$(CONFIG_VIDEO_IMX))					+= platform_imx175.o
 obj-$(subst m,y,$(CONFIG_VIDEO_IMX))					+= platform_imx135.o
+obj-$(subst m,y,$(CONFIG_VIDEO_IMX))					+= platform_imx219.o
 obj-$(subst m,y,$(CONFIG_VIDEO_IMX))					+= platform_imx132.o platform_fsa642.o
 obj-$(subst m,y,$(CONFIG_VIDEO_IMX))					+= platform_imx134.o
 obj-$(subst m,y,$(CONFIG_VIDEO_S5K8AAY))				+= platform_s5k8aay.o

@@ -719,7 +719,7 @@ int sst_free_stream(int str_id)
 }
 
 int sst_request_vtsv_file(char *fname, struct intel_sst_drv *ctx,
-		void **out_file, u32 *out_size)
+		void **out_file, u32 *out_size, int max_size)
 {
 	int retval = 0;
 	const struct firmware *file;
@@ -741,9 +741,13 @@ int sst_request_vtsv_file(char *fname, struct intel_sst_drv *ctx,
 		pr_err("request fw failed %d\n", retval);
 		return retval;
 	}
+	if (file->size > max_size) {
+		pr_err("VTSV file is exceeding max limit %x\n", max_size);
+		return -ENOMEM;
+	}
 
-	if ((*out_file == NULL) || (*out_size < file->size)) {
-		retval = sst_get_next_lib_mem(&ctx->lib_mem_mgr, file->size,
+	if (*out_file == NULL) {
+		retval = sst_get_next_lib_mem(&ctx->lib_mem_mgr, max_size,
 			&file_base);
 		*out_file = (void *)file_base;
 	}
@@ -802,6 +806,10 @@ int sst_format_vtsv_message(struct intel_sst_drv *ctx,
 	return 0;
 }
 
+/* Total 48 KB is allocated for vtsv net/grammar file */
+#define VTSV_NET_MAX_SIZE 0xB800	/* max size for vtsv net file is 46 KB */
+#define VTSV_GRAMMAR_MAX_SIZE 0x800	/* max size for vtsv grammar file is 2 KB */
+
 int sst_cache_vtsv_libs(struct intel_sst_drv *ctx)
 {
 	int retval;
@@ -811,7 +819,7 @@ int sst_cache_vtsv_libs(struct intel_sst_drv *ctx)
 
 	/* Download both the data files */
 	retval = sst_request_vtsv_file(buff, ctx,
-			&ctx->vcache.file1_in_mem, &ctx->vcache.size1);
+			&ctx->vcache.file1_in_mem, &ctx->vcache.size1, VTSV_NET_MAX_SIZE);
 	if (retval) {
 		pr_err("vtsv data file1 request failed %d\n", retval);
 		return retval;
@@ -820,7 +828,7 @@ int sst_cache_vtsv_libs(struct intel_sst_drv *ctx)
 	snprintf(buff, sizeof(buff), "%s/%s", ctx->vtsv_path.bytes, "vtsv_grammar.bin");
 
 	retval = sst_request_vtsv_file(buff, ctx,
-			&ctx->vcache.file2_in_mem, &ctx->vcache.size2);
+			&ctx->vcache.file2_in_mem, &ctx->vcache.size2, VTSV_GRAMMAR_MAX_SIZE);
 	if (retval) {
 		pr_err("vtsv data file2 request failed %d\n", retval);
 		return retval;

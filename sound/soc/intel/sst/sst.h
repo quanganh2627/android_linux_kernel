@@ -698,7 +698,7 @@ int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx);
 int sst_cache_vtsv_libs(struct intel_sst_drv *ctx);
 
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst);
-void sst_do_recovery(struct intel_sst_drv *sst);
+void sst_debug_dump(struct intel_sst_drv *sst);
 long intel_sst_ioctl_dsp(unsigned int cmd,
 		struct snd_ppp_params *algo_params, unsigned long arg);
 

@@ -28,6 +28,8 @@
 #include <linux/suspend.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
+#include <linux/pm_qos.h>
+#include <linux/intel_mid_pm.h>
 
 #define INIT_TASK_PID	1
 
@@ -655,6 +657,8 @@ static void hsic_aux_work(struct work_struct *work)
 		return;
 	}
 
+	pm_qos_add_request(&hsic.pm_qos_req, PM_QOS_CPU_DMA_LATENCY, CSTATE_EXIT_LATENCY_S0i1-1);
+
 	mutex_lock(&hsic.hsic_mutex);
 	/* Free the aux irq */
 	hsic_aux_irq_free();
@@ -675,6 +679,7 @@ static void hsic_aux_work(struct work_struct *work)
 	wake_up(&hsic.aux_wq);
 	mutex_unlock(&hsic.hsic_mutex);
 
+	pm_qos_remove_request(&hsic.pm_qos_req);
 	dev_dbg(&pci_dev->dev,
 		"%s<----\n", __func__);
 	return;

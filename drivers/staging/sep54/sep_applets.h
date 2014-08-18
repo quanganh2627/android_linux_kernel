@@ -31,6 +31,7 @@
 
 #define CMD_RPMB_ENABLE          1
 #define CMD_IMAGE_VERIFY         3
+#define CMD_KEYPOLICY_CHECK      7
 #define HDCP_RX_HDMI_STATUS 0x80000080
 
 #endif /* _SEP_APPLETS_H_ */

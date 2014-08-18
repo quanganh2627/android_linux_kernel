@@ -81,6 +81,7 @@ config SND_MOOR_MACHINE
 	select SND_SST_MACHINE
 	select SND_INTEL_SST
 	select SND_EFFECTS_OFFLOAD
+	select ARCH_HAS_OPP
 	default n
 	help
 	  This adds support for ASoC machine driver for Intel(R) MID Moorefield platform

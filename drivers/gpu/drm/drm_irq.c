@@ -1381,6 +1381,7 @@ int drm_wait_vblank(struct drm_device *dev, void *data,
 		    (((drm_vblank_count(dev, crtc) -
 		       vblwait->request.sequence) <= (1 << 23)) ||
 		     !dev->irq_enabled ||
+			 !dev->vblank_enabled[crtc] ||
 			atomic_read(&dev->halt_count)));
 
 	if (ret != -EINTR) {

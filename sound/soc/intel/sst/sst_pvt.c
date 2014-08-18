@@ -471,7 +471,7 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	}
 }
 
-void sst_do_recovery(struct intel_sst_drv *sst)
+void sst_debug_dump(struct intel_sst_drv *sst)
 {
 	pr_err("Audio: Intel SST engine encountered an unrecoverable error\n");
 
@@ -484,6 +484,14 @@ void sst_do_recovery(struct intel_sst_drv *sst)
 
 	sst_dump_ipc_dispatch_lists(sst_drv_ctx);
 	dump_lpe_stack(sst);
+
+	/* Other than CHT, trigger IPANIC for SST_WAIT_TIMEOUT */
+	if (sst_drv_ctx->pci_id == SST_CHT_PCI_ID)
+		WARN_ON(1);
+	else {
+		pr_err("Triggering IPANIC due to SST wait timeout\n");
+		BUG();
+	}
 
 }
 

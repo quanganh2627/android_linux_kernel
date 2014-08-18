@@ -309,12 +309,12 @@ static int __init panic_on_bad_page_setup(char *str)
 
 	ret = kstrtoul(str, 10, &enabled);
 	if (ret)
-		return 0;
+		return ret;
 
 	if (enabled == 1)
 		panic_on_bad_page = 1;
 
-	return 1;
+	return 0;
 }
 early_param("panic_on_bad_page", panic_on_bad_page_setup);
 

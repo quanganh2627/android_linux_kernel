@@ -58,7 +58,7 @@
 #define TJMAX_CODE		0x7F
 
 /* Default hysteresis values in C */
-#define DEFAULT_H2C_HYST	3
+#define DEFAULT_H2C_HYST	1
 #define MAX_HYST		7
 
 /* Power Limit registers */
@@ -659,11 +659,12 @@ static irqreturn_t soc_dts_intrpt(int irq, void *dev_data)
 		if (irq_sts & (1 << i)) {
 			level = i;
 			event = !!(cur_sts & (1 << i));
-			/* Clear the status bit by writing 1 */
-			irq_sts |= (1 << i);
 			break;
 		}
 	}
+
+	/* Clear the status bits */
+	write_soc_reg(TRIP_STATUS_RW, irq_sts);
 
 	/* level == -1, indicates an invalid event */
 	if (level == -1) {
@@ -679,9 +680,6 @@ static irqreturn_t soc_dts_intrpt(int irq, void *dev_data)
 
 	/* Notify using UEvent */
 	notify_thermal_event(tzd, cur_temp, event, level);
-
-	/* Clear the status bits */
-	write_soc_reg(TRIP_STATUS_RW, irq_sts);
 
 exit:
 	mutex_unlock(&thrm_update_lock);

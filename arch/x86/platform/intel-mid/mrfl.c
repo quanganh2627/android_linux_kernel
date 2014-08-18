@@ -29,6 +29,7 @@
 #define BYPASSINVALID		(1 << 4)
 #define SMIP_FPO1_OFFSET	0x023E
 #define CHARGE_INVALID_BATTERY	(1 << 2)
+#define MOFD_VBAT_MIN		3450
 
 enum intel_mid_sim_type __intel_mid_sim_platform;
 EXPORT_SYMBOL_GPL(__intel_mid_sim_platform);
@@ -272,7 +273,11 @@ static void set_batt_chrg_prof(struct ps_pse_mod_prof *batt_prof,
 	else
 		batt_prof->chrg_term_ma = pentry->chrg_term_ma;
 
-	batt_prof->low_batt_mV = pentry->low_batt_mV;
+	if (INTEL_MID_BOARD(1, PHONE, MOFD) ||
+		INTEL_MID_BOARD(1, TABLET, MOFD))
+		batt_prof->low_batt_mV = MOFD_VBAT_MIN;
+	else
+		batt_prof->low_batt_mV = pentry->low_batt_mV;
 	batt_prof->disch_tmp_ul = pentry->disch_tmp_ul;
 	batt_prof->disch_tmp_ll = pentry->disch_tmp_ll;
 	batt_prof->temp_low_lim = pentry->temp_low_lim;

@@ -119,6 +119,7 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 			INTEL_MID_BOARD(1, TABLET, MOFD)) {
 			dwc_otg_pdata.pmic_type = SHADY_COVE;
 			dwc_otg_pdata.charger_detect_enable = 0;
+			dwc_otg_pdata.tx_fifo_resize = 1;
 			dwc_otg_pdata.usb2_phy_type = get_usb2_phy_type();
 			 dwc_otg_pdata.charging_compliance =
 				dwc_otg_get_usbspecoverride(MOFD_SMIP_VIOLATE_BC_ADDR);
@@ -177,6 +178,9 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 			dwc_otg_pdata.charging_compliance =
 				!dwc_otg_byt_get_usbspecoverride();
 		}
+		return &dwc_otg_pdata;
+	case PCI_DEVICE_ID_INTEL_CHT_OTG:
+		dwc_otg_pdata.tx_fifo_resize = 1;
 		return &dwc_otg_pdata;
 	default:
 		break;
@@ -245,6 +249,8 @@ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CLV_OTG,
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_MRFL_DWC3_OTG,
 			otg_pci_early_quirks);
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BYT_OTG,
+			otg_pci_early_quirks);
+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CHT_OTG,
 			otg_pci_early_quirks);
 
 static void quirk_byt_otg_d3_delay(struct pci_dev *dev)
