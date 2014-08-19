@@ -290,6 +290,7 @@ struct max17042_chip {
 	int health;
 	int technology;
 	int charge_full_des;
+	int ext_set_cap;
 
 	struct work_struct	init_worker;
 	struct work_struct	evt_worker;
@@ -847,6 +848,10 @@ static int max17042_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_STATUS:
 		chip->status = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		if ((val->intval >= 0) && (val->intval <= 100))
+			chip->ext_set_cap = val->intval;
+		break;
 	case POWER_SUPPLY_PROP_TEMP_ALERT_MIN:
 		ret = max17042_read_reg(chip->client, MAX17042_TALRT_Th);
 		if (ret < 0)
@@ -1028,6 +1033,16 @@ static int max17042_get_property(struct power_supply *psy,
 		val->intval = chip->voltage_max;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
+		/*
+		 * Check whether the capacity is set externally or not. If the
+		 * capacity value is set externally, use same as the SOC value
+		 * for the battery level usage.
+		 */
+		if ((chip->ext_set_cap) >= 0 && (chip->ext_set_cap <= 100)) {
+			val->intval = chip->ext_set_cap;
+			break;
+		}
+
 		/*
 		 * WA added to support power supply voltage
 		 * variations b/w supply and FG readings.
@@ -1832,6 +1847,7 @@ static bool is_battery_online(struct max17042_chip *chip)
 static void init_battery_props(struct max17042_chip *chip)
 {
 	chip->present = 1;
+	chip->ext_set_cap = -EINVAL;
 	chip->status = POWER_SUPPLY_STATUS_UNKNOWN;
 	chip->health = POWER_SUPPLY_HEALTH_UNKNOWN;
 	chip->technology = chip->pdata->technology;
