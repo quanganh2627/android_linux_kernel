@@ -262,7 +262,7 @@ static u32 get_cur_val(const struct cpumask *mask)
 
 static unsigned int get_cur_freq_on_cpu(unsigned int cpu)
 {
-	struct sfi_cpufreq_data *data;
+	struct sfi_cpufreq_data *data = NULL;
 	unsigned int freq;
 	unsigned int cached_freq;
 	struct cpumask sibling_mask;
