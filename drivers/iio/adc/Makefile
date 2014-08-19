@@ -22,3 +22,4 @@ obj-$(CONFIG_WHISKEY_COVE) += iio_basincove_gpadc.o
 obj-$(CONFIG_IIO_SCALE_GPADC) += iio_scale_gpadc.o
 obj-$(CONFIG_CRYSTAL_COVE) += iio_crystalcove_gpadc.o
 obj-$(CONFIG_INTEL_MID_PMIC) += iio_dc_xpwr_gpadc.o
+obj-$(CONFIG_INTEL_MID_PMIC) += iio_dc_ti_gpadc.o
