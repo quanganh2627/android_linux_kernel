@@ -482,7 +482,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 	cur = pcpu->policy->cur;
 	if (cur == 0)
 		goto rearm;
-	cpu_load = loadadjfreq / cur;
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 	/*
