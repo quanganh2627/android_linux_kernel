@@ -63,6 +63,7 @@ obj-$(subst m,y,$(CONFIG_EXTCON_FSA9285)) += platform_fsa9285.o
 obj-$(subst m,y,$(CONFIG_EXTCON_SMSC375X))	+= platform_smsc375x.o
 obj-$(subst m,y,$(CONFIG_SND_SOC_WM5102)) += platform_wm5102.o
 obj-$(subst m,y,$(CONFIG_GPIO_PCA953X)) += platform_pca9574.o
+obj-$(subst m,y,$(CONFIG_TOUCHSCREEN_HIMAX_HX8528_ME372CL)) += platform_hx8528_me372cl.o
 
 # SPI Devices
 obj-$(subst m,y,$(CONFIG_SERIAL_MRST_MAX3110)) += platform_max3111.o

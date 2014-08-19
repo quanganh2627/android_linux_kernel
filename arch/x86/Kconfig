@@ -2411,6 +2411,10 @@ config X86_DMA_REMAP
 	bool
 	depends on STA2X11
 
+config PF450CL
+       bool "ASUS PF450CL Product"
+       depends on X86_MDFLD
+
 source "net/Kconfig"
 
 source "drivers/Kconfig"
