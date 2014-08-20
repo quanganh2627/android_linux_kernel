@@ -511,6 +511,7 @@ enum {
 	MOFD_PHONE_V1_PR1, /* Moorefield PR2 */
 	MOFD_PHONE_V1_PR2, /* Moorefield PR2 PRQ */
 	MOFD_PHONE_V1_PR3, /* Moorefield PR2.1 */
+	MOFD_PHONE_V1_PR2_2, /* Moorefield PR2.2 */
 	MOFD_PHONE_V1_RSVD,
 	MOFD_PHONE_V1_UNKNOWN = 0xFFFF
 };
