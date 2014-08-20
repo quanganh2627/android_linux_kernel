@@ -203,6 +203,7 @@ struct pmic_fg_info {
 	int			status;
 	int			btemp;
 	int			health;
+	int			ext_set_cap;
 	/* Worker to monitor status and faults */
 	struct delayed_work status_monitor;
 };
@@ -651,6 +652,16 @@ static int pmic_fg_get_battery_property(struct power_supply *psy,
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
+		/*
+		 * Check whether the capacity is set externally or not. If the
+		 * capacity value is set externally, use same as the SOC value
+		 * for the battery level usage.
+		 */
+		if ((info->ext_set_cap) >= 0 && (info->ext_set_cap <= 100)) {
+			val->intval = info->ext_set_cap;
+			break;
+		}
+
 		ret = pmic_fg_get_capacity(info);
 		if (ret < 0)
 			goto pmic_fg_read_err;
@@ -708,6 +719,10 @@ static int pmic_fg_set_battery_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		info->status = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		if ((val->intval >= 0) && (val->intval <= 100))
+			info->ext_set_cap = val->intval;
 		break;
 	default:
 		ret = -EINVAL;
@@ -1098,6 +1113,7 @@ static void pmic_fg_init_hw_regs(struct pmic_fg_info *info)
 static void pmic_fg_init_psy(struct pmic_fg_info *info)
 {
 	info->status = POWER_SUPPLY_STATUS_DISCHARGING;
+	info->ext_set_cap = -EINVAL;
 }
 
 static int pmic_fg_probe(struct platform_device *pdev)
