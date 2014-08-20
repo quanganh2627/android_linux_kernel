@@ -45,30 +45,51 @@ static struct charger_cable cable_list[] = {
 	{
 	 .psy_cable_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP,
 	 .extcon_cable_type = EXTCON_SDP,
+	 .cable_props = {
+			.cable_stat = EXTCON_CHRGR_CABLE_DISCONNECTED,
+		},
 	 },
 	{
 	 .psy_cable_type = POWER_SUPPLY_CHARGER_TYPE_USB_CDP,
 	 .extcon_cable_type = EXTCON_CDP,
+	 .cable_props = {
+			.cable_stat = EXTCON_CHRGR_CABLE_DISCONNECTED,
+		},
 	 },
 	{
 	 .psy_cable_type = POWER_SUPPLY_CHARGER_TYPE_USB_DCP,
 	 .extcon_cable_type = EXTCON_DCP,
+	 .cable_props = {
+			.cable_stat = EXTCON_CHRGR_CABLE_DISCONNECTED,
+		},
 	 },
 	{
 	 .psy_cable_type = POWER_SUPPLY_CHARGER_TYPE_USB_ACA,
 	 .extcon_cable_type = EXTCON_ACA,
+	 .cable_props = {
+			.cable_stat = EXTCON_CHRGR_CABLE_DISCONNECTED,
+		},
 	 },
 	{
 	 .psy_cable_type = POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK,
 	 .extcon_cable_type = EXTCON_ACA,
+	 .cable_props = {
+			.cable_stat = EXTCON_CHRGR_CABLE_DISCONNECTED,
+		},
 	 },
 	{
 	 .psy_cable_type = POWER_SUPPLY_CHARGER_TYPE_SE1,
 	 .extcon_cable_type = EXTCON_TA,
+	 .cable_props = {
+			.cable_stat = EXTCON_CHRGR_CABLE_DISCONNECTED,
+		},
 	 },
 	{
 	 .psy_cable_type = POWER_SUPPLY_CHARGER_TYPE_AC,
 	 .extcon_cable_type = EXTCON_AC,
+	 .cable_props = {
+			.cable_stat = EXTCON_CHRGR_CABLE_DISCONNECTED,
+		},
 	 },
 };
 
@@ -588,6 +609,8 @@ static int get_battery_status(struct power_supply *psy)
 	while (cnt--) {
 		if (IS_PRESENT(chrgr_lst[cnt]))
 			status = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		else
+			continue;
 
 		if (is_charging_can_be_enabled(chrgr_lst[cnt]) &&
 				(IS_HEALTH_GOOD(chrgr_lst[cnt]))) {
@@ -606,6 +629,7 @@ static int get_battery_status(struct power_supply *psy)
 		}
 	}
 	pr_devel("%s: Set status=%d for %s\n", __func__, status, psy->name);
+	pr_err("%s: Set status=%d for %s\n", __func__, status, psy->name);
 
 	return status;
 }
@@ -829,6 +853,12 @@ static bool is_cable_connected(void)
 	return false;
 }
 
+bool power_supply_is_cable_connected(void)
+{
+	return is_cable_connected();
+}
+EXPORT_SYMBOL(power_supply_is_cable_connected);
+
 void power_supply_trigger_charging_handler(struct power_supply *psy)
 {
 	if (!psy_chrgr.is_cable_evt_reg || !is_cable_connected())
@@ -912,6 +942,9 @@ static int select_chrgr_cable(struct device *dev, void *data)
 		update_charger_online(psy);
 
 		switch_cable(psy, POWER_SUPPLY_CHARGER_TYPE_NONE);
+
+		/* update battery properties */
+		update_sysfs(psy);
 
 		mutex_unlock(&psy_chrgr.evt_lock);
 		power_supply_changed(psy);
