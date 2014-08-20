@@ -70,3 +70,4 @@ obj-$(CONFIG_ACPI) += intel_em_config.o
 obj-$(CONFIG_INTEL_FG_HELPER)	+= intel_fg_helper.o
 obj-$(CONFIG_INTEL_MID_PMIC)		+= dc_xpwr_pwrsrc.o
 obj-$(CONFIG_INTEL_MID_PMIC)		+= dc_ti_pwrsrc.o
+obj-$(CONFIG_INTEL_MID_PMIC)        += dc_ti_cc.o
