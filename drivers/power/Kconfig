@@ -407,6 +407,16 @@ config DC_XPWR_CHARGER
 	help
 	  Say Y here to enable support for Dollar Cove(Xpower) PMIC Charger.
 
+config INTEL_FUEL_GAUGE
+	bool "Intel Fuel Gauge driver"
+	help
+	  Say Y here to enable support for Intel SW Fuel Gauge driver.
+
+config INTEL_FG_UIFACE
+	bool "Intel Fuel Gauge User Interface"
+	help
+	  Say Y here to enable support for Intel SW Fuel gauge Algo User Interface.
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY
