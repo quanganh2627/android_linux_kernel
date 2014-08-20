@@ -25,12 +25,14 @@
 #include <linux/mfd/intel_mid_pmic.h>
 #include <asm/cpu_device_id.h>
 #include <linux/regulator/intel_whiskey_cove_pmic.h>
+#include <linux/regulator/intel_dcovex_regulator.h>
 
 #define DELAY_ONOFF 250
 
 struct acpi_ids { char *hid; char *uid; };
 
 #define INTEL_CHV_CPU	0x4c
+#define INTEL_VLV_CPU	0x37
 #define CHT_GPIO_SE_BASE	0xfed98000
 #define CHT_GPIO_SE_LEN		0x7fff
 
@@ -43,6 +45,7 @@ struct acpi_ids { char *hid; char *uid; };
 #define CHT_VSDIO_1P8_CONF0	0x8100
 
 static const struct x86_cpu_id intel_cpus[] = {
+	{ X86_VENDOR_INTEL, 6, INTEL_VLV_CPU, X86_FEATURE_ANY, 0 },
 	{ X86_VENDOR_INTEL, 6, INTEL_CHV_CPU, X86_FEATURE_ANY, 0 },
 	{}
 };
@@ -316,21 +319,29 @@ static void intel_setup_ccove_sd_regulators(void)
 		ccove_vsdio_gpios.gpio = CHT_VSDIO_1P8_GPIO;
 	}
 
-	if (ccove_vsdio_gpios.gpio < 0) {
-		/* clear the supply_name and type */
-		ccove_vsdio.supply_name = NULL;
-		ccove_vsdio.type = -EINVAL;
-	} else
-		lnw_gpio_set_alt(ccove_vsdio_gpios.gpio, 0);
+	if (intel_cpu_module(&cpu) && (cpu == INTEL_VLV_CPU)) {
+		/* change GPIO pins to be output GPIO */
+		if (ccove_vsdio_gpios.gpio >= 0) {
+			lnw_gpio_set_alt(ccove_vsdio_gpios.gpio, 0);
+			gpio_request(ccove_vsdio_gpios.gpio, "sd_vqmmc");
+			gpio_direction_output(ccove_vsdio_gpios.gpio, 0);
+			gpio_free(ccove_vsdio_gpios.gpio);
+		}
+		if (ccove_vsdcard.gpio > 0) {
+			lnw_gpio_set_alt(ccove_vsdcard.gpio, 0);
+			gpio_request(ccove_vsdcard.gpio, "sd_vmmc");
+			gpio_direction_output(ccove_vsdcard.gpio, 0);
+			gpio_free(ccove_vsdcard.gpio);
+		}
+	}
 
-	intel_mid_pmic_set_pdata("gpio-regulator", &ccove_vsdio,
-			sizeof(struct gpio_regulator_config), 0);
+	if (ccove_vsdcard.gpio >= 0)
+		intel_mid_pmic_set_pdata("gpio-regulator", &ccove_vsdio,
+				sizeof(struct gpio_regulator_config), 0);
 
-	if (ccove_vsdcard.gpio > 0) {
-		lnw_gpio_set_alt(ccove_vsdcard.gpio, 0);
+	if (ccove_vsdcard.gpio >= 0)
 		intel_mid_pmic_set_pdata("reg-fixed-voltage", &ccove_vsdcard,
 				sizeof(struct fixed_voltage_config), 0);
-	}
 }
 
 /*************************************************************
@@ -379,6 +390,52 @@ static struct wcove_regulator_info wcove_vqmmc_info = {
 	.init_data = &vqmmc_data,
 };
 
+/****************DCOVEX LDO2 RAIL Platform Data********************/
+static struct regulator_consumer_supply dcovex_ldo2_consumer[] = {
+	REGULATOR_SUPPLY("vmmc", "80860F14:01"),
+	REGULATOR_SUPPLY("vmmc", "INT33BB:01"),
+};
+
+static struct regulator_init_data dcovex_ldo2_data = {
+	.constraints = {
+		.name			= "LDO_2",
+		.min_uV			= 1800000,
+		.max_uV			= 3300000,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
+						REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(dcovex_ldo2_consumer),
+	.consumer_supplies	= dcovex_ldo2_consumer,
+};
+
+static struct dcovex_regulator_info dcovex_ldo2 = {
+	.init_data = &dcovex_ldo2_data,
+};
+
+/****************DCOVEX GPIO_1 RAIL Platform Data ********************/
+static struct regulator_consumer_supply dcovex_gpio1_consumer[] = {
+	REGULATOR_SUPPLY("vqmmc", "80860F14:01"),
+	REGULATOR_SUPPLY("vqmmc", "INT33BB:01"),
+};
+
+static struct regulator_init_data dcovex_gpio1_data = {
+	.constraints = {
+		.name			= "GPIO_1",
+		.min_uV			= 1800000,
+		.max_uV			= 3300000,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
+						REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(dcovex_gpio1_consumer),
+	.consumer_supplies	= dcovex_gpio1_consumer,
+};
+
+static struct dcovex_regulator_info dcovex_gpio1 = {
+	.init_data = &dcovex_gpio1_data,
+};
+
 static int __init sdio_regulator_init(void)
 {
 	int ret;
@@ -394,6 +451,14 @@ static int __init sdio_regulator_init(void)
 			sizeof(struct regulator_init_data), WCOVE_ID_V3P3SD + 1);
 	intel_mid_pmic_set_pdata("wcove_regulator", &wcove_vqmmc_info,
 			sizeof(struct regulator_init_data), WCOVE_ID_VSDIO + 1);
+
+	/* register SD card regulator for XPOWER PMIC*/
+	intel_mid_pmic_set_pdata("dcovex_regulator", &dcovex_ldo2,
+			sizeof(struct dcovex_regulator_info),
+			DCOVEX_ID_LDO2 + 1);
+	intel_mid_pmic_set_pdata("dcovex_regulator", &dcovex_gpio1,
+			sizeof(struct dcovex_regulator_info),
+			DCOVEX_ID_GPIO1 + 1);
 
 	return 0;
 }

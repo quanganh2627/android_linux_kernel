@@ -317,76 +317,6 @@ static struct platform_device *byt_t_crv20_regulator_devices[] __initdata = {
 	&vsys_s_device,
 };
 
-/****************DCOVEX LDO2 RAIL Platform Data********************/
-
-static struct regulator_consumer_supply dcovex_ldo2_consumer[] = {
-	REGULATOR_SUPPLY("vmmc", "80860F14:01"),
-	/* Add More Consumers here */
-};
-
-static struct regulator_init_data dcovex_ldo2_data = {
-	.constraints = {
-		.name			= "LDO_2",
-		.min_uV			= 1800000,
-		.max_uV			= 3300000,
-		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
-						REGULATOR_CHANGE_STATUS,
-		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
-	},
-	.num_consumer_supplies	= ARRAY_SIZE(dcovex_ldo2_consumer),
-	.consumer_supplies	= dcovex_ldo2_consumer,
-};
-
-static struct dcovex_regulator_info dcovex_ldo2 = {
-	.init_data = &dcovex_ldo2_data,
-};
-
-static struct platform_device dcovex_ldo2_device = {
-	.name = "dcovex_regulator",
-	.id = DCOVEX_ID_LDO2,
-	.dev = {
-		.platform_data = &dcovex_ldo2,
-	},
-};
-
-/****************DCOVEX GPIO_1 RAIL Platform Data ********************/
-static struct regulator_consumer_supply dcovex_gpio1_consumer[] = {
-	REGULATOR_SUPPLY("vqmmc", "80860F14:01"),
-	/* Add More Consumers here */
-};
-
-static struct regulator_init_data dcovex_gpio1_data = {
-	.constraints = {
-		.name			= "GPIO_1",
-		.min_uV			= 1800000,
-		.max_uV			= 3300000,
-		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
-						REGULATOR_CHANGE_STATUS,
-		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
-	},
-	.num_consumer_supplies	= ARRAY_SIZE(dcovex_gpio1_consumer),
-	.consumer_supplies	= dcovex_gpio1_consumer,
-};
-
-static struct dcovex_regulator_info dcovex_gpio1 = {
-	.init_data = &dcovex_gpio1_data,
-};
-
-static struct platform_device dcovex_gpio1_device = {
-	.name = "dcovex_regulator",
-	.id = DCOVEX_ID_GPIO1,
-	.dev = {
-		.platform_data = &dcovex_gpio1,
-	},
-};
-
-/**************** Regulator Devices for BYTCRV2.1 ******************/
-static struct platform_device *byt_t_crv21_regulator_devices[] __initdata = {
-	&dcovex_ldo2_device,
-	&dcovex_gpio1_device,
-};
-
-
 /****************DCOVEX LDO8 RAIL Platform Data for CRV2.2****************/
 static struct regulator_consumer_supply dcovet_ldo8_consumer[] = {
 	REGULATOR_SUPPLY("vmmc", "80860F14:01"),
@@ -479,12 +409,6 @@ static int __init regulator_init(void)
 			pr_info("Regulator Devices Found for BYTCRv2.0 (RHM)\n");
 			platform_add_devices(byt_t_crv20_regulator_devices,
 				ARRAY_SIZE(byt_t_crv20_regulator_devices));
-		}
-
-		else if (regulator_find_i2c_client_by_name(REGULATOR_PMIC_HID_XPR)) {
-			pr_info("Regulator Devices Found for BYTCRv2.1 (XPR)\n");
-			platform_add_devices(byt_t_crv21_regulator_devices,
-				ARRAY_SIZE(byt_t_crv21_regulator_devices));
 		}
 
 		else if (regulator_find_i2c_client_by_name(REGULATOR_PMIC_HID_TEIN)) {
