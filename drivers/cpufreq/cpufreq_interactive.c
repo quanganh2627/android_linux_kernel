@@ -68,6 +68,7 @@ static cpumask_t speedchange_cpumask;
 static spinlock_t speedchange_cpumask_lock;
 static struct mutex gov_lock;
 
+#define DEFAULT_BOOT_BOOST_TIME (18 * USEC_PER_SEC)
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
@@ -1520,6 +1521,9 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		tunables->io_busy = 0;
 #endif /* CONFIG_IRQ_TIME_ACCOUNTING */
 
+		if (boot_cpu_data.x86_model == 0x5a)
+			tunables->boostpulse_duration_val =
+							DEFAULT_BOOT_BOOST_TIME;
 		spin_lock_init(&tunables->target_loads_lock);
 		spin_lock_init(&tunables->above_hispeed_delay_lock);
 
@@ -1578,8 +1582,10 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			pcpu->governor_enabled = 1;
 			up_write(&pcpu->enable_sem);
 		}
-
 		mutex_unlock(&gov_lock);
+		tunables->boostpulse_endtime = ktime_to_us(ktime_get()) +
+									tunables->boostpulse_duration_val;
+		cpufreq_interactive_boost();
 		break;
 
 	case CPUFREQ_GOV_STOP:
