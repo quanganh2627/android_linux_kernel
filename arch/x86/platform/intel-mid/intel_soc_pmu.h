@@ -386,8 +386,6 @@ struct mid_pmu_dev {
 	struct pci_dev *pmu_dev;
 	struct pm_qos_request *nc_restrict_qos;
 
-	spinlock_t nc_ready_lock;
-
 	int s3_hint;
 };
 

@@ -35,6 +35,9 @@ bool pmu_initialized;
 
 DEFINE_MUTEX(pci_root_lock);
 
+DEFINE_SPINLOCK(nc_ready_lock);
+EXPORT_SYMBOL(nc_ready_lock);
+
 /* mid_pmu context structure */
 struct mid_pmu_dev *mid_pmu_cxt;
 
@@ -1266,7 +1269,7 @@ int pmu_nc_set_power_state(int islands, int state_type, int reg)
 	int ret = 0;
 	int change;
 
-	spin_lock_irqsave(&mid_pmu_cxt->nc_ready_lock, flags);
+	spin_lock_irqsave(&nc_ready_lock, flags);
 
 	record = get_new_record_history();
 	record->cpu = raw_smp_processor_id();
@@ -1287,7 +1290,7 @@ int pmu_nc_set_power_state(int islands, int state_type, int reg)
 		}
 	}
 
-	spin_unlock_irqrestore(&mid_pmu_cxt->nc_ready_lock, flags);
+	spin_unlock_irqrestore(&nc_ready_lock, flags);
 	return ret;
 }
 EXPORT_SYMBOL(pmu_nc_set_power_state);
@@ -1317,7 +1320,7 @@ int pmu_nc_get_power_state(int island, int reg_type)
 	if (!platform_is(INTEL_ATOM_MFLD) && !platform_is(INTEL_ATOM_CLV))
 		return 0;
 
-	spin_lock_irqsave(&mid_pmu_cxt->nc_ready_lock, flags);
+	spin_lock_irqsave(&nc_ready_lock, flags);
 
 	switch (reg_type) {
 	case APM_REG_TYPE:
@@ -1341,7 +1344,7 @@ int pmu_nc_get_power_state(int island, int reg_type)
 	}
 
 unlock:
-	spin_unlock_irqrestore(&mid_pmu_cxt->nc_ready_lock, flags);
+	spin_unlock_irqrestore(&nc_ready_lock, flags);
 	return ret;
 }
 EXPORT_SYMBOL(pmu_nc_get_power_state);
@@ -1350,12 +1353,12 @@ void pmu_set_s0i1_disp_vote(bool enable)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&mid_pmu_cxt->nc_ready_lock, flags);
+	spin_lock_irqsave(&nc_ready_lock, flags);
 
 	if (pmu_ops->set_s0i1_disp_vote)
 		pmu_ops->set_s0i1_disp_vote(enable);
 
-	spin_unlock_irqrestore(&mid_pmu_cxt->nc_ready_lock, flags);
+	spin_unlock_irqrestore(&nc_ready_lock, flags);
 }
 EXPORT_SYMBOL(pmu_set_s0i1_disp_vote);
 
@@ -1781,7 +1784,7 @@ static int pmu_init(void)
 
 
 	dev_dbg(&mid_pmu_cxt->pmu_dev->dev, "PMU Driver loaded\n");
-	spin_lock_init(&mid_pmu_cxt->nc_ready_lock);
+	spin_lock_init(&nc_ready_lock);
 
 	/* enumerate the PCI configuration space */
 	pmu_enumerate();
