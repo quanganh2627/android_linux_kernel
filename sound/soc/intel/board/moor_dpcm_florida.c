@@ -205,8 +205,10 @@ static int moor_florida_set_bias_level(struct snd_soc_card *card,
 	struct snd_soc_codec *florida_codec = moor_florida_get_codec(card);
 	int ret = 0;
 
-	if (!florida_dai)
+	if (!florida_dai || !florida_codec) {
+		pr_err("%s: couldn't find the dai or codec pointer!\n", __func__);
 		return -ENODEV;
+	}
 
 	if (dapm->dev != florida_dai->dev)
 		return 0;
@@ -230,8 +232,10 @@ static int moor_florida_set_bias_level_post(struct snd_soc_card *card,
 	struct mrfld_8958_mc_private *ctx = snd_soc_card_get_drvdata(card);
 	int ret = 0;
 
-	if (!florida_dai)
+	if (!florida_dai || !florida_codec) {
+		pr_err("%s: couldn't find the dai or codec pointer!\n", __func__);
 		return -ENODEV;
+	}
 
 	if (dapm->dev != florida_dai->dev)
 		return 0;
@@ -361,10 +365,17 @@ static int moor_florida_init(struct snd_soc_pcm_runtime *runtime)
 	struct snd_soc_card *card = runtime->card;
 	struct snd_soc_codec *florida_codec = moor_florida_get_codec(card);
 	struct snd_soc_dai *florida_dai = moor_florida_get_codec_dai(card, "florida-aif1");
-	struct snd_soc_dapm_context *dapm =  &(florida_codec->dapm);
+	struct snd_soc_dapm_context *dapm;
 
 
 	pr_debug("Entry %s\n", __func__);
+
+	if (!florida_dai || !florida_codec) {
+		pr_err("%s couldn't find the dai or codec pointer!\n", __func__);
+		return -ENODEV;
+	}
+
+	dapm = &(florida_codec->dapm);
 
 	fmt =   SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_IB_NF
 		| SND_SOC_DAIFMT_CBS_CFS;
@@ -633,6 +644,11 @@ static int moor_florida_mc_late_probe(struct snd_soc_card *card)
 	int ret;
 	struct snd_soc_dai *florida_dai = moor_florida_get_codec_dai(card, "florida-aif1");
 	struct snd_soc_codec *florida_codec = moor_florida_get_codec(card);
+
+	if (!florida_dai || !florida_codec) {
+		pr_err("%s: couldn't find the dai or codec pointer!\n", __func__);
+		return -ENODEV;
+	}
 
 	ret = snd_soc_dai_set_sysclk(florida_dai,  ARIZONA_CLK_SYSCLK, 0, 0);
 	if (ret != 0) {
