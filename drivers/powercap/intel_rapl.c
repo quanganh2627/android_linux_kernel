@@ -75,6 +75,8 @@
 #define ENERGY_UNIT_SCALE    (1000000)
 #define TIME_UNIT_SCALE      (1000000)
 
+#define DEFAULT_PL_TIME_WINDOW	1
+
 #define TIME_WINDOW_MAX_MSEC 40000
 #define TIME_WINDOW_MIN_MSEC 250
 
@@ -175,9 +177,9 @@ struct rapl_package {
 	unsigned int id; /* physical package/socket id */
 	unsigned int nr_domains;
 	unsigned long domain_map; /* bit map of active domains */
-	unsigned int power_unit_divisor;
-	unsigned int energy_unit_divisor;
-	unsigned int time_unit_divisor;
+	unsigned int power_unit;
+	unsigned int energy_unit;
+	unsigned int time_unit;
 	struct rapl_domain *domains; /* array of domains, sized at runtime */
 	struct powercap_zone *power_zone; /* keep track of parent zone */
 	int nr_cpus; /* active cpus on the package, topology info is lost during
@@ -650,11 +652,72 @@ static void rapl_init_domains(struct rapl_package *rp)
 	}
 }
 
+/*
+ * The below atom vairants have to be handled differently
+ * for the power,energy,time calculations.
+ */
+static const struct x86_cpu_id quirk_ids[] = {
+	{ X86_VENDOR_INTEL, 6, 0x37},/* Valleyview */
+	{ X86_VENDOR_INTEL, 6, 0x4C},/* Cherryview */
+	{ X86_VENDOR_INTEL, 6, 0x4A},/* Tangier */
+	{ X86_VENDOR_INTEL, 6, 0x5A},/* Annidale */
+	{}
+};
+
+static int rapl_check_unit(struct rapl_package *rp, int cpu)
+{
+	u64 msr_val;
+	u32 value;
+
+	if (rdmsrl_safe_on_cpu(cpu, MSR_RAPL_POWER_UNIT, &msr_val)) {
+		pr_err("Failed to read power unit MSR 0x%x on CPU %d, exit.\n",
+			MSR_RAPL_POWER_UNIT, cpu);
+		return -ENODEV;
+	}
+
+	/*
+	 * Raw RAPL data stored in MSRs are in certain scales. We need to
+	 * convert them into standard units based on the units reported in
+	 * the RAPL unit MSRs. This is specific to CPUs as the method to
+	 * calculate units differ on different CPUs.
+	 * We convert the units to below format based on CPUs.
+	 * i.e.
+	 * energy unit: microJoules : Represented in microJoules by default
+	 * power unit : microWatts  : Represented in milliWatts by default
+	 * time unit  : microseconds: Represented in seconds by default
+	 */
+	value = (msr_val & ENERGY_UNIT_MASK) >> ENERGY_UNIT_OFFSET;
+	if (x86_match_cpu(quirk_ids))
+		rp->energy_unit = 1 << value;
+	else
+		rp->energy_unit = 1000000 / (1 << value);
+
+	value = (msr_val & POWER_UNIT_MASK) >> POWER_UNIT_OFFSET;
+	if (x86_match_cpu(quirk_ids))
+		rp->power_unit = (1 << value) * 1000;
+	else
+		rp->power_unit = 1000000 / (1 << value);
+
+	value = (msr_val & TIME_UNIT_MASK) >> TIME_UNIT_OFFSET;
+	/*
+	 * TIME_UNIT on atom products is reserved. HardCoded to 1 second.
+	 * TODO:Update new SDM section which will have this description.
+	 */
+	if (x86_match_cpu(quirk_ids))
+		rp->time_unit = 1000000;
+	else
+		rp->time_unit = 1000000 / (1 << value);
+
+	pr_debug("Physical package %d energy=%duJ, time=%dus, power=%duW\n",
+		rp->id, rp->energy_unit, rp->time_unit, rp->power_unit);
+
+	return 0;
+}
+
 static u64 rapl_unit_xlate(int package, enum unit_type type, u64 value,
 			int to_raw)
 {
-	u64 divisor = 1;
-	int scale = 1; /* scale to user friendly data without floating point */
+	u64 units = 1;
 	u64 f, y; /* fraction and exp. used for time unit */
 	struct rapl_package *rp;
 
@@ -664,27 +727,36 @@ static u64 rapl_unit_xlate(int package, enum unit_type type, u64 value,
 
 	switch (type) {
 	case POWER_UNIT:
-		divisor = rp->power_unit_divisor;
-		scale = POWER_UNIT_SCALE;
+		units = rp->power_unit;
 		break;
 	case ENERGY_UNIT:
-		scale = ENERGY_UNIT_SCALE;
-		divisor = rp->energy_unit_divisor;
+		units = rp->energy_unit;
 		break;
 	case TIME_UNIT:
-		divisor = rp->time_unit_divisor;
-		scale = TIME_UNIT_SCALE;
-		/* special processing based on 2^Y*(1+F)/4 = val/divisor, refer
-		 * to Intel Software Developer's manual Vol. 3a, CH 14.7.4.
+		units = rp->time_unit;
+		/*
+		 * Special processing required for the atom variants
+		 * listed under quirk_ids.
+		 * Time Window_PL1 = MSR_PKG_POWER_LIMIT[23:17]seconds
+		 * TODO:Update new SDM section which will have this description
+		 */
+		if (x86_match_cpu(quirk_ids)) {
+			/* If value is 0, it is mapped to default of 1 second */
+			if (value == 0 && !to_raw)
+				value = DEFAULT_PL_TIME_WINDOW;
+			break;
+		}
+		/*
+		 * Special processing based on 2^Y*(1+F/4), refer
+		 * to Intel Software Developer's manual Vol.3B: CH 14.9.3.
 		 */
 		if (!to_raw) {
 			f = (value & 0x60) >> 5;
 			y = value & 0x1f;
-			value = (1 << y) * (4 + f) * scale / 4;
-			return div64_u64(value, divisor);
+			value = (1 << y) * (4 + f) * units / 4;
+			return value;
 		} else {
-			do_div(value, scale);
-			value *= divisor;
+			do_div(value, units);
 			y = ilog2(value);
 			f = div64_u64(4 * (value - (1 << y)), 1 << y);
 			value = (y & 0x1f) | ((f & 0x3) << 5);
@@ -697,9 +769,11 @@ static u64 rapl_unit_xlate(int package, enum unit_type type, u64 value,
 	};
 
 	if (to_raw)
-		return div64_u64(value * divisor, scale);
-	else
-		return div64_u64(value * scale, divisor);
+		return div64_u64(value, units);
+	else {
+		value *= units;
+		return value;
+	}
 }
 
 /* in the order of enum rapl_primitives */
@@ -829,55 +903,6 @@ static int rapl_write_data_raw(struct rapl_domain *rd,
 			"failed to write msr 0x%x on cpu %d\n", msr, cpu);
 		return -EIO;
 	}
-
-	return 0;
-}
-
-static const struct x86_cpu_id energy_unit_quirk_ids[] = {
-	{ X86_VENDOR_INTEL, 6, 0x37},/* Valleyview */
-	{ X86_VENDOR_INTEL, 6, 0x4C},/* Cherryview */
-	{ X86_VENDOR_INTEL, 6, 0x4A},/* Tangier */
-	{ X86_VENDOR_INTEL, 6, 0x5A},/* Annidale */
-	{}
-};
-
-static int rapl_check_unit(struct rapl_package *rp, int cpu)
-{
-	u64 msr_val;
-	u32 value;
-
-	if (rdmsrl_safe_on_cpu(cpu, MSR_RAPL_POWER_UNIT, &msr_val)) {
-		pr_err("Failed to read power unit MSR 0x%x on CPU %d, exit.\n",
-			MSR_RAPL_POWER_UNIT, cpu);
-		return -ENODEV;
-	}
-
-	/* Raw RAPL data stored in MSRs are in certain scales. We need to
-	 * convert them into standard units based on the divisors reported in
-	 * the RAPL unit MSRs.
-	 * i.e.
-	 * energy unit: 1/enery_unit_divisor Joules
-	 * power unit: 1/power_unit_divisor Watts
-	 * time unit: 1/time_unit_divisor Seconds
-	 */
-	value = (msr_val & ENERGY_UNIT_MASK) >> ENERGY_UNIT_OFFSET;
-	/* some CPUs have different way to calculate energy unit */
-	if (x86_match_cpu(energy_unit_quirk_ids))
-		rp->energy_unit_divisor = 1000000 / (1 << value);
-	else
-		rp->energy_unit_divisor = 1 << value;
-
-	value = (msr_val & POWER_UNIT_MASK) >> POWER_UNIT_OFFSET;
-	rp->power_unit_divisor = 1 << value;
-
-	value = (msr_val & TIME_UNIT_MASK) >> TIME_UNIT_OFFSET;
-	rp->time_unit_divisor = 1 << value;
-
-	pr_debug("Physical package %d units: energy=%d, time=%d, power=%d\n",
-		rp->id,
-		rp->energy_unit_divisor,
-		rp->time_unit_divisor,
-		rp->power_unit_divisor);
 
 	return 0;
 }
