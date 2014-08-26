@@ -1121,6 +1121,9 @@ struct v4l2_private_int_data {
 #define ATOMISP_IOC_G_ACC_STATE \
 	_IOR('v', BASE_VIDIOC_PRIVATE + 41, struct atomisp_acc_state)
 
+#define ATOMISP_IOC_INJECT_A_FAKE_EVENT \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 42, int)
+
 /*
  * Reserved ioctls. We have customer implementing it internally.
  * We can't use both numbers to not cause ABI conflict.
