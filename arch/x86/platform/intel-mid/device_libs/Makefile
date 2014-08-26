@@ -92,7 +92,11 @@ obj-$(subst m,y,$(CONFIG_BCM_BT_LPM)) += platform_btlpm.o
 endif
 #I2C Devices
 # Camera
+ifdef CONFIG_SND_CTP_MACHINE
+obj-$(subst m,y,$(CONFIG_VIDEO_ATOMISP_TMP))				+= platform_camera_css15.o
+else
 obj-$(subst m,y,$(CONFIG_VIDEO_ATOMISP_TMP))				+= platform_camera.o
+endif
 ifdef CONFIG_VIDEO_ATOMISP_TMP
 obj-$(subst m,y,$(CONFIG_VIDEO_MT9E013))				+= platform_mt9e013.o
 obj-$(subst m,y,$(CONFIG_VIDEO_MT9D113))				+= platform_mt9d113.o
@@ -140,3 +144,6 @@ obj-$(subst m,y,$(CONFIG_MMC_SDHCI_ACPI)) += platform_sdio_regulator.o
 obj-$(subst m,y,$(CONFIG_SCU_LOGGING)) += platform_scu_log.o
 # Display Control Device
 obj-y += platform_display.o
+
+# Add cflags to build for CTP board
+ccflags-$(CONFIG_SND_CTP_MACHINE) += -DCSS15
