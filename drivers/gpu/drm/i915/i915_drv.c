@@ -1053,9 +1053,15 @@ static int i915_suspend_common(struct device *dev)
 static int i915_pm_suspend(struct device *dev)
 {
 	int ret;
+	char *envp[] = { "GSTATE=3", NULL };
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct drm_device *drm_dev = pci_get_drvdata(pdev);
 
 	DRM_DEBUG_PM("PM Suspend called\n");
 	ret = i915_suspend_common(dev);
+	if (!ret)
+		kobject_uevent_env(&drm_dev->primary->kdev.kobj,
+			KOBJ_CHANGE, envp);
 	DRM_DEBUG_PM("PM Suspend finished\n");
 
 	return ret;
@@ -1065,9 +1071,15 @@ static int i915_pm_suspend(struct device *dev)
 static int i915_rpm_suspend(struct device *dev)
 {
 	int ret;
+	char *envp[] = { "GSTATE=3", NULL };
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct drm_device *drm_dev = pci_get_drvdata(pdev);
 
 	DRM_DEBUG_PM("Runtime PM Suspend called\n");
 	ret = i915_suspend_common(dev);
+	if (!ret)
+		kobject_uevent_env(&drm_dev->primary->kdev.kobj,
+			KOBJ_CHANGE, envp);
 	DRM_DEBUG_PM("Runtime PM Suspend finished\n");
 
 	return ret;
@@ -1078,10 +1090,14 @@ static int i915_pm_resume(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	char *envp[] = { "GSTATE=0", NULL };
 	u32 ret;
 
 	DRM_DEBUG_PM("PM Resume called\n");
 	ret = i915_resume_common(drm_dev, false);
+	if (!ret)
+		kobject_uevent_env(&drm_dev->primary->kdev.kobj,
+			KOBJ_CHANGE, envp);
 	DRM_DEBUG_PM("PM Resume finished\n");
 
 	return ret;
@@ -1092,10 +1108,14 @@ static int i915_rpm_resume(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	char *envp[] = { "GSTATE=0", NULL };
 	int ret;
 
 	DRM_DEBUG_PM("Runtime PM Resume called\n");
 	ret = i915_resume_common(drm_dev, false);
+	if (!ret)
+		kobject_uevent_env(&drm_dev->primary->kdev.kobj,
+			KOBJ_CHANGE, envp);
 	DRM_DEBUG_PM("Runtime PM Resume finished\n");
 
 	return ret;
