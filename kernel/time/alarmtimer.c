@@ -311,6 +311,9 @@ static void write_rtc_wakeup(void)
 	struct rtc_device *rtc;
 	struct timerqueue_node *next;
 	struct alarm_base *base = &alarm_bases[ALARM_REALTIME_OFF];
+	struct rtc_wkalrm alrm;
+	int rtc_alarm = 0;
+	int err;
 
 	rtc = alarmtimer_get_rtcdev();
 	/* If we have no rtcdev, just return */
@@ -322,23 +325,33 @@ static void write_rtc_wakeup(void)
 	spin_lock_irqsave(&base->lock, flags);
 	next = timerqueue_getnext(&base->timerqueue);
 	spin_unlock_irqrestore(&base->lock, flags);
-	if (!next) {
-		/* no OFF alarm pending, cancel everything
+
+	err = rtc_read_alarm(rtc, &alrm);
+	if (err == 0)
+		rtc_alarm = alrm.enabled;
+
+	if (!next && !rtc_alarm) {
+		/* no OFF alarm and no rtc alarm pending, cancel everything
 		 * else and disable RTC alarm.
 		 */
 		rtc_cancel_all_timers(rtc);
 		return;
 	}
 
-	delta = ktime_sub(next->expires, base->gettime());
-	if (delta.tv64 == 0)
-		return;
+	if (next) {
+		delta = ktime_sub(next->expires, base->gettime());
+		if (delta.tv64 == 0)
+			return;
+
+		rtc_read_time(rtc, &tm);
+		now = rtc_tm_to_ktime(tm);
+		now = ktime_add(now, delta);
+	} else
+		/* alarm has been programmed through sysfs*/
+		now = rtc_tm_to_ktime(alrm.time);
 
 	/* Setup an rtc timer to fire that far in the future */
 	rtc_cancel_all_timers(rtc);
-	rtc_read_time(rtc, &tm);
-	now = rtc_tm_to_ktime(tm);
-	now = ktime_add(now, delta);
 
 	/* Set alarm */
 	rtc_timer_start(rtc, &rtctimer, now, ktime_set(0, 0));
