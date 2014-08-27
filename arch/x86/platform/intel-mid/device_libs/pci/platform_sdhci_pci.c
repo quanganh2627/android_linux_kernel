@@ -185,7 +185,11 @@ static int clv_sdio_setup(struct sdhci_pci_data *data)
 	struct pci_dev *pdev = data->pdev;
 	/* Control card power through a regulator */
 	wlan_vmmc_supply.dev_name = dev_name(&pdev->dev);
+#ifdef CONFIG_PF450CL
+	vwlan.gpio = get_gpio_by_name("WL_BT_EN");
+#else
 	vwlan.gpio = get_gpio_by_name("WLAN-enable");
+#endif
 	if (vwlan.gpio < 0)
 		pr_err("%s: No WLAN-enable GPIO in SFI table\n",
 	       __func__);
