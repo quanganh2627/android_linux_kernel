@@ -2326,7 +2326,7 @@ static inline void i915_gem_object_unpin_pages(struct drm_i915_gem_object *obj)
 
 int __must_check i915_mutex_lock_interruptible(struct drm_device *dev);
 int i915_gem_object_sync(struct drm_i915_gem_object *obj,
-			 struct intel_ring_buffer *to, bool add_request);
+			 struct intel_ring_buffer *to, bool add_request, bool readonly);
 void i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 				    struct intel_ring_buffer *ring);
 

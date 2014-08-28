@@ -2830,7 +2830,7 @@ i915_gem_wait_ioctl(struct drm_device *dev, void *data, struct drm_file *file)
 		goto out;
 
 	if (obj->active) {
-		seqno = obj->last_read_seqno;
+		seqno = (args->flags & I915_WAIT_WRITES) ? obj->last_write_seqno : obj->last_read_seqno;
 		ring = obj->ring;
 	}
 
@@ -2866,7 +2866,8 @@ out:
  * @obj: object which may be in use on another ring.
  * @to: ring we wish to use the object on. May be NULL.
  * @add_request: do we need to add a request to track operations
- *    submitted on ring with sync_to function
+ *    submitted on ring with sync_to function.
+ * @readonly: do we wait prior to performing a read-only operation.
  *
  * This code is meant to abstract object synchronization with the GPU.
  * Calling with NULL implies synchronizing the object with the CPU
@@ -2876,7 +2877,7 @@ out:
  */
 int
 i915_gem_object_sync(struct drm_i915_gem_object *obj,
-		     struct intel_ring_buffer *to, bool add_request)
+		     struct intel_ring_buffer *to, bool add_request, bool readonly)
 {
 	struct intel_ring_buffer *from = obj->ring;
 	u32 seqno;
@@ -2886,7 +2887,7 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 		return 0;
 
 	if (to == NULL || !i915_semaphore_is_enabled(obj->base.dev))
-		return i915_gem_object_wait_rendering(obj, false);
+		return i915_gem_object_wait_rendering(obj, readonly);
 
 	idx = intel_ring_sync_index(from, to);
 
@@ -3899,7 +3900,7 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	int ret;
 
 	if (pipelined != obj->ring) {
-		ret = i915_gem_object_sync(obj, pipelined, true);
+		ret = i915_gem_object_sync(obj, pipelined, true, true);
 		if (ret)
 			return ret;
 	}

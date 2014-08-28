@@ -955,7 +955,7 @@ i915_gem_execbuffer_move_to_gpu(struct intel_ring_buffer *ring,
 	int ret;
 
 	list_for_each_entry(obj, objects, exec_list) {
-		ret = i915_gem_object_sync(obj, ring, false);
+		ret = i915_gem_object_sync(obj, ring, false, false);
 		if (ret)
 			return ret;
 
