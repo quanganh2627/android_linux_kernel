@@ -13,6 +13,7 @@ obj-$(subst m,y,$(CONFIG_SND_MRFLD_MACHINE)) += platform_mrfld_audio.o
 obj-$(subst m,y,$(CONFIG_SND_MOOR_MACHINE)) += platform_mrfld_audio.o
 obj-$(subst m,y,$(CONFIG_SND_MOOR_MACHINE)) += platform_florida.o
 obj-$(subst m,y,$(CONFIG_SND_CTP_MACHINE)) += platform_ctp_audio.o
+obj-$(subst m,y,$(CONFIG_SND_CTP_MACHINE_5671)) += platform_ctp_audio.o
 obj-y += platform_ipc.o
 obj-y += platform_i2c_gpio.o
 obj-y += platform_msic.o

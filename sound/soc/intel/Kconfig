@@ -139,6 +139,25 @@ config SND_CTP_MACHINE
           Say Y if you have such a device
           If unsure select "N".
 
+config SND_CTP_MACHINE_5671
+	tristate "SOC Machine Audio driver for Intel Cloverview MID platform with ALC5671 codec"
+	depends on INTEL_SCU_IPC_UTIL && X86 && GPIO_LANGWELL
+	select SND_SOC_RT5671
+	select MFD_CORE
+	select SND_SST_PLATFORM
+	select SND_SST_MACHINE
+	select SND_INTEL_SST
+	select SND_COMPRESS_SST
+	select SND_COMPRESS_OFFLOAD
+	select SND_SOC_COMMS_SSP
+	depends on PF450CL
+	default n
+	help
+          This adds support for ASoC machine driver for Intel(R) MID Cloverview platform
+	  used as alsa device in audio substem in Intel(R) MID devices
+          Say Y if you have such a device
+          If unsure select "N".
+
 config SND_INTEL_SST
        tristate
 
