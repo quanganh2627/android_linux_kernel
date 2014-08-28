@@ -1133,8 +1133,11 @@ retry:
 				work->target_rr_type,
 				dev_priv->drrs_state.refresh_rate_type);
 
+		mutex_lock(&dev_priv->drrs_state.mutex);
 		dev_priv->drrs_state.target_rr_type =
 					dev_priv->drrs_state.refresh_rate_type;
+		mutex_unlock(&dev_priv->drrs_state.mutex);
+
 		work->target_rr_type = dev_priv->drrs_state.target_rr_type;
 		drm_mode_destroy(intel_encoder->base.dev, work->target_mode);
 

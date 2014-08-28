@@ -693,9 +693,7 @@ void intel_set_drrs_state(struct drm_device *dev)
 				drrs_state->target_rr_type == DRRS_HIGH_RR)
 			resume_idleness_detection = true;
 
-		mutex_lock(&drrs_state->mutex);
 		drrs_state->refresh_rate_type = drrs_state->target_rr_type;
-		mutex_unlock(&drrs_state->mutex);
 
 		DRM_INFO("Refresh Rate set to : %dHz\n", refresh_rate);
 
@@ -733,12 +731,15 @@ static void intel_drrs_work_fn(struct work_struct *__work)
 	if (panel->target_mode != NULL)
 		DRM_ERROR("FIXME: Something wrong in DRRS State machine\n");
 
+	mutex_lock(&dev_priv->drrs_state.mutex);
 	panel->target_mode = panel->downclock_mode;
 	dev_priv->drrs_state.target_rr_type = DRRS_LOW_RR;
 
 	intel_set_drrs_state(work->crtc->dev);
 
 	panel->target_mode = NULL;
+	mutex_unlock(&dev_priv->drrs_state.mutex);
+
 	/* Update Watermark Values */
 	intel_update_watermarks(dev);
 }
@@ -761,6 +762,7 @@ static void intel_enable_drrs(struct drm_crtc *crtc)
 	if (is_media_playback_drrs_in_progress(&dev_priv->drrs_state))
 		return;
 
+	mutex_lock(&dev_priv->drrs_state.mutex);
 	intel_cancel_drrs_work(dev_priv);
 
 	/* Capturing the deferred request for disable_drrs */
@@ -779,6 +781,7 @@ static void intel_enable_drrs(struct drm_crtc *crtc)
 		schedule_delayed_work(&dev_priv->drrs.drrs_work->work,
 			msecs_to_jiffies(dev_priv->drrs.drrs_work->interval));
 	}
+	mutex_unlock(&dev_priv->drrs_state.mutex);
 }
 
 void intel_disable_drrs(struct drm_device *dev)
@@ -794,6 +797,7 @@ void intel_disable_drrs(struct drm_device *dev)
 
 	/* as part of disable DRRS, reset refresh rate to HIGH_RR */
 	if (dev_priv->drrs_state.refresh_rate_type == DRRS_LOW_RR) {
+		mutex_lock(&dev_priv->drrs_state.mutex);
 		intel_cancel_drrs_work(dev_priv);
 		panel = &dev_priv->drrs.connector->panel;
 		if (panel->target_mode != NULL)
@@ -803,6 +807,7 @@ void intel_disable_drrs(struct drm_device *dev)
 		dev_priv->drrs_state.target_rr_type = DRRS_HIGH_RR;
 		intel_set_drrs_state(dev);
 		panel->target_mode = NULL;
+		mutex_unlock(&dev_priv->drrs_state.mutex);
 
 		/* Update Watermark Values */
 		intel_update_watermarks(dev);
@@ -884,6 +889,8 @@ int intel_media_playback_drrs_configure(struct drm_device *dev,
 		return -EINVAL;
 	}
 
+	mutex_lock(&dev_priv->drrs_state.mutex);
+
 	if (refresh_rate == panel->fixed_mode->vrefresh) {
 		if (drrs_state->refresh_rate_type == DRRS_MEDIA_RR) {
 			/* DRRS_MEDIA_RR -> DRRS_HIGH_RR */
@@ -895,6 +902,7 @@ int intel_media_playback_drrs_configure(struct drm_device *dev,
 			/* Invalid Media Playback DRRS request.
 			 * Resume the Idleness Detection */
 			DRM_DEBUG_KMS("Requested for Fixed mode\n");
+			mutex_unlock(&dev_priv->drrs_state.mutex);
 			intel_update_drrs(dev);
 			return 0;
 		}
@@ -931,6 +939,7 @@ int intel_media_playback_drrs_configure(struct drm_device *dev,
 			if (refresh_rate == panel->target_mode->vrefresh) {
 				DRM_DEBUG_KMS("Request for current RR.<%d>\n",
 						panel->target_mode->vrefresh);
+				mutex_unlock(&dev_priv->drrs_state.mutex);
 				return 0;
 			}
 			panel->target_mode->vrefresh = refresh_rate;
@@ -950,6 +959,7 @@ int intel_media_playback_drrs_configure(struct drm_device *dev,
 				panel->target_mode->vrefresh);
 set_state:
 	intel_set_drrs_state(dev);
+	mutex_unlock(&dev_priv->drrs_state.mutex);
 	return 0;
 }
 
