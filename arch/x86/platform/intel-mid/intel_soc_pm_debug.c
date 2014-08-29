@@ -1462,7 +1462,7 @@ static int pmu_devices_state_show(struct seq_file *s, void *unused)
 	seq_printf(s, "SSS: ");
 
 	for (i = 0; i < 4; i++)
-		seq_printf(s, "%08lX ", cur_pmsss.pmu2_states[i]);
+		seq_printf(s, "%08X ", cur_pmsss.pmu2_states[i]);
 
 	seq_printf(s, "cmd_error_int count: %d\n", mid_pmu_cxt->cmd_error_int);
 
@@ -1875,7 +1875,7 @@ static int pmu_sync_d0ix_show(struct seq_file *s, void *unused)
 	up(&mid_pmu_cxt->scu_ready_sem);
 
 	for (i = 0; i < 4; i++)
-		seq_printf(s, "OS_SSS[%d]: %08X\tSSS[%d]: %08lX\n", i,
+		seq_printf(s, "OS_SSS[%d]: %08X\tSSS[%d]: %08X\n", i,
 				local_os_sss[i], i, cur_pmsss.pmu2_states[i]);
 
 	return 0;
@@ -2360,7 +2360,7 @@ unsigned int pmu_get_new_cstate(unsigned int cstate, int *index)
 	unsigned int new_cstate = cstate;
 	u32 local_cstate = (u32)(cstate);
 	u32 local_cstate_allowed = ~mid_pmu_cxt->cstate_ignore;
-	u32 cstate_mask, cstate_no_s0ix_mask = (u32)((1 << 6) - 1);
+	u32 cstate_mask;
 
 	if (platform_is(INTEL_ATOM_MRFLD) || platform_is(INTEL_ATOM_MOORFLD)) {
 		/* cstate is also 7 for C9 so correct */

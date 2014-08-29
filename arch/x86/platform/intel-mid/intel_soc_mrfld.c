@@ -137,7 +137,7 @@ static bool mrfld_nc_sc_status_check(void)
 		sc_status = false;
 		pr_warn("SC device/devices not in d0i3!!\n");
 		for (i = 0; i < 4; i++)
-			pr_warn("pmu2_states[%d] = %08lX\n", i,
+			pr_warn("pmu2_states[%d] = %08X\n", i,
 					cur_pmsss.pmu2_states[i]);
 	}
 

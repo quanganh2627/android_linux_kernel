@@ -1900,6 +1900,7 @@ mid_pmu_probe(struct pci_dev *dev, const struct pci_device_id *pci_id)
 	struct mrst_pmu_reg __iomem *pmu;
 	u32 data;
 
+#ifdef CONFIG_XEN
 	u32 dc_islands = (OSPM_DISPLAY_A_ISLAND |
 			  OSPM_DISPLAY_B_ISLAND |
 			  OSPM_DISPLAY_C_ISLAND |
@@ -1908,6 +1909,7 @@ mid_pmu_probe(struct pci_dev *dev, const struct pci_device_id *pci_id)
 			   APM_VIDEO_ENC_ISLAND |
 			   APM_GL3_CACHE_ISLAND |
 			   APM_GRAPHICS_ISLAND);
+#endif
 
 	mid_pmu_cxt->pmu_wake_lock =
 				wakeup_source_register("pmu_wake_lock");

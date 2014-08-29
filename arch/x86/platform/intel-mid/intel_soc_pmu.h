@@ -196,8 +196,8 @@ enum pmu_mrfl_nc_device_name {
 
 
 struct pmu_ss_states {
-	unsigned long pmu1_states;
-	unsigned long pmu2_states[4];
+	u32 pmu1_states;
+	u32 pmu2_states[4];
 };
 
 struct pci_dev_info {
@@ -212,9 +212,9 @@ struct pci_dev_info {
 };
 
 struct pmu_wake_ss_states {
-	unsigned long wake_enable[2];
-	unsigned long pmu1_wake_states;
-	unsigned long pmu2_wake_states[4];
+	u32 wake_enable[2];
+	u32 pmu1_wake_states;
+	u32 pmu2_wake_states[4];
 };
 
 struct pmu_suspend_config {
