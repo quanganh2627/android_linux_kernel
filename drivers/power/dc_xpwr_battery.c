@@ -879,7 +879,7 @@ static void pmic_fg_external_power_changed(struct power_supply *psy)
 static int pmic_fg_set_lowbatt_thresholds(struct pmic_fg_info *info)
 {
 	int ret;
-	u8 reg_val;
+	u8 reg_val, reg_thr;
 
 	ret = pmic_fg_reg_readb(info, DC_FG_REP_CAP_REG);
 	if (ret < 0) {
@@ -890,14 +890,42 @@ static int pmic_fg_set_lowbatt_thresholds(struct pmic_fg_info *info)
 
 	if (ret > FG_LOW_CAP_WARN1_THR)
 		reg_val = FG_LOW_CAP_WARN1_THR;
-	if (ret > FG_LOW_CAP_WARN2_THR)
+	else if (ret > FG_LOW_CAP_WARN2_THR)
 		reg_val = FG_LOW_CAP_WARN2_THR;
 	else if (ret > FG_LOW_CAP_CRIT_THR)
 		reg_val = FG_LOW_CAP_CRIT_THR;
-	else
+	/*set low battery alert, which is 14% for the first level,
+	 * 4% and 0% for the sencond level, the value will impact PMIC auto calibration
+	 * this default value is recommended by PMIC vendor*/
+	if (ret > FG_LOW_CAP_CRIT_THR) {
+		ret = pmic_fg_reg_readb(info, DC_FG_TUNING_CNTL4);
+		if (ret < 0) {
+			dev_err(&info->pdev->dev, "%s:read err:%d\n", __func__, ret);
+			return ret;
+		}
+		reg_thr = ret & 0xF8;
+		reg_thr |= 0x04;
+		ret = pmic_fg_reg_writeb(info, DC_FG_TUNING_CNTL4, reg_thr);
+		if (ret < 0) {
+			dev_err(&info->pdev->dev, "%s:write err:%d\n", __func__, ret);
+			return ret;
+		}
+	} else {
 		reg_val = FG_LOW_CAP_SHDN_THR;
+		ret = pmic_fg_reg_readb(info, DC_FG_TUNING_CNTL4);
+		if (ret < 0) {
+			dev_err(&info->pdev->dev, "%s:read err:%d\n", __func__, ret);
+			return ret;
+		}
+		reg_thr = ret & 0xF8;
+		ret = pmic_fg_reg_writeb(info, DC_FG_TUNING_CNTL4, reg_thr);
+		if (ret < 0) {
+			dev_err(&info->pdev->dev, "%s:write err:%d\n", __func__, ret);
+			return ret;
+		}
+	}
 
-	reg_val |= FG_LOW_CAP_THR1_VAL;
+	reg_val |= 0x90;
 	ret = pmic_fg_reg_writeb(info, DC_FG_LOW_CAP_REG, reg_val);
 	if (ret < 0)
 		dev_err(&info->pdev->dev, "%s:write err:%d\n", __func__, ret);
