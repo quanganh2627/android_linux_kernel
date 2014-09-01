@@ -59,6 +59,10 @@ static int hdmi_i2c_workaround(void)
 	} else if (INTEL_MID_BOARD(1, TABLET, BYT)) {
 		pdata->scl_pin = 35 + 96;
 		pdata->sda_pin = 36 + 96;
+	} else if (INTEL_MID_BOARD(1, PHONE, CLVTP) ||
+		INTEL_MID_BOARD(1, PHONE, CLVTP)) {
+		pdata->scl_pin = 35 + 96;
+		pdata->sda_pin = 36 + 96;
 	} else {
 		kfree(pdata);
 		platform_device_put(pdev);
