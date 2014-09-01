@@ -124,21 +124,23 @@ static int sdhc_acpi_match(struct device *dev, void *data)
 	struct acpi_handle *handle = ACPI_HANDLE(dev);
 	struct acpi_device_info *info;
 	acpi_status status;
+	int match = 0;
 
 	status = acpi_get_object_info(handle, &info);
 	if (ACPI_FAILURE(status))
-		return false;
+		return 0;
 
 	if (!(info->valid & ACPI_VALID_UID) ||
 		!(info->valid & ACPI_VALID_HID))
-		return false;
+		goto out;
 
 	if (!strncmp(ids->hid, info->hardware_id.string, strlen(ids->hid)))
 		if (!strncmp(ids->uid, info->unique_id.string,
 					strlen(ids->uid)))
-			return true;
-
-	return false;
+			match = 1;
+out:
+	kfree(info);
+	return match;
 }
 
 static int brc_acpi_match(struct device *dev, void *data)
