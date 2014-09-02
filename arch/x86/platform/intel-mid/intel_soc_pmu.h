@@ -422,7 +422,8 @@ extern int pmu_pci_to_indexes(struct pci_dev *pdev, int *index,
 				int *pmu_num, int *ss_idx, int *ss_pos);
 extern struct mid_pmu_dev *mid_pmu_cxt;
 extern void platform_set_pmu_ops(void);
-extern void pmu_read_sss(struct pmu_ss_states *pm_ssc);
+extern void pmu_read_ssc(struct pmu_ss_states *pm_ss);
+extern void pmu_read_sss(struct pmu_ss_states *pm_ss);
 extern int pmu_issue_interactive_command(struct pmu_ss_states *pm_ssc,
 				bool ioc, bool d3_cold);
 extern int _pmu2_wait_not_busy(void);

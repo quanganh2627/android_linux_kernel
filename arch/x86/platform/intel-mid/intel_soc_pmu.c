@@ -276,19 +276,55 @@ static void pmu_write_subsys_config(struct pmu_ss_states *pm_ssc)
 	writel(pm_ssc->pmu2_states[3], &mid_pmu_cxt->pmu_reg->pm_ssc[3]);
 }
 
+static inline union pmu_pm_ics pmu_read_ics(void)
+{
+	union pmu_pm_ics result;
+
+	/* read the pm interrupt status register */
+	result.pmu_pm_ics_value = readl(&mid_pmu_cxt->pmu_reg->pm_ics);
+
+	return result;
+}
+
+void pmu_read_sss(struct pmu_ss_states *pm_ss)
+{
+	pm_ss->pmu2_states[0] =
+			readl(&mid_pmu_cxt->pmu_reg->pm_sss[0]);
+	pm_ss->pmu2_states[1] =
+			readl(&mid_pmu_cxt->pmu_reg->pm_sss[1]);
+	pm_ss->pmu2_states[2] =
+			readl(&mid_pmu_cxt->pmu_reg->pm_sss[2]);
+	pm_ss->pmu2_states[3] =
+			readl(&mid_pmu_cxt->pmu_reg->pm_sss[3]);
+}
+
+void pmu_read_ssc(struct pmu_ss_states *pm_ss)
+{
+	pm_ss->pmu2_states[0] =
+			readl(&mid_pmu_cxt->pmu_reg->pm_ssc[0]);
+	pm_ss->pmu2_states[1] =
+			readl(&mid_pmu_cxt->pmu_reg->pm_ssc[1]);
+	pm_ss->pmu2_states[2] =
+			readl(&mid_pmu_cxt->pmu_reg->pm_ssc[2]);
+	pm_ss->pmu2_states[3] =
+			readl(&mid_pmu_cxt->pmu_reg->pm_ssc[3]);
+}
+
 void log_wakeup_irq(void)
 {
 	unsigned int irr = 0, vector = 0;
 	int offset = 0, irq = 0;
 	struct irq_desc *desc;
 	const char *act_name;
+	union pmu_pm_ics pm_ics;
+	struct pmu_ss_states pm_ssc, pm_sss;
 
 	if ((mid_pmu_cxt->pmu_current_state != SYS_STATE_S3)
 	    || !mid_pmu_cxt->suspend_started)
 		return;
 
 	for (offset = (FIRST_EXTERNAL_VECTOR/32);
-	offset < (NR_VECTORS/32); offset++) {
+		offset < (NR_VECTORS/32); offset++) {
 		irr = apic->read(APIC_IRR + (offset * 0x10));
 
 		while (irr) {
@@ -307,6 +343,27 @@ void log_wakeup_irq(void)
 				pr_info("IRQ %d,action name:%s\n",
 					irq,
 					(act_name) ? (act_name) : "no action");
+			}
+
+			/* for PMU IRQ dump pm_ics, pm_ssc and pm_sss */
+			if (irq == mid_pmu_cxt->pmu_dev->irq) {
+				pm_ics = pmu_read_ics();
+				pmu_read_ssc(&pm_ssc);
+				pmu_read_sss(&pm_sss);
+				pr_info("pm_ics: st=0x%x, ie=0x%x, ip=0x%x\n",
+					pm_ics.pmu_pm_ics_parts.int_status,
+					pm_ics.pmu_pm_ics_parts.int_enable,
+					pm_ics.pmu_pm_ics_parts.int_pend);
+				pr_info("pm_ssc: 0x%x, 0x%x, 0x%x, 0x%x\n",
+					pm_ssc.pmu2_states[0],
+					pm_ssc.pmu2_states[1],
+					pm_ssc.pmu2_states[2],
+					pm_ssc.pmu2_states[3]);
+				pr_info("pm_sss: 0x%x, 0x%x, 0x%x, 0x%x\n",
+					pm_sss.pmu2_states[0],
+					pm_sss.pmu2_states[1],
+					pm_sss.pmu2_states[2],
+					pm_sss.pmu2_states[3]);
 			}
 		}
 	}
@@ -752,19 +809,6 @@ static void pmu_enumerate(void)
 		get_pci_lss_info(pdev);
 	}
 }
-
-void pmu_read_sss(struct pmu_ss_states *pm_ssc)
-{
-	pm_ssc->pmu2_states[0] =
-			readl(&mid_pmu_cxt->pmu_reg->pm_sss[0]);
-	pm_ssc->pmu2_states[1] =
-			readl(&mid_pmu_cxt->pmu_reg->pm_sss[1]);
-	pm_ssc->pmu2_states[2] =
-			readl(&mid_pmu_cxt->pmu_reg->pm_sss[2]);
-	pm_ssc->pmu2_states[3] =
-			readl(&mid_pmu_cxt->pmu_reg->pm_sss[3]);
-}
-
 
 /*
  * For all devices in this lss, we check what is the weakest power state
