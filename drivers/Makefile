@@ -15,6 +15,7 @@ obj-y				+= pwm/
 obj-$(CONFIG_PCI)		+= pci/
 obj-$(CONFIG_PARISC)		+= parisc/
 obj-$(CONFIG_RAPIDIO)		+= rapidio/
+obj-$(CONFIG_ME372CG_BATTERY_SMB345)   += power/battery/
 obj-y				+= video/
 obj-y				+= idle/
 

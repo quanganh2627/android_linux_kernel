@@ -151,7 +151,10 @@
 
 /* UART devices */
 #include "device_libs/platform_gps.h"
-
+#ifdef CONFIG_ME372CG_BATTERY_SMB345
+#include "device_libs/platform_me372cg_smb345.h"
+#include "device_libs/platform_bq27520.h"
+#endif
 /* USB devices */
 #include "device_libs/pci/platform_usb_otg.h"
 
@@ -216,6 +219,24 @@ struct devs_id __initconst device_ids[] = {
 	{"MNZX8000", SFI_DEV_TYPE_I2C, 0, &no_platform_data, NULL},
 	{"pca953x", SFI_DEV_TYPE_I2C, 0, &nxp_pca9574_platform_data, NULL},
 	{"hx8528", SFI_DEV_TYPE_I2C, 0, &hx8528_platform_data},
+
+#ifdef CONFIG_ME372CG_BATTERY_SMB345
+#if defined(CONFIG_PF450CL)
+	{"smb358", SFI_DEV_TYPE_I2C, 0, &smb345_platform_data},
+#else
+	{"smb345", SFI_DEV_TYPE_I2C, 0, &smb345_platform_data},
+#endif
+#endif
+
+#ifdef CONFIG_ME372CG_BATTERY_BQ27520
+	{"bq27520", SFI_DEV_TYPE_I2C, 0, &bq27520_platform_data},
+#endif
+
+
+#ifdef CONFIG_PF450CL_BATTERY_BQ27520
+	{"bq27520", SFI_DEV_TYPE_I2C, 0, &bq27520_platform_data, NULL},
+	{"bq27520f", SFI_DEV_TYPE_I2C, 0, &no_platform_data, NULL},
+#endif
 
 	/* MSIC subdevices */
 	{"msic_adc", SFI_DEV_TYPE_IPC, 1, &msic_adc_platform_data,

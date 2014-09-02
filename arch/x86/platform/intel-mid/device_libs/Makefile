@@ -142,6 +142,13 @@ obj-$(subst m,y,$(CONFIG_INTEL_MID_GPS)) += platform_gps.o
 # WIFI devices
 obj-$(subst m,y,$(CONFIG_WIFI_PLATFORM_DATA)) += platform_wifi.o
 obj-$(subst m,y,$(CONFIG_MMC_SDHCI_ACPI)) += platform_sdio_regulator.o
+
+# Battery chris: (((
+obj-$(subst m,y,$(CONFIG_ME372CG_BATTERY_SMB345))		+= platform_me372cg_smb345.o
+#obj-$(subst m,y,$(CONFIG_ME372CG_BATTERY_BQ27520))		+= platform_bq27520.o
+obj-y	+=platform_bq27520.o
+# )))
+
 # SCU log
 obj-$(subst m,y,$(CONFIG_SCU_LOGGING)) += platform_scu_log.o
 # Display Control Device

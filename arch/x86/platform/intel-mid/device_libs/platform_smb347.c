@@ -22,9 +22,45 @@
 #include <linux/power/battery_id.h>
 #include <linux/iio/consumer.h>
 #include <asm/intel_em_config.h>
-
+#if defined(CONFIG_ME372CG_BATTERY_SMB345)
+#include "platform_me372cg_smb345.h"
+#endif
 #define BYT_FFD8_PR1_BATID_LL 0x2D0
 #define BYT_FFD8_PR1_BATID_UL 0x2F0
+
+#if defined(CONFIG_ME372CG_BATTERY_SMB345)
+static struct smb345_charger_platform_data smb345_pdata = {
+	.battery_info	= {
+		.name			= "UP110005",
+		.technology		= POWER_SUPPLY_TECHNOLOGY_LIPO,
+		.voltage_max_design	= 3700000,
+		.voltage_min_design	= 3000000,
+		.charge_full_design	= 6894000,
+	},
+	.max_charge_current		= 3360000,
+	.max_charge_voltage		= 4200000,
+	.otg_uvlo_voltage		= 3300000,
+	.chip_temp_threshold		= 120,
+	.soft_cold_temp_limit		= 5,
+	.soft_hot_temp_limit		= 50,
+	.hard_cold_temp_limit		= 5,
+	.hard_hot_temp_limit		= 55,
+	.suspend_on_hard_temp_limit	= true,
+	.soft_temp_limit_compensation	= SMB347_SOFT_TEMP_COMPENSATE_CURRENT
+	| SMB347_SOFT_TEMP_COMPENSATE_VOLTAGE,
+	.charge_current_compensation	= 900000,
+	.use_mains			= true,
+
+
+	.irq_gpio			= -1,
+	.inok_gpio			= -1,
+
+	.mains_current_limit	= 1200,
+
+	.usb_hc_current_limit	= 500,
+	.twins_h_current_limit	= 1800,
+};
+#endif
 
 /* Redridge DV2.1 */
 static struct smb347_charger_platform_data smb347_rr_pdata = {
@@ -515,5 +551,10 @@ static void *get_platform_data(void)
 
 void *smb347_platform_data(void *info)
 {
+#if defined(CONFIG_ME372CG_BATTERY_SMB345)
+	smb345_pdata.inok_gpio = 44;
+	return &smb345_pdata;
+#else
 	return get_platform_data();
+#endif
 }
