@@ -9128,10 +9128,19 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 				pfit_control |= PFIT_SCALING_PILLAR;
 			else if (disp->panel_fitter.mode == LETTERBOX)
 				pfit_control |= PFIT_SCALING_LETTER;
-			else
+			else {
 				/* None of the above mode, then pfit is disabled */
-				pfit_control &= ~(1 << 31);
-
+				/* None of the above mode, then pfit is disabled
+				 * In case of BYT_CR platform with the panasonic panel of
+				 * esolution 19x10, panel fitter needs to be enabled always
+				 * becoz we simulate the 12x8 mode due to memory limitation
+				 */
+				pfit_control |= PFIT_SCALING_AUTO;
+				if (!(BYT_CR_CONFIG &&
+						(intel_crtc->config.adjusted_mode.hdisplay > 1280 ||
+						intel_crtc->config.adjusted_mode.vdisplay > 800)))
+					pfit_control &= ~(1 << 31);
+			}
 			intel_crtc->config.gmch_pfit.control = pfit_control;
 		}
 
