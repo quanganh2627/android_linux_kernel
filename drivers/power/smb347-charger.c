@@ -1526,14 +1526,6 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 #endif
 		}
 
-		if (smb->mains_online || smb->usb_online) {
-			dev_info(&smb->client->dev, "Charger connected\n");
-			smb->online = 1;
-		} else {
-			dev_info(&smb->client->dev, "Charger disconnected\n");
-			smb->online = 0;
-		}
-
 		ret = IRQ_HANDLED;
 	}
 
@@ -1564,10 +1556,6 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 		if (smb->pdata->detect_chg)
 			smb34x_update_charger_type(smb);
 
-		if (smb->pdata->use_mains)
-			power_supply_changed(&smb->mains);
-		if (smb->pdata->use_usb)
-			power_supply_changed(&smb->usb);
 		ret = IRQ_HANDLED;
 	}
 
