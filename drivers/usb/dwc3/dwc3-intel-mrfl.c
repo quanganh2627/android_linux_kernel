@@ -1170,6 +1170,24 @@ int dwc3_intel_prepare_start_host(struct dwc_otg2 *otg)
 
 int dwc3_intel_prepare_start_peripheral(struct dwc_otg2 *otg)
 {
+	unsigned long flags;
+	struct intel_dwc_otg_pdata *data;
+
+	data = (struct intel_dwc_otg_pdata *)otg->otg_data;
+	/* Notify 500ma for SDP case whatever HS or SS.
+	 * set_power flow will update 900ma after SS enumeration done. */
+	if (data && data->charging_compliance &&
+		(otg->charging_cap.chrg_type ==
+		 POWER_SUPPLY_CHARGER_TYPE_USB_SDP)) {
+
+		spin_lock_irqsave(&otg->lock, flags);
+		otg->charging_cap.ma = 500;
+		spin_unlock_irqrestore(&otg->lock, flags);
+
+		dwc3_intel_notify_charger_type(otg,
+			POWER_SUPPLY_CHARGER_EVENT_CONNECT);
+	}
+
 	if (!is_hybridvp(otg)) {
 		enable_usb_phy(otg, true);
 		usb2phy_eye_optimization(otg);
