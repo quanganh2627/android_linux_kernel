@@ -498,10 +498,10 @@ static struct hsu_port_cfg hsu_port_cfgs[][hsu_port_max] = {
 			.hw_context_save = 1,
 		},
 		[hsu_port2] = {
-			.type = debug_port,
+			.type = modem_port,
 			.hw_ip = hsu_intel,
 			.index = 2,
-			.name = HSU_DEBUG_PORT,
+			.name = HSU_MODEM_PORT,
 			.idle = 2000,
 			.hw_init = intel_mid_hsu_init,
 			.hw_set_alt = intel_mid_hsu_switch,
