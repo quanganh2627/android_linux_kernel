@@ -1212,7 +1212,7 @@ static int intel_idle_cpu_init(int cpu)
 	if (icpu->auto_demotion_disable_flags)
 		smp_call_function_single(cpu, auto_demotion_disable, NULL, 1);
 
-	__get_cpu_var(update_buckets) = 1;
+	per_cpu(update_buckets, cpu) = 1;
 
 	return 0;
 }
