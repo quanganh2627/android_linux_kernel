@@ -2269,6 +2269,8 @@ static int max17042_probe(struct i2c_client *client,
 	chip->battery.properties	= max17042_battery_props;
 	chip->battery.num_properties	= ARRAY_SIZE(max17042_battery_props);
 
+	chip->status = POWER_SUPPLY_STATUS_DISCHARGING;
+
 	ret = power_supply_register(&client->dev, &chip->battery);
 	if (ret) {
 		dev_err(&client->dev, "failed: power supply register\n");
