@@ -2023,7 +2023,7 @@ static const struct snd_kcontrol_new sst_algo_controls[] = {
 		SST_PATH_INDEX_HF_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_REF_LINE),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "delay", 6, SST_MODULE_ID_EDL,
 		SST_PATH_INDEX_HF_OUT, 0, SST_TASK_FBA_UL, FBA_VB_SET_DELAY_LINE),
-	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "bmf", 572, SST_MODULE_ID_BMF,
+	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "bmf", 1196, SST_MODULE_ID_BMF,
 		SST_PATH_INDEX_HF_SNS_OUT, 0, SST_TASK_FBA_UL, FBA_VB_BMF),
 	SST_COMBO_ALGO_KCONTROL_BYTES("speech_out", "ul_module", "dnr", 56, SST_MODULE_ID_DNR,
 		SST_PATH_INDEX_VOICE_UPLINK, 0, SST_TASK_FBA_UL, FBA_VB_DNR),
