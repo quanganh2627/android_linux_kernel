@@ -844,6 +844,26 @@ static int imx132_reg_access(struct smiapp_sensor *sensor, bool write, u32 *reg,
 				    64);
 		*reg = SMIAPP_IMX132_REG_U8_PLL_STAB_TIMER;
 		break;
+	/*
+	 * Test pattern mode registers share same values across imx135, imx132
+	 * and imx214. Hence the same imx135 definition is being used for these
+	 * sensors.
+	 */
+	case SMIAPP_REG_U16_TEST_PATTERN_MODE:
+		*reg = SMIAPP_IMX135_REG_U16_TEST_PATTERN_MODE;
+		break;
+	case SMIAPP_REG_U16_TEST_DATA_RED:
+		*reg = SMIAPP_IMX135_REG_U16_TEST_DATA_RED;
+		break;
+	case SMIAPP_REG_U16_TEST_DATA_GREENR:
+		*reg = SMIAPP_IMX135_REG_U16_TEST_DATA_GREENR;
+		break;
+	case SMIAPP_REG_U16_TEST_DATA_BLUE:
+		*reg = SMIAPP_IMX135_REG_U16_TEST_DATA_BLUE;
+		break;
+	case SMIAPP_REG_U16_TEST_DATA_GREENB:
+		*reg = SMIAPP_IMX135_REG_U16_TEST_DATA_GREENB;
+		break;
 	}
 
 	return 0;
