@@ -327,29 +327,6 @@ int i915_rpm_put_procfs(struct inode *inode, struct file *file)
 	return 0;
 }
 
-/**
- * VXD driver need to call this to make sure Gfx is in D0i0
- * while VXD is on
- */
-#ifdef CONFIG_DRM_VXD_BYT
-int i915_rpm_get_vxd(struct drm_device *drm_dev)
-{
-	return pm_runtime_get_sync(drm_dev->dev);
-}
-EXPORT_SYMBOL(i915_rpm_get_vxd);
-
-/**
- * VXD driver need to call this to notify Gfx that it is
- * done with HW accesses
- */
-int i915_rpm_put_vxd(struct drm_device *drm_dev)
-{
-	pm_runtime_mark_last_busy(drm_dev->dev);
-	return pm_runtime_put_autosuspend(drm_dev->dev);
-}
-EXPORT_SYMBOL(i915_rpm_put_vxd);
-#endif
-
 /* mainly for debug purpose, check if the access is valid */
 bool i915_rpm_access_check(struct drm_device *dev)
 {
@@ -436,10 +413,6 @@ int i915_rpm_get_procfs(struct inode *inode,
 			      struct file *file) {return 0; }
 int i915_rpm_put_procfs(struct inode *inode,
 			      struct file *file) {return 0; }
-#ifdef CONFIG_DRM_VXD_BYT
-int i915_rpm_get_vxd(struct drm_device *dev) {return 0; }
-int i915_rpm_put_vxd(struct drm_device *dev) {return 0; }
-#endif
 
 bool i915_is_device_active(struct drm_device *dev)
 {
