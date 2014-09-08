@@ -76,6 +76,9 @@
 
 #define SEP_AUTOSUSPEND_DELAY 5000
 
+#define INIT_FW_FLAG 0
+#define INIT_SEP_SWQ_FLAG 1
+
 /* GPR that holds SeP state */
 #define SEP_STATE_GPR_OFFSET SEP_HOST_GPR_REG_OFFSET(DX_SEP_STATE_GPR_IDX)
 /* In case of a change in GPR7 (state) we dump also GPR6 */

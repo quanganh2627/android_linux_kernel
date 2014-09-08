@@ -42,6 +42,7 @@
 #include "dx_cc_regs.h"
 #include "sep_power.h"
 #include "desc_mgr.h"
+#include "dx_init_cc_abi.h"
 
 /* Queue buffer log(size in bytes) */
 #define SEP_SW_DESC_Q_MEM_SIZE_LOG 12	/*4KB */
@@ -197,10 +198,11 @@ static void backlog_q_process(struct work_struct *work);
  * desc_q_create() - Create descriptors queue object
  * @qid:	 The queue ID (index)
  * @drvdata:	 The associated queue driver data
+ * @state: Current state of sep
  *
  * Returns Allocated queue object handle (DESC_Q_INVALID_HANDLE for failure)
  */
-void *desc_q_create(int qid, struct queue_drvdata *drvdata)
+void *desc_q_create(int qid, struct queue_drvdata *drvdata, int state)
 {
 	struct device *dev = drvdata->sep_data->dev;
 	void __iomem *cc_regs_base = drvdata->sep_data->cc_base;
@@ -248,7 +250,8 @@ void *desc_q_create(int qid, struct queue_drvdata *drvdata)
 	/* Initialize respective GPR before SeP would be initialized.
 	   Required because the GPR may be non-zero as a result of CC-init
 	   sequence leftovers */
-	WRITE_REGISTER(new_q_p->gpr_to_sep, new_q_p->sent_cntr);
+	if (state != DX_SEP_STATE_DONE_FW_INIT)
+		WRITE_REGISTER(new_q_p->gpr_to_sep, new_q_p->sent_cntr);
 
 	new_q_p->qstate = DESC_Q_ACTIVE;
 	return (void *)new_q_p;
@@ -360,6 +363,21 @@ bool desc_q_is_idle(void *q_h, unsigned long *idle_jiffies_p)
 	return ((q_p->qstate == DESC_Q_ACTIVE) &&
 		(GET_Q_PENDING_DESCS(q_p) == 0) &&
 		(q_p->backlog_q.cur_q_len == 0));
+}
+
+/**
+ * desc_q_cntr_set() - set counters of the queue
+ * @q_h:	The queue object handle
+ */
+int desc_q_cntr_set(void *q_h)
+{
+	struct desc_q *q_p = (struct desc_q *)q_h;
+	uint32_t val = READ_REGISTER(q_p->gpr_from_sep);
+
+	q_p->sent_cntr = val;
+	q_p->completed_cntr = val;
+
+	return 0;
 }
 
 /**

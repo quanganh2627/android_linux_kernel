@@ -4252,7 +4252,7 @@ static int sep_setup(struct device *dev,
 	struct sep_drvdata *drvdata = NULL;
 	enum dx_sep_state sep_state;
 	int rc = 0;
-	int i;
+	int i, init_flag = INIT_FW_FLAG;
 	/* Create kernel thread for RPMB agent */
 	static struct task_struct *rpmb_thread;
 	char thread_name[] = "rpmb_agent";
@@ -4380,6 +4380,14 @@ static int sep_setup(struct device *dev,
 		if (unlikely(rc != 0))
 			goto failed5;
 	}
+
+	if (sep_state == DX_SEP_STATE_DONE_FW_INIT) {
+		/*If fw init was done change the state to reload driver state*/
+		rc = sepinit_reload_driver_state(drvdata);
+		if (unlikely(rc != 0))
+			goto failed5;
+	}
+
 	sepinit_get_fw_props(drvdata);
 	if (drvdata->fw_ver != EXPECTED_FW_VER) {
 		pr_warn("Expected FW version %u.%u.%u but got %u.%u.%u\n",
@@ -4424,7 +4432,7 @@ static int sep_setup(struct device *dev,
 		drvdata->queue[i].sep_data = drvdata;
 		mutex_init(&drvdata->queue[i].desc_queue_sequencer);
 		drvdata->queue[i].desc_queue =
-		    desc_q_create(i, &drvdata->queue[i]);
+		    desc_q_create(i, &drvdata->queue[i], sep_state);
 		if (drvdata->queue[i].desc_queue == DESC_Q_INVALID_HANDLE) {
 			pr_err("Unable to allocate desc_q object (%d)\n", i);
 			rc = -ENOMEM;
@@ -4450,7 +4458,18 @@ static int sep_setup(struct device *dev,
 		}
 	}
 
-	rc = sepinit_do_fw_init(drvdata);
+	if (sep_state != DX_SEP_STATE_DONE_FW_INIT) {
+		rc = sepinit_do_fw_init(drvdata, init_flag);
+	} else {
+		init_flag = INIT_SEP_SWQ_FLAG;
+		/*In case the sep state is DONE perform update counter
+		  of the queues */
+		for (i = 0; i < drvdata->num_of_desc_queues; i++)
+			desc_q_cntr_set(drvdata->queue[i].desc_queue);
+
+		rc = sepinit_do_fw_init(drvdata, init_flag);
+	}
+
 	if (unlikely(rc != 0))
 		goto failed7;
 

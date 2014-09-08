@@ -66,7 +66,7 @@ struct sep_app_session;
  *
  * Returns Allocated queue object handle (DESC_Q_INVALID_HANDLE for failure)
  */
-void *desc_q_create(int qid, struct queue_drvdata *drvdata);
+void *desc_q_create(int qid, struct queue_drvdata *drvdata, int state);
 
 /**
  * desc_q_destroy() - Destroy descriptors queue object (free resources)
@@ -80,6 +80,12 @@ void desc_q_destroy(void *q_h);
  * @state:	The requested state
  */
 int desc_q_set_state(void *q_h, enum desc_q_state state);
+
+/**
+ * desc_q_cntr_set() - Set counters for  queue
+ * @q_h:	The queue object handle
+ */
+int desc_q_cntr_set(void *q_h);
 
 /**
  * desc_q_get_state() - Get queue state
