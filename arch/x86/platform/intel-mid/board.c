@@ -371,6 +371,8 @@ struct devs_id __initconst device_ids[] = {
 						&ipc_device_handler},
 
 	/* IPC devices */
+	{"ctp_audio", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
+						&ipc_device_handler},
 	{"ctp_rhb_cs42l73", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
 						&ipc_device_handler},
 	{"ctp_vb_cs42l73", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
