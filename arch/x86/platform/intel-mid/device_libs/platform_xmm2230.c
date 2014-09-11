@@ -17,7 +17,7 @@
 #include <asm/intel-mid.h>
 #include "platform_xmm2230.h"
 
-#define XMM2330_SPI_SPEED_HZ 5000000
+#define XMM2330_SPI_SPEED_HZ 12500000
 
 void __init *xmm2230_platform_data(void *info)
 {
