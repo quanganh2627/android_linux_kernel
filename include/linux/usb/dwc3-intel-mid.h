@@ -68,6 +68,9 @@ struct intel_dwc_otg_pdata {
 	/* If the VUSBPHY power rail using for providing
 	 * power for USB PHY. */
 	int using_vusbphy;
+
+	/* Enable UTMI PHY WA for FS device detection issue */
+	int utmi_fs_det_wa;
 };
 
 /* timeout for disconnect from a suspended host */
