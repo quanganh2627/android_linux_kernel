@@ -1156,6 +1156,7 @@ static int sst_send_speech_path(struct sst_data *sst, u16 switch_state)
 	cmd.cfg.s_length = 0;
 	cmd.cfg.format = 0;
 	cmd.cfg.bwx = 0;
+	cmd.cfg.rate = 0;
 
 	is_wideband = sst_reg_read(sst, SST_MUX_REG, SST_VOICE_MODE_SHIFT, 2);
 	pr_debug("SST_VOICE_MODE %d\n", is_wideband);
