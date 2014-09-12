@@ -106,11 +106,11 @@ extern long unregister_fmdrv_from_ld_driv(struct fm_ld_drv_register *fm_ld_drv_r
 #define TTY_THRESHOLD_THROTTLE		128 /* now based on remaining room */
 #define TTY_THRESHOLD_UNTHROTTLE	128
 
-#define BT_FW_DOWNLOAD_INIT	_IOR('L', 1, unsigned long)
-#define BT_FW_DOWNLOAD_COMPLETE _IOW('L', 2, unsigned long)
-#define BT_FMR_IDLE		_IOW('L', 3, unsigned long)
-#define BT_FMR_LPM_ENABLE	_IOW('L', 4, unsigned long)
-#define BT_HOST_WAKE		_IOW('L', 5, unsigned long)
+#define BT_FW_DOWNLOAD_INIT	_IOR('L', 1, uint64_t)
+#define BT_FW_DOWNLOAD_COMPLETE _IOW('L', 2, uint64_t)
+#define BT_FMR_IDLE		_IOW('L', 3, uint64_t)
+#define BT_FMR_LPM_ENABLE	_IOW('L', 4, uint64_t)
+#define BT_HOST_WAKE		_IOW('L', 5, uint64_t)
 
 #define RELEVANT_IFLAG(iflag) ((iflag) & (IGNBRK|BRKINT|IGNPAR|PARMRK|INPCK))
 
