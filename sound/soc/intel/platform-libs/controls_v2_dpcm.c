@@ -1150,6 +1150,7 @@ static int sst_send_speech_path(struct sst_data *sst, u16 switch_state)
 	cmd.config.cfg.s_length = 0;
 	cmd.config.cfg.format = 0;
 	cmd.config.cfg.rate = 0;
+	cmd.config.rsvd = 0;
 
 	is_wideband = get_mux_state(sst, SST_MUX_REG, SST_VOICE_MODE_SHIFT);
 	if (is_wideband)
