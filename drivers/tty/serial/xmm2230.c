@@ -650,9 +650,6 @@ static int ifx_port_activate(struct tty_port *port, struct tty_struct *tty)
 	/* put port data into this tty */
 	tty->driver_data = ifx_dev;
 
-	/* allows flip string push from int context */
-	tty->port->low_latency = 1;
-
 	/* set mrdy low for modem 2230 srdy error issue */
 	srdy = gpio_get_value(ifx_dev->gpio.srdy);
 	if (srdy)
