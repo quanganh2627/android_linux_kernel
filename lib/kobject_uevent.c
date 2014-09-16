@@ -372,7 +372,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 		}
 
 		kobject_get(kobj);
-		list_add(&ub->buffer_list, &uevent_buffer_list);
+		list_add_tail(&ub->buffer_list, &uevent_buffer_list);
 		env = NULL;
 	}
 	mutex_unlock(&uevent_buffer_mutex);
