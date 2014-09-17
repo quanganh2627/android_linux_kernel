@@ -308,20 +308,29 @@ static int sdhci_acpi_sdio_probe_slot(struct platform_device *pdev)
 	if (!c || !c->host)
 		return 0;
 
-	if (INTEL_MID_BOARDV1(PHONE, BYT) ||
-			 INTEL_MID_BOARDV1(TABLET, BYT)) {
-		/* increase the auto suspend delay for SDIO to be 500ms */
-		c->autosuspend_delay = 500;
-	}
-
 	host = c->host;
 
-	if (sdhci_intel_host(&cpu) && (cpu == INTEL_CHV_CPU))
+	if (!sdhci_intel_host(&cpu))
+		return 0;
+
+	switch (cpu) {
+	case INTEL_VLV_CPU:
+		/* increase the auto suspend delay for SDIO to be 500ms */
+		c->autosuspend_delay = 500;
+		host->mmc->qos = kzalloc(sizeof(struct pm_qos_request),
+				GFP_KERNEL);
+		pm_qos_add_request(host->mmc->qos, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
+		break;
+	case INTEL_CHV_CPU:
 		host->quirks2 |= SDHCI_QUIRK2_SDR104_BROKEN;
+		break;
+	default:
+		break;
+	}
 
 	return 0;
 }
-
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
 	.quirks2 = SDHCI_QUIRK2_CARD_CD_DELAY | SDHCI_QUIRK2_WAIT_FOR_IDLE |
