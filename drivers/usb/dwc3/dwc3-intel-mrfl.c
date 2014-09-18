@@ -335,12 +335,21 @@ static void dwc_a_bus_drop(struct usb_phy *x)
 	struct dwc_otg2 *otg = dwc3_get_otg();
 	unsigned long flags;
 
-	if (otg->usb2_phy.vbus_state == VBUS_DISABLED) {
-		spin_lock_irqsave(&otg->lock, flags);
+	spin_lock_irqsave(&otg->lock, flags);
+
+	/* When user force exit from battery saver mode,
+	 * Trigger fake ID change event to otg state machine
+	 * to make it transfer to a_host state if current ID is GND.
+	 */
+	if (otg->usb2_phy.vbus_state == VBUS_ENABLED)
+		otg->otg_events |= OEVT_CONN_ID_STS_CHNG_EVNT;
+
+	if (otg->usb2_phy.vbus_state == VBUS_DISABLED)
 		otg->user_events |= USER_A_BUS_DROP;
-		dwc3_wakeup_otg_thread(otg);
-		spin_unlock_irqrestore(&otg->lock, flags);
-	}
+
+	spin_unlock_irqrestore(&otg->lock, flags);
+
+	dwc3_wakeup_otg_thread(otg);
 }
 
 static void set_sus_phy(struct dwc_otg2 *otg, int bit)
