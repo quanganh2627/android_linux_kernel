@@ -203,7 +203,7 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 			  struct drm_file *file)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 val;
+	u32 val = 0;
 	struct drm_i915_set_plane_zorder *zorder = data;
 	u32 order = zorder->order;
 	int s1_zorder, s1_bottom, s2_zorder, s2_bottom;
@@ -217,6 +217,8 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 	s2_zorder = (order >> 1) & 0x1;
 	s2_bottom = (order >> 0) & 0x1;
 
+	if (dev_priv->atomic_update)
+		goto calc_zorder;
 	/* Clear the older Z-order */
 	val = I915_READ(SPCNTR(pipe, 0));
 	/*
@@ -246,20 +248,31 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 	val &= ~(SPRITE_FORCE_BOTTOM | SPRITE_ZORDER_ENABLE);
 	I915_WRITE(SPCNTR(pipe, 1), val);
 
+calc_zorder:
 	/* Program new Z-order */
-	val = I915_READ(SPCNTR(pipe, 0));
+	if (!dev_priv->atomic_update)
+		val = I915_READ(SPCNTR(pipe, 0));
 	if (s1_zorder)
 		val |= SPRITE_ZORDER_ENABLE;
 	if (s1_bottom)
 		val |= SPRITE_FORCE_BOTTOM;
-	I915_WRITE(SPCNTR(pipe, 0), val);
+	if (dev_priv->atomic_update)
+		intel_crtc->reg.spacntr = val;
+	else
+		I915_WRITE(SPCNTR(pipe, 0), val);
 
-	val = I915_READ(SPCNTR(pipe, 1));
+	if (dev_priv->atomic_update)
+		val = 0;
+	else
+		val = I915_READ(SPCNTR(pipe, 1));
 	if (s2_zorder)
 		val |= SPRITE_ZORDER_ENABLE;
 	if (s2_bottom)
 		val |= SPRITE_FORCE_BOTTOM;
-	I915_WRITE(SPCNTR(pipe, 1), val);
+	if (dev_priv->atomic_update)
+		intel_crtc->reg.spbcntr = val;
+	else
+		I915_WRITE(SPCNTR(pipe, 1), val);
 
 	if (z_order != P1S1S2C1 && z_order != P1S2S1C1)
 		intel_crtc->primary_alpha = true;
@@ -300,18 +313,29 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 
+	sprctl = I915_READ(SPCNTR(pipe, plane));
+	/* Mask out pixel format bits in case we change it */
+	sprctl &= ~SP_PIXFORMAT_MASK;
+	sprctl &= ~SP_YUV_BYTE_ORDER_MASK;
+	sprctl &= ~SP_TILED;
+	/* calculate the plane rrb2 */
+	if (intel_plane->flags & DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2) {
+		if (intel_plane->rrb2_enable)
+			intel_plane->reg.surf |=
+				PLANE_RESERVED_REG_BIT_2_ENABLE;
+		else
+			intel_plane->reg.surf &=
+				~PLANE_RESERVED_REG_BIT_2_ENABLE;
+		intel_plane->flags &= ~DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2;
+	}
+
+	/* plane alpha */
 	if (plane && intel_crtc->sprite1_alpha)
 		alpha = true;
 	else if (!plane && intel_crtc->sprite0_alpha)
 		alpha = true;
 	else
 		alpha = false;
-
-	sprctl = I915_READ(SPCNTR(pipe, plane));
-	/* Mask out pixel format bits in case we change it */
-	sprctl &= ~SP_PIXFORMAT_MASK;
-	sprctl &= ~SP_YUV_BYTE_ORDER_MASK;
-	sprctl &= ~SP_TILED;
 
 	switch (fb->pixel_format) {
 	case DRM_FORMAT_YUYV:
@@ -375,7 +399,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		 * TODO:In linear mode disable maxfifo, hack to the
 		 * FADiag app flicker issue.
 		 */
-		if (dev_priv->maxfifo_enabled) {
+		if (dev_priv->maxfifo_enabled && !dev_priv->atomic_update) {
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
 			dev_priv->maxfifo_enabled = false;
 			intel_wait_for_vblank(dev, pipe);
@@ -414,18 +438,31 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	/* if panel fitter is enabled program the input src size */
 	if (intel_crtc->scaling_src_size &&
 		intel_crtc->config.gmch_pfit.control) {
-		I915_WRITE(PFIT_CONTROL, intel_crtc->config.gmch_pfit.control);
-		I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
-		intel_crtc->pfit_en_status = true;
+		intel_plane->reg.pfit_control =
+				intel_crtc->config.gmch_pfit.control;
+		intel_plane->reg.pipesrc = intel_crtc->scaling_src_size;
+		dev_priv->pfit_pipe = ((intel_crtc->reg.pfit_control &
+						PFIT_PIPE_MASK) >> 29);
+		if (!dev_priv->atomic_update) {
+			I915_WRITE(PFIT_CONTROL, intel_plane->reg.pfit_control);
+			I915_WRITE(PIPESRC(pipe), intel_plane->reg.pipesrc);
+			intel_crtc->pfit_en_status = true;
+		}
 	} else if (intel_crtc->pfit_en_status) {
-		I915_WRITE(PIPESRC(pipe),
+		intel_plane->reg.pipesrc =
 			((mode->hdisplay - 1) << SCALING_SRCSIZE_SHIFT) |
-			(mode->vdisplay - 1));
-		I915_WRITE(PFIT_CONTROL, 0);
-		intel_crtc->pfit_en_status = false;
+			(mode->vdisplay - 1);
+		intel_plane->reg.pfit_control = 0;
+		if (!dev_priv->atomic_update) {
+			I915_WRITE(PIPESRC(pipe), intel_plane->reg.pipesrc);
+			I915_WRITE(PFIT_CONTROL, intel_plane->reg.pfit_control);
+			intel_crtc->pfit_en_status = false;
+		}
 	}
 
-	I915_WRITE(SPSTRIDE(pipe, plane), fb->pitches[0]);
+	intel_plane->reg.stride = fb->pitches[0];
+	if (!dev_priv->atomic_update)
+		I915_WRITE(SPSTRIDE(pipe, plane), intel_plane->reg.stride);
 	if ((dev_priv->vbt.is_180_rotation_enabled) && (pipe == 0)) {
 		uint32_t width = crtc->hwmode.hdisplay;
 		uint32_t height = crtc->hwmode.vdisplay;
@@ -438,11 +475,13 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 				SCALING_SRCSIZE_MASK) + 1;
 		}
 
-		I915_WRITE(SPPOS(pipe, plane), ((height -
+		intel_plane->reg.pos = ((height -
 			(crtc_y + crtc_h + 1)) << 16) |
-			(width - (crtc_x + crtc_w + 1)));
+			(width - (crtc_x + crtc_w + 1));
 	} else
-		I915_WRITE(SPPOS(pipe, plane), (crtc_y << 16) | crtc_x);
+		intel_plane->reg.pos = (crtc_y << 16) | crtc_x;
+	if (!dev_priv->atomic_update)
+			I915_WRITE(SPPOS(pipe, plane), intel_plane->reg.pos);
 
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	sprsurf_offset = intel_gen4_compute_page_offset(&x, &y,
@@ -452,36 +491,46 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	linear_offset -= sprsurf_offset;
 
 	if (obj->tiling_mode != I915_TILING_NONE) {
-		if (rotate) {
+		if (rotate)
+			intel_plane->reg.tileoff =
+				((y + crtc_h) << 16) | (x + crtc_w);
+		else
+			intel_plane->reg.tileoff = (y << 16) | x;
+		if (!dev_priv->atomic_update)
 			I915_WRITE(SPTILEOFF(pipe, plane),
-				((y + crtc_h) << 16) | (x + crtc_w));
-		} else
-			I915_WRITE(SPTILEOFF(pipe, plane), (y << 16) | x);
+						intel_plane->reg.tileoff);
 	} else {
-		if (rotate) {
+		if (rotate)
 			/* Linear Offset should be the difference b/w the last pixel of
 			 * the last line of the display data in its unrotated orientation
 			 * and the display surface address.
 			 */
-			int rot_linoff = linear_offset +
+			intel_plane->reg.linoff = linear_offset +
 					 crtc_h * fb->pitches[0] +
 					 (crtc_w) * pixel_size;
-			I915_WRITE(SPLINOFF(pipe, plane), rot_linoff);
-
-		} else
-			I915_WRITE(SPLINOFF(pipe, plane), linear_offset);
+		else
+			intel_plane->reg.linoff = linear_offset;
+		if (!dev_priv->atomic_update)
+			I915_WRITE(SPLINOFF(pipe, plane),
+					intel_plane->reg.linoff);
 	}
-	I915_WRITE(SPSIZE(pipe, plane), (crtc_h << 16) | crtc_w);
+	intel_plane->reg.size = (crtc_h << 16) | crtc_w;
+	if (!dev_priv->atomic_update)
+		I915_WRITE(SPSIZE(pipe, plane), intel_plane->reg.size);
 	if (rotate)
 		sprctl |= DISPPLANE_180_ROTATION_ENABLE;
 	else
 		sprctl &= ~DISPPLANE_180_ROTATION_ENABLE;
 
 
-	I915_WRITE(SPCNTR(pipe, plane), sprctl);
-	i915_update_plane_stat(dev_priv, pipe, plane, true, SPRITE_PLANE);
-	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), i915_gem_obj_ggtt_offset(obj) +
+	intel_plane->reg.cntr = sprctl;
+	intel_plane->reg.surf |= i915_gem_obj_ggtt_offset(obj) + sprsurf_offset;
+	if (!dev_priv->atomic_update) {
+		I915_WRITE(SPCNTR(pipe, plane), sprctl);
+		I915_MODIFY_DISPBASE(SPSURF(pipe, plane), i915_gem_obj_ggtt_offset(obj) +
 			     sprsurf_offset);
+	}
+	i915_update_plane_stat(dev_priv, pipe, plane, true, SPRITE_PLANE);
 
 	intel_plane->last_plane_state = true; /* true means enabled */
 	if (event == NULL)
@@ -508,7 +557,9 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	int pipe = intel_plane->pipe;
 	int plane = intel_plane->plane;
 
-	I915_WRITE(SPCNTR(pipe, plane), I915_READ(SPCNTR(pipe, plane)) &
+	intel_plane->reg.cntr = I915_READ(SPCNTR(pipe, plane)) & ~SP_ENABLE;
+	if (!dev_priv->atomic_update)
+		I915_WRITE(SPCNTR(pipe, plane), I915_READ(SPCNTR(pipe, plane)) &
 		   ~SP_ENABLE);
 	i915_update_plane_stat(dev_priv, pipe, plane, false, SPRITE_PLANE);
 	/*
@@ -520,8 +571,11 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 		I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 #endif
 	/* Activate double buffered register update */
-	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), 0);
-	POSTING_READ(SPSURF(pipe, plane));
+	intel_plane->reg.surf = 0;
+	if (!dev_priv->atomic_update) {
+		I915_MODIFY_DISPBASE(SPSURF(pipe, plane), 0);
+		POSTING_READ(SPSURF(pipe, plane));
+	}
 
 	intel_update_sprite_watermarks(dplane, crtc, 0, 0, false, false);
 	intel_plane->last_plane_state = false; /* false means disabled */
@@ -983,7 +1037,12 @@ intel_enable_primary(struct drm_plane *dplane, struct drm_crtc *crtc)
 	intel_update_drrs(dev);
 	intel_update_watermarks(dev);
 
-	I915_WRITE(reg, I915_READ(reg) | DISPLAY_PLANE_ENABLE);
+	intel_crtc->reg.cntr = I915_READ(reg) | DISPLAY_PLANE_ENABLE;
+	intel_plane->reg.dspcntr = I915_READ(reg) | DISPLAY_PLANE_ENABLE;
+	intel_crtc->pri_update = true;
+	intel_plane->pri_update = true;
+	if (!dev_priv->atomic_update)
+		I915_WRITE(reg, I915_READ(reg) | DISPLAY_PLANE_ENABLE);
 	i915_update_plane_stat(dev_priv, pipe, plane, true, DISPLAY_PLANE);
 }
 
@@ -1000,9 +1059,14 @@ intel_disable_primary(struct drm_plane *dplane, struct drm_crtc *crtc)
 
 	if (intel_crtc->primary_disabled)
 		return;
-
-	I915_WRITE(reg, I915_READ(reg) & ~DISPLAY_PLANE_ENABLE);
-	I915_WRITE(DSPSURF(plane), I915_READ(DSPSURF(plane)));
+	intel_crtc->reg.cntr = I915_READ(reg) & ~DISPLAY_PLANE_ENABLE;
+	intel_plane->reg.dspcntr = I915_READ(reg) & ~DISPLAY_PLANE_ENABLE;
+	intel_crtc->pri_update = true;
+	intel_plane->pri_update = true;
+	if (!dev_priv->atomic_update) {
+		I915_WRITE(reg, I915_READ(reg) & ~DISPLAY_PLANE_ENABLE);
+		I915_WRITE(DSPSURF(plane), I915_READ(DSPSURF(plane)));
+	}
 	i915_update_plane_stat(dev_priv, pipe, plane, false, DISPLAY_PLANE);
 
 	intel_crtc->primary_disabled = true;
