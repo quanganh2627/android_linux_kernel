@@ -81,7 +81,7 @@ __alpha_setting_noncursor(u32 pixformat, int plane, u32 *dspcntr, int alpha)
 		}
 		break;
 	default:
-		DRM_ERROR("Unknown pixel format 0x%08x\n", pixformat);
+		DRM_DEBUG("Alpha not supported for 0x%08x\n", pixformat);
 		break;
 	}
 }
@@ -115,10 +115,11 @@ __alpha_setting_cursor(u32 pixformat, int plane, u32 *dspcntr, int alpha)
 			*dspcntr |= CURSOR_MODE_64_32B_AX;
 		break;
 	default:
-		DRM_ERROR("Unknown pixel format:Cursor 0x%08x\n", pixformat);
+		DRM_DEBUG("Alpha not supported for 0x%08x\n", pixformat);
 		break;
 	}
 }
+
 /*
  * enable/disable alpha for planes
  */
