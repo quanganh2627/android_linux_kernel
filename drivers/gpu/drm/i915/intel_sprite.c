@@ -43,35 +43,30 @@ __alpha_setting_noncursor(u32 pixformat, int plane, u32 *dspcntr, int alpha)
 	/* For readability, can split to individual cases */
 	/* 5 no alphas, 6-9 common, a-d reserved for sprite, e-f common */
 	switch (pixformat) {
-	case DISPPLANE_RGBX888:
 	case DISPPLANE_RGBA888:
 		if (alpha)
 			*dspcntr |= DISPPLANE_RGBA888;
 		else
 			*dspcntr |= DISPPLANE_RGBX888;
 		break;
-	case DISPPLANE_BGRX888:
 	case DISPPLANE_BGRA888:
 		if (alpha)
 			*dspcntr |= DISPPLANE_BGRA888;
 		else
 			*dspcntr |= DISPPLANE_BGRX888;
 		break;
-	case DISPPLANE_RGBX101010:
 	case DISPPLANE_RGBA101010:
 		if (alpha)
 			*dspcntr |= DISPPLANE_RGBA101010;
 		else
 			*dspcntr |= DISPPLANE_RGBX101010;
 		break;
-	case DISPPLANE_BGRX101010:
 	case DISPPLANE_BGRA101010:
 		if (alpha)
 			*dspcntr |= DISPPLANE_BGRA101010;
 		else
 			*dspcntr |= DISPPLANE_BGRX101010;
 		break;
-	case DISPPLANE_RGBX161616:
 	case DISPPLANE_RGBA161616:
 		if ((plane == PLANEA) || (plane == PLANEB)) {
 			if (alpha)
@@ -80,6 +75,11 @@ __alpha_setting_noncursor(u32 pixformat, int plane, u32 *dspcntr, int alpha)
 				*dspcntr |= DISPPLANE_RGBX161616;
 		}
 		break;
+	case DISPPLANE_RGBX888:
+	case DISPPLANE_BGRX888:
+	case DISPPLANE_RGBX101010:
+	case DISPPLANE_BGRX101010:
+	case DISPPLANE_RGBX161616:
 	default:
 		DRM_DEBUG("Alpha not supported for 0x%08x\n", pixformat);
 		break;
