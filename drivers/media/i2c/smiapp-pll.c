@@ -114,7 +114,8 @@ static void print_pll(struct device *dev, struct smiapp_pll *pll)
 static int __smiapp_pll_calculate(struct device *dev,
 				  const struct smiapp_pll_limits *limits,
 				  struct smiapp_pll *pll, uint32_t mul,
-				  uint32_t div, uint32_t lane_op_clock_ratio)
+				  uint32_t div, uint32_t lane_op_clock_ratio,
+				  uint32_t lane_vt_clock_ratio)
 {
 	uint32_t sys_div;
 	uint32_t best_pix_div = INT_MAX >> 1;
@@ -245,7 +246,7 @@ static int __smiapp_pll_calculate(struct device *dev,
 	 */
 	dev_dbg(dev, "scale_m: %u\n", pll->scale_m);
 	min_vt_div = DIV_ROUND_UP(pll->op_pix_clk_div * pll->op_sys_clk_div
-				  * pll->scale_n,
+				  * pll->scale_n * lane_vt_clock_ratio,
 				  lane_op_clock_ratio * vt_op_binning_div
 				  * pll->scale_m);
 
@@ -338,7 +339,8 @@ static int __smiapp_pll_calculate(struct device *dev,
 
 	pll->pixel_rate_csi =
 		pll->op_pix_clk_freq_hz * lane_op_clock_ratio;
-	pll->pixel_rate_pixel_array = pll->vt_pix_clk_freq_hz;
+	pll->pixel_rate_pixel_array = pll->vt_pix_clk_freq_hz
+		* lane_vt_clock_ratio;
 	if (pll->flags & SMIAPP_PLL_FLAG_PIX_CLOCK_DOUBLE) {
 		pll->pixel_rate_csi *= 2;
 		pll->pixel_rate_pixel_array *= 2;
@@ -397,10 +399,13 @@ int smiapp_pll_calculate(struct device *dev,
 {
 	uint16_t min_pre_pll_clk_div;
 	uint16_t max_pre_pll_clk_div;
-	uint32_t lane_op_clock_ratio;
+	uint32_t lane_op_clock_ratio, lane_vt_clock_ratio;
 	uint32_t mul, div;
 	unsigned int i;
 	int rval = -EINVAL;
+
+	dev_dbg(dev, "binning: %ux%u\n", pll->binning_horizontal,
+		pll->binning_vertical);
 
 	if (pll->flags & SMIAPP_PLL_FLAG_OP_PIX_CLOCK_PER_LANE)
 		lane_op_clock_ratio = pll->csi2.lanes;
@@ -408,8 +413,11 @@ int smiapp_pll_calculate(struct device *dev,
 		lane_op_clock_ratio = 1;
 	dev_dbg(dev, "lane_op_clock_ratio: %u\n", lane_op_clock_ratio);
 
-	dev_dbg(dev, "binning: %ux%u\n", pll->binning_horizontal,
-		pll->binning_vertical);
+	if (pll->flags & SMIAPP_PLL_FLAG_VT_PIX_CLOCK_PER_LANE)
+		lane_vt_clock_ratio = pll->csi2.lanes;
+	else
+		lane_vt_clock_ratio = 1;
+	dev_dbg(dev, "lane_vt_clock_ratio: %u\n", lane_vt_clock_ratio);
 
 	switch (pll->bus_type) {
 	case SMIAPP_PLL_BUS_TYPE_CSI2:
@@ -482,7 +490,8 @@ int smiapp_pll_calculate(struct device *dev,
 		     pll->flags & SMIAPP_PLL_FLAG_ALLOW_ODD_PRE_PLL_CLK_DIV
 		     ? 1 : (2 - (pll->pre_pll_clk_div & 1))) {
 		rval = __smiapp_pll_calculate(dev, limits, pll, mul, div,
-					      lane_op_clock_ratio);
+					      lane_op_clock_ratio,
+					      lane_vt_clock_ratio);
 		if (rval)
 			continue;
 

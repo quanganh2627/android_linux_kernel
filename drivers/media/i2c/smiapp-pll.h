@@ -44,6 +44,7 @@
  * values.
  */
 #define SMIAPP_PLL_FLAG_PIX_CLOCK_DOUBLE			(1 << 4)
+#define SMIAPP_PLL_FLAG_VT_PIX_CLOCK_PER_LANE			(1 << 5)
 
 struct smiapp_pll {
 	/* input values */
