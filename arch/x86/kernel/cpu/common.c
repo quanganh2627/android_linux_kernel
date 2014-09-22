@@ -1176,6 +1176,10 @@ DEFINE_PER_CPU_ALIGNED(struct stack_canary, stack_canary);
 
 #endif	/* CONFIG_X86_64 */
 
+#ifdef CONFIG_LBR_DUMP_ON_EXCEPTION
+unsigned int lbr_dump_on_exception = 1;
+#endif
+
 static int __read_mostly hw_debugger;
 
 static __init int set_hw_debugger(char *arg)
