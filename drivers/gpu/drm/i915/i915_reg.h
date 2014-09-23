@@ -3414,6 +3414,8 @@ EDP_PSR_SW_TIMER
 #define DDL_SPRITEB_SHIFT		16
 #define DDL_PLANEB_PRECISION_64		(1<<7)
 #define DDL_PLANEB_PRECISION_32		(0<<7)
+#define DDL_PLANE_PRECISION_64		(1<<7)
+#define DDL_PLANE_PRECISION_32		(0<<7)
 
 /* FIFO watermark sizes etc */
 #define G4X_FIFO_LINE_SIZE	64

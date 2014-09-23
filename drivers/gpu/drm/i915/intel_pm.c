@@ -1744,6 +1744,28 @@ static bool g4x_compute_srwm(struct drm_device *dev,
 			      display, cursor);
 }
 
+bool vlv_calculate_ddl(struct drm_crtc *crtc, int pixel_size, int *prec_multi, int *ddl)
+{
+	int clock;
+	int entries;
+	bool latencyprogrammed = false;
+
+	clock = to_intel_crtc(crtc)->config.adjusted_mode.clock;	/* VESA DOT Clock */
+	/* WAR (FIXME):
+	 * Needs to be fixed in resume path adjusted_mode clock cannot be 0
+	 */
+	if (clock == 0)
+		clock = crtc->mode.clock;
+
+	entries = DIV_ROUND_UP(clock, 1000) * pixel_size;
+	*prec_multi = (entries > 256) ?
+		DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;
+	*ddl = (64 * (*prec_multi) * 4) / entries;
+	latencyprogrammed = true;
+
+	return latencyprogrammed;
+}
+
 static bool vlv_compute_drain_latency(struct drm_device *dev,
 				int pipe,
 				int *plane_prec_mult,

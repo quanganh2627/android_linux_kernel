@@ -2254,14 +2254,16 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_framebuffer *intel_fb;
 	struct drm_i915_gem_object *obj;
+	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 	int plane = intel_crtc->plane;
 	int pipe = intel_crtc->pipe;
 	unsigned long linear_offset;
 	bool rotate = false;
 	u32 dspcntr;
 	u32 reg;
+	u32 mask;
 	int pixel_size;
-	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
+	int plane_ddl, prec_multi, plane_prec_multi;
 
 	switch (plane) {
 	case 0:
@@ -2405,6 +2407,27 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		dev_priv->vblcount = atomic_read(
 				&dev->_vblank_count[intel_crtc->pipe]);
 	}
+
+	/*
+	 * calculate the DDL and set to 0 is there is a change. Else cache
+	 * the value and wrrite on next vblank.
+	 */
+	mask = 0x000000ff;
+	vlv_calculate_ddl(crtc, pixel_size, &prec_multi, &plane_ddl);
+	plane_prec_multi = (prec_multi ==
+					DRAIN_LATENCY_PRECISION_32) ?
+					DDL_PLANE_PRECISION_32 :
+					DDL_PLANE_PRECISION_64;
+	plane_ddl = plane_prec_multi | (plane_ddl);
+	intel_crtc->reg_ddl.plane_ddl = plane_ddl;
+	intel_crtc->reg_ddl.plane_ddl_mask = mask;
+	if (((plane_ddl & mask) != (I915_READ(VLV_DDL(pipe)) & mask)) ||
+			!(dspcntr & DISPLAY_PLANE_ENABLE)) {
+		I915_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
+		if (!(dspcntr & DISPLAY_PLANE_ENABLE))
+			intel_crtc->reg_ddl.plane_ddl = 0;
+	}
+
 	intel_crtc->reg.cntr = dspcntr;
 	if (!dev_priv->atomic_update)
 		I915_WRITE(reg, intel_crtc->reg.cntr);
@@ -8551,6 +8574,13 @@ static void do_intel_finish_page_flip(struct drm_device *dev,
 		return;
 	}
 
+	/* Program the precalculated DDL value */
+	if (intel_crtc->reg_ddl.plane_ddl) {
+		I915_WRITE_BITS(VLV_DDL(intel_crtc->pipe),
+				intel_crtc->reg_ddl.plane_ddl,
+				intel_crtc->reg_ddl.plane_ddl_mask);
+		intel_crtc->reg_ddl.plane_ddl = 0;
+	}
 	/* and that the unpin work is consistent wrt ->pending. */
 	smp_rmb();
 

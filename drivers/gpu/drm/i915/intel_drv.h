@@ -403,6 +403,15 @@ struct intel_disp_reg {
 	u32 spbcntr;
 };
 
+struct intel_ddl_reg {
+	u32 plane_ddl;
+	u32 plane_ddl_mask;
+	u32 spritea_ddl;
+	u32 spritea_ddl_mask;
+	u32 spriteb_ddl;
+	u32 spriteb_ddl_mask;
+};
+
 struct intel_crtc {
 	struct drm_crtc base;
 	enum pipe pipe;
@@ -458,6 +467,7 @@ struct intel_crtc {
 	bool	pfit_en_status;
 	bool	dummy_flip;
 	struct intel_disp_reg reg;
+	struct intel_ddl_reg reg_ddl;
 };
 
 struct intel_plane_wm_parameters {
@@ -1066,4 +1076,6 @@ void i915_update_plane_stat(struct drm_i915_private *dev_priv, int pipe,
 
 extern void intel_unpin_work_fn(struct work_struct *__work);
 extern void intel_unpin_sprite_work_fn(struct work_struct *__work);
+bool vlv_calculate_ddl(struct drm_crtc *crtc, int pixel_size,
+		int *prec_multi, int *ddl);
 #endif /* __INTEL_DRV_H__ */
