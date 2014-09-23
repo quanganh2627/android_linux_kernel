@@ -473,9 +473,12 @@ static int smb34x_get_health(struct smb347_charger *smb)
 			chrg_health = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 		else
 			chrg_health = POWER_SUPPLY_HEALTH_GOOD;
+
 	} else {
 			chrg_health = POWER_SUPPLY_HEALTH_UNKNOWN;
 	}
+	if (chrg_health != POWER_SUPPLY_HEALTH_GOOD)
+		smb->online = 0;
 end:
 	return chrg_health;
 }
@@ -999,9 +1002,7 @@ static void smb34x_update_charger_type(struct smb347_charger *smb)
 	 */
 	power_ok = smb347_read(smb, IRQSTAT_E);
 	if ((power_ok & (SMB349_IRQSTAT_E_DCIN_UV_STAT |
-			SMB349_IRQSTAT_E_DCIN_OV_STAT |
-			SMB349_IRQSTAT_E_DCIN_UV_IRQ |
-			SMB349_IRQSTAT_E_DCIN_OV_IRQ)) && ret != 0) {
+			SMB349_IRQSTAT_E_DCIN_OV_STAT)) && ret != 0) {
 		/*
 		 * during UV condition,chgr removal is
 		 * not identified and using worker thread
@@ -1555,6 +1556,25 @@ static irqreturn_t smb347_interrupt(int irq, void *data)
 
 		if (smb->pdata->detect_chg)
 			smb34x_update_charger_type(smb);
+
+		/*
+		 * In case of charger OV/UV update_charger_type
+		 * will not send power_supply_changed. Also during
+		 * charger unplug UV interrupt will be triggered
+		 * Hence check if the charger is present and health
+		 * is over voltage or under voltage send power
+		 * supply changed notification.
+		 */
+		if (smb347_is_charger_present(smb)) {
+			int health = smb34x_get_health(smb);
+			if (health == POWER_SUPPLY_HEALTH_OVERVOLTAGE ||
+				health == POWER_SUPPLY_HEALTH_DEAD) {
+				if (smb->pdata->use_usb)
+					power_supply_changed(&smb->usb);
+				if (smb->pdata->use_mains)
+					power_supply_changed(&smb->mains);
+			}
+		}
 
 		ret = IRQ_HANDLED;
 	}
