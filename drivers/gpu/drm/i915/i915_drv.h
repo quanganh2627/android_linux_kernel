@@ -1370,9 +1370,6 @@ struct i915_plane_stat {
 #define DL_PRIMARY_MASK 0x000000ff
 #define DL_SPRITEA_MASK 0x0000ff00
 #define DL_SPRITEB_MASK 0x00ff0000
-#define BPP_CHANGED_PRIMARY (1 << 24)
-#define BPP_CHANGED_SPRITEA (1 << 25)
-#define BPP_CHANGED_SPRITEB (1 << 26)
 
 typedef struct drm_i915_private {
 	struct drm_device *dev;
@@ -1693,8 +1690,6 @@ typedef struct drm_i915_private {
 
 	struct i915_perfmon perfmon;
 	struct i915_plane_stat plane_stat;
-
-	uint32_t pf_change_status[2];
 } drm_i915_private_t;
 
 static inline struct drm_i915_private *to_i915(const struct drm_device *dev)

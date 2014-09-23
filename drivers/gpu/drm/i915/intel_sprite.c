@@ -415,10 +415,9 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	 */
 	intel_update_drrs(dev);
 
-	if (intel_plane->last_pixel_size < pixel_size) {
-		intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size, true,
-						src_w != crtc_w || src_h != crtc_h);
-	}
+	if (!dev_priv->atomic_update)
+		intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size,
+				true, src_w != crtc_w || src_h != crtc_h);
 
 	if (!intel_plane->rotate180 != !((dev_priv->vbt.is_180_rotation_enabled) &&
 									(pipe == 0)))
@@ -575,16 +574,9 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	if (event == NULL)
 		POSTING_READ(SPSURF(pipe, plane));
 
-	if (intel_plane->last_pixel_size > pixel_size) {
-		if (plane == PLANE_A)
-			dev_priv->pf_change_status[pipe] |= BPP_CHANGED_SPRITEA;
-		else
-			dev_priv->pf_change_status[pipe] |= BPP_CHANGED_SPRITEB;
-
-		intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size, true,
-						src_w != crtc_w || src_h != crtc_h);
-	}
-	intel_plane->last_pixel_size = pixel_size;
+	if (!dev_priv->atomic_update)
+		intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size,
+				true, src_w != crtc_w || src_h != crtc_h);
 }
 
 static void
@@ -617,9 +609,9 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 		POSTING_READ(SPSURF(pipe, plane));
 	}
 
-	intel_update_sprite_watermarks(dplane, crtc, 0, 0, false, false);
+	if (!dev_priv->atomic_update)
+		intel_update_sprite_watermarks(dplane, crtc, 0, 0, false, false);
 	intel_plane->last_plane_state = false; /* false means disabled */
-	intel_plane->last_pixel_size = 0;
 	/* set to 0 as the plane is disabled */
 	if (intel_plane->plane == 0) {
 		mask = 0x0000ff00;
@@ -1132,7 +1124,6 @@ intel_disable_primary(struct drm_plane *dplane, struct drm_crtc *crtc)
 	i915_update_plane_stat(dev_priv, pipe, plane, false, DISPLAY_PLANE);
 	I915_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
 	intel_crtc->primary_disabled = true;
-	intel_crtc->last_pixel_size = 0;
 	intel_update_fbc(dev);
 }
 
@@ -1817,7 +1808,6 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 	intel_plane->plane = plane;
 	intel_plane->rotate180 = false;
 	intel_plane->last_plane_state = false; /* false means disabled */
-	intel_plane->last_pixel_size = 0;
 	possible_crtcs = (1 << pipe);
 	ret = drm_plane_init(dev, &intel_plane->base, possible_crtcs,
 			     &intel_plane_funcs,
