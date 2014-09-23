@@ -523,6 +523,16 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		sprctl &= ~DISPPLANE_180_ROTATION_ENABLE;
 
 
+	/* When in maxfifo dspcntr cannot be changed */
+	if (sprctl != I915_READ(SPCNTR(pipe, plane)) &&
+				dev_priv->maxfifo_enabled &&
+				dev_priv->atomic_update) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+		dev_priv->wait_vbl = true;
+		dev_priv->vblcount = atomic_read(
+				&dev->_vblank_count[intel_crtc->pipe]);
+	}
 	intel_plane->reg.cntr = sprctl;
 	intel_plane->reg.surf |= i915_gem_obj_ggtt_offset(obj) + sprsurf_offset;
 	if (!dev_priv->atomic_update) {

@@ -1442,9 +1442,11 @@ typedef struct drm_i915_private {
 	bool is_tiled;
 	bool atomic_update;
 	bool pri_update;
+	bool wait_vbl;
 	u32 gt_irq_mask;
 	u32 pm_irq_mask;
 	u32 dspcntr;
+	u32 vblcount;
 
 	struct work_struct hotplug_work;
 	bool enable_hotplug_processing;

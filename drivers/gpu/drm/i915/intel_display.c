@@ -2396,6 +2396,15 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		}
 	}
 
+	/* When in maxfifo dspcntr cannot be changed */
+	if (dspcntr != I915_READ(DSPCNTR(pipe)) && dev_priv->maxfifo_enabled
+			&& dev_priv->atomic_update) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+		dev_priv->wait_vbl = true;
+		dev_priv->vblcount = atomic_read(
+				&dev->_vblank_count[intel_crtc->pipe]);
+	}
 	intel_crtc->reg.cntr = dspcntr;
 	if (!dev_priv->atomic_update)
 		I915_WRITE(reg, intel_crtc->reg.cntr);
@@ -9189,6 +9198,7 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	struct drm_plane *drm_plane;
 	struct intel_plane *intel_plane;
 	int i, tmp_ret, ret = 0;
+	int plane_cnt = 0;
 
 	disp->errored = 0;
 	disp->presented = 0;
@@ -9204,7 +9214,19 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	 * userspace app will not call this function again until the
 	 * page_flip done event is received so no locking is required here
 	 */
-	/* make sure to start from a fresh vblank */
+	/* Disable maxfifo is multiple planes are enabled */
+	for (i = disp->num_planes-1; i >= 0; i--) {
+		if (disp->plane[i].update_flag &
+				DRM_MODE_SET_DISPLAY_PLANE_UPDATE_PRESENT)
+			plane_cnt++;
+	}
+	if ((plane_cnt > 1) && dev_priv->maxfifo_enabled) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+		dev_priv->wait_vbl = true;
+		dev_priv->vblcount = atomic_read(
+				&dev->_vblank_count[intel_crtc->pipe]);
+	}
 
 	if (disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_PANEL_FITTER) {
 		if (intel_crtc->config.gmch_pfit.control ||
@@ -9386,6 +9408,15 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 			}
 		}
 	}
+	/* Check if we need to a vblank, if so wait for vblank */
+	if (dev_priv->wait_vbl) {
+		if (dev_priv->vblcount ==
+			atomic_read(&dev->_vblank_count[intel_crtc->pipe])) {
+			intel_wait_for_vblank(dev, intel_crtc->pipe);
+		}
+		dev_priv->wait_vbl = false;
+	}
+	/* make sure to start from a fresh vsync, it we are close to vblank */
 	/* Program the z-order */
 	if (disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_ZORDER) {
 		I915_WRITE_BITS(SPCNTR(intel_crtc->pipe, 0),
@@ -9393,6 +9424,7 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 		I915_WRITE_BITS(SPCNTR(intel_crtc->pipe, 1),
 				intel_crtc->reg.spbcntr, 0x00000007);
 	}
+	/* Write to all display registers */
 	for (i = disp->num_planes-1; i >= 0; i--) {
 		int plane_id = disp->plane[i].obj_id - 2;
 		if (!(disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_PLANE(i)))
@@ -9437,6 +9469,10 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 						intel_crtc->pipe, SPRITE_PLANE);
 			}
 		}
+	}
+	if (is_maxfifo_needed(dev_priv) && !dev_priv->maxfifo_enabled) {
+		I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = true;
 	}
 	dev_priv->atomic_update = false;
 	return ret;
