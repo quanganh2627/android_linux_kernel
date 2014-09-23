@@ -828,6 +828,13 @@ int Read_TP_ID(void)
 }
 EXPORT_SYMBOL(Read_TP_ID);
 #endif /* CONFIG_ME372CL || CONFIG_PF450CL */
+
+#ifdef CONFIG_SND_SOC_RT5671
+static const struct i2c_board_info rt5671_board_info = {
+	I2C_BOARD_INFO("rt5671", 0x1c),
+};
+#endif
+
 /*
  * Parsing OEM0 table.
  */
@@ -858,6 +865,11 @@ static int __init intel_mid_platform_init(void)
 	Read_PCB_ID();
 	Read_RC_VERSION();
 #endif /* CONFIG_ME372CL || CONFIG_PF450CL */
+
+#ifdef CONFIG_SND_SOC_RT5671
+	pr_info("%s Set Realtek I2C slave address to 0x1C!\n", __func__);
+	i2c_register_board_info(1, &rt5671_board_info, 1);
+#endif
 
 	return 0;
 }
