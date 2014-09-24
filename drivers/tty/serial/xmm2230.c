@@ -736,8 +736,8 @@ static void ifx_spi_complete(void *ctx)
 	struct ifx_spi_device *ifx_dev = ctx;
 	int length;
 	int actual_length;
-	unsigned char more;
-	unsigned char cts;
+	unsigned char more = 0;
+	unsigned char cts = 0;
 	int local_write_pending = 0;
 	int queue_length;
 	int srdy;
