@@ -1973,6 +1973,7 @@ static void valleyview_update_wm(struct drm_device *dev)
 			(DSPFW5_CURSORB_VAL << DSPFW5_CURSORB_SHIFT) |
 			DSPFW5_CURSORSR_VAL);
 	I915_WRITE(DSPFW6, DSPFW6_DISPLAYSR_VAL);
+	I915_WRITE(DSPARB, DSPARB_VLV_DEFAULT);
 	/* Maxfifo in vallvyview is supported only in set_display atomic path */
 	if (IS_VALLEYVIEW(dev))
 		return;

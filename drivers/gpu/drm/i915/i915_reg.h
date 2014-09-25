@@ -3325,7 +3325,8 @@ EDP_PSR_SW_TIMER
 #define   PLANEA_INVALID_GTT_STATUS		(1<<0)
 #define   DPINVGTT_STATUS_MASK			0xff
 
-#define DSPARB			0x70030
+#define DSPARB			(dev_priv->info->display_mmio_offset + 0x70030)
+#define DSPARB_VLV_DEFAULT	0xc080c080
 #define   DSPARB_CSTART_MASK	(0x7f << 7)
 #define   DSPARB_CSTART_SHIFT	7
 #define   DSPARB_BSTART_MASK	(0x7f)
