@@ -371,7 +371,7 @@ struct devs_id __initconst device_ids[] = {
 						&ipc_device_handler},
 
 	/* IPC devices */
-	{"ctp_audio", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
+	{"ctp_rt5671", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
 						&ipc_device_handler},
 	{"ctp_rhb_cs42l73", SFI_DEV_TYPE_IPC, 1, &ctp_audio_platform_data,
 						&ipc_device_handler},
@@ -389,6 +389,7 @@ struct devs_id __initconst device_ids[] = {
 	{"wm5102", SFI_DEV_TYPE_I2C, 0, &wm5102_platform_data, NULL},
 	{"lm49453_codec", SFI_DEV_TYPE_I2C, 1, &no_platform_data, NULL},
 	{"cs42l73", SFI_DEV_TYPE_I2C, 1, &cs42l73_platform_data, NULL},
+	{"rt5671", SFI_DEV_TYPE_I2C, 1, &no_platform_data, NULL},
 #ifdef CONFIG_HSI
 	{"hsi_ifx_modem", SFI_DEV_TYPE_HSI, 0, &hsi_modem_platform_data, NULL},
 	{"hsi_ffl_modem", SFI_DEV_TYPE_HSI, 0, &ffl_modem_platform_data, NULL},

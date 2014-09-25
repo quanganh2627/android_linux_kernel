@@ -867,7 +867,7 @@ const struct dev_pm_ops snd_ctp_mc_pm_ops = {
 
 static struct platform_device_id ctp_audio_ids[] = {
 	{
-		.name		= "ctp_audio",
+		.name		= "ctp_rt5671",
 		.driver_data	= (kernel_ulong_t)&ctp_rhb_ops,
 	},
 	{ },
@@ -877,7 +877,7 @@ MODULE_DEVICE_TABLE(platform, ctp_audio_ids);
 static struct platform_driver snd_ctp_mc_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
-		.name = "ctp_audio",
+		.name = "ctp_rt5671",
 		.pm   = &snd_ctp_mc_pm_ops,
 	},
 	.probe = snd_ctp_mc_probe,
