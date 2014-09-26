@@ -1399,6 +1399,21 @@ void update_dev_res(int index, pci_power_t state)
 	mid_pmu_cxt->pmu_dev_res[index].state = state;
 }
 
+bool pmu_pci_power_manageable(struct pci_dev *pdev)
+{
+	/* Even if we assume here that the device is PM
+	 * capable, Since this driver is not initialized
+	 * the request will be ignored */
+	if (unlikely((!pmu_initialized)))
+		return true;
+
+	if (pmu_ops->is_dev_power_manageable)
+		return pmu_ops->is_dev_power_manageable(pdev);
+	/* Else all devices are capable of PM */
+	else
+		return true;
+}
+
 /**
  * pmu_pci_set_power_state - Callback function is used by all the PCI devices
  *			for a platform  specific device power on/shutdown.

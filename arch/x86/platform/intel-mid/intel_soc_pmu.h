@@ -403,6 +403,7 @@ struct platform_pmu_ops {
 	void (*set_s0i1_disp_vote) (bool);
 	int (*nc_set_power_state) (int, int, int, int *);
 	bool (*check_nc_sc_status) (void);
+	bool (*is_dev_power_manageable) (struct pci_dev *);
 };
 
 extern char s0ix[5];

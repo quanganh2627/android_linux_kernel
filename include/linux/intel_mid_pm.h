@@ -176,6 +176,7 @@ extern int pmu_nc_set_power_state
 extern int pmu_nc_get_power_state(int island, int reg_type);
 extern void pmu_set_s0i1_disp_vote(bool enable);
 extern int pmu_set_emmc_to_d0i0_atomic(void);
+extern bool pmu_pci_power_manageable(struct pci_dev *pdev);
 
 #ifdef LOG_PMU_EVENTS
 extern void pmu_log_ipc(u32 command);

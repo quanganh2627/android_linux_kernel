@@ -398,6 +398,15 @@ void s0ix_complete(void)
 	}
 }
 
+static bool is_mrfld_dev_power_manageable(struct pci_dev *pdev)
+{
+	/* In Moorefield, PTI is power managed by SCU transparent to OS */
+	if (platform_is(INTEL_ATOM_MOORFLD) && pdev->device == PTI_DEV_ID)
+		return false;
+	else
+		return true;
+}
+
 bool could_do_s0ix(void)
 {
 	bool ret = false;
@@ -429,4 +438,5 @@ struct platform_pmu_ops mrfld_pmu_ops = {
 	.set_s0i1_disp_vote = set_s0i1_disp_vote,
 	.nc_set_power_state = mrfld_nc_set_power_state,
 	.check_nc_sc_status = mrfld_nc_sc_status_check,
+	.is_dev_power_manageable = is_mrfld_dev_power_manageable,
 };
