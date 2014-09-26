@@ -1038,14 +1038,13 @@ int psy_charger_throttle_charger(struct power_supply *psy,
 {
 	int ret = 0;
 
-	if (state < 0 || state > MAX_THROTTLE_STATE(psy))
+	if (state < 0 || state >= MAX_THROTTLE_STATE(psy))
 		return -EINVAL;
 
 	mutex_lock(&psy_chrgr.evt_lock);
 
 	switch THROTTLE_ACTION(psy, state)
 	{
-
 		case PSY_THROTTLE_DISABLE_CHARGER:
 			SET_MAX_CC(psy, 0);
 			disable_charger(psy);
@@ -1091,6 +1090,9 @@ int power_supply_register_charger(struct power_supply *psy)
 		INIT_WORK(&psy_chrgr.algo_trigger_work, trigger_algo_psy_class);
 		psy_chrgr.is_cable_evt_reg = true;
 	}
+
+	SET_MAX_THROTTLE_STATE(psy);
+
 	return ret;
 }
 EXPORT_SYMBOL(power_supply_register_charger);
