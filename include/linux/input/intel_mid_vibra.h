@@ -32,6 +32,16 @@
 #define INTEL_VIBRA_ENABLE_GPIO 40
 #define INTEL_PWM_ENABLE_GPIO 49
 
+#if defined(CONFIG_ME372CL) || defined(CONFIG_PF450CL)
+#ifdef INTEL_VIBRA_MAX_BASEUNIT
+#undef INTEL_VIBRA_MAX_BASEUNIT
+#define INTEL_VIBRA_MAX_BASEUNIT 0x80
+#endif
+#define PWM0DUTYCYCLE   0x67
+#define DUTY_VALUE_MAX  0x63
+#define PWM0CLKDIV1     0x61
+#define PWM0CLKDIV0     0x62
+#endif /* CONFIG_ME372CL || CONFIG_PF450CL */
 
 struct mid_vibra_pdata {
 	u8 time_divisor;
