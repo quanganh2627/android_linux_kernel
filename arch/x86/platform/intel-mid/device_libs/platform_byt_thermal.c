@@ -60,6 +60,19 @@ static struct intel_mid_thermal_sensor byt_sensors[] = {
 	},
 };
 
+static int linear_correlation(void *info, long temp, long *res)
+{
+	struct intel_mid_thermal_sensor *sensor = info;
+
+	if (!sensor)
+		return -EINVAL;
+
+	*res = ((temp * sensor->slope) / 1000) + sensor->intercept;
+
+	return 0;
+}
+
+
 static struct intel_mid_thermal_sensor byt_cr_sensors[] = {
 	{
 		.name = "PMICDIE",
