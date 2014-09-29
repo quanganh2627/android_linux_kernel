@@ -34,6 +34,9 @@ obj-$(subst m,y,$(CONFIG_I2C_PMIC)) += platform_mrfl_pmic_i2c.o
 ifdef CONFIG_INTEL_BYT_THERMAL
 obj-$(subst m,y,$(CONFIG_INTEL_BYT_THERMAL)) += platform_byt_thermal.o
 else
+ifdef CONFIG_INTEL_BYT_CR_THERMAL
+obj-$(subst m,y,$(CONFIG_INTEL_BYT_CR_THERMAL)) += platform_byt_thermal.o
+endif
 obj-$(subst m,y,$(CONFIG_INTEL_BYT_EC_THERMAL)) += platform_byt_thermal.o
 endif
 obj-$(subst m,y,$(CONFIG_SENSORS_THERMAL_MRFLD)) += platform_mrfl_thermal.o

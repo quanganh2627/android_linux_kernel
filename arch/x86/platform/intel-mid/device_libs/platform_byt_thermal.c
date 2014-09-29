@@ -23,10 +23,12 @@
 
 #define BYT_THERM_DEV_NAME	"crystal_cove_thermal"
 #define BYT_EC_THERM_DEV_NAME	"byt_ec_thermal"
+#define BYT_CR_THERM_DEV_NAME	"byt_cr_thermal"
 
 enum {
 	byt_thermal,
 	byt_ec_thermal,
+	byt_cr_thermal,
 };
 
 static struct intel_mid_thermal_sensor byt_sensors[] = {
@@ -55,6 +57,17 @@ static struct intel_mid_thermal_sensor byt_sensors[] = {
 	{
 		.name = "BackSkin",
 		.index = 5,
+	},
+};
+
+static struct intel_mid_thermal_sensor byt_cr_sensors[] = {
+	{
+		.name = "PMICDIE",
+		.index = 0,
+	},
+	{
+		.name = "skin1",
+		.index = 1,
 	},
 };
 
@@ -100,6 +113,10 @@ static struct intel_mid_thermal_platform_data pdata[] = {
 		.num_sensors = 7,
 		.sensors = byt_ec_sensors,
 	},
+	[byt_cr_thermal] = {
+		.num_sensors = 2,
+		.sensors = byt_cr_sensors,
+	},
 };
 
 static int set_byt_platform_thermal_data(void)
@@ -107,6 +124,21 @@ static int set_byt_platform_thermal_data(void)
 	return intel_mid_pmic_set_pdata(BYT_THERM_DEV_NAME,
 				&pdata[byt_thermal],
 				sizeof(pdata[byt_thermal]), 0);
+}
+
+static int set_byt_cr_platform_thermal_data(void)
+{
+	struct platform_device *pdev;
+
+	pdev = platform_device_register_simple(
+					BYT_CR_THERM_DEV_NAME,
+					-1, NULL, 0);
+	if (!pdev) {
+		pr_err("pdev_register failed for byt_cr_thermal\n");
+		return PTR_ERR(pdev);
+	}
+	pdev->dev.platform_data = &pdata[byt_cr_thermal];
+	return 0;
 }
 
 static int set_byt_ec_platform_thermal_data(void)
@@ -135,16 +167,21 @@ static int __init byt_platform_thermal_init(void)
 		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 8PR1) ||
 		INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, 10PR11) ||
 		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, 10PR11) ||
-		INTEL_MID_BOARD(1, TABLET, CHT))
+		INTEL_MID_BOARD(1, TABLET, CHT)) {
 		ret = set_byt_platform_thermal_data();
-	else if (INTEL_MID_BOARD(3, TABLET, BYT, BLB, PRO, CRBV3) ||
-			INTEL_MID_BOARD(3, TABLET, BYT, BLB, ENG, CRBV3))
+	} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLB, PRO, CRBV3) ||
+			INTEL_MID_BOARD(3, TABLET, BYT, BLB, ENG, CRBV3)) {
 		ret = set_byt_ec_platform_thermal_data();
-	else
+	} else if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2) ||
+			INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2)) {
+		ret = set_byt_cr_platform_thermal_data();
+	} else {
 		pr_err("Cannot detect exact BYT platform\n");
+	}
 
 	if (ret)
 		pr_err("Configuring platform data failed:%d\n", ret);
+
 	return ret;
 }
 

@@ -121,6 +121,8 @@ static struct iio_map iio_maps[] = {
 	ADC_MAP("CH1", "THERMAL", "PMICTEMP"),
 	ADC_MAP("CH2", "THERMAL", "BATTEMP"),
 	ADC_MAP("CH3", "THERMAL", "SYSTEMP0"),
+	ADC_MAP("CH1", "byt_cr_thermal", "PMICTEMP"),
+	ADC_MAP("CH3", "byt_cr_thermal", "SYSTEMP0"),
 };
 
 static irqreturn_t dc_ti_gpadc_isr(int irq, void *data)

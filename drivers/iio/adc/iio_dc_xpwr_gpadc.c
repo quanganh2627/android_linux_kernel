@@ -132,6 +132,8 @@ static struct iio_map iio_maps[] = {
 	ADC_MAP("CH3", "CURRENT", "BATCCUR"),
 	ADC_MAP("CH4", "CURRENT", "BATDCUR"),
 	ADC_MAP("CH5", "VIBAT", "VBAT"),
+	ADC_MAP("CH1", "byt_cr_thermal", "PMICTEMP"),
+	ADC_MAP("CH2", "byt_cr_thermal", "SYSTEMP0"),
 };
 
 /**
