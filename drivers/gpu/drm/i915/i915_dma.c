@@ -54,94 +54,10 @@
 #define ADVANCE_LP_RING() \
 	intel_ring_advance(LP_RING(dev_priv))
 
-static int valleyview_ved_init(struct drm_device *dev)
-{
-	int ret;
-	int irq = -1;
-	struct resource *rsc = NULL;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
-	dev_priv->ved_platdev = platform_device_alloc("vlv-ved", -1);
-	if (unlikely(!dev_priv->ved_platdev)) {
-		DRM_ERROR("Failed to allocate VED platform device\n");
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	rsc = kzalloc(sizeof(*rsc) * 3, GFP_KERNEL);
-	if (unlikely(!rsc)) {
-		DRM_ERROR("Failed to allocate resource for VED platform device\n");
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	/* IRQ number and chip are initialized for forwarding */
-	irq = irq_alloc_descs(-1, 0, 1, 0);
-	if (unlikely(irq < 0)) {
-		DRM_ERROR("Failed to allocate IRQ number: %d\n", irq);
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	ret = valleyview_initialize_ved_irq(dev, irq);
-	if (unlikely(ret)) {
-		DRM_ERROR("Failed to initialize VED IRQ: %d\n", ret);
-		goto err;
-	}
-
-	dev_priv->ved_irq = irq;
-	rsc[0].start    = rsc[0].end = irq;
-	rsc[0].flags    = IORESOURCE_IRQ;
-	rsc[0].name     = "vlv-ved-irq";
-
-	rsc[1].start    = pci_resource_start(dev->pdev, 0);
-	rsc[1].end      = pci_resource_start(dev->pdev, 0) + 2*1024*1024; /* gen7 */
-	rsc[1].flags    = IORESOURCE_MEM;
-	rsc[1].name     = "vlv-ved-mmio";
-
-	rsc[2].start    = VLV_VED_BASE;
-	rsc[2].end      = VLV_VED_BASE + VLV_VED_SIZE;
-	rsc[2].flags    = IORESOURCE_REG;
-	rsc[2].name     = "vlv-ved-reg";
-
-	ret = platform_device_add_resources(dev_priv->ved_platdev, rsc, 3);
-	if (unlikely(ret)) {
-		DRM_ERROR("Failed to add resource for VED platform device: %d\n", ret);
-		goto err;
-	}
-
-	/* For Runtime-PM: set i915 drm_device as parent of platform device */
-	dev_priv->ved_platdev->dev.parent = dev->dev;
-	ret = platform_device_add(dev_priv->ved_platdev);
-	if (unlikely(ret)) {
-		DRM_ERROR("Failed to add VED platform device: %d\n", ret);
-		goto err;
-	}
-
-	kfree(rsc);
-	DRM_INFO("Successfully initialized Valleyview-VED\n");
-	return 0;
-err:
-	kfree(rsc);
-	if (dev_priv->ved_platdev)
-		platform_device_unregister(dev_priv->ved_platdev);
-	if (irq >= 0)
-		irq_free_desc(irq);
-	return ret;
-}
-
-static void valleyview_ved_cleanup(struct drm_device *dev)
-{
-	int irq;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
-	irq = platform_get_irq(dev_priv->ved_platdev, 0);
-	if (irq >= 0)
-		irq_free_desc(irq);
-
-	platform_device_unregister(dev_priv->ved_platdev);
-}
-
+#ifdef CONFIG_DRM_VXD_BYT
+struct drm_device *i915_drm_dev;
+EXPORT_SYMBOL(i915_drm_dev);
+#endif
 
 /**
  * Lock test for when it's just for synchronization of ring access.
@@ -1656,6 +1572,7 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	mutex_init(&dev_priv->exec_lock);
 	mutex_init(&dev_priv->rps.hw_lock);
 	mutex_init(&dev_priv->modeset_restore_lock);
+
 	mutex_init(&dev_priv->pc8.lock);
 	dev_priv->pc8.requirements_met = false;
 	dev_priv->pc8.gpu_idle = false;
@@ -1911,9 +1828,10 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	if (IS_GEN5(dev))
 		intel_gpu_ips_init(dev_priv);
 
-	if (IS_VALLEYVIEW(dev))
-		BUG_ON(valleyview_ved_init(dev));
-
+#ifdef CONFIG_DRM_VXD_BYT
+	/* Delay vxd driver load to vxd module init */
+	i915_drm_dev = dev;
+#endif
 	return 0;
 
 out_gem_unload:
@@ -1947,9 +1865,6 @@ int i915_driver_unload(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
 	uint32_t i;
-
-	if (IS_VALLEYVIEW(dev))
-		valleyview_ved_cleanup(dev);
 
 	intel_gpu_ips_teardown();
 
@@ -2080,6 +1995,14 @@ int i915_driver_open(struct drm_device *dev, struct drm_file *file)
 
 	i915_perfmon_init(file);
 
+#ifdef CONFIG_DRM_VXD_BYT
+	{
+		drm_i915_private_t *dev_priv = dev->dev_private;
+
+		if (dev_priv->vxd_driver_open)
+			return dev_priv->vxd_driver_open(dev, file);
+	}
+#endif
 	return 0;
 }
 
@@ -2104,6 +2027,11 @@ void i915_driver_lastclose(struct drm_device * dev)
 	 * up anything. */
 	if (!dev_priv)
 		return;
+
+#ifdef CONFIG_DRM_VXD_BYT
+	if (dev_priv->vxd_lastclose)
+		dev_priv->vxd_lastclose(dev);
+#endif
 
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
 		if (!dev_priv->fwlogo_size)

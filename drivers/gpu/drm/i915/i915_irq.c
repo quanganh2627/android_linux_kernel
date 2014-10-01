@@ -1323,12 +1323,12 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 	struct drm_device *dev = (struct drm_device *) arg;
 	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
 	u32 iir, gt_iir, pm_iir;
-	int ved_ret;
 	irqreturn_t ret = IRQ_NONE;
 	unsigned long irqflags;
 	int pipe;
 	u32 pipe_stats[I915_MAX_PIPES] = {0};
 	int lpe_stream;
+
 	atomic_inc(&dev_priv->irq_received);
 
 	while (true) {
@@ -1430,12 +1430,12 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 			I915_READ(PORT_HOTPLUG_STAT);
 		}
 
-		if (IS_VALLEYVIEW(dev) && dev_priv->ved_irq >= 0
-				&& (iir & VLV_VED_INTERRUPT)) {
-			ved_ret = generic_handle_irq(dev_priv->ved_irq);
-			if (unlikely(ved_ret))
-				DRM_ERROR("Error forwarding VED irq: %d\n", ved_ret);
+#ifdef CONFIG_DRM_VXD_BYT
+		if (iir & VED_BLOCK_INTERRUPT) {
+			if (dev_priv->psb_msvdx_interrupt)
+				dev_priv->psb_msvdx_interrupt(dev);
 		}
+#endif
 
 		if (pipe_stats[0] & PIPE_GMBUS_INTERRUPT_STATUS)
 			gmbus_irq_handler(dev);
@@ -2716,54 +2716,6 @@ static int ironlake_irq_postinstall(struct drm_device *dev)
 	return 0;
 }
 
-static void valleyview_enable_ved_irq(struct irq_data *d)
-{
-	struct drm_device *dev = d->chip_data;
-	struct drm_i915_private *dev_priv = (struct drm_i915_private *) dev->dev_private;
-	unsigned long irqflags;
-	u32 imr;
-	spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
-	imr = I915_READ(VLV_IMR);
-	DRM_DEBUG_DRIVER("%s IMR 0x%08x=>0x%08x\n", __func__,
-		imr, imr & (~VLV_VED_INTERRUPT));
-	imr &= ~VLV_VED_INTERRUPT;
-	dev_priv->irq_mask = imr;
-	I915_WRITE(VLV_IMR, imr);
-	POSTING_READ(VLV_IMR);
-	spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
-}
-
-static void valleyview_disable_ved_irq(struct irq_data *d)
-{
-	struct drm_device *dev = d->chip_data;
-	struct drm_i915_private *dev_priv = (struct drm_i915_private *) dev->dev_private;
-	unsigned long irqflags;
-	u32 imr;
-	spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
-	imr = I915_READ(VLV_IMR);
-	DRM_DEBUG_DRIVER("%s IMR 0x%08x=>0x%08x\n", __func__,
-		imr, imr | VLV_VED_INTERRUPT);
-	imr |= VLV_VED_INTERRUPT;
-	dev_priv->irq_mask = imr;
-	I915_WRITE(VLV_IMR, imr);
-	POSTING_READ(VLV_IMR);
-	spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
-}
-
-int valleyview_initialize_ved_irq(struct drm_device *dev, int irq)
-{
-	static struct irq_chip ved_irqchip = {
-		.name = "ipvr_ved_irqchip",
-		.irq_mask = valleyview_disable_ved_irq,
-		.irq_unmask = valleyview_enable_ved_irq,
-	};
-	irq_set_chip_and_handler_name(irq,
-		&ved_irqchip,
-		handle_simple_irq,
-		"ipvr_ved_irq_handler");
-	return irq_set_chip_data(irq, dev);
-}
-
 static int valleyview_irq_postinstall(struct drm_device *dev)
 {
 	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
@@ -2781,9 +2733,9 @@ static int valleyview_irq_postinstall(struct drm_device *dev)
 		I915_LPE_PIPE_B_INTERRUPT |
 		I915_LPE_PIPE_A_INTERRUPT;
 
-	if (IS_VALLEYVIEW(dev))
-		enable_mask |= VLV_VED_INTERRUPT;
-
+#ifdef CONFIG_DRM_VXD_BYT
+	enable_mask |= VED_BLOCK_INTERRUPT;
+#endif
 	/*
 	 *Leave vblank interrupts masked initially.  enable/disable will
 	 * toggle them based on usage.
@@ -2791,12 +2743,6 @@ static int valleyview_irq_postinstall(struct drm_device *dev)
 	dev_priv->irq_mask = (~enable_mask) |
 		I915_DISPLAY_PIPE_A_VBLANK_INTERRUPT |
 		I915_DISPLAY_PIPE_B_VBLANK_INTERRUPT;
-
-	/*
-	 * Leave VED interrupt masked at the beginning
-	 */
-	if (IS_VALLEYVIEW(dev))
-		dev_priv->irq_mask |= VLV_VED_INTERRUPT;
 
 	/* Added for HDMI Audio.
 	 *Leave LPE interrupts masked initially.  enable/disable will
@@ -2866,7 +2812,7 @@ static void valleyview_irq_uninstall(struct drm_device *dev)
 		I915_WRITE(PIPESTAT(pipe), 0xffff);
 	I915_WRITE(VLV_IIR, 0xffffffff);
 	I915_WRITE(VLV_IMR, 0xffffffff);
-	I915_WRITE(VLV_IER, 0);
+	I915_WRITE(VLV_IER, 0x0);
 	POSTING_READ(VLV_IER);
 }
 

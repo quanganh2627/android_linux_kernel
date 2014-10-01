@@ -1672,16 +1672,23 @@ typedef struct drm_i915_private {
 	struct drm_mm_node *fwlogo_gtt_node;
 	struct drm_mm_node *fwlogo_stolen_node;
 
+#ifdef CONFIG_DRM_VXD_BYT
+	struct drm_psb_private *vxd_priv;
+	int (*vxd_driver_open)(struct drm_device *dev, struct drm_file *file);
+	void (*vxd_lastclose)(struct drm_device *dev);
+	long (*vxd_ioctl)(struct file *filp,
+		unsigned int cmd, unsigned long arg);
+	int (*vxd_release)(struct inode *inode, struct file *filp);
+	int (*psb_mmap)(struct file *filp, struct vm_area_struct *vma);
+	int (*psb_msvdx_interrupt)(void *pvData);
+#endif
+
 	uint32_t watchdog_threshold[I915_NUM_RINGS];
 
 	struct i915_perfmon perfmon;
 	struct i915_plane_stat plane_stat;
 
 	uint32_t pf_change_status[2];
-
-	/* used for setup VED for valleyview */
-	struct platform_device *ved_platdev;
-	int	ved_irq;
 } drm_i915_private_t;
 
 static inline struct drm_i915_private *to_i915(const struct drm_device *dev)
@@ -1970,6 +1977,10 @@ struct drm_i915_file_private {
 
 	struct i915_ctx_hang_stats hang_stats;
 
+#ifdef CONFIG_DRM_VXD_BYT
+	struct psb_fpriv *pPriv;
+#endif
+
 	struct {
 		int max_freq;
 		int rc6_disable;
@@ -2156,7 +2167,6 @@ extern int i915_drrs_interval __read_mostly;
 
 extern int i915_suspend(struct drm_device *dev, pm_message_t state);
 extern int i915_resume(struct drm_device *dev);
-extern int valleyview_initialize_ved_irq(struct drm_device *dev, int irq);
 extern int i915_master_create(struct drm_device *dev, struct drm_master *master);
 extern void i915_master_destroy(struct drm_device *dev, struct drm_master *master);
 
@@ -2876,6 +2886,11 @@ int i915_rpm_put_disp(struct drm_device *dev);
 bool i915_pm_runtime_enabled(struct device *dev);
 void i915_rpm_disable(struct drm_device *drm_dev);
 void i915_rpm_enable(struct device *dev);
+
+#ifdef CONFIG_DRM_VXD_BYT
+int i915_rpm_get_vxd(struct drm_device *dev);
+int i915_rpm_put_vxd(struct drm_device *dev);
+#endif
 
 bool i915_rpm_access_check(struct drm_device *dev);
 bool i915_is_device_active(struct drm_device *dev);
