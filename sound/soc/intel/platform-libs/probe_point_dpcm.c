@@ -110,6 +110,10 @@ static const struct sst_probe_config sst_probes[] = {
 	{ "media_loop1_out iir_stereo", SST_PATH_INDEX_MEDIA_LOOP1_OUT , SST_MODULE_ID_IIR_24, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "media_loop2_out iir_stereo", SST_PATH_INDEX_MEDIA_LOOP2_OUT , SST_MODULE_ID_IIR_24, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "sidetone_in iir_stereo", SST_PATH_INDEX_SIDETONE_IN, SST_MODULE_ID_IIR_24, SST_TASK_SBA, { 1, 2, 1 } },
+	{ "media2_out input", SST_PATH_INDEX_MEDIA2_OUT , 0xFF00, SST_TASK_MMX, { 1, 2, 1 } },
+	{ "media2_out bmf", SST_PATH_INDEX_MEDIA2_OUT , SST_MODULE_ID_MEDIA_BMF, SST_TASK_MMX, { 1, 2, 1 } },
+	{ "media2_out wnr", SST_PATH_INDEX_MEDIA2_OUT , SST_MODULE_ID_MEDIA_WNR, SST_TASK_MMX, { 1, 2, 1 } },
+	{ "media2_out agc", SST_PATH_INDEX_MEDIA2_OUT , SST_MODULE_ID_MEDIA_AGC, SST_TASK_MMX, { 1, 2, 1 } },
 
 	/* ASRC */
 	{ "modem_out asrc", SST_PATH_INDEX_MODEM_OUT, SST_MODULE_ID_ASRC, SST_TASK_SBA, { 1, 2, 1 } },
