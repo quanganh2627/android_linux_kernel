@@ -9588,6 +9588,11 @@ intel_modeset_pipe_config(struct drm_crtc *crtc,
 		return ERR_PTR(-EINVAL);
 	}
 
+	if (fb == NULL) {
+		DRM_DEBUG_KMS("FB is NULL");
+		return ERR_PTR(-EINVAL);
+	}
+
 	pipe_config = kzalloc(sizeof(*pipe_config), GFP_KERNEL);
 	if (!pipe_config)
 		return ERR_PTR(-ENOMEM);
