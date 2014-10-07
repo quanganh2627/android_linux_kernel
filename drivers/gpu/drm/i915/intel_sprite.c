@@ -320,16 +320,6 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	sprctl &= ~SP_PIXFORMAT_MASK;
 	sprctl &= ~SP_YUV_BYTE_ORDER_MASK;
 	sprctl &= ~SP_TILED;
-	/* calculate the plane rrb2 */
-	if (intel_plane->flags & DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2) {
-		if (intel_plane->rrb2_enable)
-			intel_plane->reg.surf |=
-				PLANE_RESERVED_REG_BIT_2_ENABLE;
-		else
-			intel_plane->reg.surf &=
-				~PLANE_RESERVED_REG_BIT_2_ENABLE;
-		intel_plane->flags &= ~DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2;
-	}
 
 	/* plane alpha */
 	if (plane && intel_crtc->sprite1_alpha)

@@ -9158,7 +9158,7 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 	struct drm_crtc *crtc = dev_priv->pipe_to_crtc_mapping[pipe];
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_disp_reg *reg;
-	int plane;
+	int plane = 0, val = 0;
 
 	if (type == SPRITE_PLANE) {
 		reg = &intel_plane->reg;
@@ -9191,6 +9191,18 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 		I915_WRITE(SPSIZE(pipe, plane),	reg->size);
 		I915_WRITE_BITS(SPCNTR(pipe, plane), reg->cntr, 0xFFFFFFF8);
 		I915_MODIFY_DISPBASE(SPSURF(pipe, plane), reg->surf);
+		if (intel_plane->flags & DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2) {
+			if (intel_plane->rrb2_enable) {
+				val = I915_READ(SPSURF(pipe, plane));
+				val |= PLANE_RESERVED_REG_BIT_2_ENABLE;
+				I915_WRITE(SPSURF(pipe, plane), val);
+			} else {
+				val = I915_READ(SPSURF(pipe, plane));
+				val &= ~PLANE_RESERVED_REG_BIT_2_ENABLE;
+				I915_WRITE(SPSURF(pipe, plane), val);
+			}
+			intel_plane->flags &= ~DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2;
+		}
 		if (intel_plane->pri_update) {
 			I915_WRITE(DSPCNTR(pipe), reg->dspcntr);
 			I915_MODIFY_DISPBASE(DSPSURF(pipe), I915_READ(DSPSURF(pipe)));
