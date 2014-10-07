@@ -49,6 +49,10 @@
 #define DTS_ENABLE_REG		0xB0
 #define DTS_ENABLE		0x03
 #define DTS_TRIP_RW		0x03
+#ifdef CONFIG_TP_ENABLE
+#define TP_SETTING_REG		0x01
+#define ENABLE_TP_GAIN		0x10a
+#endif
 
 #define PUNIT_PORT		0x04
 #define PUNIT_TEMP_REG		0xB1
@@ -278,6 +282,11 @@ static void enable_soc_dts(void)
 		val = read_soc_reg(TE_AUX0 + i);
 		write_soc_reg(TE_AUX0 + i, (val | RTE_ENABLE));
 	}
+#ifdef CONFIG_TP_ENABLE
+	/* Enable TP algorithm & set gain for controlling DTS temp */
+	val = read_soc_reg(TP_SETTING_REG);
+	write_soc_reg(TP_SETTING_REG, (val | ENABLE_TP_GAIN));
+#endif
 }
 
 static int show_trip_hyst(struct thermal_zone_device *tzd,
