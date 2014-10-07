@@ -45,6 +45,11 @@ static const unsigned int VFLEX_VSEL_table[] = {
 #define VPROG3CNT_ADDR	0x0ae
 #define VFLEXCNT_ADDR	0x0ab
 
+/* Slave Address for B0 PMIC regulators */
+#define VPROG1CNT_B0_PMIC_ADDR 0x140
+#define VPROG2CNT_B0_PMIC_ADDR 0x141
+#define VPROG3CNT_B0_PMIC_ADDR 0x142
+
 /**
  * intel_pmic_info - platform data for intel pmic
  * @pmic_reg: pmic register that is to be used for this VR
