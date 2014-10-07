@@ -18,6 +18,8 @@
 #include <linux/regulator/machine.h>
 
 #include <asm/intel-mid.h>
+#include <asm/intel_scu_ipc.h>
+#include <asm/intel_scu_pmic.h>
 
 /***********VPROG1 REGUATOR platform data*************/
 static struct regulator_consumer_supply vprog1_consumer[] = {
@@ -143,6 +145,9 @@ static struct platform_device vflex_device = {
 	},
 };
 
+#define PMIC_ID_ADDR		0x00
+#define PMIC_CHIP_ID_B0_VAL	0x08
+
 static struct platform_device *regulator_devices[] __initdata = {
 	&vprog1_device,
 	&vprog2_device,
@@ -152,6 +157,19 @@ static struct platform_device *regulator_devices[] __initdata = {
 
 static int __init regulator_init(void)
 {
+	int ret;
+	uint8_t pmic_id;
+
+	ret = intel_scu_ipc_ioread8(PMIC_ID_ADDR, &pmic_id);
+	if (ret)
+		pr_err("Failed to read PMIC ID!\n");
+
+	if (PMIC_CHIP_ID_B0_VAL == pmic_id) {
+		vprog1_info.pmic_reg = VPROG1CNT_B0_PMIC_ADDR;
+		vprog2_info.pmic_reg = VPROG2CNT_B0_PMIC_ADDR;
+		vprog3_info.pmic_reg = VPROG3CNT_B0_PMIC_ADDR;
+	}
+
 	/* register the regulator only if SoC is Tangier */
 	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE)
 		platform_add_devices(regulator_devices,
