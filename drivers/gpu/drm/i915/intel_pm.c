@@ -948,15 +948,15 @@ int intel_media_playback_drrs_configure(struct drm_device *dev,
 			intel_cancel_drrs_work(dev_priv);
 			panel->target_mode = drm_mode_duplicate(dev, mode);
 		}
-
-		panel->target_mode->clock = mode->vrefresh * mode->vtotal *
+		if (panel->target_mode) {
+			panel->target_mode->clock = mode->vrefresh * mode->vtotal *
 							mode->htotal / 1000;
+			DRM_DEBUG_KMS("target_rr: %d\n", panel->target_mode->vrefresh);
+		}
 	}
-
-	DRM_DEBUG_KMS("cur_rr_type: %d, target_rr_type: %d, target_rr: %d\n",
+		DRM_DEBUG_KMS("cur_rr_type: %d, target_rr_type: %d\n",
 				drrs_state->refresh_rate_type,
-				drrs_state->target_rr_type,
-				panel->target_mode->vrefresh);
+				drrs_state->target_rr_type);
 set_state:
 	intel_set_drrs_state(dev);
 	mutex_unlock(&dev_priv->drrs_state.mutex);

@@ -1015,7 +1015,10 @@ intel_find_panel_downclock(struct drm_device *dev,
 {
 	struct drm_display_mode *scan, *tmp_mode;
 	int temp_downclock;
-
+	if (!fixed_mode) {
+		DRM_ERROR("Mode can't be NULL\n");
+		return NULL;
+	}
 	temp_downclock = fixed_mode->clock;
 	tmp_mode = NULL;
 
