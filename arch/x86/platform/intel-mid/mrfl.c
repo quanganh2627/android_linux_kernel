@@ -173,7 +173,7 @@ static int set_safe_battery_param(void)
 	}
 
 	/* Populate the safe charging parameters */
-	memcpy(battery_chrg_profile->batt_id, "I2", BATTID_STR_LEN);
+	memcpy(battery_chrg_profile->batt_id, "I2", 2);
 	battery_chrg_profile->battery_type = 2;
 	battery_chrg_profile->capacity = 2100;
 	battery_chrg_profile->voltage_max = 4100;
