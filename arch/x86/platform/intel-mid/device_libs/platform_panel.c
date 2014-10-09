@@ -47,12 +47,31 @@ static struct support_panel_list_t
 int PanelID = GCT_DETECT;
 EXPORT_SYMBOL(PanelID);
 
+static char override_panel[SFI_NAME_LEN+1];
+
+static int __init parse_override_panel(char *arg)
+{
+	strncpy(override_panel, arg, SFI_NAME_LEN);
+	return 1;
+}
+early_param("mipi_panel_id", parse_override_panel);
+
 void panel_handler(struct sfi_device_table_entry *pentry,
 				struct devs_id *dev) {
 	int i;
 
 	/* JDI_7x12_CMD will be used as default panel */
 	PanelID = JDI_7x12_CMD;
+	if (*override_panel)
+		for (i = 0; i < NUM_SUPPORT_PANELS; i++)
+			if (strncmp(override_panel, support_panel_list[i].name,
+						SFI_NAME_LEN) == 0) {
+				PanelID = support_panel_list[i].panel_id;
+				pr_info("CMDLINE Override-Panel name = %16.16s "
+				"PanelID = %d\n", override_panel, PanelID);
+				return;
+			}
+
 	for (i = 0; i < NUM_SUPPORT_PANELS; i++)
 		if (strncmp(pentry->name, support_panel_list[i].name,
 						SFI_NAME_LEN) == 0) {
@@ -60,6 +79,6 @@ void panel_handler(struct sfi_device_table_entry *pentry,
 			break;
 		}
 	if (i == NUM_SUPPORT_PANELS)
-		pr_err("Could not detected this panel, set to default panel\n");
+		pr_err("Could not detect this panel, set to default panel\n");
 	pr_info("Panel name = %16.16s PanelID = %d\n", pentry->name, PanelID);
 }
