@@ -31,8 +31,6 @@
 #include <linux/pm_qos.h>
 #include <linux/intel_mid_pm.h>
 
-#define INIT_TASK_PID	1
-
 static struct pci_dev	*pci_dev;
 static struct class *hsic_class;
 static struct device *hsic_class_dev;
@@ -1455,11 +1453,6 @@ static int ehci_hsic_probe(struct pci_dev *pdev,
 	hsic.s3_rt_state = RESUMED;
 	s3_wake_lock();
 	hsic_debugfs_init(hcd);
-
-	if (current->pid == INIT_TASK_PID) {
-		dev_info(&pdev->dev, "disable hsic on driver init!\n");
-		ehci_hsic_stop_host(pdev);
-	}
 
 	return retval;
 unmap_registers:
