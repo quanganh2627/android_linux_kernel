@@ -226,6 +226,16 @@ config TP_ENABLE
 	  This is tested only for specific platforms(e.g Atom). If you
 	  are not sure, say N here.
 
+config SENSORS_SOCDTS_INTERRUPT
+	tristate "Intel SOC DTS sensor Interrupts"
+	depends on SOC_THERMAL
+	help
+	  If you say yes here you get support for interrupts when the
+	  SoC DTS temperature crosses the programmed thresholds.
+
+	  This is tested only for specific platforms(e.g Atom). If you
+	  are not sure, say N here.
+
 config DEBUG_THERMAL
 	bool "Thermal debug information support"
 	depends on THERMAL
