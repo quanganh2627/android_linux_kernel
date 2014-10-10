@@ -44,6 +44,10 @@
 #include "stm.h"
 #endif
 
+#ifdef CONFIG_INTEL_DEBUG_FEATURE
+#include <asm/intel_soc_debug.h>
+#endif
+
 #define DRIVERNAME		"pti"
 #define PCINAME			"pciPTI"
 #define TTYNAME			"ttyPTI"
@@ -939,6 +943,11 @@ static int pti_pci_probe(struct pci_dev *pdev,
 {
 	unsigned int a;
 	int retval = -EINVAL;
+
+#ifdef CONFIG_INTEL_DEBUG_FEATURE
+	if (!cpu_has_debug_feature(DEBUG_FEATURE_PTI))
+		return -ENODEV;
+#endif
 
 	dev_dbg(&pdev->dev, "%s %s(%d): PTI PCI ID %04x:%04x\n", __FILE__,
 			__func__, __LINE__, pdev->vendor, pdev->device);
