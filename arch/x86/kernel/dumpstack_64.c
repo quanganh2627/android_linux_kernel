@@ -250,20 +250,25 @@ show_stack_log_lvl(struct task_struct *task, struct pt_regs *regs,
 void show_lbrs(void)
 {
 #ifdef CONFIG_LBR_DUMP_ON_EXCEPTION
-	u64 tos, from, to, lbr_idx;
+	u64 tos, from, to, lbr_idx, debugctl;
 	int lbr_format = x86_pmu.intel_cap.lbr_format;
 	unsigned long mask = x86_pmu.lbr_nr - 1;
-	int i;
+	int i, lbr_on;
 
-	rdmsrl(x86_pmu.lbr_tos, tos);
+	rdmsrl(MSR_IA32_DEBUGCTLMSR, debugctl);
+	lbr_on = ((debugctl & DEBUGCTLMSR_LBR) != 0);
 
 	printk(KERN_DEFAULT "Last Branch Records:");
 	if (!lbr_dump_on_exception) {
 		pr_cont(" (Disabled by perf_event)\n");
 	} else if (x86_pmu.lbr_nr == 0) {
 		pr_cont(" (x86_model unknown, check intel_pmu_init())\n");
+	} else if (lbr_on == 1) {
+		pr_cont(" (not halted)\n");
 	} else {
 		pr_cont("\n");
+		/* The algorithm is derived from intel_pmu_lbr_read_64() */
+		rdmsrl(x86_pmu.lbr_tos, tos);
 		for (i = 0; i < x86_pmu.lbr_nr; i++) {
 			lbr_idx = (tos - i) & mask;
 
