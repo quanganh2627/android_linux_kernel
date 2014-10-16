@@ -274,7 +274,7 @@ static int dc_ti_adc_read_raw(struct iio_dev *indio_dev,
 static int dc_ti_adc_read_all_raw(struct iio_channel *chan,
 					int *val)
 {
-	int ret;
+	int ret = 0;
 	int i, num = 0;
 	int ch = 0;
 	int *channels;
