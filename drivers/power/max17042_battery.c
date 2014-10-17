@@ -67,12 +67,13 @@
 /* Tmax disabled, Tmin disabled */
 #define TEMP_DEF_MAX_MIN_THRLD  0x7F80
 
-/* SoCmax disabled, SoCmin can be set to 15%, 4% and 1%.
+/* SoCmax disabled, SoCmin can be set to 15%, 10%, 5% and 1%.
  * INT will trigger when the thresholds are voilated.
  */
-#define SOC_DEF_MAX_MIN1_THRLD	0xFF0E
-#define SOC_DEF_MAX_MIN2_THRLD	0xFF04
-#define SOC_DEF_MAX_MIN3_THRLD	0xFF01
+#define SOC_DEF_MAX_MIN1_THRLD	0xFF0F
+#define SOC_DEF_MAX_MIN2_THRLD	0xFF0A
+#define SOC_DEF_MAX_MIN3_THRLD	0xFF05
+#define SOC_DEF_MAX_MIN4_THRLD	0xFF01
 
 /* SOC threshold for 1% interrupt */
 #define SOC_INTR_S0_THR		1
@@ -81,8 +82,9 @@
 #define MISCCFG_CONFIG_VFSOC	0x0003
 
 /* low battery notification warning level */
-#define SOC_WARNING_LEVEL1	14
-#define SOC_WARNING_LEVEL2	4
+#define SOC_WARNING_LEVEL1	15
+#define SOC_WARNING_LEVEL2	10
+#define SOC_WARNING_LEVEL3	5
 #define SOC_SHUTDOWN_LEVEL	1
 
 #define CONFIG_BER_BIT_ENBL	(1 << 0)
@@ -1716,8 +1718,10 @@ static void set_soc_intr_thresholds_s3(struct max17042_chip *chip)
 		val = SOC_DEF_MAX_MIN1_THRLD;
 	else if (soc > SOC_WARNING_LEVEL2)
 		val = SOC_DEF_MAX_MIN2_THRLD;
-	else
+	else if (soc > SOC_WARNING_LEVEL3)
 		val = SOC_DEF_MAX_MIN3_THRLD;
+	else
+		val = SOC_DEF_MAX_MIN4_THRLD;
 
 	max17042_write_reg(chip->client, MAX17042_SALRT_Th, val);
 }
@@ -2045,7 +2049,7 @@ static void configure_interrupts(struct max17042_chip *chip)
 
 	/* set SOC-alert threshold sholds to lowest value */
 	max17042_write_reg(chip->client, MAX17042_SALRT_Th,
-					SOC_DEF_MAX_MIN3_THRLD);
+					SOC_DEF_MAX_MIN4_THRLD);
 
 	/* enable Alerts for SOCRep */
 	if (chip->pdata->enable_current_sense)
@@ -2399,7 +2403,7 @@ static int max17042_resume(struct device *dev)
 		}
 		/* set SOC-alert threshold sholds to lowest value */
 		max17042_write_reg(chip->client, MAX17042_SALRT_Th,
-					SOC_DEF_MAX_MIN3_THRLD);
+					SOC_DEF_MAX_MIN4_THRLD);
 		enable_irq(chip->client->irq);
 		disable_irq_wake(chip->client->irq);
 	}
