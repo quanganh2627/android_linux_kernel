@@ -95,7 +95,7 @@
 #define DC_FG_IRQ_CFG_REG		0x43
 #define FG_IRQ_CFG_LOWBATT_WL2		(1 << 0)
 #define FG_IRQ_CFG_LOWBATT_WL1		(1 << 1)
-#define FG_IRQ_CFG_LOWBATT_MASK		0x3
+#define FG_IRQ_CFG_LOWBATT_MASK		0x1
 
 #define DC_LOWBAT_IRQ_STAT_REG		0x4B
 #define LOWBAT_IRQ_STAT_LOWBATT_WL2	(1 << 0)
@@ -150,8 +150,9 @@
 #define FG_LOW_CAP_THR1_MASK		0xf0	/* 5% tp 20% */
 #define FG_LOW_CAP_THR1_VAL		0xa0	/* 15 perc */
 #define FG_LOW_CAP_THR2_MASK		0x0f	/* 0% to 15% */
-#define FG_LOW_CAP_WARN_THR		14	/* 14 perc */
-#define FG_LOW_CAP_CRIT_THR		4	/* 4 perc */
+#define FG_LOW_CAP_WARN1_THR		15	/* 15 perc */
+#define FG_LOW_CAP_WARN2_THR		10	/* 10 perc */
+#define FG_LOW_CAP_CRIT_THR		5	/* 5 perc */
 #define FG_LOW_CAP_SHDN_THR		0	/* 0 perc */
 
 #define DC_FG_TUNING_CNTL0		0xE8
@@ -887,8 +888,10 @@ static int pmic_fg_set_lowbatt_thresholds(struct pmic_fg_info *info)
 	}
 	ret = (ret & FG_REP_CAP_VAL_MASK);
 
-	if (ret > FG_LOW_CAP_WARN_THR)
-		reg_val = FG_LOW_CAP_WARN_THR;
+	if (ret > FG_LOW_CAP_WARN1_THR)
+		reg_val = FG_LOW_CAP_WARN1_THR;
+	if (ret > FG_LOW_CAP_WARN2_THR)
+		reg_val = FG_LOW_CAP_WARN2_THR;
 	else if (ret > FG_LOW_CAP_CRIT_THR)
 		reg_val = FG_LOW_CAP_CRIT_THR;
 	else
