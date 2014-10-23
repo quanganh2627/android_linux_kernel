@@ -37,6 +37,7 @@
 #include <linux/wakelock.h>
 #include <linux/mfd/intel_mid_pmic.h>
 #include <asm/dc_xpwr_pwrsrc.h>
+#include <linux/gpio.h>
 
 #define DC_PS_STAT_REG			0x00
 #define PS_STAT_VBUS_TRIGGER		(1 << 0)
@@ -290,6 +291,13 @@ notify_otg_em:
 			 * TODO:close mux path to switch
 			 * b/w device mode and host mode.
 			 */
+#if defined(CONFIG_MRD8) || defined(CONFIG_MRD7P05)
+			/* switch mux to client side */
+			if (info->pdata->mux_gpio >= 0) {
+				dev_info(&info->pdev->dev, "Switching MUX to %d\n", 1);
+				gpio_direction_output(info->pdata->mux_gpio, 1);
+			}
+#endif
 			atomic_notifier_call_chain(&info->otg->notifier,
 						USB_EVENT_VBUS, &vbus_mask);
 		}
@@ -357,6 +365,18 @@ static int dc_pwrsrc_handle_otg_notification(struct notifier_block *nb,
 			info->id_short = false;
 		else
 			info->id_short = true;
+
+#if defined(CONFIG_MRD8) || defined(CONFIG_MRD7P05)
+		/* FIXME: wait for the boost 5V on */
+		msleep(100);
+
+		/* switch mux */
+		if (info->pdata->mux_gpio >= 0) {
+			dev_info(&info->pdev->dev, "Switching MUX to %d\n", !info->id_short);
+			gpio_direction_output(info->pdata->mux_gpio, !info->id_short);
+		}
+#endif
+
 		break;
 	case USB_EVENT_ENUMERATED:
 		/*

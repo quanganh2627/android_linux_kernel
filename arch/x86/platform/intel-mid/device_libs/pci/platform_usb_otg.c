@@ -175,7 +175,11 @@ static struct intel_dwc_otg_pdata *get_otg_platform_data(struct pci_dev *pdev)
 			dwc_otg_pdata.gpio_cs = 54;
 			dwc_otg_pdata.gpio_reset = 144;
 			dwc_otg_pdata.ulpi_eye_calibration = 0x7f;
+#if defined(CONFIG_MRD7) || defined(CONFIG_MRD8)
+			dwc_otg_pdata.gpio_id = 148;
+#else
 			dwc_otg_pdata.gpio_id = 156;
+#endif
 			dwc_otg_pdata.sdp_charging = 1;
 			dwc_otg_pdata.charging_compliance =
 				!dwc_otg_byt_get_usbspecoverride();
