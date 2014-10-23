@@ -537,6 +537,7 @@ static irqreturn_t ifx_spi_srdy_interrupt(int irq, void *dev)
 static int ifx_spi_ioctl(struct tty_struct *tty,
 		    unsigned int cmd, unsigned long arg)
 {
+	int retval = 0;
 	struct ifx_spi_device *ifx_dev = tty->driver_data;
 
 	switch (cmd) {
@@ -546,10 +547,16 @@ static int ifx_spi_ioctl(struct tty_struct *tty,
 	case SPI_IOC_FRAME_LEN_NORMAL:
 		ifx_dev->frame_len_flag_rm = true;
 		break;
+	case SPI_IOC_READ_FRAME_SIZE:
+		if (ifx_dev->frame_len_flag_rm == true)
+			retval = put_user(IFX_SPI_TRANSFER_SIZE_RM, (__u32 __user *)arg);
+		else
+			retval = put_user(IFX_SPI_TRANSFER_SIZE, (__u32 __user *)arg);
+		break;
 	default:
 		return -ENOIOCTLCMD;
 	}
-	return 0;
+	return retval;
 }
 
 
