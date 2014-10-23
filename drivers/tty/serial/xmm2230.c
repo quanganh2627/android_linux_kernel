@@ -242,6 +242,9 @@ static inline void swap_buf_32(unsigned char *buf, int len, void *end)
 static void mrdy_assert(struct ifx_spi_device *ifx_dev)
 {
 	int val = gpio_get_value(ifx_dev->gpio.srdy);
+
+	dev_dbg(&ifx_dev->spi_dev->dev, "Enter: [%s]\n", __func__);
+
 	if (!val) {
 		if (!test_and_set_bit(IFX_SPI_STATE_TIMER_PENDING,
 				      &ifx_dev->flags)) {
@@ -520,6 +523,7 @@ static void ifx_spi_handle_srdy(struct ifx_spi_device *ifx_dev)
 static irqreturn_t ifx_spi_srdy_interrupt(int irq, void *dev)
 {
 	struct ifx_spi_device *ifx_dev = dev;
+	dev_dbg(&ifx_dev->spi_dev->dev, "Enter: [%s]\n", __func__);
 	ifx_dev->gpio.unack_srdy_int_nb++;
 	ifx_spi_handle_srdy(ifx_dev);
 	return IRQ_HANDLED;
@@ -578,6 +582,8 @@ static int ifx_spi_write(struct tty_struct *tty, const unsigned char *buf,
 	unsigned long flags;
 	bool is_fifo_empty;
 	int tx_count;
+
+	dev_dbg(&ifx_dev->spi_dev->dev, "Enter: [%s]\n", __func__);
 
 	/* For 2230 modem flashless download special request,
 	SPI can send the next frame only after finished the last frame. */
@@ -747,6 +753,8 @@ static void ifx_spi_complete(void *ctx)
 	int srdy;
 	int decode_result;
 
+	dev_dbg(&ifx_dev->spi_dev->dev, "Enter: [%s]\n", __func__);
+
 	mrdy_set_low(ifx_dev);
 
 	if (!ifx_dev->spi_msg.status) {
@@ -811,12 +819,14 @@ complete_exit:
 	else {
 		if (more || ifx_dev->spi_more || queue_length > 0 ||
 			local_write_pending) {
+			dev_dbg(&ifx_dev->spi_dev->dev, "Exit: [%s],more data to transfer\n", __func__);
 			if (ifx_dev->spi_slave_cts) {
 				if (more)
 					mrdy_assert(ifx_dev);
 			} else
 				mrdy_assert(ifx_dev);
 		} else {
+			dev_dbg(&ifx_dev->spi_dev->dev, "Exit: [%s],No more data to transfer\n", __func__);
 			/*
 			 * poke line discipline driver if any for more data
 			 * may or may not get more data to write
@@ -840,6 +850,8 @@ static void ifx_spi_io(unsigned long data)
 {
 	int retval;
 	struct ifx_spi_device *ifx_dev = (struct ifx_spi_device *) data;
+
+	dev_dbg(&ifx_dev->spi_dev->dev, "Enter: [%s]\n", __func__);
 
 	if (!test_and_set_bit(IFX_SPI_STATE_IO_IN_PROGRESS, &ifx_dev->flags) &&
 		test_bit(IFX_SPI_STATE_IO_AVAILABLE, &ifx_dev->flags)) {
@@ -897,6 +909,7 @@ static void ifx_spi_io(unsigned long data)
 		if (retval) {
 			clear_bit(IFX_SPI_STATE_IO_IN_PROGRESS,
 				  &ifx_dev->flags);
+			dev_dbg(&ifx_dev->spi_dev->dev, "spi_async return: %d\n", retval);
 			tasklet_schedule(&ifx_dev->io_work_tasklet);
 			return;
 		}
@@ -1028,6 +1041,8 @@ static int ifx_spi_spi_probe(struct spi_device *spi)
 	struct ifx_modem_platform_data *pl_data;
 	struct ifx_spi_device *ifx_dev;
 
+	dev_dbg(&spi->dev, "Enter: [%s]\n", __func__);
+
 	if (saved_ifx_dev) {
 		dev_dbg(&spi->dev, "ignoring subsequent detection");
 		return -ENODEV;
@@ -1120,7 +1135,7 @@ static int ifx_spi_spi_probe(struct spi_device *spi)
 	ifx_dev->gpio.mrdy = pl_data->mrdy;
 	ifx_dev->gpio.srdy = pl_data->srdy;
 
-	dev_info(&spi->dev, "gpios %d, %d\n", ifx_dev->gpio.mrdy,
+	dev_dbg(&spi->dev, "gpios %d, %d\n", ifx_dev->gpio.mrdy,
 		ifx_dev->gpio.srdy);
 
 	/* Configure gpios */
