@@ -744,8 +744,8 @@ static int create_debugfs_entries(void)
 		goto error;
 	}
 
-	/* /sys/kernel/debug/watchdog/security_watchdog */
-	dev->dfs_secwd = debugfs_create_dir("security_watchdog", dev->dfs_wd);
+	/* /sys/kernel/debug/watchdog/sc_watchdog */
+	dev->dfs_secwd = debugfs_create_dir("sc_watchdog", dev->dfs_wd);
 	if (!dev->dfs_secwd) {
 		pr_err("%s: Error, cannot create sec dir\n", __func__);
 		goto error;
