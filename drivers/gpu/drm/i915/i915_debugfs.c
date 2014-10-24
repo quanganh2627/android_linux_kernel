@@ -111,7 +111,7 @@ ssize_t i915_gamma_adjust_write(struct file *filp,
 {
 	int ret = 0;
 	int	pipe;
-	int crtc_id;
+	int crtc_id = -1;
 	int bytes_count;
 	int bytes_read;
 	char *buf = NULL;
@@ -220,8 +220,8 @@ ssize_t i915_gamma_enable_write(struct file *filp,
 	int ret = 0;
 	int	bytes_read;
 	int bytes_count;
-	int crtc_id;
-	int req_state;
+	int crtc_id = -1;
+	int req_state = 0;
 	struct drm_crtc *crtc = NULL;
 	struct drm_device *dev = filp->private_data;
 	char *buf = NULL, *temp_buf = NULL;
@@ -490,7 +490,7 @@ ssize_t i915_csc_adjust_write(struct file *filp,
 	int	bytes_read;
 	int ret = 0;
 	int pipe;
-	int crtc_id;
+	int crtc_id = -1;
 	char *buf = NULL;
 	char *temp_buf = NULL;
 	struct drm_device *dev = filp->private_data;
@@ -581,11 +581,11 @@ ssize_t i915_csc_enable_write(struct file *filp,
 		  loff_t *ppos)
 {
 	int ret = 0;
-	int	pipe;
-	int req_state;
+	int pipe;
+	int req_state = 0;
 	int bytes_read;
 	int bytes_count;
-	int crtc_id;
+	int crtc_id = -1;
 	char *buf = NULL;
 	char *temp_buf = NULL;
 	struct drm_crtc *crtc = NULL;
