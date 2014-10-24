@@ -115,6 +115,10 @@
 /* SCU buffer size is give in dwords. So it is x4 here to get the total      */
 /* number of bytes.                                                          */
 
+#define MSIC_VEMMC1_CTRL 0xD9
+#define MSIC_VEMMC1_ON   0x06
+#define MSIC_VEMMC1_OFF  0x04
+
 #define SCU_TRACE_HEADER_SIZE    16     /* SCU trace header                  */
 
 #define CHAABI_DEBUG_DATA_SIZE   5      /* Reserved for chaabi debug         */
@@ -444,6 +448,13 @@ int intel_scu_ipc_msic_vprog2(int on)
 			on ? MSIC_VPROG2_ON : MSIC_VPROG_OFF);
 }
 EXPORT_SYMBOL_GPL(intel_scu_ipc_msic_vprog2);
+
+int intel_scu_ipc_msic_vemmc1(int on)
+{
+	return intel_scu_ipc_iowrite8(MSIC_VEMMC1_CTRL,
+			on ? MSIC_VEMMC1_ON : MSIC_VEMMC1_OFF);
+}
+EXPORT_SYMBOL_GPL(intel_scu_ipc_msic_vemmc1);
 
 int intel_scu_ipc_msic_vprog3(int on)
 {

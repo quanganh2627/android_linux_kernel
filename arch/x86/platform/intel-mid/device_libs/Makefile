@@ -126,6 +126,8 @@ obj-$(subst m,y,$(CONFIG_VIDEO_OV680))					+= platform_ov680.o platform_fsa642.o
 obj-$(subst m,y,$(CONFIG_VIDEO_CSI_XACTOR))				+= platform_csi_xactor.o
 obj-$(subst m,y,$(CONFIG_VIDEO_M10MO))					+= platform_m10mo.o
 obj-$(subst m,y,$(CONFIG_VIDEO_PIXTER))					+= platform_pixter.o
+obj-$(subst m,y,$(CONFIG_VIDEO_AR0543_RAW))				+= platform_ar0543_raw.o
+obj-$(subst m,y,$(CONFIG_VIDEO_HM2056_RAW))				+= platform_hm2056_raw.o
 endif
 
 obj-$(subst m,y,$(CONFIG_EXTCON_USB))					+= platform_extcon_usb.o
