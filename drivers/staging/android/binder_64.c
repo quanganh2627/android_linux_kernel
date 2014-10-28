@@ -39,8 +39,8 @@
 #include <linux/pid_namespace.h>
 #include <linux/security.h>
 
-#include "binder_64.h"
-#include "binder_trace_64.h"
+#include "binder.h"
+#include "binder_trace.h"
 
 static DEFINE_MUTEX(binder_main_lock);
 static DEFINE_MUTEX(binder_deferred_lock);
@@ -1731,9 +1731,9 @@ err_no_context_mgr_node:
 		thread->return_error = return_error;
 }
 
-static int binder_thread_write(struct binder_proc *proc, struct binder_thread *thread,
-			       binder_uintptr_t binder_buffer, size_t size,
-			       binder_size_t *consumed)
+int binder_thread_write(struct binder_proc *proc, struct binder_thread *thread,
+			binder_uintptr_t binder_buffer, size_t size,
+			binder_size_t *consumed)
 {
 	uint32_t cmd;
 	void __user *buffer = (void __user *)(uintptr_t)binder_buffer;
@@ -2088,8 +2088,8 @@ static int binder_thread_write(struct binder_proc *proc, struct binder_thread *t
 	return 0;
 }
 
-static void binder_stat_br(struct binder_proc *proc, struct binder_thread *thread,
-			   int32_t cmd)
+void binder_stat_br(struct binder_proc *proc, struct binder_thread *thread,
+		    uint32_t cmd)
 {
 	trace_binder_return(cmd);
 	if (_IOC_NR(cmd) < ARRAY_SIZE(binder_stats.br)) {
@@ -3550,7 +3550,7 @@ static const struct file_operations binder_fops = {
 
 static struct miscdevice binder_miscdev = {
 	.minor = MISC_DYNAMIC_MINOR,
-	.name = "binder64",
+	.name = "binder",
 	.fops = &binder_fops
 };
 
@@ -3567,7 +3567,7 @@ static int __init binder_init(void)
 	if (!binder_deferred_workqueue)
 		return -ENOMEM;
 
-	binder_debugfs_dir_entry_root = debugfs_create_dir("binder64", NULL);
+	binder_debugfs_dir_entry_root = debugfs_create_dir("binder", NULL);
 	if (binder_debugfs_dir_entry_root)
 		binder_debugfs_dir_entry_proc = debugfs_create_dir("proc",
 						 binder_debugfs_dir_entry_root);
@@ -3605,6 +3605,6 @@ static int __init binder_init(void)
 device_initcall(binder_init);
 
 #define CREATE_TRACE_POINTS
-#include "binder_trace_64.h"
+#include "binder_trace.h"
 
 MODULE_LICENSE("GPL v2");
