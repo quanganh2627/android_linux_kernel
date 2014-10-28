@@ -2757,6 +2757,8 @@ static struct miscdevice scu_ipcutil = {
 	.fops = &scu_ipc_fops,
 };
 
+#define OSNIB_WDOG_COUNTER_MASK 0xF0
+#define OSNIB_WDOG_COUNTER_SHIFT 4
 static int oshob_init(void)
 {
 	int ret, i;
@@ -2912,19 +2914,22 @@ static int oshob_init(void)
 
 	for (i = 0; i < ARRAY_SIZE(osnib_target_oses); i++) {
 		if (osnib_target_oses[i].id == rr) {
-			pr_warn("[BOOT] RR=[%s] WD=0x%02x ALARM=0x%02x (osnib)\n",
-				osnib_target_oses[i].target_os_name, wd, alarm);
+			pr_warn("[BOOT] RR=[%s] WD=%d ALARM=0x%02x (osnib)\n",
+				osnib_target_oses[i].target_os_name,
+				(int)((wd & OSNIB_WDOG_COUNTER_MASK)
+					>> OSNIB_WDOG_COUNTER_SHIFT),
+				alarm);
 			rr_found++;
 			break;
 		}
 	}
 
 	if (!rr_found)
-		pr_warn("[BOOT] RR=[UNKNOWN 0x%02x] WD=0x%02x ALARM=0x%02x (osnib)\n",
-			rr, wd, alarm);
-
-	pr_warn("[BOOT] WD[3..0] bits %scleared by IA FW (osnib)\n",
-		(wd & 0x0F) ? "NOT " : "");
+		pr_warn("[BOOT] RR=[UNKNOWN 0x%02x] WD=%d ALARM=0x%02x (osnib)\n",
+			rr,
+			(int)((wd & OSNIB_WDOG_COUNTER_MASK)
+				>> OSNIB_WDOG_COUNTER_SHIFT),
+			alarm);
 
 	for (i = 0; i < ARRAY_SIZE(osnib_wake_srcs); i++) {
 		if (osnib_wake_srcs[i].id == wakesrc) {
