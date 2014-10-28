@@ -153,6 +153,27 @@ config MMU
 config SBUS
 	bool
 
+config MRD7
+	bool "Baytrail CR MRD7"
+	---help---
+	This option is needed for MRD7 system.
+
+	If unsure, say N.
+
+config MRD8
+	bool "Baytrail CR MRD8"
+	---help---
+	This option is needed for MRD8 system.
+
+	If unsure, say N.
+
+config MRD7P05
+	bool "Baytrail CR MRD7 P0.5"
+	---help---
+	This option is needed for MRD7 P0.5 and P1 system.
+
+	If unsure, say N.
+
 config NEED_DMA_MAP_STATE
 	def_bool y
 	depends on X86_64 || INTEL_IOMMU || DMA_API_DEBUG
