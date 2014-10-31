@@ -1155,6 +1155,10 @@ retry:
 
 		work->target_mode = drm_mode_duplicate(intel_encoder->base.dev,
 								prev_mode);
+		if (!work->target_mode) {
+			DRM_ERROR("target mode creation failed\n");
+			return;
+		}
 		fallback_attempt = true;
 		goto init;
 	} else {
