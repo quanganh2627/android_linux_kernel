@@ -23,6 +23,7 @@
 #include <asm/stacktrace.h>
 #include <asm/intel_mid_rpmsg.h>
 
+#include <asm/intel_scu_pmic.h>
 #include <asm/hypervisor.h>
 #include <asm/xen/hypercall.h>
 
@@ -2245,8 +2246,52 @@ static int __init mid_pci_register_init(void)
 }
 fs_initcall(mid_pci_register_init);
 
+#define TMUIRQ_REG_ADD		0x03
+#define TMUIRQ_REG_WAFMASK	0x02
+
+#define ID_REG_ADD		0x00
+#define ID_REG_REVMASK		0x3F
+
+#define SHADYCOVE_MAX_REV	0x02
+
 void pmu_power_off(void)
 {
+	u8 intval = 0;
+	u8 pmic_id = 0;
+	int ret = 0;
+
+	/*
+	* Workaround for Shady Cove PMIC BZ 186509: clear WAF before going OFF
+	*/
+	if (intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_ANNIEDALE) {
+		ret = intel_scu_ipc_ioread8(ID_REG_ADD, &pmic_id);
+		if (!ret) {
+			if ((pmic_id & ID_REG_REVMASK) <= SHADYCOVE_MAX_REV) {
+				ret = intel_scu_ipc_ioread8(TMUIRQ_REG_ADD, &intval);
+				if (!ret) {
+					if (intval & TMUIRQ_REG_WAFMASK) {
+						dev_dbg(&mid_pmu_cxt->pmu_dev->dev,
+							"WAF is set, it will be cleared\n");
+						ret  = intel_scu_ipc_iowrite8(TMUIRQ_REG_ADD,
+							TMUIRQ_REG_WAFMASK);
+						if (ret)
+							dev_err(&mid_pmu_cxt->pmu_dev->dev,
+								"clear WAF Failed !!\n");
+					} else {
+						dev_dbg(&mid_pmu_cxt->pmu_dev->dev,
+							"WAF is not set\n");
+					}
+				} else {
+					dev_err(&mid_pmu_cxt->pmu_dev->dev,
+						"TMU irq read failed !!\n");
+				}
+			}
+		} else {
+			dev_err(&mid_pmu_cxt->pmu_dev->dev,
+				"PMIC id read failed !!\n");
+		}
+	}
+
 	/* wait till SCU is ready */
 	if (!_pmu2_wait_not_busy())
 		writel(S5_VALUE, &mid_pmu_cxt->pmu_reg->pm_cmd);
