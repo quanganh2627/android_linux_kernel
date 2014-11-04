@@ -3417,6 +3417,10 @@ CONFIG_FPS_THROTTLE=m
 CONFIG_BCM_BT_LPM=m
 # CONFIG_INTEL_ST_LD is not set
 
+# CONFIG_MRD7 is not set
+# CONFIG_MRD8 is not set
+# CONFIG_MRD7P05 is not set
+
 #
 # Fork of Texas Instruments shared transport line discipline
 #
