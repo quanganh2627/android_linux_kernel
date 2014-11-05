@@ -2399,7 +2399,7 @@ int sst_fw_kcontrol_find_io(struct snd_soc_platform *platform,
 {
 	int i;
 
-	pr_info("number of ops = %d %x io_type\n", num_ops, io_type);
+	pr_debug("number of ops = %d %x io_type\n", num_ops, io_type);
 	for (i = 0; i < num_ops; i++) {
 		if ((SOC_CONTROL_GET_ID_PUT(ops[i].id) ==
 			SOC_CONTROL_GET_ID_PUT(io_type) && ops[i].put)
