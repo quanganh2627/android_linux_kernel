@@ -685,7 +685,7 @@ int snd_compr_stop(struct snd_compr_stream *stream)
 {
 	int retval = 0;
 
-	if (stream->runtime->state == SNDRV_PCM_STATE_SETUP)
+	if (stream->runtime->state == SNDRV_PCM_STATE_OPEN)
 		return -EPERM;
 	if (stream->runtime->state != SNDRV_PCM_STATE_PREPARED)
 		retval = stream->ops->trigger(stream, SNDRV_PCM_TRIGGER_STOP);
