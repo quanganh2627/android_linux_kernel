@@ -41,7 +41,6 @@
 #include "intel_scu_watchdog_evo.h"
 
 /* Adjustment flags */
-#define CONFIG_INTEL_SCU_SOFT_LOCKUP
 #define CONFIG_DEBUG_WATCHDOG
 
 /* Defines */
@@ -120,6 +119,7 @@ MODULE_PARM_DESC(timeout,
 		"This is the time for all keep alives to arrive");
 
 static bool reset_on_release = true;
+static struct rpmsg_instance *watchdog_instance;
 
 #ifdef CONFIG_INTEL_SCU_SOFT_LOCKUP
 /*
@@ -143,8 +143,6 @@ static u64 beattime;
 #define SOFT_LOCK_TIME 10
 static void dump_softlock_debug(unsigned long data);
 DEFINE_TIMER(softlock_timer, dump_softlock_debug, 0, 0);
-
-static struct rpmsg_instance *watchdog_instance;
 
 /* time is about to run out and the scu will reset soon.  quickly
  * dump debug data to logbuffer and emmc via calling panic before lights
