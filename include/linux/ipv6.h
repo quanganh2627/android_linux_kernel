@@ -117,6 +117,7 @@ struct inet6_request_sock {
 	struct in6_addr		rmt_addr;
 	struct sk_buff		*pktopts;
 	int			iif;
+	u32                     ir_mark;
 };
 
 struct tcp6_request_sock {
