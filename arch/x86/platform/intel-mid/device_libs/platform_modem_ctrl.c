@@ -629,12 +629,16 @@ int mcd_finalize_cpu_data(struct mcd_base_info *mcd_reg_info)
 
 	/* finalize cpu data */
 	if (mcd_reg_info->board_type == BOARD_NGFF) {
-		cpu_data->gpio_wwan_disable = cpu_data->entries[0];
-		cpu_data->gpio_rst_bbn = cpu_data->entries[2];
+		cpu_data->gpio_pwr_on = cpu_data->entries[0];
+		cpu_data->gpio_wwan_disable = cpu_data->entries[1];
+		cpu_data->gpio_wake_on_wwan = cpu_data->entries[2];
+		cpu_data->gpio_rst_bbn = cpu_data->entries[3];
 
-		pr_info("%s: Setup GPIOs(WWAN_Disable:%d, RB:%d)",
+		pr_info("%s: Setup GPIOs(PO:%d, WWAN_D:%d, WWAN_W:%d, RB:%d)",
 				__func__,
+				cpu_data->gpio_pwr_on,
 				cpu_data->gpio_wwan_disable,
+				cpu_data->gpio_wake_on_wwan,
 				cpu_data->gpio_rst_bbn);
 	} else if (mcd_reg_info->board_type == BOARD_AOB) {
 		cpu_data->gpio_pwr_on = cpu_data->entries[0];
