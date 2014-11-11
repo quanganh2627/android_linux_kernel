@@ -9359,7 +9359,10 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 		}
 		kfree(zorder);
 	}
-	for (i = 0; i < disp->num_planes; ++i) {
+	/* Need to issue the drm_mode_page_flip_ioctl last as it triggers the flip done callback.
+	 * It just happens that index 0 is for the CRTC id, but this should be fixed properly.
+	 */
+	for (i = disp->num_planes-1; i >= 0; i--) {
 		if (!(disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_PLANE(i)))
 			continue;
 		DRM_DEBUG("plane %u (obj_id %u, obj_type 0x%x)", i,
