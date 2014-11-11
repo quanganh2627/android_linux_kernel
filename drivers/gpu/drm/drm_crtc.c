@@ -226,6 +226,7 @@ static const struct drm_prop_enum_list drm_encoder_enum_list[] =
 
 struct drm_mode_object *gobj;
 uint64_t gvalue;
+DEFINE_MUTEX(gvalue_lock);
 
 static void drm_dpms_execute(struct work_struct *work)
 {
@@ -233,7 +234,9 @@ static void drm_dpms_execute(struct work_struct *work)
 	struct drm_device *dev = container_of(delayed_work,
 		struct drm_device, mode_config.dpms_work);
 	struct drm_connector *connector = obj_to_connector(gobj);
+	mutex_lock(&gvalue_lock);
 	(*connector->funcs->dpms)(connector, (int)gvalue);
+	mutex_unlock(&gvalue_lock);
 	drm_object_property_set_value(&connector->base,
 		connector->dev->mode_config.dpms_property, gvalue);
 }
@@ -3296,10 +3299,12 @@ static int drm_mode_connector_set_obj_prop(struct drm_mode_object *obj,
 	struct drm_connector *connector = obj_to_connector(obj);
 	struct drm_device *dev = connector->dev;
 	gobj = obj;
+	mutex_lock(&gvalue_lock);
 	if (value == DRM_MODE_DPMS_ASYNC_ON)
 		gvalue = DRM_MODE_DPMS_ON;
 	else if (value == DRM_MODE_DPMS_ASYNC_OFF)
 		gvalue = DRM_MODE_DPMS_OFF;
+	mutex_unlock(&gvalue_lock);
 
 	/* Do DPMS ourselves */
 	if (property == connector->dev->mode_config.dpms_property) {
