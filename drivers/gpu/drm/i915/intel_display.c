@@ -4717,8 +4717,15 @@ static void intel_encoder_dpms(struct intel_encoder *encoder, int mode)
 		encoder->connectors_active = true;
 
 		intel_crtc_update_dpms(encoder->base.crtc);
+
+		/* Restore Gamma/Csc/Hue/Saturation/Brightness/Contrast */
+		if (!intel_restore_clr_mgr_status(encoder->base.crtc->dev))
+			DRM_ERROR("Restore Color manager status failed");
 	} else {
 		encoder->connectors_active = false;
+
+		/* Save Hue/Saturation/Brightness/Contrast status */
+		intel_save_clr_mgr_status(encoder->base.crtc->dev);
 
 		intel_crtc_update_dpms(encoder->base.crtc);
 	}
