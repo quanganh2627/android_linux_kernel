@@ -337,13 +337,19 @@ static void intel_setup_ccove_sd_regulators(void)
 		}
 	}
 
-	if (ccove_vsdcard.gpio >= 0)
-		intel_mid_pmic_set_pdata("gpio-regulator", &ccove_vsdio,
-				sizeof(struct gpio_regulator_config), 0);
+	if (ccove_vsdio_gpios.gpio < 0) {
+		pr_warn("%s: No VSDIO GPIO found\n", __func__);
+		ccove_vsdio.supply_name = NULL;
+	}
+	intel_mid_pmic_set_pdata("gpio-regulator", &ccove_vsdio,
+			sizeof(struct gpio_regulator_config), 0);
 
-	if (ccove_vsdcard.gpio >= 0)
-		intel_mid_pmic_set_pdata("reg-fixed-voltage", &ccove_vsdcard,
-				sizeof(struct fixed_voltage_config), 0);
+	if (ccove_vsdcard.gpio < 0) {
+		pr_warn("%s: No VSDCARD GPIO found\n", __func__);
+		ccove_vsdcard.supply_name = NULL;
+	}
+	intel_mid_pmic_set_pdata("reg-fixed-voltage", &ccove_vsdcard,
+			sizeof(struct fixed_voltage_config), 0);
 }
 
 /*************************************************************
