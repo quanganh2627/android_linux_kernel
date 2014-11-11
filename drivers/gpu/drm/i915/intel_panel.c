@@ -217,9 +217,9 @@ void intel_gmch_panel_fitting(struct intel_crtc *intel_crtc,
 		else if (fitting_mode == LETTERBOX)
 			pfit_control = PFIT_SCALING_LETTER;
 		else {
-			pfit_control = 0;
+			pipe_config->gmch_pfit.control &= ~PFIT_ENABLE;
 			intel_crtc->base.panning_en = false;
-			goto out;
+			goto out1;
 		}
 		pfit_control |= (PFIT_ENABLE | (intel_crtc->pipe
 					<< PFIT_PIPE_SHIFT));
@@ -346,6 +346,7 @@ out:
 		pfit_control |= PANEL_8TO6_DITHER_ENABLE;
 
 	pipe_config->gmch_pfit.control = pfit_control;
+out1:
 	pipe_config->gmch_pfit.pgm_ratios = pfit_pgm_ratios;
 	pipe_config->gmch_pfit.lvds_border_bits = border;
 }
