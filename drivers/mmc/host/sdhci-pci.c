@@ -914,6 +914,9 @@ static int intel_moor_emmc_probe_slot(struct sdhci_pci_slot *slot)
 		slot->host->mmc->caps2 |= MMC_CAP2_HS400_1_8V_DDR;
 	}
 
+	/* Enable Packed Command */
+	slot->host->mmc->caps2 |= MMC_CAP2_PACKED_CMD;
+
 	slot->host->quirks2 |= SDHCI_QUIRK2_TUNING_POLL;
 
 	if (slot->data) {
