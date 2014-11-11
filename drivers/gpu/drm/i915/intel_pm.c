@@ -741,7 +741,8 @@ static void intel_drrs_work_fn(struct work_struct *__work)
 	mutex_unlock(&dev_priv->drrs_state.mutex);
 
 	/* Update Watermark Values */
-	intel_update_watermarks(dev);
+	if (!dev_priv->atomic_update)
+		intel_update_watermarks(dev);
 }
 
 static void intel_cancel_drrs_work(struct drm_i915_private *dev_priv)
@@ -810,7 +811,8 @@ void intel_disable_drrs(struct drm_device *dev)
 		mutex_unlock(&dev_priv->drrs_state.mutex);
 
 		/* Update Watermark Values */
-		intel_update_watermarks(dev);
+		if (!dev_priv->atomic_update)
+			intel_update_watermarks(dev);
 	}
 
 }

@@ -4185,6 +4185,37 @@ static void i9xx_pfit_enable(struct intel_crtc *crtc)
 	I915_WRITE(BCLRPAT(crtc->pipe), 0);
 	crtc->pfit_en_status = true;
 }
+
+static void vlv_update_watermarks(struct drm_i915_private *dev_priv)
+{
+	I915_WRITE(DSPFW1,
+		   (DSPFW_SR_VAL << DSPFW_SR_SHIFT) |
+		   (DSPFW_CURSORB_VAL << DSPFW_CURSORB_SHIFT) |
+		   (DSPFW_PLANEB_VAL << DSPFW_PLANEB_SHIFT) |
+		   DSPFW_PLANEA_VAL);
+	I915_WRITE(DSPFW2,
+		   (DSPFW2_RESERVED) |
+		   (DSPFW_CURSORA_VAL << DSPFW_CURSORA_SHIFT) |
+		   DSPFW_PLANEC_VAL);
+	I915_WRITE(DSPFW3,
+		   (I915_READ(DSPFW3) & ~DSPFW_CURSOR_SR_MASK) |
+		   (DSPFW3_VLV));
+	I915_WRITE(DSPFW4, (DSPFW4_SPRITEB_VAL << DSPFW4_SPRITEB_SHIFT) |
+			(DSPFW4_CURSORA_VAL << DSPFW4_CURSORA_SHIFT) |
+			DSPFW4_SPRITEA_VAL);
+	POSTING_READ(DSPFW4);
+	I915_WRITE(DSPFW5, (DSPFW5_DISPLAYB_VAL << DSPFW5_DISPLAYB_SHIFT) |
+			(DSPFW5_DISPLAYA_VAL << DSPFW5_DISPLAYA_SHIFT) |
+			(DSPFW5_CURSORB_VAL << DSPFW5_CURSORB_SHIFT) |
+			DSPFW5_CURSORSR_VAL);
+	I915_WRITE(DSPFW6, DSPFW6_DISPLAYSR_VAL);
+	I915_WRITE(DSPFW7, (DSPFW7_SPRITED1_VAL << DSPFW7_SPRITED1_SHIFT) |
+			(DSPFW7_SPRITED_VAL << DSPFW7_SPRITED_SHIFT) |
+			(DSPFW7_SPRITEC1_VAL << DSPFW7_SPRITEC1_SHIFT) |
+			DSPFW7_SPRITEC_VAL);
+	I915_WRITE(DSPARB, DSPARB_VLV_DEFAULT);
+}
+
 static void valleyview_crtc_enable(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
@@ -4205,7 +4236,10 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	intel_crtc->active = true;
 	if (dev_priv->s0ixstat == true)
 		intel_crtc->s0ix_suspend_state = false;
-	intel_update_watermarks(dev);
+	if (!dev_priv->atomic_update)
+		intel_update_watermarks(dev);
+	else
+		vlv_update_watermarks(dev_priv);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
 		if (encoder->pre_pll_enable)
@@ -4295,7 +4329,8 @@ static void i9xx_crtc_enable(struct drm_crtc *crtc)
 
 	intel_update_fbc(dev);
 	intel_update_drrs(dev);
-	intel_update_watermarks(dev);
+	if (!dev_priv->atomic_update)
+		intel_update_watermarks(dev);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
 		encoder->enable(encoder);
@@ -4395,7 +4430,8 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 		intel_crtc->s0ix_suspend_state = true;
 	intel_update_fbc(dev);
 	intel_update_drrs(dev);
-	intel_update_watermarks(dev);
+	if (!dev_priv->atomic_update)
+		intel_update_watermarks(dev);
 
 	if ((pipe == 0) && (dev_priv->is_mipi || dev_priv->is_hdmi)) {
 		/* Ensure that port, plane, pipe, pf, pll are all disabled
@@ -5786,7 +5822,8 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 
 	ret = intel_pipe_set_base(crtc, x, y, fb);
 
-	intel_update_watermarks(dev);
+	if (!dev_priv->atomic_update)
+		intel_update_watermarks(dev);
 	/* Added for HDMI Audio */
 	if (IS_VALLEYVIEW(dev) && intel_pipe_has_type(crtc,
 		INTEL_OUTPUT_HDMI)) {
