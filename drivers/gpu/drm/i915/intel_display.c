@@ -9259,7 +9259,7 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 		I915_WRITE(SPTILEOFF(pipe, plane), reg->tileoff);
 		I915_WRITE(SPLINOFF(pipe, plane), reg->linoff);
 		I915_WRITE(SPSIZE(pipe, plane),	reg->size);
-		I915_WRITE_BITS(SPCNTR(pipe, plane), reg->cntr, 0xFFFFFFF8);
+		I915_WRITE_BITS(SPCNTR(pipe, plane), reg->cntr, 0xBFFFFFF8);
 		I915_MODIFY_DISPBASE(SPSURF(pipe, plane), reg->surf);
 		if (intel_plane->flags & DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2) {
 			if (intel_plane->rrb2_enable) {
