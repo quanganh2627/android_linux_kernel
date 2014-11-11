@@ -3939,9 +3939,8 @@ static const struct file_operations sep_fops = {
 	.write = sep_write,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = sep_compat_ioctl,
-#else
-	.unlocked_ioctl = sep_ioctl,
 #endif
+	.unlocked_ioctl = sep_ioctl,
 };
 
 /**

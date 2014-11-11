@@ -248,7 +248,7 @@ int ctxmgr_map_user_ctx(struct client_crypto_ctx_info *ctx_info,
 	    ((unsigned long)ctx_info->ctx_page |
 	     ((unsigned long)user_ctx_ptr & ~PAGE_MASK));
 
-	ctx_info->ctx_kptr = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	ctx_info->ctx_kptr = kzalloc(PAGE_SIZE, GFP_DMA);
 	if (ctx_info->ctx_kptr == NULL) {
 		SEP_LOG_ERR("Memory allocation failed\n");
 		return -ENOMEM;
