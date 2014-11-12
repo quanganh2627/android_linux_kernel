@@ -439,7 +439,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		}
 	} else if (intel_crtc->pfit_en_status) {
 		i9xx_get_pfit_mode(crtc, src_w, src_h);
-		intel_crtc->reg.pfit_control =
+		intel_plane->reg.pfit_control =
 			intel_crtc->config.gmch_pfit.control;
 		intel_plane->reg.pipesrc =
 			((mode->hdisplay - 1) << SCALING_SRCSIZE_SHIFT) |
