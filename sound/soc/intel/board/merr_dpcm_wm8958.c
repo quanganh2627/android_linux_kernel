@@ -1098,11 +1098,6 @@ static int snd_mrfld_8958_mc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void snd_mrfld_8958_mc_shutdown(struct platform_device *pdev)
-{
-	snd_mrfld_8958_poweroff(&pdev->dev);
-}
-
 const struct dev_pm_ops snd_mrfld_8958_mc_pm_ops = {
 	.prepare = snd_mrfld_8958_prepare,
 	.complete = snd_mrfld_8958_complete,
@@ -1117,7 +1112,6 @@ static struct platform_driver snd_mrfld_8958_mc_driver = {
 	},
 	.probe = snd_mrfld_8958_mc_probe,
 	.remove = snd_mrfld_8958_mc_remove,
-	.shutdown = snd_mrfld_8958_mc_shutdown,
 };
 
 static int snd_mrfld_8958_driver_init(void)
