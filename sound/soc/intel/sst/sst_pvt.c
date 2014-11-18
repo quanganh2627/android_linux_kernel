@@ -568,7 +568,8 @@ int sst_wait_timeout(struct intel_sst_drv *sst_drv_ctx, struct sst_block *block)
 				/* Send IPC to SCU to power gate and reset the LPE */
 				sst_send_scu_reset_ipc(sst_drv_ctx);
 			}
-
+		} else if (sst_drv_ctx->sst_state == SST_SHUTDOWN) {
+			pr_err("sst: intel sst is already shutdown\n");
 		} else {
 			if (sst_drv_ctx->ops->do_recovery)
 				sst_drv_ctx->ops->do_recovery(sst_drv_ctx);
