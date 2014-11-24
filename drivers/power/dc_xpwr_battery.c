@@ -994,7 +994,7 @@ fg_prog_ocv_fail:
 
 static int pmic_fg_program_design_cap(struct pmic_fg_info *info)
 {
-	int ret;
+	int ret = 0;
 	int cap1, cap0;
 /*
 	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP1_REG, info->pdata->cap1);
@@ -1045,7 +1045,7 @@ fg_prog_ocv_fail:
 
 static int pmic_fg_program_rdc_vals(struct pmic_fg_info *info)
 {
-	int ret;
+	int ret = 0;
 	int rdc1, rdc0;
 
 

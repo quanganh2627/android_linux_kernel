@@ -204,7 +204,7 @@ static int adc_to_temp(int direct, uint16_t adc_val, long *tp)
 
 static int update_temp(struct thermal_zone_device *tzd, long *temp)
 {
-	int ret;
+	int ret = 0;
 	struct thermal_device_info *td_info = tzd->devdata;
 	int indx = td_info->sensor_index;
 
