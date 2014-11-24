@@ -396,6 +396,10 @@ void *modem_platform_data(void *data)
 		pr_info("wrong config name (%s). Might be a Saltbay 7160\n",
 			cfg_name);
 		strncpy(config_name, "XMM7160_CONF_2", SFI_NAME_LEN - 1);
+	} else if (!strcmp(cfg_name, "XMM_7160_REV3_5")) {
+		pr_info("wrong config name (%s). Might be a CTP 7160\n",
+		cfg_name);
+		strncpy(config_name, "XMM7160_CONF_5", SFI_NAME_LEN - 1);
 	} else if (!strcmp(cfg_name, "XMM_6360")) {
 		pr_info("wrong config name (%s). Might be a CTP 6360\n",
 			cfg_name);
