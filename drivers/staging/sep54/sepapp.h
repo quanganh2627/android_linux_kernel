@@ -57,4 +57,10 @@ int sepapp_hdmi_status(u8 status, u8 bksv[5]);
 
 int sepapp_drm_playback(enum ied_status status);
 
+int sepapp_os_imr_get(u8 imr, u64 *lo, u64 *hi, u32 *rac, u32 *wac, u32 *status);
+
+int sepapp_os_imr_set(u8 imr, u64 lo, u64 hi, u32 rac, u32 wac, u32 status);
+
+int sepapp_os_imr_disable(u8 imr_number);
+
 #endif /*_SEPAPP_H_*/

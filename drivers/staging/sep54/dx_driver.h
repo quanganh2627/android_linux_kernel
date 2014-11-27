@@ -74,7 +74,7 @@
 #define SEP_POWERON_TIMEOUT     10000
 #define SEP_SLEEP_ENABLE 5
 
-#define SEP_AUTOSUSPEND_DELAY 5000
+#define SEP_AUTOSUSPEND_DELAY 300
 
 #define INIT_FW_FLAG 0
 #define INIT_SEP_SWQ_FLAG 1
@@ -201,7 +201,6 @@ struct sep_drvdata {
 	unsigned long sep_backup_buf_size;
 	void *sep_backup_buf;
 #endif
-	int sep_suspended;
 	struct dma_pool *spad_buf_pool;
 	unsigned long mlli_table_size;
 	void *llimgr;
@@ -221,6 +220,7 @@ struct sep_drvdata {
 #ifdef SEP_INTERRUPT_BY_TIMER
 	struct timer_list delegate;
 #endif
+	int host_init_resume;
 };
 
 /* Enumerate the session operational state */
