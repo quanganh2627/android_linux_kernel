@@ -195,6 +195,12 @@ static const struct sst_ipc_info cht_ipc_info = {
 	.mbox_recv_off = 0x1000,
 };
 
+static struct sst_platform_debugfs_data byt_debugfs_data = {
+	.checkpoint_offset = 0xc00,
+	.checkpoint_size = 256,
+};
+
+
 struct sst_platform_info cht_platform_data = {
 	.probe_data = &cht_fwparse_info,
 	.ssp_data = NULL,
@@ -223,6 +229,7 @@ struct sst_platform_info byt_ffrd8_platform_data = {
 	.ipc_info = &byt_ipc_info,
 	.lib_info = &byt_lib_dnld_info,
 	.start_recovery_timer = false,
+	.debugfs_data = &byt_debugfs_data,
 };
 
 int sst_workqueue_init(struct intel_sst_drv *ctx)

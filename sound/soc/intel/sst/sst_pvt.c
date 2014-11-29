@@ -502,8 +502,10 @@ void sst_debug_dump(struct intel_sst_drv *sst)
 	dump_buffer_fromio(sst->ipc_mailbox, NUM_DWORDS);
 	pr_err("Dumping Mailbox LPE to IA...Lw\n");
 	dump_buffer_fromio(sst->ipc_mailbox + sst->mailbox_recv_offset, NUM_DWORDS);
-	pr_err("Dumping SRAM CHECKPOINT...\n");
-	dump_buffer_fromio(sst->mailbox +  sst->pdata->debugfs_data->checkpoint_offset, DUMP_SRAM_CHECKPOINT_DWORDS);
+	if (sst->pdata->debugfs_data != NULL) {
+		pr_err("Dumping SRAM CHECKPOINT...\n");
+		dump_buffer_fromio(sst->mailbox +  sst->pdata->debugfs_data->checkpoint_offset, NUM_DWORDS);
+	}
 
 	if (sst->sst_state == SST_FW_RUNNING &&
 		sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
