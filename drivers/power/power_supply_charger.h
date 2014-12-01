@@ -227,7 +227,7 @@ static inline int get_ps_int_property(struct power_supply *psy,
 
 #define RAW_CC_STEP 100 /* 100 ma*/
 #define THROTTLE_ACTION(psy, state)\
-		(CURRENT_THROTTLE_STATE(psy) < MAX_THROTTLE_STATE(psy) ?\
+		(CURRENT_THROTTLE_STATE(psy) < (MAX_THROTTLE_STATE(psy) - 1) ?\
 			PSY_THROTTLE_CC_LIMIT : PSY_THROTTLE_DISABLE_CHARGING)
 
 #define THROTTLE_VALUE(psy, state)\
