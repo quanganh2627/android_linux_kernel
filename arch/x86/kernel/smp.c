@@ -181,7 +181,7 @@ static int smp_stop_nmi_callback(unsigned int val, struct pt_regs *regs)
  * this function calls the 'stop' function on all other CPUs in the system.
  */
 
-asmlinkage void smp_reboot_interrupt(struct pt_regs *regs)
+void smp_reboot_interrupt(struct pt_regs *regs)
 {
 	ack_APIC_irq();
 	irq_enter();
