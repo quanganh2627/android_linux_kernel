@@ -2625,6 +2625,11 @@ irqreturn_t sep_interrupt(int irq, void *dev_id)
 	struct sep_drvdata *drvdata =
 	    (struct sep_drvdata *)dev_get_drvdata((struct device *)dev_id);
 
+	if (drvdata->sep_suspended) {
+		WARN(1, "sep_interrupt rise in suspend!");
+		return IRQ_HANDLED;
+	}
+
 	return sep_interrupt_process(drvdata);
 }
 #endif
@@ -4781,6 +4786,10 @@ static int sep_runtime_suspend(struct device *dev)
 		/*Let's continue to suspend as chaabi is not stable*/
 	}
 
+	/* This prevents timer-based wakeups from Chaabi */
+	disable_irq(pdev->irq);
+	drvdata->sep_suspended = 1;
+
 	return ret;
 }
 
@@ -4792,6 +4801,8 @@ static int sep_runtime_resume(struct device *dev)
 	    (struct sep_drvdata *)dev_get_drvdata(dev);
 
 	drvdata->host_init_resume = 1;
+	drvdata->sep_suspended = 0;
+	enable_irq(pdev->irq);
 
 	ret = dx_sep_power_state_set(DX_SEP_POWER_ACTIVE);
 	WARN(ret, "%s failed! ret = %d\n", __func__, ret);
@@ -4836,6 +4847,10 @@ static int sep_suspend(struct device *dev)
 		/*Let's continue to suspend as chaabi is not stable*/
 	}
 
+	/* This prevents timer-based wakeups from Chaabi */
+	disable_irq(pdev->irq);
+	drvdata->sep_suspended = 1;
+
 	pci_save_state(pdev);
 	pci_disable_device(pdev);
 	pci_set_power_state(pdev, PCI_D3hot);
@@ -4859,6 +4874,9 @@ static int sep_resume(struct device *dev)
 		dev_err(&pdev->dev, "SEP: pci_enable_device failed\n");
 		return ret;
 	}
+
+	drvdata->sep_suspended = 0;
+	enable_irq(pdev->irq);
 
 	ret = dx_sep_power_state_set(DX_SEP_POWER_ACTIVE);
 	WARN(ret, "%s failed! ret = %d\n", __func__, ret);
