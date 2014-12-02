@@ -504,7 +504,7 @@ void sst_debug_dump(struct intel_sst_drv *sst)
 	dump_buffer_fromio(sst->ipc_mailbox + sst->mailbox_recv_offset, NUM_DWORDS);
 	if (sst->pdata->debugfs_data != NULL) {
 		pr_err("Dumping SRAM CHECKPOINT...\n");
-		dump_buffer_fromio(sst->mailbox +  sst->pdata->debugfs_data->checkpoint_offset, NUM_DWORDS);
+		dump_buffer_fromio(sst->mailbox + sst->pdata->debugfs_data->checkpoint_offset, sst->pdata->debugfs_data->checkpoint_size);
 	}
 
 	if (sst->sst_state == SST_FW_RUNNING &&
