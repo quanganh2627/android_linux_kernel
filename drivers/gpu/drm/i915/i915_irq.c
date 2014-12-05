@@ -773,8 +773,22 @@ static void i915_hotplug_work_func(struct work_struct *work)
 		if (hpd_event_bits & (1 << intel_encoder->hpd_pin)) {
 			if (intel_encoder->hot_plug)
 				intel_encoder->hot_plug(intel_encoder);
-			if (intel_hpd_irq_event(dev, connector))
+			if (intel_hpd_irq_event(dev, connector)) {
+				if (connector->status == connector_status_disconnected &&
+						intel_encoder->type == INTEL_OUTPUT_HDMI) {
+					/* Disable HDMI PORT immidiately for HDCP */
+					u32 temp;
+					struct intel_hdmi *intel_hdmi =
+						enc_to_intel_hdmi(&intel_encoder->base);
+					temp = I915_READ(intel_hdmi->hdmi_reg);
+					temp &= ~(SDVO_ENABLE | SDVO_AUDIO_ENABLE);
+					I915_WRITE(intel_hdmi->hdmi_reg, temp);
+					POSTING_READ(intel_hdmi->hdmi_reg);
+					dev_priv->port_disabled_on_unplug = true;
+				}
+
 				changed = true;
+			}
 		}
 	}
 

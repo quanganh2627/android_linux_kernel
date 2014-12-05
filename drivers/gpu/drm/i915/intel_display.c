@@ -10459,6 +10459,11 @@ intel_modeset_check_state(struct drm_device *dev)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
 
+	if (dev_priv->port_disabled_on_unplug) {
+		dev_priv->port_disabled_on_unplug = false;
+		return;
+	}
+
 	if (dev_priv->is_suspending)
 		return;
 

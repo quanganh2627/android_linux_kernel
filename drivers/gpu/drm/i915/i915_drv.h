@@ -1451,6 +1451,15 @@ typedef struct drm_i915_private {
 	u32 dspcntr;
 	u32 vblcount;
 
+	/* For HDCP, we disable port immediately after detecting hdmi hot unplug
+	 * event. This bool is set to supress hw/ sw tracking warnings as we
+	 * disable port immediately after hot un plug whereas the planes/ pipe
+	 * will get disabled as part of mode set from HWC. Once the HWC call is
+	 * completed, this bool will be unset.
+	 */
+
+	bool port_disabled_on_unplug;
+
 	struct work_struct hotplug_work;
 	bool enable_hotplug_processing;
 	struct {

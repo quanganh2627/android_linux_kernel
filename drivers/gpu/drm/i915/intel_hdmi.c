@@ -1771,6 +1771,8 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 
 	/* Update the first status */
 	connector->status = intel_hdmi_detect(connector, false);
+
+	dev_priv->port_disabled_on_unplug = false;
 }
 
 /* Added for HDMI Audio */
